@@ -337,6 +337,10 @@ export interface Stats {
   pause: PauseView | null;
   preflight: Preflight[];
   holds: HarnessHold[];
+  /** True when only the log notifier is configured: onett cannot tell the owner it needs them. */
+  owner_unreachable: boolean;
+  blocked_goals: { id: string; project: string; title: string; reason: string }[];
+  awaiting_owner: number;
 }
 
 export interface HarnessHold {

@@ -69,6 +69,7 @@ func cmdDoctor(e *env, args []string) error {
 	d.checkGitHub()
 	if cfg != nil {
 		d.checkHarnesses(cfg)
+		d.checkOwnerReachable(cfg)
 		d.checkProjects(cfg)
 		inferSelfUpdate(cfg, path, "")
 		d.checkSelfUpdate(cfg)
@@ -115,6 +116,16 @@ func (d *doctor) checkGitHub() {
 		return
 	}
 	d.ok("gh: authenticated")
+}
+
+// checkOwnerReachable warns when nothing but the log notifier can tell the owner onett needs them.
+func (d *doctor) checkOwnerReachable(cfg *config.Config) {
+	if cfg.OwnerReachable() {
+		d.ok("owner reachable: a notifier or channel is configured")
+		return
+	}
+	d.warn("only the log notifier is configured, so onett cannot tell you when it needs you",
+		"set up a channel or notifier (Telegram, Discord or ntfy): see docs/channels.md")
 }
 
 // checkHarnesses checks that each configured harness can run. A missing CLI is a FAIL when an

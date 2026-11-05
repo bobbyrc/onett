@@ -2311,7 +2311,7 @@ components:
 
     Stats:
       type: object
-      required: [tasks_by_status, active_runs, approvals_pending, cost_today_usd, subscription_cost_today_usd, daily_budget_usd, paused, pause, preflight, holds]
+      required: [tasks_by_status, active_runs, approvals_pending, cost_today_usd, subscription_cost_today_usd, daily_budget_usd, paused, pause, preflight, holds, owner_unreachable, blocked_goals, awaiting_owner]
       properties:
         tasks_by_status:
           type: object
@@ -2366,6 +2366,25 @@ components:
               until: {type: string, format: date-time}
               message: {type: string, description: The harness's own words about the limit.}
               hits: {type: integer, description: Consecutive limit hits; sets the backoff when the harness gave no reset time.}
+        owner_unreachable:
+          type: boolean
+          description: |
+            True when only the `log` notifier is configured and there is no two-way channel, so
+            onett cannot tell the owner when it needs them.
+        blocked_goals:
+          type: array
+          description: Goals that are blocked right now.
+          items:
+            type: object
+            required: [id, project, title, reason]
+            properties:
+              id: {type: string}
+              project: {type: string}
+              title: {type: string}
+              reason: {type: string}
+        awaiting_owner:
+          type: integer
+          description: Pending approvals plus blocked tasks plus blocked goals.
 
     Duration:
       type: string

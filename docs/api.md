@@ -187,7 +187,13 @@ case the approval is recorded as rejected and the task goes back to review so on
  "pause":null,  // while paused: a PauseView
  "preflight":[{"project":"onett","ok":true,"checked_at":"…"}],
  // harnesses held after a subscription or provider rate limit; no new run starts on them until "until"
- "holds":[{"harness":"claude","until":"2026-11-04T15:04:00Z","message":"…","hits":1}]}
+ "holds":[{"harness":"claude","until":"2026-11-04T15:04:00Z","message":"…","hits":1}],
+ // true when only the log notifier (and no channel) can reach the owner; then onett cannot tell
+ // them when it needs them. "blocked_goals" lists blocked goals; "awaiting_owner" counts pending
+ // approvals plus blocked tasks and goals
+ "owner_unreachable":true,
+ "blocked_goals":[{"id":"…","project":"onett","title":"…","reason":"…"}],
+ "awaiting_owner":2}
 
 // PauseView: why the factory is paused. "by" is the signed-in user, or "api token" for the CLI.
 // "waiting" lists the task runs still live (chat and goal turns are not listed); for a

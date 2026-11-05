@@ -165,6 +165,10 @@ as a fallback.
 ## Pages
 
 **Overview** (`/`): the andon board, then the work.
+- **Owner-unreachable banner**: above the board, a red callout "Nobody will be told" while
+  `/stats` says `owner_unreachable` (only the log notifier, no channel). It names the fix (set
+  up Telegram, Discord or ntfy) and lists each blocked goal as "Goal X is blocked and you have
+  not been notified: reason".
 - **Board**: a charcoal band with one window per project (from `/projects`). A window's lamp
   bar is lit by what the project needs (`src/lib/lamp.ts`): red when a task is blocked, yellow
   when approvals wait, off when paused, green when tasks run or are in review, off when only
