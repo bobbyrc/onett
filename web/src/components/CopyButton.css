@@ -1,0 +1,75 @@
+/* Overlaid in a row's top-right corner so it never changes the row's height or text width. */
+.copy-btn-wrap {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.copy-btn-wrap:focus-within,
+.copy-btn-wrap.show,
+*:hover > .copy-btn-wrap {
+  opacity: 1;
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.copy-btn:hover {
+  color: var(--text);
+}
+
+.copy-btn:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+.copy-note {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel);
+  padding: 0 4px;
+}
+
+.copy-note:empty {
+  display: none;
+}
+
+/* Touch: always visible, with a 44px hit area (the icon stays small and sits in the corner). */
+@media (hover: none), (pointer: coarse) {
+  .copy-btn-wrap {
+    opacity: 1;
+    top: -10px;
+    right: -6px;
+  }
+
+  .copy-btn {
+    width: 44px;
+    height: 44px;
+    border-color: transparent;
+    background: transparent;
+    justify-content: flex-end;
+    padding: 0 6px;
+  }
+
+  .copy-note {
+    position: absolute;
+    right: 40px;
+    top: 18px;
+    white-space: nowrap;
+  }
+}

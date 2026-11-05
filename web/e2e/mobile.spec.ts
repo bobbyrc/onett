@@ -221,6 +221,34 @@ for (const vp of VIEWPORTS) {
       await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-composer-attachments.png` });
     });
 
+    test('chat code blocks: no page overflow, copy and wrap are tappable', async ({ page }) => {
+      await open(page, `/chat/${CONV_ID}`);
+      const blocks = page.locator('.code-block');
+      await expect(blocks).toHaveCount(2);
+      const vw = page.viewportSize()!.width;
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      const coarse = await page.evaluate(() => matchMedia('(pointer: coarse)').matches);
+      for (const button of await page.locator('.code-block-btn').all()) {
+        await button.scrollIntoViewIfNeeded();
+        const box = await button.boundingBox();
+        expect(box!.x + box!.width).toBeLessThanOrEqual(vw);
+        if (coarse) {
+          expect(box!.width).toBeGreaterThanOrEqual(44);
+          expect(box!.height).toBeGreaterThanOrEqual(44);
+        }
+      }
+      const go = blocks.nth(0);
+      const goPre = go.locator('pre');
+      expect(await goPre.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+      await go.getByRole('button', { name: /^Wrap/ }).tap();
+      await expect(go.getByRole('button', { name: /^Wrap/ })).toHaveAttribute('aria-pressed', 'true');
+      expect(await goPre.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      await go.scrollIntoViewIfNeeded();
+      mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
+      await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-code-blocks.png` });
+    });
+
     test('chat composer clears a 34px home indicator', async ({ page }) => {
       await open(page, `/chat/${CONV_ID}`);
       await page.addStyleTag({ content: ':root { --composer-inset: 34px !important; }' });
@@ -233,6 +261,25 @@ for (const vp of VIEWPORTS) {
       const vh = page.viewportSize()!.height;
       expect(box, 'composer is rendered').not.toBeNull();
       expect(vh - (box!.y + box!.height), `composer bottom is ${box!.y + box!.height}px in a ${vh}px viewport`).toBeGreaterThanOrEqual(33.5);
+    });
+
+    // Touch devices have no hover, so the per-message copy button is always shown, 44px or more,
+    // and inside the screen.
+    test('chat message copy buttons are visible and tappable without hover', async ({ page }) => {
+      await open(page, `/chat/${CONV_ID}`);
+      const buttons = page.getByRole('button', { name: 'Copy message' });
+      await expect(buttons.first()).toBeVisible();
+      const vw = page.viewportSize()!.width;
+      for (const b of await buttons.all()) {
+        // toBeVisible ignores opacity, so check the wrapper that fades in on hover.
+        expect(await b.evaluate((el) => getComputedStyle(el.parentElement!).opacity)).toBe('1');
+        const box = await b.boundingBox();
+        expect(box!.width).toBeGreaterThanOrEqual(44);
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(vw);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
     });
 
     // A long chat opens at the end. Scrolling up shows the Jump to latest pill: inside the screen,

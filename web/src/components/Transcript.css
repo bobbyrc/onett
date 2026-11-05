@@ -32,6 +32,10 @@
   gap: 14px;
 }
 
+.tr-copyable {
+  position: relative;
+}
+
 .tr-you {
   align-self: flex-end;
   max-width: min(72ch, 100%);

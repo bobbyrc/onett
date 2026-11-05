@@ -62,7 +62,7 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
   timestamp shared by IDs created close together), copies the full ID on click.
 - **Empty**: muted centred line in a dashed rule saying what would appear here and why it is
   empty.
-- **Markdown**: marked + dompurify; code blocks in `--panel-2` monospace.
+- **Markdown**: marked + dompurify. A fenced code block gets a header bar with its language (or "text"), a Copy button (copies the raw code; "Copied" shows for 1.5 s) and a Wrap toggle (`aria-pressed`; long lines scroll sideways by default). Colours come from highlight.js, loaded on first use as a separate chunk (`src/lib/hljsCore.ts`: go, js/ts, json, bash, yaml, diff, python, sql, css, html/xml, markdown); other languages stay plain. The highlighter runs on the block's text and its output is sanitised again, allowing only `<span class="hljs-*">`. Token colours are `--tok-*` variables in `CodeBlock.css`, for light and dark.
 - **ApprovalCard**: a call item (see Overview). Under the title: status, kind, project, task,
   when requested. Then the gate: the task's risk badge and risk reasons, and the commit the
   approval covers (short SHA, PR link, "a new push withdraws this approval"). Then the reason
