@@ -74,6 +74,35 @@ async function open(page: Page, route: string) {
 
 const slug = (route: string) => (route === '/' ? 'overview' : route.slice(1).replace(/[^a-zA-Z0-9]+/g, '-'));
 
+/** Opens the drawer and polls until every nav item is the topmost element at its centre. */
+async function expectNavReachable(page: Page) {
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await expect(page.locator('#sidebar')).toHaveClass(/open/);
+  const items = page.locator('nav[aria-label="Main"] .nav-item');
+  expect(await items.count()).toBeGreaterThan(10);
+  // Poll: the drawer slides in, so the first reads may still be mid-transition.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const blocked: string[] = [];
+          for (const el of Array.from(document.querySelectorAll('nav[aria-label="Main"] .nav-item'))) {
+            const r = el.getBoundingClientRect();
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            const top = document.elementFromPoint(cx, cy);
+            if (!top || !(top === el || el.contains(top))) {
+              const t = top ? `${top.tagName.toLowerCase()}.${String(top.className)}` : 'nothing';
+              blocked.push(`"${el.textContent?.trim()}" at (${Math.round(cx)},${Math.round(cy)}) is covered by ${t}`);
+            }
+          }
+          return blocked;
+        }),
+      { timeout: 5_000 },
+    )
+    .toEqual([]);
+}
+
 for (const vp of VIEWPORTS) {
   test.describe(vp.name, () => {
     test.use({
@@ -152,31 +181,21 @@ for (const vp of VIEWPORTS) {
     test('mobile menu: every nav item is reachable', async ({ page }) => {
       test.fixme(isKnown('menu', 'nav', vp.name), 'known mobile bug: see KNOWN_MOBILE_FAILURES');
       await open(page, '/');
-      await page.getByRole('button', { name: 'Menu' }).click();
-      await expect(page.locator('#sidebar')).toHaveClass(/open/);
-      const items = page.locator('nav[aria-label="Main"] .nav-item');
-      expect(await items.count()).toBeGreaterThan(10);
-      // Poll: the drawer slides in, so the first reads may still be mid-transition.
-      await expect
-        .poll(
-          () =>
-            page.evaluate(() => {
-              const blocked: string[] = [];
-              for (const el of Array.from(document.querySelectorAll('nav[aria-label="Main"] .nav-item'))) {
-                const r = el.getBoundingClientRect();
-                const cx = r.left + r.width / 2;
-                const cy = r.top + r.height / 2;
-                const top = document.elementFromPoint(cx, cy);
-                if (!top || !(top === el || el.contains(top))) {
-                  const t = top ? `${top.tagName.toLowerCase()}.${String(top.className)}` : 'nothing';
-                  blocked.push(`"${el.textContent?.trim()}" at (${Math.round(cx)},${Math.round(cy)}) is covered by ${t}`);
-                }
-              }
-              return blocked;
-            }),
-          { timeout: 5_000 },
-        )
-        .toEqual([]);
+      await expectNavReachable(page);
+    });
+
+    // Chromium reports env(safe-area-inset-top) as 0, so the plain check above cannot see the
+    // notch bug (the top bar growing taller than the drawer's offset). Setting --topbar-h to what
+    // a 47px notch gives makes the real top bar that tall; a drawer with a fixed offset would
+    // start under the bar and cover the first item.
+    test('mobile menu: every nav item is reachable under a 47px notch', async ({ page }) => {
+      await open(page, '/');
+      await page.addStyleTag({ content: ':root { --topbar-h: calc(56px + 47px) !important; }' });
+      const bar = await page.locator('.topbar').boundingBox();
+      expect(bar?.height).toBeCloseTo(103, 0);
+      await expectNavReachable(page);
+      const side = await page.locator('#sidebar').boundingBox();
+      expect(side?.y).toBeCloseTo(103, 0);
     });
   });
 }
