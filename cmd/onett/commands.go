@@ -82,8 +82,12 @@ func cmdStatus(e *env, args []string) error {
 	if snap.Approvals, err = c.ListApprovals(ctx, "pending"); err != nil {
 		return err
 	}
-	if snap.Blocked, err = c.ListTasks(ctx, client.TaskFilter{Status: []string{"blocked"}}); err != nil {
+	blocked, err := c.ListTasks(ctx, client.TaskFilter{Status: []string{"blocked"}})
+	if err != nil {
 		return err
+	}
+	for _, t := range blocked {
+		snap.Blocked = append(snap.Blocked, t.Task)
 	}
 	if snap.Running, err = c.ListRuns(ctx, client.RunFilter{Status: []string{"starting", "running"}}); err != nil {
 		return err
@@ -427,13 +431,14 @@ func taskList(e *env, args []string) error {
 	project := fs.String("project", "", "only this project")
 	status := fs.String("status", "", "comma-separated statuses, e.g. queued,running")
 	kind := fs.String("kind", "", "only this task kind")
+	sortBy := fs.String("sort", "pickup", "pickup (running first, then the queue in claim order) or created (newest first)")
 	limit := fs.Int("limit", 0, "maximum rows (default 200)")
 	jsonOut := fs.Bool("json", false, "print the raw JSON")
 	positional, err := parseArgs(fs, args)
 	if err != nil {
 		return err
 	}
-	if err := requireArgs(positional, 0, "task list [--project P] [--status a,b] [--kind K] [--limit N]"); err != nil {
+	if err := requireArgs(positional, 0, "task list [--project P] [--status a,b] [--kind K] [--sort pickup|created] [--limit N]"); err != nil {
 		return err
 	}
 	c, err := apiClient()
@@ -441,7 +446,7 @@ func taskList(e *env, args []string) error {
 		return err
 	}
 	tasks, err := c.ListTasks(context.Background(), client.TaskFilter{
-		Project: *project, Status: splitList(*status), Kind: *kind, Limit: *limit,
+		Project: *project, Status: splitList(*status), Kind: *kind, Sort: *sortBy, Limit: *limit,
 	})
 	if err != nil {
 		return err
@@ -449,20 +454,36 @@ func taskList(e *env, args []string) error {
 	if *jsonOut {
 		return printJSON(e.out, tasks)
 	}
+	writeTaskList(e.out, tasks)
+	return nil
+}
+
+// writeTaskList prints tasks in the order given. A queued task shows its place in the claim
+// order ("#1 next", "#2"), with its place among its own project's tasks when that differs; a
+// waiting task shows what it waits for.
+func writeTaskList(w io.Writer, tasks []client.ListedTask) {
 	rows := make([][]string, 0, len(tasks))
 	for _, t := range tasks {
 		pr := "-"
 		if t.PRNumber > 0 {
 			pr = fmt.Sprintf("#%d", t.PRNumber)
 		}
-		status := string(t.Status)
+		status, queue := string(t.Status), "-"
 		if t.Status == domain.TaskQueued && len(t.WaitingOn) > 0 {
 			status = "waiting" // queued, but held back until the tasks it waits on merge
+			queue = "after " + strings.Join(t.WaitingOn, ",")
+		} else if t.QueuePosition > 0 {
+			queue = fmt.Sprintf("#%d", t.QueuePosition)
+			if t.QueuePosition == 1 {
+				queue += " next"
+			}
+			if t.ProjectQueuePosition != t.QueuePosition {
+				queue += fmt.Sprintf(" (#%d in project)", t.ProjectQueuePosition)
+			}
 		}
-		rows = append(rows, []string{t.ID, status, string(t.Kind), t.Project, pr, orDash(string(t.Risk)), truncate(t.Title, titleWidth)})
+		rows = append(rows, []string{t.ID, status, queue, string(t.Kind), t.Project, pr, orDash(string(t.Risk)), truncate(t.Title, titleWidth)})
 	}
-	table(e.out, []string{"ID", "STATUS", "KIND", "PROJECT", "PR", "RISK", "TITLE"}, rows)
-	return nil
+	table(w, []string{"ID", "STATUS", "QUEUE", "KIND", "PROJECT", "PR", "RISK", "TITLE"}, rows)
 }
 
 func taskShow(e *env, args []string) error {

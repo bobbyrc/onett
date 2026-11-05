@@ -164,27 +164,6 @@ type conversationDetail struct {
 
 // --- tasks ---
 
-func (s *server) listTasks(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	limit, err := queryLimit(q, defaultLimit)
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	tasks, err := s.opts.Store.ListTasks(r.Context(), store.TaskFilter{
-		Project:  q.Get("project"),
-		Statuses: csvQuery[domain.TaskStatus](q, "status"),
-		Kind:     domain.TaskKind(q.Get("kind")),
-		GoalID:   q.Get("goal_id"),
-		Limit:    limit,
-	})
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, nonNil(tasks))
-}
-
 func (s *server) createTask(w http.ResponseWriter, r *http.Request) {
 	var in NewTask
 	if err := readJSON(w, r, &in); err != nil {

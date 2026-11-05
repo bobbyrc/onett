@@ -5,6 +5,7 @@ import { useCan } from '../auth';
 import { usePausedProjects, useTasks } from '../queries';
 import { useParamState } from '../useParamState';
 import { Button } from '../components/Button';
+import { Empty } from '../components/Empty';
 import { ErrorLine } from '../components/ErrorLine';
 import { Field } from '../components/Field';
 import { NewTaskModal } from '../components/NewTaskModal';
@@ -15,6 +16,7 @@ import { RiskBadge } from '../components/RiskBadge';
 import { StatusPill } from '../components/StatusPill';
 import { Table, type Column } from '../components/Table';
 import { cx, safeHref } from '../lib/format';
+import { groupTasks, queueLabel } from '../lib/taskGroups';
 
 /** The statuses shown by default: everything the factory is still moving. */
 const ACTIVE = ['queued', 'running', 'review', 'awaiting_approval', 'merged', 'deploying', 'blocked'];
@@ -27,14 +29,16 @@ function makeColumns(paused: string[]): Column<Task>[] {
     {
       key: 'status',
       header: 'Status',
-      cell: (t) =>
-        t.status === 'queued' && paused.includes(t.project) ? (
-          <>
-            <StatusPill status={t.status} /> <span className="muted small">project paused</span>
-          </>
-        ) : (
+      cell: (t) => (
+        <>
           <StatusPill status={t.status} />
-        ),
+          {t.status === 'queued' && queueLabel(t) ? <span className="small"> {queueLabel(t)}</span> : null}
+          {t.status === 'queued' && (t.waiting_on?.length ?? 0) > 0 ? (
+            <span className="muted small"> waiting for {t.waiting_on?.join(', ')}</span>
+          ) : null}
+          {t.status === 'queued' && paused.includes(t.project) ? <span className="muted small"> project paused</span> : null}
+        </>
+      ),
     },
     {
       key: 'title',
@@ -78,6 +82,7 @@ export function Tasks() {
   const [project, setProject] = useParamState('project');
   const [kind, setKind] = useParamState('kind');
   const [search, setSearch] = useParamState('q');
+  const [sort, setSort] = useParamState('sort');
   const [creating, setCreating] = useState(false);
   const canOperate = useCan('operate');
 
@@ -105,6 +110,7 @@ export function Tasks() {
     project,
     kind,
     status: selected.join(','),
+    sort: sort === 'created' ? 'created' : '',
     limit: 200,
   });
 
@@ -112,6 +118,9 @@ export function Tasks() {
     const needle = search.trim().toLowerCase();
     return (tasks.data ?? []).filter((t) => needle === '' || t.title.toLowerCase().includes(needle));
   }, [tasks.data, search]);
+
+  const groups = useMemo(() => (sort === 'created' ? [] : groupTasks(rows)), [rows, sort]);
+  const empty = 'No tasks match these filters. Clear a filter, or create a task with New task.';
 
   return (
     <>
@@ -129,6 +138,12 @@ export function Tasks() {
                 {k}
               </option>
             ))}
+          </select>
+        </Field>
+        <Field label="Order">
+          <select value={sort === 'created' ? 'created' : ''} onChange={(event) => setSort(event.target.value)}>
+            <option value="">Pickup order</option>
+            <option value="created">Newest created</option>
           </select>
         </Field>
         <Field label="Search titles">
@@ -152,14 +167,29 @@ export function Tasks() {
       </div>
       <ErrorLine error={tasks.error} />
       {tasks.isPending ? <p className="muted">Loading tasks…</p> : null}
-      {tasks.isSuccess ? (
-        <Table
-          columns={columns}
-          rows={rows}
-          rowKey={(t) => t.id}
-          empty="No tasks match these filters. Clear a filter, or create a task with New task."
-        />
+      {tasks.isSuccess && sort === 'created' ? (
+        <Table columns={columns} rows={rows} rowKey={(t) => t.id} empty={empty} />
       ) : null}
+      {tasks.isSuccess && sort !== 'created' && groups.length === 0 ? <Empty>{empty}</Empty> : null}
+      {tasks.isSuccess && sort !== 'created'
+        ? groups.map((g) =>
+            g.key === 'finished' ? (
+              <details key={g.key} className="section">
+                <summary>
+                  {g.label} ({g.tasks.length})
+                </summary>
+                <Table columns={columns} rows={g.tasks} rowKey={(t) => t.id} empty={empty} />
+              </details>
+            ) : (
+              <section key={g.key} className="section" aria-label={g.label}>
+                <h2>
+                  {g.label} ({g.tasks.length})
+                </h2>
+                <Table columns={columns} rows={g.tasks} rowKey={(t) => t.id} empty={empty} />
+              </section>
+            ),
+          )
+        : null}
       <NewTaskModal open={creating} onClose={() => setCreating(false)} defaultProject={project} />
     </>
   );

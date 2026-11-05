@@ -477,8 +477,16 @@ paths:
       operationId: listTasks
       tags: [tasks]
       summary: List tasks.
-      description: Newest first. The default limit is 200.
+      description: |
+        In pickup order by default: running tasks (oldest start first), tasks in review, CI, approval or deploy, queued tasks in the order the scheduler claims them (with `queue_position`), queued tasks waiting on other tasks, blocked tasks, then finished tasks (most recent first). `sort=created` gives newest created first. The default limit is 200.
       parameters:
+        - name: sort
+          in: query
+          required: false
+          description: "`pickup` (default) or `created` (newest created first)."
+          schema:
+            type: string
+            enum: [pickup, created]
         - name: project
           in: query
           required: false
@@ -2837,6 +2845,12 @@ components:
           items:
             type: string
           description: Tasks that must merge (or finish without a pull request) before this queued task may start. Onett clears an entry when its task lands and cancels this task when one ends blocked, failed or cancelled.
+        queue_position:
+          type: integer
+          description: Only in `GET /tasks`, on a queued task nothing is holding back. Its place in the order the scheduler claims tasks, from 1 (next).
+        project_queue_position:
+          type: integer
+          description: Only in `GET /tasks`, beside `queue_position`. Its place among its own project's queued tasks; the number to read when that project is at its run limit.
         attachments:
           type: array
           items:
