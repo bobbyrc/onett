@@ -183,6 +183,21 @@ role that uses it until the reset time plus a minute. With no reset time the hol
 resumes by itself when the hold ends. Holds are saved as loop state, so a restart keeps them. `onett status` lists each hold. An orchestrator chat turn on a held harness is
 not queued: the chat is told the limit and when it lifts.
 
+#### Run shim (`limits.run_shim`, off by default)
+
+Step one of letting the daemon restart without killing running agents. With `run_shim: true`,
+each agent CLI is started by `onett run-shim` (the same binary, hidden from `onett help`), a
+small process in its own session that owns the agent and its pipes. The shim keeps draining the
+agent's stdout into `<data_dir>/runs/<run_id>/stream.log` whether or not the daemon is connected,
+so a full pipe can never stall the agent, and writes `status.json` beside it (shim and agent
+pids, timestamps, exit code, stderr tail). The daemon talks to it over a Unix socket at
+`<data_dir>/s/<8 chars>.sock` (short, because macOS limits socket paths to about 104 bytes) with
+a versioned JSON-lines protocol: `hello`, `replay` (from a byte offset, then live), `write_stdin`,
+`close_stdin`, `signal` (SIGTERM or SIGKILL to the agent's process group), `status` and `ack`. The
+shim exits when the agent has exited and the daemon acked the last offset, or 24 hours after the
+agent exits. Through the harness the session looks the same as a direct child. The daemon does
+not yet reattach to a shim after a restart; that is the next step. See `internal/runshim`.
+
 ### Risk and auto-merge **(review)**
 
 Risk is `low < medium < high`. Final risk = max(rules matched by the diff, agent's own rating).
@@ -366,6 +381,7 @@ internal/config/      onett.yaml schema, loading, defaults, validation
 internal/store/       Store interface; store/sqlite implementation (modernc.org/sqlite, no cgo)
 internal/events/      event bus: persist + fan-out to SSE and WebSocket subscribers
 internal/harness/     Harness interface + registry; claude/, codex/, exec/, fake/
+internal/runshim/     per-run shim process (`onett run-shim`), its socket protocol and client
 internal/workspace/   git worktrees, diff stats, commit, push
 internal/scm/         SCM interface; scm/github (gh CLI)
 internal/policy/      risk evaluation

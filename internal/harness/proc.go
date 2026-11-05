@@ -57,13 +57,19 @@ type ProcSpec struct {
 	// all output has been parsed. The returned ExitCode is overwritten with exitCode. If nil,
 	// the Result is {ExitCode, IsError: exitCode != 0}.
 	OnExit func(exitCode int, waitErr error) (Result, error)
+	// RunID names the run for the shim's files; used only with Shim (empty gets a random name).
+	RunID string
+	// Shim, when set, starts the process behind a per-run shim instead of as a direct child.
+	Shim *ShimOptions
 }
 
 // Proc is a running child process. It implements Session.
 type Proc struct {
-	cmd    *exec.Cmd
-	events chan Event
-	onExit func(int, error) (Result, error)
+	cmd *exec.Cmd // nil when the process runs behind a shim
+	// signalGroup sends sig to the process group of the process.
+	signalGroup func(syscall.Signal)
+	events      chan Event
+	onExit      func(int, error) (Result, error)
 
 	stdout *os.File // read end of the stdout pipe
 	stderr *os.File // read end of the stderr pipe
@@ -96,6 +102,9 @@ var _ Session = (*Proc)(nil)
 func StartProcess(ctx context.Context, p ProcSpec) (*Proc, error) {
 	if len(p.Command) == 0 {
 		return nil, errors.New("start process: empty command")
+	}
+	if p.Shim != nil {
+		return startShimProcess(ctx, p)
 	}
 	cmd := exec.Command(p.Command[0], p.Command[1:]...)
 	cmd.Dir = p.Dir
@@ -145,6 +154,7 @@ func StartProcess(ctx context.Context, p ProcSpec) (*Proc, error) {
 		done:   make(chan struct{}),
 		stdin:  stdinPipe,
 	}
+	proc.signalGroup = func(sig syscall.Signal) { _ = syscall.Kill(-cmd.Process.Pid, sig) }
 	if stdinPipe == nil {
 		proc.stdinClosed.Store(true)
 	}
@@ -300,13 +310,12 @@ func (p *Proc) Wait() (Result, error) {
 // if anything in the group is still running. It returns immediately and is idempotent.
 func (p *Proc) Cancel() {
 	p.cancelOnce.Do(func() {
-		pgid := p.cmd.Process.Pid
-		_ = syscall.Kill(-pgid, syscall.SIGTERM)
+		p.signalGroup(syscall.SIGTERM)
 		go func() {
 			select {
 			case <-p.done:
 			case <-time.After(procKillGrace):
-				_ = syscall.Kill(-pgid, syscall.SIGKILL)
+				p.signalGroup(syscall.SIGKILL)
 			}
 		}()
 		p.CloseStdin()

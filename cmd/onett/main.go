@@ -19,6 +19,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/client"
 	"github.com/bobbyrc/onett/internal/config"
+	"github.com/bobbyrc/onett/internal/runshim"
 )
 
 // version is set by the release build with -ldflags "-X main.version=...".
@@ -90,6 +91,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "help", "-h", "-help", "--help":
 		usage(stdout)
 		return 0
+	case "run-shim":
+		// Not in commandList: it is started by the daemon (limits.run_shim), never by a person.
+		return runshim.Main(args[1:], stderr)
 	}
 	for _, c := range commandList() {
 		if c.name != args[0] {

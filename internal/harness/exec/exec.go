@@ -63,6 +63,8 @@ func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session,
 		Dir:        spec.Workdir,
 		Env:        env,
 		InheritEnv: r.cfg.InheritEnv,
+		RunID:      spec.RunID,
+		Shim:       r.cfg.Shim,
 		Stdin:      spec.Prompt,
 		ParseLine:  ps.parseLine,
 		OnExit: func(exitCode int, _ error) (harness.Result, error) {

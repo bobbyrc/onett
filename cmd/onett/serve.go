@@ -29,10 +29,12 @@ import (
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/notify"
 	"github.com/bobbyrc/onett/internal/observe"
+	"github.com/bobbyrc/onett/internal/runshim"
 	"github.com/bobbyrc/onett/internal/scm"
 	"github.com/bobbyrc/onett/internal/scm/github"
 	"github.com/bobbyrc/onett/internal/secrets"
 	"github.com/bobbyrc/onett/internal/store/sqlite"
+	"github.com/bobbyrc/onett/internal/sysproc"
 	"github.com/bobbyrc/onett/internal/workspace"
 
 	// Harness adapters register themselves in init; serve must know every built-in type.
@@ -130,16 +132,21 @@ func cmdServe(e *env, args []string) error {
 	}
 
 	inferSelfUpdate(cfg, path, exe)
+	// liveCfg is the config harnessWithShim reads limits.run_shim from; a reload replaces it.
+	var liveCfg atomic.Pointer[config.Config]
+	liveCfg.Store(cfg)
 	agentEnv, orchestratorEnv := serveEnvs(exe, cfg.Server.Addr, token)
 	eng, err := engine.New(engine.Deps{
-		Config:       cfg,
-		Store:        st,
-		Bus:          bus,
-		Notifier:     notifier,
-		Workspaces:   workspace.New(filepath.Join(cfg.Server.DataDir, "worktrees")),
-		Logger:       logger,
-		SCMFor:       scmFor,
-		HarnessFor:   harnessFor,
+		Config:     cfg,
+		Store:      st,
+		Bus:        bus,
+		Notifier:   notifier,
+		Workspaces: workspace.New(filepath.Join(cfg.Server.DataDir, "worktrees")),
+		Logger:     logger,
+		SCMFor:     scmFor,
+		HarnessFor: func(name string, h config.Harness) (harness.Harness, error) {
+			return harnessWithShim(name, h, liveCfg.Load(), exe)
+		},
 		DeployerFor:  deployerFor,
 		ObserversFor: observersFor,
 		ReloadConfig: func(p string) (*config.Config, error) {
@@ -155,6 +162,7 @@ func cmdServe(e *env, args []string) error {
 			return c, nil
 		},
 		AfterReload: func(_ context.Context, c *config.Config) error {
+			liveCfg.Store(c)
 			s := sup.Load()
 			if s == nil {
 				return nil // still starting; the first start reads the current config
@@ -338,6 +346,23 @@ func harnessFor(name string, h config.Harness) (harness.Harness, error) {
 		Name: name, Type: h.Type, Command: h.Command, Args: h.Args, Env: h.Env,
 		InheritEnv: h.InheritEnv, Billing: h.Billing,
 	})
+}
+
+// harnessWithShim is harnessFor for a daemon: with limits.run_shim on, the harness starts its
+// agents behind a per-run shim, which is this same binary run as `onett run-shim`.
+func harnessWithShim(name string, h config.Harness, cfg *config.Config, exe string) (harness.Harness, error) {
+	hc := harness.Config{
+		Name: name, Type: h.Type, Command: h.Command, Args: h.Args, Env: h.Env,
+		InheritEnv: h.InheritEnv, Billing: h.Billing,
+	}
+	if cfg != nil && cfg.Limits.RunShim {
+		hc.Shim = &harness.ShimOptions{
+			DataDir: cfg.Server.DataDir,
+			// The shim needs none of onett's environment; the agent's own comes in its spec.
+			Launch: runshim.Launch{Command: []string{exe, "run-shim"}, Env: sysproc.AgentEnv(nil, nil)},
+		}
+	}
+	return harness.New(hc)
 }
 
 // deployerFor builds the project's deployer. A project without a deploy block has none.
