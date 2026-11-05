@@ -157,6 +157,9 @@ shows elapsed time ("Working · 1m 12s"); once it finishes the line reads "Worke
 every onett lamp. No spinner. Errors are one line in `--chat-danger`, as Orca's `text-destructive/80`
 row, but at full strength to pass 4.5:1.
 
+Orca's reasoning disclosure is deferred until the harnesses record reasoning: the Codex parser drops
+`reasoning` items and the Claude parser keeps no thinking, so run logs never carry it.
+
 ## Timestamps
 
 Orca (`NativeChatMessageTimestamp.tsx`): `text-xs`, faint, tabular numerals, no wrap, revealed on

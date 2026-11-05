@@ -404,5 +404,22 @@ for (const vp of VIEWPORTS) {
       mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
       await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-composer-long-draft.png` });
     });
+
+    test('chat activity line: fits without overflow, link is tappable', async ({ page }) => {
+      const vw = page.viewportSize()!.width;
+      // The mock's task thread has finished its last turn: "Worked for ...". The live wording is
+      // covered by ActivityLine.test.tsx.
+      await open(page, `/chat/task/${CHAT_TASK_ID}`);
+      const line = page.locator('.chat-page .activity-line');
+      await line.scrollIntoViewIfNeeded();
+      await expect(line).toContainText(/Worked for/);
+      const box = await line.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(vw);
+      expect(box!.height).toBeLessThanOrEqual(56);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
+      await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-activity.png` });
+    });
   });
 }

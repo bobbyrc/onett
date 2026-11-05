@@ -156,18 +156,6 @@
   color: var(--muted);
 }
 
-.chat-page .working {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-}
-
-.chat-page .working .lamp {
-  width: 10px;
-  height: 10px;
-}
-
 /* Phone: the list becomes a row of chips above an open thread; the full list shows otherwise. */
 @media (max-width: 759px) {
   .chat-page .chat-layout {
@@ -307,10 +295,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.chat-page .working {
-  flex-wrap: wrap;
 }
 
 .chat-page .send-now {

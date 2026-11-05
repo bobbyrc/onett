@@ -5,7 +5,7 @@ import { ApiError } from '../api';
 import { useCan } from '../auth';
 import { cx, errorMessage } from '../lib/format';
 import { agentLamp, composerState, taskLamp, type ChatLampState } from '../lib/chatState';
-import { formatDuration, formatRelative, parseTime } from '../lib/time';
+import { formatRelative, parseTime } from '../lib/time';
 import { useNow } from '../lib/clock';
 import { orchestratorEntries, taskEntries } from '../lib/transcript';
 import { readTranscriptView, writeTranscriptView, type TranscriptView } from '../lib/transcriptView';
@@ -30,6 +30,7 @@ import {
   useTaskConversation,
   useTasks,
 } from '../queries';
+import { ActivityLine } from '../components/ActivityLine';
 import { Button } from '../components/Button';
 import { Empty } from '../components/Empty';
 import { ErrorLine } from '../components/ErrorLine';
@@ -270,59 +271,20 @@ function ThreadHead({
   );
 }
 
-/** A second-resolution clock for the working line. */
-function useSecond(active: boolean): number {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    if (!active) return;
-    setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [active]);
-  return now;
-}
-
-/** "Working · 3m 41s · output 2s ago", the run's link and Stop. */
-function WorkingLine({
+/** The activity line for a thread: the live run while a turn runs, else the last run. */
+function TurnActivity({
   runId,
+  working,
   label,
   lines,
-  canStop,
-  onStop,
-  stopping,
 }: {
   runId?: string;
+  working: boolean;
   label: string;
   lines?: LogLine[];
-  canStop: boolean;
-  onStop: () => void;
-  stopping: boolean;
 }) {
   const run = useRun(runId ?? '');
-  const now = useSecond(true);
-  const started = parseTime(run.data?.started_at);
-  const lastLine = lines && lines.length > 0 ? lines[lines.length - 1].time : undefined;
-  const lastOutput = parseTime(lastLine) ?? parseTime(run.data?.last_output_at);
-  return (
-    <p className="working small" role="status">
-      <span className="lamp lamp-run pulse" aria-hidden="true" />
-      <span className="muted">
-        {started ? `Working · ${formatDuration(now - started.getTime())}` : `${label} is working`}
-        {lastOutput ? ` · output ${formatDuration(now - lastOutput.getTime())} ago` : ''}
-        {runId ? (
-          <>
-            {' · '}
-            <Link to={`/runs/${runId}`}>view run</Link>
-          </>
-        ) : null}
-      </span>
-      {canStop && runId ? (
-        <Button variant="secondary" disabled={stopping} onClick={onStop}>
-          Stop
-        </Button>
-      ) : null}
-    </p>
-  );
+  return <ActivityLine run={run.data} working={working} label={label} lines={lines} />;
 }
 
 /** Edit and Cancel for one queued message, shown in its note. */
@@ -545,16 +507,12 @@ function OrchestratorThread({
           queuedActions={canOperate ? (mid) => <QueuedActions message={byId[mid]} /> : undefined}
           liveRunId={liveRunId}
         />
-        {working ? (
-          <WorkingLine
-            runId={liveRunId}
-            label="Orchestrator"
-            lines={liveRunId ? logs[liveRunId] : undefined}
-            canStop={canOperate}
-            stopping={stop.isPending}
-            onStop={stopRun}
-          />
-        ) : null}
+        <TurnActivity
+          runId={liveRunId ?? lastRunId}
+          working={working}
+          label="Orchestrator"
+          lines={liveRunId ? logs[liveRunId] : undefined}
+        />
         {canOperate && queued > 0 && !working ? (
           <SendNow pending={flush.isPending} onClick={() => flush.mutate({ conversationId })} />
         ) : null}
@@ -697,16 +655,12 @@ function TaskThread({
           queuedActions={canOperate ? (mid) => <QueuedActions message={byId[mid]} /> : undefined}
           liveRunId={liveRunId}
         />
-        {liveRunId ? (
-          <WorkingLine
-            runId={liveRunId}
-            label={capitalise(role)}
-            lines={logs[liveRunId]}
-            canStop={canOperate}
-            stopping={stop.isPending}
-            onStop={stopRun}
-          />
-        ) : null}
+        <TurnActivity
+          runId={liveRunId ?? conv?.runs?.[conv.runs.length - 1]?.id}
+          working={!!liveRunId}
+          label={capitalise(role)}
+          lines={liveRunId ? logs[liveRunId] : undefined}
+        />
         {canOperate && queued > 0 && !liveRunId && !closed ? (
           <SendNow pending={flush.isPending} onClick={() => flush.mutate({ taskId })} />
         ) : null}
