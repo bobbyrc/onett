@@ -222,7 +222,7 @@ browser's own find works on the page). Slash commands and @mentions
 | Element | Status | What onett does | Orca |
 |---|---|---|---|
 | User and assistant layout | Adapted | Owner messages are right-aligned sheets (`--chat-user-bg`, max `min(72ch, 85%)`, 4px radius); the assistant is plain Markdown at column width under the agent's name; no avatars. | `NativeChatUserMessageRow.tsx`, `NativeChatAssistantMessageRow.tsx` (a rounded bubble for the owner, plain text for the assistant) |
-| Diff cards | **Left out** | Only `+n −m` counts on a call and per changed file in a run. No inline diff body, no line numbers, no hunks. `chat-visual.md` still describes a diff card (see Known gaps). | `NativeChatDiffCard.tsx`, `NativeChatDiffView.tsx` |
+| Diff cards | **Left out** | Only `+n −m` counts on a call and per changed file in a run. No inline diff body, no line numbers, no hunks. `chat-visual.md` now says so too. | `NativeChatDiffCard.tsx`, `NativeChatDiffView.tsx` |
 | Composer look | Adapted | `--chat-surface` field with a `--chat-field-border` outline and focus ring, hint line, 44px Send/Stop. | `NativeChatComposerPane.tsx` (hairline border) |
 | Phone layout | Adapted | Under 760px the gutters shrink to 12px, the sidebar becomes a row of chips, sheets use up to 90% width, the composer clears the home indicator, targets are 44px. Per `chat-visual.md`, Orca's phone chat is a separate React Native app (`mobile/src/session/native-chat/`); onett uses one responsive layout. | `mobile/src/session/native-chat/` |
 
@@ -249,9 +249,7 @@ mermaid, selection quote, and text-attachment previews.
 
 Nothing was changed for these; each is for a follow-up.
 
-1. **`chat-visual.md` describes diff cards that do not exist.** Its "Diff cards" section and the
-   "Applies to" row ("Diff cards: the edit rows in `Transcript.tsx`") read as if added and removed lines
-   are tinted; the code only has `+n −m` counts and the `--chat-diff-*` tokens are used for those.
+1. ~~`chat-visual.md` describes diff cards that do not exist.~~ Fixed: it now documents the `+n −m` counts and says there are no diff cards.
 2. **`chat-visual.md` promises "Waiting for you" and "Blocked" activity labels** (warning and danger
    lamps). Fixed for task threads: `ActivityLine` takes an `attention` prop, set from the task status
    (`awaiting_approval`, `blocked`). The orchestrator thread has no such status, so it never shows them.
