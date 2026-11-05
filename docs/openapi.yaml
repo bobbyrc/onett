@@ -3275,8 +3275,8 @@ components:
         One agent role. Anyone who can read it sees `prompt_text` and `builtin_prompt_text` in
         full, since every run is given its instructions verbatim, so prompts must never hold
         secrets.
-      required: [name, origin, disabled, harness, harness_type, model, prompt, prompt_text,
-        prompt_updates, description, args, kinds, uses]
+      required: [name, origin, disabled, harness, harness_type, harness_cli_found, model, prompt,
+        prompt_text, prompt_updates, description, args, kinds, uses]
       properties:
         name:
           type: string
@@ -3295,6 +3295,12 @@ components:
         harness_type:
           type: string
           description: The harness type, such as `codex` or `claude-code`.
+        harness_cli_found:
+          type: boolean
+          description: >-
+            False when the harness's CLI (`claude`, `codex` or an exec command) is not on onett's
+            PATH, so a run on this agent would fail to start. True for a harness with no
+            external program.
         model:
           type: string
         prompt:

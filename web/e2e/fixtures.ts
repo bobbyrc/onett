@@ -230,6 +230,7 @@ export const agents: AgentView[] = ['implementer', 'reviewer', 'orchestrator-wit
   disabled: false,
   harness: 'claude',
   harness_type: 'claude',
+  harness_cli_found: true,
   model: 'claude-sonnet-5-5',
   prompt: `prompts/${name}.md`,
   prompt_text: `# ${name}\n\n${LONG_TITLE}\n\n${UNBROKEN}\n\n\`\`\`\n${UNBROKEN}\n\`\`\``,
