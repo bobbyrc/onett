@@ -54,7 +54,10 @@ type Options struct {
 	// Restart asks the process to shut down gracefully and start again; see POST /restart. It
 	// must return at once (serve signals its main loop). Nil makes the route answer 501.
 	Restart func()
-	Logger  *slog.Logger
+	// ListenAddr is the address this process is bound to. POST /restart probes a different
+	// server.addr in the config file before restarting. Empty skips the probe.
+	ListenAddr string
+	Logger     *slog.Logger
 }
 
 type server struct {

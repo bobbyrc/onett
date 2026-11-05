@@ -1357,6 +1357,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '409':
+          description: The config file names a new `server.addr` that cannot be bound (for example the port is taken). The daemon keeps running; nothing restarted.
         '501':
           description: This daemon cannot restart itself.
 

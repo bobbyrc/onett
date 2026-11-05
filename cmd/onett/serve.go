@@ -188,6 +188,7 @@ func cmdServe(e *env, args []string) error {
 			}
 			return sup.Test(ctx, ch, chanEnv)
 		},
+		ListenAddr: cfg.Server.Addr,
 		Restart: func() {
 			select {
 			case restartCh <- struct{}{}:

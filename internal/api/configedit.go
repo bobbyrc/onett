@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 
@@ -164,12 +165,41 @@ func (s *server) saveConfigAs(w http.ResponseWriter, r *http.Request, version *s
 	}, cfg))
 }
 
+// restartBlocker returns why a restart would leave no daemon running, or "". A restart onto a
+// server.addr that another process holds fails to listen: the re-exec path then exits and
+// nothing serves, and under launchd the service crash-loops. So when the config file now names a
+// different address from the one this process is bound to, it is tried with a throwaway listen
+// first. The address already in use by this process is skipped: it frees when the restart starts.
+func (s *server) restartBlocker() string {
+	if s.opts.ListenAddr == "" {
+		return ""
+	}
+	_, text, err := s.readConfigFile()
+	if err != nil {
+		return ""
+	}
+	cfg, err := config.Parse(text, s.opts.Controller.Config().Path)
+	if err != nil || cfg.Server.Addr == s.opts.ListenAddr {
+		return ""
+	}
+	l, err := net.Listen("tcp", cfg.Server.Addr)
+	if err != nil {
+		return fmt.Sprintf("not restarting: server.addr %s cannot be bound (%v); fix server.addr in the config, then restart", cfg.Server.Addr, err)
+	}
+	_ = l.Close()
+	return ""
+}
+
 // restart answers 202 and then asks the process to restart itself. The request is already
 // answered when the restart starts, and the HTTP server's shutdown waits for this handler to
 // return, so the reply reaches the browser before the listener closes.
 func (s *server) restart(w http.ResponseWriter, r *http.Request) {
 	if s.opts.Restart == nil {
 		writeErrorMsg(w, http.StatusNotImplemented, "this daemon cannot restart itself")
+		return
+	}
+	if msg := s.restartBlocker(); msg != "" {
+		writeErrorMsg(w, http.StatusConflict, msg)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]bool{"ok": true})
