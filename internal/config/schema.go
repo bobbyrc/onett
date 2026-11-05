@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -66,8 +67,37 @@ func Schema() SchemaNode {
 		}
 		b := schemaBuilder{help: help}
 		schemaRoot = SchemaNode{Type: "section", Fields: b.structNode(reflect.TypeOf(Config{}), "Config", defaultsConfig()).Fields}
+		// Loop.Enabled defaults to on, but retro and self_update work it out (see RetroOn and
+		// SelfUpdateOn), so a flat "default: on" would be wrong for them.
+		// A project can override the loops too, so clear them under projects as well.
+		var projects SchemaNode
+		for _, f := range schemaRoot.Fields {
+			if f.Key == "projects" {
+				projects = f
+			}
+		}
+		for _, loop := range []string{"retro", "self_update"} {
+			clearDefault(schemaRoot, "loops", loop, "enabled")
+			clearDefault(*projects.Item, "loops", loop, "enabled")
+		}
 	})
 	return schemaRoot
+}
+
+// clearDefault removes the Default of the setting at path under n.
+func clearDefault(n SchemaNode, path ...string) {
+	for i := range n.Fields {
+		if n.Fields[i].Key != path[0] {
+			continue
+		}
+		if len(path) == 1 {
+			n.Fields[i].Default = nil
+			return
+		}
+		clearDefault(n.Fields[i], path[1:]...)
+		return
+	}
+	panic(fmt.Sprintf("config schema: no setting %s", strings.Join(path, ".")))
 }
 
 // sampleName is the one map key the defaults config uses, so the defaults a project or policy
@@ -186,6 +216,13 @@ func (b schemaBuilder) structNode(t reflect.Type, base string, v reflect.Value) 
 				panic(fmt.Sprintf("config schema: %s has onett tag %q, want secret_env on a string", helpKey, tag))
 			}
 			node.SecretEnv = true
+		}
+		if tag := sf.Tag.Get("default"); tag != "" {
+			d, err := strconv.ParseBool(tag)
+			if err != nil || node.Type != "bool" {
+				panic(fmt.Sprintf("config schema: %s has default tag %q, want a bool on a bool setting", helpKey, tag))
+			}
+			node.Default = d
 		}
 		node.Key = name
 		node.Help = leadWithYAMLKey(b.help[helpKey], sf.Name, name)

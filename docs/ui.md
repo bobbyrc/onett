@@ -380,7 +380,7 @@ which settings each group shows is `web/src/lib/configGroups.ts`; its test fails
 or in two. The active group's settings are on the right. A setting
 with a built-in default shows it as the input's placeholder ("default: 15m") while unset, and once
 it is set a "Reset to default" link removes the key again. A number, text or duration setting is an input; a
-checkbox is "On"; clearing an input removes the key. A value written as `${NAME}` shows as text with
+checkbox is "On", with a "Default: on" note while unset when leaving it out of the file means on (a loop's `enabled`, friction's `auto_file`, a deploy's `auto_rollback`); clearing an input removes the key. A value written as `${NAME}` shows as text with
 a note that onett reads that environment variable. A map is one card per entry, with Rename and
 Remove (Remove asks first), and a form at the end to add one. A list has a row or a card per item,
 with Remove, and an Add button. A setting with fixed choices, such as a notifier's `type`, is a

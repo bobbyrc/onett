@@ -638,7 +638,8 @@
               {
                 "key": "auto_rollback",
                 "type": "bool",
-                "help": "Auto rollback rolls back on a failed verify window. Default true."
+                "help": "Auto rollback rolls back on a failed verify window. Default true.",
+                "default": true
               }
             ]
           },
@@ -731,7 +732,8 @@
                 "fields": [
                   {
                     "key": "enabled",
-                    "type": "bool"
+                    "type": "bool",
+                    "default": true
                   },
                   {
                     "key": "every",
@@ -751,7 +753,8 @@
                 "fields": [
                   {
                     "key": "enabled",
-                    "type": "bool"
+                    "type": "bool",
+                    "default": true
                   },
                   {
                     "key": "every",
@@ -766,7 +769,8 @@
                 "fields": [
                   {
                     "key": "enabled",
-                    "type": "bool"
+                    "type": "bool",
+                    "default": true
                   },
                   {
                     "key": "every",
@@ -781,7 +785,8 @@
                 "fields": [
                   {
                     "key": "enabled",
-                    "type": "bool"
+                    "type": "bool",
+                    "default": true
                   },
                   {
                     "key": "every",
@@ -826,7 +831,8 @@
                 "fields": [
                   {
                     "key": "enabled",
-                    "type": "bool"
+                    "type": "bool",
+                    "default": true
                   },
                   {
                     "key": "every",
@@ -871,7 +877,8 @@
                 "fields": [
                   {
                     "key": "enabled",
-                    "type": "bool"
+                    "type": "bool",
+                    "default": true
                   },
                   {
                     "key": "every",
@@ -886,7 +893,8 @@
                 "fields": [
                   {
                     "key": "enabled",
-                    "type": "bool"
+                    "type": "bool",
+                    "default": true
                   },
                   {
                     "key": "every",
@@ -895,7 +903,7 @@
                   {
                     "key": "auto_file",
                     "type": "bool",
-                    "help": "default true"
+                    "default": true
                   },
                   {
                     "key": "auto_queue",
@@ -935,7 +943,8 @@
           "fields": [
             {
               "key": "enabled",
-              "type": "bool"
+              "type": "bool",
+              "default": true
             },
             {
               "key": "every",
@@ -957,7 +966,8 @@
           "fields": [
             {
               "key": "enabled",
-              "type": "bool"
+              "type": "bool",
+              "default": true
             },
             {
               "key": "every",
@@ -973,7 +983,8 @@
           "fields": [
             {
               "key": "enabled",
-              "type": "bool"
+              "type": "bool",
+              "default": true
             },
             {
               "key": "every",
@@ -989,7 +1000,8 @@
           "fields": [
             {
               "key": "enabled",
-              "type": "bool"
+              "type": "bool",
+              "default": true
             },
             {
               "key": "every",
@@ -1039,7 +1051,8 @@
           "fields": [
             {
               "key": "enabled",
-              "type": "bool"
+              "type": "bool",
+              "default": true
             },
             {
               "key": "every",
@@ -1088,7 +1101,8 @@
           "fields": [
             {
               "key": "enabled",
-              "type": "bool"
+              "type": "bool",
+              "default": true
             },
             {
               "key": "every",
@@ -1104,7 +1118,8 @@
           "fields": [
             {
               "key": "enabled",
-              "type": "bool"
+              "type": "bool",
+              "default": true
             },
             {
               "key": "every",
@@ -1114,7 +1129,7 @@
             {
               "key": "auto_file",
               "type": "bool",
-              "help": "default true"
+              "default": true
             },
             {
               "key": "auto_queue",
