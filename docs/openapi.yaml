@@ -2343,7 +2343,7 @@ components:
 
     Stats:
       type: object
-      required: [tasks_by_status, active_runs, approvals_pending, cost_today_usd, subscription_cost_today_usd, daily_budget_usd, paused, pause, preflight]
+      required: [tasks_by_status, active_runs, approvals_pending, cost_today_usd, subscription_cost_today_usd, daily_budget_usd, paused, pause, preflight, holds]
       properties:
         tasks_by_status:
           type: object
@@ -2384,6 +2384,20 @@ components:
               error: {type: string, description: The read error, or that the read blocked.}
               fix: {type: string, description: What the owner can do about it.}
               checked_at: {type: string, format: date-time}
+        holds:
+          type: array
+          description: |
+            Harnesses held because they hit a subscription or provider rate limit. No new run
+            starts on a held harness until `until`; tasks that use it stay queued and the hit does
+            not use up an attempt. Empty when nothing is held.
+          items:
+            type: object
+            required: [harness, until, hits]
+            properties:
+              harness: {type: string}
+              until: {type: string, format: date-time}
+              message: {type: string, description: The harness's own words about the limit.}
+              hits: {type: integer, description: Consecutive limit hits; sets the backoff when the harness gave no reset time.}
 
     Duration:
       type: string
@@ -2897,6 +2911,9 @@ components:
         turns:
           type: integer
           description: Orchestrator turns started so far; capped by `limits.max_goal_turns`.
+        stalled_turns:
+          type: integer
+          description: Consecutive turns without progress (0 or 1). One gets a second chance; the next blocks the goal.
         last_turn_at:
           type: string
           format: date-time

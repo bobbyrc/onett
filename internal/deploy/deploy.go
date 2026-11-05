@@ -4,6 +4,7 @@ package deploy
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -60,6 +61,18 @@ func Register(typ string, f Factory) {
 	mu.Lock()
 	defer mu.Unlock()
 	factories[typ] = f
+}
+
+// Types lists the registered types, sorted.
+func Types() []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	out := make([]string, 0, len(factories))
+	for t := range factories {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func New(cfg Config) (Deployer, error) {

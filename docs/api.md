@@ -185,7 +185,9 @@ case the approval is recorded as rejected and the task goes back to review so on
 {"tasks_by_status":{"queued":3,...},"active_runs":1,"approvals_pending":0,
  "cost_today_usd":1.23,"subscription_cost_today_usd":38.47,"daily_budget_usd":25,"paused":false,
  "pause":null,  // while paused: a PauseView
- "preflight":[{"project":"onett","ok":true,"checked_at":"…"}]}
+ "preflight":[{"project":"onett","ok":true,"checked_at":"…"}],
+ // harnesses held after a subscription or provider rate limit; no new run starts on them until "until"
+ "holds":[{"harness":"claude","until":"2026-11-04T15:04:00Z","message":"…","hits":1}]}
 
 // PauseView: why the factory is paused. "by" is the signed-in user, or "api token" for the CLI.
 // "waiting" lists the task runs still live (chat and goal turns are not listed); for a

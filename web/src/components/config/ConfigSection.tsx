@@ -4,6 +4,7 @@
 import { useId, useState } from 'react';
 import type { SchemaNode } from '../../types';
 import {
+  activeVariant,
   dotted,
   emptyValue,
   envRefName,
@@ -11,6 +12,7 @@ import {
   hasProblemUnder,
   humanizeKey,
   singularize,
+  splitOptionsForVariant,
   type Path,
 } from '../../lib/configDoc';
 import { AnyInput, ScalarInput, isScalarType } from './ConfigFieldInput';
@@ -49,11 +51,14 @@ export function NodeEditor({
   path,
   ctx,
   nested,
+  variantSibling,
 }: {
   node: SchemaNode;
   path: Path;
   ctx: EditContext;
   nested: boolean;
+  /** Set on the discriminator field (`type`): the variant node its value selects. */
+  variantSibling?: SchemaNode;
 }) {
   switch (node.type) {
     case 'section':
@@ -64,8 +69,10 @@ export function NodeEditor({
       return <ListEditor node={node} path={path} ctx={ctx} />;
     case 'any':
       return <AnyEditor node={node} path={path} ctx={ctx} />;
+    case 'variant':
+      return <VariantEditor node={node} path={path} ctx={ctx} />;
     default:
-      return <FieldRow node={node} path={path} ctx={ctx} />;
+      return <FieldRow node={node} path={path} ctx={ctx} variantSibling={variantSibling} />;
   }
 }
 
@@ -79,12 +86,43 @@ function FieldList({
   path: Path;
   ctx: EditContext;
 }) {
+  const variant = fields.find((f) => f.type === 'variant');
   return (
     <div className="config-indent">
       {fields.map((field) => (
-        <NodeEditor key={field.key} node={field} path={[...path, field.key]} ctx={ctx} nested={true} />
+        <NodeEditor
+          key={field.key}
+          node={field}
+          path={[...path, field.key]}
+          ctx={ctx}
+          nested={true}
+          variantSibling={variant && field.key === variant.discriminator ? variant : undefined}
+        />
       ))}
     </div>
+  );
+}
+
+/**
+ * An `options` map whose fields depend on the sibling `type`. With a known type it shows that
+ * type's fields; with none, or one this onett does not know, it falls back to raw JSON.
+ */
+function VariantEditor({ node, path, ctx }: { node: SchemaNode; path: Path; ctx: EditContext }) {
+  const active = activeVariant(node, ctx.draft, path.slice(0, -1));
+  if (!active) return <AnyEditor node={node} path={path} ctx={ctx} />;
+  if ((active.fields ?? []).length === 0) {
+    return (
+      <section className="config-section">
+        <BlockHead node={node} path={path} ctx={ctx} label={humanizeKey(node.key)} />
+        <p className="muted">This type has no options.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="config-section">
+      <BlockHead node={node} path={path} ctx={ctx} label={humanizeKey(node.key)} />
+      <FieldList fields={active.fields ?? []} path={path} ctx={ctx} />
+    </section>
   );
 }
 
@@ -136,15 +174,45 @@ function SectionBlock({
 }
 
 /** One scalar: label, dotted path, help, the input, then the environment note and problems. */
-function FieldRow({ node, path, ctx }: { node: SchemaNode; path: Path; ctx: EditContext }) {
+function FieldRow({
+  node,
+  path,
+  ctx,
+  variantSibling,
+}: {
+  node: SchemaNode;
+  path: Path;
+  ctx: EditContext;
+  variantSibling?: SchemaNode;
+}) {
   const id = useId();
+  // A pending switch of `type` that would drop options, waiting for a yes or no.
+  const [pending, setPending] = useState<{ next: string; dropped: string[] } | null>(null);
   const labelId = `${id}-label`;
   const value = getAt(ctx.draft, path);
   const issues = issuesAt(ctx, path);
   const envName = envRefName(value);
-  const onChange = (next: unknown) => {
+  const optionsPath = [...path.slice(0, -1), 'options'];
+  const apply = (next: unknown) => {
     if (next === undefined) ctx.clearValue(path);
     else ctx.setValue(path, next);
+  };
+  const switchVariant = (next: string | undefined, dropped: string[], kept: Record<string, unknown>) => {
+    apply(next);
+    if (dropped.length > 0) {
+      if (Object.keys(kept).length === 0) ctx.clearValue(optionsPath);
+      else ctx.setValue(optionsPath, kept);
+    }
+  };
+  const onChange = (next: unknown) => {
+    if (!variantSibling || (next !== undefined && typeof next !== 'string')) {
+      apply(next);
+      return;
+    }
+    const target = next === undefined ? undefined : variantSibling.variants?.[next];
+    const { kept, dropped } = splitOptionsForVariant(getAt(ctx.draft, optionsPath), target);
+    if (dropped.length === 0) switchVariant(next, dropped, kept);
+    else setPending({ next: next ?? '', dropped });
   };
   return (
     <div className="config-field">
@@ -168,9 +236,36 @@ function FieldRow({ node, path, ctx }: { node: SchemaNode; path: Path; ctx: Edit
           type={node.type}
           value={value}
           invalid={issues.length > 0}
+          enumValues={node.enum}
           onChange={onChange}
         />
       </div>
+      {pending ? (
+        <p className="config-env" role="alert">
+          Changing to {pending.next || '(not set)'} drops the options it does not use:{' '}
+          <span className="mono">{pending.dropped.join(', ')}</span>.{' '}
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => {
+              const target = pending.next === '' ? undefined : variantSibling?.variants?.[pending.next];
+              const { kept, dropped } = splitOptionsForVariant(getAt(ctx.draft, optionsPath), target);
+              switchVariant(pending.next === '' ? undefined : pending.next, dropped, kept);
+              setPending(null);
+            }}
+          >
+            Change
+          </button>{' '}
+          <button type="button" className="link-button" onClick={() => setPending(null)}>
+            Keep {typeof value === 'string' && value !== '' ? value : 'current'}
+          </button>
+        </p>
+      ) : null}
+      {node.secret_env ? (
+        <p className="muted config-env">
+          The name of an environment variable that holds the secret, not the secret itself.
+        </p>
+      ) : null}
       {envName ? (
         <p className="muted config-env">
           Read from the environment variable {envName} when onett loads the file.

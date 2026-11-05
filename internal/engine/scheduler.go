@@ -61,7 +61,7 @@ func (e *Engine) schedule(ctx context.Context) {
 				busy = append(busy, name)
 			}
 		}
-		t, err := e.d.Store.ClaimNextTask(ctx, busy)
+		t, err := e.d.Store.ClaimNextTask(ctx, busy, e.heldRoles()...)
 		if errors.Is(err, store.ErrNotFound) {
 			return
 		}

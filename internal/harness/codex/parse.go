@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/harness"
@@ -64,9 +65,12 @@ type parser struct {
 	// emits non-fatal errors (for example "Reconnecting... 1/5") that a successful turn recovers
 	// from, so an error alone does not fail the run.
 	errorPending bool
-	input        int64
-	cached       int64
-	output       int64
+	// limitMsg is the last error text that reads like a usage or rate limit; turn.completed
+	// clears it, since a turn that recovered was not stopped by the limit.
+	limitMsg string
+	input    int64
+	cached   int64
+	output   int64
 }
 
 func newParser() *parser {
@@ -91,6 +95,7 @@ func (p *parser) parseLine(line string) []harness.Event {
 	case "turn.started":
 	case "turn.completed":
 		p.errorPending = false
+		p.limitMsg = ""
 		if sl.Usage != nil {
 			p.input += sl.Usage.InputTokens
 			p.cached += sl.Usage.CachedInputTokens
@@ -102,9 +107,11 @@ func (p *parser) parseLine(line string) []harness.Event {
 			msg = sl.Error.Message
 		}
 		p.turnFailed = true
+		p.noteLimit(msg)
 		events = append(events, event(domain.LogError, msg))
 	case "error":
 		p.errorPending = true
+		p.noteLimit(sl.Message)
 		events = append(events, event(domain.LogError, sl.Message))
 	case "item.started":
 		events = p.itemEvents(sl.Item, true)
@@ -190,7 +197,27 @@ func (p *parser) result(exitCode int, stderrTail []string) harness.Result {
 	if p.lastText == "" && exitCode != 0 && len(stderrTail) > 0 {
 		res.FinalText = strings.Join(stderrTail, "\n")
 	}
+	if res.IsError {
+		msg := p.limitMsg
+		if msg == "" && p.lastText == "" && harness.LooksRateLimited(res.FinalText) {
+			msg = res.FinalText // the CLI died with the limit on stderr and no JSON error
+		}
+		if msg != "" {
+			res.RateLimit = &harness.RateLimit{
+				ResetAt: harness.ResetFromText(msg, time.Now()),
+				Message: harness.Truncate(msg, maxOutputChars),
+			}
+		}
+	}
 	return res
+}
+
+// noteLimit remembers msg when it reads like a usage or rate limit. Such errors are reported
+// both as an error line and as turn.failed; either keeps the reset hint.
+func (p *parser) noteLimit(msg string) {
+	if harness.LooksRateLimited(msg) {
+		p.limitMsg = msg
+	}
 }
 
 func event(kind domain.LogKind, text string) harness.Event {

@@ -53,6 +53,8 @@ type Controller interface {
 
 	// Preflight is the last tool-directory check per project (see internal/engine/preflight.go).
 	Preflight() []domain.Preflight
+	// Holds lists the harnesses held for a rate limit, with the time each hold lifts.
+	Holds() []domain.HarnessHold
 
 	Config() *config.Config
 	ReloadConfig(ctx context.Context) error

@@ -23,7 +23,7 @@ func (e *Engine) CreateGoal(ctx context.Context, g domain.Goal) (domain.Goal, er
 	if g.Title == "" {
 		return domain.Goal{}, fmt.Errorf("%w: title is required", api.ErrInvalid)
 	}
-	g.ID, g.Status, g.ConversationID, g.Turns, g.LastTurnAt, g.Summary = "", domain.GoalActive, "", 0, nil, ""
+	g.ID, g.Status, g.ConversationID, g.Turns, g.StalledTurns, g.LastTurnAt, g.Summary = "", domain.GoalActive, "", 0, 0, nil, ""
 	g, err := e.d.Store.CreateGoal(ctx, g)
 	if err != nil {
 		return domain.Goal{}, err
@@ -84,7 +84,7 @@ func (e *Engine) moveGoal(ctx context.Context, id string, to domain.GoalStatus, 
 		if to == domain.GoalActive && g.Status == domain.GoalBlocked {
 			// Resuming a blocked goal is the owner's call for a fresh turn budget; otherwise a
 			// goal blocked by max_goal_turns would be blocked again on its next tick.
-			g.Turns = 0
+			g.Turns, g.StalledTurns = 0, 0
 		}
 		g.Status = to
 		if to == domain.GoalDone || to == domain.GoalBlocked {

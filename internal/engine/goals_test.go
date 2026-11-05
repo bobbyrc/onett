@@ -217,6 +217,7 @@ func TestGoalNoProgressBlocksAndNotifies(t *testing.T) {
 	g := newGoalRig(t)
 	goal := g.newGoal(t) // the orchestrator does nothing
 
+	g.tick(t) // first stall: a second chance
 	g.tick(t)
 
 	got := g.goal(t, goal.ID)
@@ -228,7 +229,7 @@ func TestGoalNoProgressBlocksAndNotifies(t *testing.T) {
 	assert.Contains(t, notes[0].Title, "Ship parts")
 
 	g.tick(t)
-	assert.Equal(t, 1, g.turns(), "a blocked goal gets no more turns")
+	assert.Equal(t, 2, g.turns(), "a blocked goal gets no more turns")
 }
 
 func TestGoalRetryCountsAsProgress(t *testing.T) {

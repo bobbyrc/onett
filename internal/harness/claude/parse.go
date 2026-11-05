@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/harness"
@@ -29,6 +30,15 @@ type streamLine struct {
 	TotalCostUSD      float64         `json:"total_cost_usd"`
 	Usage             *usage          `json:"usage"`
 	PermissionDenials []denial        `json:"permission_denials"`
+	APIErrorStatus    int             `json:"api_error_status"`
+	RateLimitInfo     *rateLimitInfo  `json:"rate_limit_info"`
+}
+
+// rateLimitInfo is the payload of a rate_limit_event. Status is "allowed", "allowed_warning" or
+// "rejected"; only a rejection means the limit was hit. ResetsAt is epoch seconds.
+type rateLimitInfo struct {
+	Status   string `json:"status"`
+	ResetsAt int64  `json:"resetsAt"`
 }
 
 type usage struct {
@@ -68,7 +78,11 @@ type parser struct {
 	lastText  string // last assistant text block
 	billing   string // from the init line's apiKeySource; "" until seen
 	denials   []string
-	final     *streamLine // the last result line seen
+	// rejected is the last rate_limit_event that said the limit was hit (nil if none).
+	rejected *rateLimitInfo
+	// now is the clock for reset times that are only a time of day; time.Now unless a test sets it.
+	now   func() time.Time
+	final *streamLine // the last result line seen
 	// inputTokens and outputTokens sum the per-turn usage of every result line: with stream-json
 	// input one process can answer several turns, and each result reports only its own turn.
 	inputTokens  int64
@@ -78,7 +92,7 @@ type parser struct {
 }
 
 func newParser(model string) *parser {
-	return &parser{model: model}
+	return &parser{model: model, now: time.Now}
 }
 
 // parseLine handles one stdout line. It never fails: anything it does not understand becomes a
@@ -116,7 +130,11 @@ func (p *parser) parseLine(line string) []harness.Event {
 	case "result":
 		events = p.resultEvents(sl)
 	case "rate_limit_event":
-		// Emitted on every turn; not useful in the log.
+		// Emitted on every turn; not useful in the log. Only a rejection matters: it is kept so
+		// the result can say the run stopped on the limit.
+		if ri := sl.RateLimitInfo; ri != nil && ri.Status == "rejected" {
+			p.rejected = ri
+		}
 	default:
 		events = append(events, event(domain.LogSystem, harness.Truncate(line, maxRawChars)))
 	}
@@ -227,7 +245,38 @@ func (p *parser) result(exitCode int, stderrTail []string) harness.Result {
 	if exitCode != 0 {
 		res.IsError = true
 	}
+	res.RateLimit = p.rateLimit(res)
 	return res
+}
+
+// rateLimit reports the limit that ended the run, or nil. The run must have ended in error: a
+// warning or an "allowed" event during a run that completed is not a hit. Claude Code signals a
+// hit with a rejected rate_limit_event, an API status of 429, or result text such as "Claude AI
+// usage limit reached|<epoch>" or "You've hit your limit · resets 3pm".
+func (p *parser) rateLimit(res harness.Result) *harness.RateLimit {
+	if !res.IsError {
+		return nil
+	}
+	text := res.FinalText
+	hit := p.rejected != nil || harness.LooksRateLimited(text)
+	if f := p.final; f != nil && f.APIErrorStatus == 429 {
+		hit = true
+	}
+	if !hit {
+		return nil
+	}
+	now := p.now()
+	rl := &harness.RateLimit{Message: harness.Truncate(text, maxResultChars)}
+	rl.ResetAt = harness.ResetFromText(text, now)
+	if rl.ResetAt.IsZero() && p.rejected != nil && p.rejected.ResetsAt > 0 {
+		if at := time.Unix(p.rejected.ResetsAt, 0); at.After(now) {
+			rl.ResetAt = at
+		}
+	}
+	if rl.Message == "" {
+		rl.Message = "usage limit reached"
+	}
+	return rl
 }
 
 // billingFor maps the init line's apiKeySource to a billing mode. "none" means Claude Code is

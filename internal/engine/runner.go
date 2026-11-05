@@ -300,6 +300,13 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 	}
 
 	res, status, reason := e.supervise(ctx, run, sess, ar, nil)
+	if res.RateLimit != nil && status == domain.RunCancelled {
+		// The harness's limit stopped this run: hold the harness and queue the task again
+		// without using up an attempt. Nothing was published, so nothing is lost but the run.
+		cancelled = true
+		e.requeueHeld(bg, t.ID, e.noteRateLimit(bg, agent.Harness, *res.RateLimit))
+		return
+	}
 	switch status {
 	case domain.RunDenied:
 		e.blockTask(bg, t.ID, "agent was denied: "+strings.TrimPrefix(reason, "denied: ")+

@@ -141,6 +141,8 @@ type Stats struct {
 	Paused                   bool               `json:"paused"`
 	Pause                    *PauseView         `json:"pause,omitempty"`
 	Preflight                []domain.Preflight `json:"preflight"`
+	// Holds are the harnesses held for a rate limit.
+	Holds []domain.HarnessHold `json:"holds"`
 }
 
 // ProjectView is one entry of GET /projects: the project's settings plus its task counts.

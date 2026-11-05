@@ -65,8 +65,9 @@ type Store interface {
 	ListTasks(ctx context.Context, f TaskFilter) ([]domain.Task, error)
 	UpdateTask(ctx context.Context, id string, fn func(*domain.Task) error) (domain.Task, error)
 	// ClaimNextTask atomically moves the highest-priority, oldest queued task whose project is
-	// not in busyProjects to running, increments Attempts, and returns it. ErrNotFound when none.
-	ClaimNextTask(ctx context.Context, busyProjects []string) (domain.Task, error)
+	// not in busyProjects to running, increments Attempts, and returns it. Tasks whose project and
+	// role match an entry of held are skipped (their harness is held). ErrNotFound when none.
+	ClaimNextTask(ctx context.Context, busyProjects []string, held ...ProjectRole) (domain.Task, error)
 
 	CreateGoal(ctx context.Context, g domain.Goal) (domain.Goal, error)
 	GetGoal(ctx context.Context, id string) (domain.Goal, error)
@@ -168,3 +169,7 @@ type Store interface {
 	DeleteSession(ctx context.Context, id string) error
 	DeleteExpiredSessions(ctx context.Context, now time.Time) error
 }
+
+// ProjectRole names the tasks of one project that run as one role. The scheduler passes the
+// pairs whose agent uses a rate-limited harness to ClaimNextTask.
+type ProjectRole struct{ Project, Role string }

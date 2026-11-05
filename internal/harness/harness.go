@@ -57,6 +57,9 @@ type Result struct {
 	// Billing says how the run was paid for: BillingMetered, BillingSubscription, or "" when
 	// the adapter cannot tell.
 	Billing string
+	// RateLimit is set only when the run stopped because the harness's usage limit was hit.
+	// A limit warning during a run that completes normally does not set it.
+	RateLimit *RateLimit
 }
 
 // Billing values for Result.Billing. A subscription run's cost is an estimate at API prices that

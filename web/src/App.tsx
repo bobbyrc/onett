@@ -77,6 +77,7 @@ export function App() {
         <Route path="/loops" element={<Loops />} />
         <Route path="/agents" element={<Agents />} />
         <Route path="/config" element={<Config />} />
+        <Route path="/secrets" element={<Navigate to="/config?mode=secrets" replace />} />
         <Route path="/users" element={administer ? <Users /> : <Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

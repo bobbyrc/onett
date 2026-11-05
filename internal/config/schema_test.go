@@ -52,7 +52,7 @@ func TestSchemaHelpIsOneParagraph(t *testing.T) {
 }
 
 func TestSchemaHasNoInternalFieldsAndValidTypes(t *testing.T) {
-	valid := map[string]bool{"section": true, "map": true, "list": true, "string": true, "int": true, "float": true, "bool": true, "duration": true, "any": true}
+	valid := map[string]bool{"section": true, "map": true, "list": true, "string": true, "int": true, "float": true, "bool": true, "duration": true, "any": true, "variant": true}
 	var walk func(n SchemaNode, where string)
 	walk = func(n SchemaNode, where string) {
 		assert.True(t, valid[n.Type], "%s: type %q", where, n.Type)
@@ -62,6 +62,9 @@ func TestSchemaHasNoInternalFieldsAndValidTypes(t *testing.T) {
 		}
 		if n.Item != nil {
 			walk(*n.Item, where+"[]")
+		}
+		for name, v := range n.Variants {
+			walk(v, where+"["+name+"]")
 		}
 	}
 	walk(Schema(), "root")
@@ -78,16 +81,6 @@ func TestSchemaHelpComesFromConfigComments(t *testing.T) {
 	server := schemaField(t, Schema().Fields, "server")
 	hosts := schemaField(t, server.Fields, "allowed_hosts")
 	assert.True(t, strings.Contains(hosts.Help, "DNS-rebinding guard"), hosts.Help)
-}
-
-func TestSchemaDeployOptionsIsAny(t *testing.T) {
-	projects := schemaField(t, Schema().Fields, "projects")
-	deploy := schemaField(t, projects.Item.Fields, "deploy")
-	assert.Equal(t, "section", deploy.Type)
-	options := schemaField(t, deploy.Fields, "options")
-	assert.Equal(t, "any", options.Type)
-	assert.Empty(t, options.Fields)
-	assert.Nil(t, options.Item, "an any value is not descended into")
 }
 
 func TestSchemaHelpStartsWithYAMLKeyNotGoField(t *testing.T) {

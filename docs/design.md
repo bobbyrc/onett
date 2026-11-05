@@ -174,6 +174,16 @@ The supervisor owns every harness session:
 - marks `denied` when the harness reports a permission denial;
 - in every one of those cases sets the task `blocked` with the exact reason and notifies.
 
+A subscription or provider rate limit is not one of those cases. When a harness reports that a
+run stopped on its usage limit (Claude Code's 5-hour and weekly limits, Codex usage limits, a
+provider 429), the run ends as `cancelled` with the limit's message, the task goes back to
+`queued` without using an attempt, and the harness is held: the scheduler starts no run for any
+role that uses it until the reset time plus a minute. With no reset time the hold backs off from
+5 minutes, doubling per consecutive hit up to 1 hour. Other harnesses keep running, and dispatch
+resumes by itself when the hold ends. Holds live in memory, so after a restart the next run finds
+the limit again. `onett status` lists each hold. An orchestrator chat turn on a held harness is
+not queued: the chat is told the limit and when it lifts.
+
 ### Risk and auto-merge **(review)**
 
 Risk is `low < medium < high`. Final risk = max(rules matched by the diff, agent's own rating).
@@ -289,8 +299,9 @@ owner. The turn is a `system` message holding a check-in (the goal, each task's 
 reason and summary, and what to decide), run through the normal chat path with `ONETT_GOAL` in the
 orchestrator's environment, which the CLI uses to link every `onett task create` to the goal; no
 fake owner message is written. Two guards keep an unattended loop from spinning: a turn that leaves
-the goal active but queued no task, retried none and did not finish or block the goal blocks it, and
-so does reaching `limits.max_goal_turns` (default 40). Blocking, and `onett goal done`, notify the
+the goal active but queued no task, retried none and did not finish or block the goal gets one
+second chance (the next check-in opens by saying so and the loop wakes at once), and a second such
+turn in a row blocks it; so does reaching `limits.max_goal_turns` (default 40). Blocking, and `onett goal done`, notify the
 owner. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
 Goals add no new way to act: the orchestrator still only queues tasks, and merges still wait for
 the project's policy (the owner only under `supervised`). `loops.goals.enabled: false` turns the

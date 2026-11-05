@@ -11,19 +11,34 @@ import (
 	"sync"
 )
 
-// configSource is config.go itself. Help text is read from its comments, so the UI's help can
-// never drift from the code's own documentation.
+// Help text is read from the comments of these source files, so the UI's help can never drift
+// from the code's own documentation. config.go holds the settings, channels.go the channel list
+// entry and options.go the per-type option structs.
 //
 //go:embed config.go
 var configSource string
 
+//go:embed channels.go
+var channelsSource string
+
+//go:embed options.go
+var optionsSource string
+
 // SchemaNode describes one setting of onett.yaml for the web UI's editor.
 type SchemaNode struct {
 	Key    string       `json:"key"`              // YAML key; "" for map values and list elements
-	Type   string       `json:"type"`             // section | map | list | string | int | float | bool | duration | any (a free-form value, such as a deployer's options map, that the UI edits as YAML text)
+	Type   string       `json:"type"`             // section | map | list | string | int | float | bool | duration | variant (an options map whose fields depend on the sibling type) | any (a free-form value that the UI edits as YAML text)
 	Help   string       `json:"help,omitempty"`   // the field's doc comment from config.go, as one paragraph
 	Fields []SchemaNode `json:"fields,omitempty"` // section: fields in declaration order
 	Item   *SchemaNode  `json:"item,omitempty"`   // map and list: the value or element schema
+	// Enum lists the allowed values of a string setting, sorted. The UI shows a dropdown.
+	Enum []string `json:"enum,omitempty"`
+	// SecretEnv marks a string that names an environment variable holding a secret, never the secret.
+	SecretEnv bool `json:"secret_env,omitempty"`
+	// Discriminator (variant only) is the sibling key whose value picks the variant: "type".
+	Discriminator string `json:"discriminator,omitempty"`
+	// Variants (variant only) maps each value of the discriminator to a section of its options.
+	Variants map[string]SchemaNode `json:"variants,omitempty"`
 }
 
 var (
@@ -36,7 +51,13 @@ var (
 // config type cannot be left out of the editor silently.
 func Schema() SchemaNode {
 	schemaOnce.Do(func() {
-		b := schemaBuilder{help: parseHelp(configSource)}
+		help := map[string]string{}
+		for name, src := range map[string]string{"config.go": configSource, "channels.go": channelsSource, "options.go": optionsSource} {
+			for k, v := range parseHelp(name, src) {
+				help[k] = v
+			}
+		}
+		b := schemaBuilder{help: help}
 		schemaRoot = SchemaNode{Type: "section", Fields: b.structNode(reflect.TypeOf(Config{}), "Config").Fields}
 	})
 	return schemaRoot
@@ -77,11 +98,38 @@ func (b schemaBuilder) structNode(t reflect.Type, base string) SchemaNode {
 		}
 		helpKey := base + "." + sf.Name
 		node := b.typeNode(sf.Type, helpKey)
+		if kind, ok := optionKindByStruct[t.Name()]; ok && name == "options" && node.Type == "any" && len(optionTypes[kind]) > 0 {
+			node = b.variantNode(kind)
+		}
+		if tag := sf.Tag.Get("onett"); tag != "" {
+			if tag != "secret_env" || node.Type != "string" {
+				panic(fmt.Sprintf("config schema: %s has onett tag %q, want secret_env on a string", helpKey, tag))
+			}
+			node.SecretEnv = true
+		}
 		node.Key = name
 		node.Help = leadWithYAMLKey(b.help[helpKey], sf.Name, name)
 		fields = append(fields, node)
 	}
+	if kind, ok := optionKindByStruct[t.Name()]; ok {
+		// The sibling `type` selects the options variant, so offer exactly the types that have one.
+		for i := range fields {
+			if fields[i].Key == "type" && fields[i].Type == "string" {
+				fields[i].Enum = OptionTypeNames(kind)
+			}
+		}
+	}
 	return SchemaNode{Type: "section", Fields: fields}
+}
+
+// variantNode builds the `options` schema for kind: one section per type, chosen by the sibling
+// `type` key.
+func (b schemaBuilder) variantNode(kind string) SchemaNode {
+	variants := map[string]SchemaNode{}
+	for name, t := range optionTypes[kind] {
+		variants[name] = b.structNode(t, t.Name())
+	}
+	return SchemaNode{Type: "variant", Discriminator: "type", Variants: variants}
 }
 
 // typeNode builds the schema for a field, map value or list element of type t. helpKey is the
@@ -146,11 +194,11 @@ func hasOption(opts, opt string) bool {
 
 // parseHelp maps "Type.Field" to the field's doc comment, or its trailing line comment when it
 // has no doc comment, as one paragraph. Anonymous struct fields are keyed as "Type.Field.Sub".
-func parseHelp(src string) map[string]string {
+func parseHelp(filename, src string) map[string]string {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "config.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
-		panic("config schema: parse config.go: " + err.Error())
+		panic("config schema: parse " + filename + ": " + err.Error())
 	}
 	out := map[string]string{}
 	for _, decl := range file.Decls {
