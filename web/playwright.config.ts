@@ -7,6 +7,8 @@ const PORT = 4173;
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
+  // Screenshot capture for PRs (npm run shots:chat) has its own config.
+  testIgnore: 'chat-shots.spec.ts',
   outputDir: './e2e-results/traces',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
