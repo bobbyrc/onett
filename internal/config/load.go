@@ -65,6 +65,7 @@ func Parse(data []byte, path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	expanded, warnings := dropRetiredKeys(expanded)
 	dec := yaml.NewDecoder(bytes.NewReader(expanded))
 	dec.KnownFields(true)
 	var cfg Config
@@ -72,6 +73,7 @@ func Parse(data []byte, path string) (*Config, error) {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 	cfg.Path = path
+	cfg.Warnings = warnings
 	cfg.expanded = values
 	ApplyDefaults(&cfg)
 	if err := cfg.Validate(); err != nil {
@@ -292,9 +294,6 @@ func (c *Config) LoopsFor(project string) Loops {
 	}
 	if ov.SelfUpdate.MinHealthy.Duration != 0 {
 		out.SelfUpdate.MinHealthy = ov.SelfUpdate.MinHealthy
-	}
-	if ov.SelfUpdate.MaxDefer.Duration != 0 {
-		out.SelfUpdate.MaxDefer = ov.SelfUpdate.MaxDefer
 	}
 	if ov.SelfUpdate.Command != "" {
 		out.SelfUpdate.Command = ov.SelfUpdate.Command

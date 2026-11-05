@@ -76,7 +76,7 @@ the instance already runs `main`. A launcher at `$DOGFOOD/run-daemon.sh`, if pre
 start the daemon. Run the script from your own shell, never from an agent that onett runs.
 
 To test the script without touching the running instance, set `ONETT_UPDATE_DRY_RUN=1`. It builds the
-commit and says what it would do, then stops before pausing the factory, swapping the binary or
+commit and says what it would do, then stops before swapping the binary or
 restarting the daemon. This is the only mode that runs inside an onett agent run.
 
 ## Self-update
@@ -84,12 +84,11 @@ restarting the daemon. This is the only mode that runs inside an onett agent run
 The factory can keep itself up to date. When the newest release of the `self_project` has been
 healthy on staging for `min_healthy`, the `self_update` loop starts `update.sh` with
 `ONETT_UPDATE_REF` set to that commit, so the daemon runs exactly what staging verified rather
-than whatever `main` is. It first waits for a quiet moment (no task run live, nothing queued; chat turns do not count)
-for up to `max_defer` (default 2h), then starts the script anyway. The script pauses the factory,
-which `onett status` and the web UI show as "Paused for self-update to <sha>" with the runs it
-waits on, waits up to `limits.run_timeout` plus 5 minutes for them to finish (if they never do it
-resumes, exits 75 and the loop tries that commit again after an hour), swaps the binary, and rolls back if the
-new one does not come up healthy. You get a notification when it starts, when it fails (with the end
+than whatever `main` is. It does not wait for the factory to go quiet and does not pause it: agent runs carry on across
+the restart through their detached `onett run-shim` process, and resume the agent's session if the
+shim is gone. The one exception is a release in flight (a deploy command is a child of the daemon),
+so the loop waits until no project has one. The script builds the commit, swaps the binary,
+restarts the daemon, and rolls back if the new one does not come up healthy. You get a notification when it starts, when it fails (with the end
 of `$DOGFOOD/data/self-update.log`) and when the new daemon is up. It is on by default for the
 `self_project` once a command is known, and never applies to other projects. If `command` is empty,
 onett infers it, but only for this exact layout: the binary is `$DOGFOOD/onett`, the config is
@@ -108,8 +107,8 @@ loops:
     command: "DOGFOOD=$HOME/.local/share/onett-dogfood mise exec -- /path/to/clone/examples/dogfood/update.sh"
 ```
 
-The loop does nothing while the factory is paused, while a newer release is still being deployed
-or verified, for a `dev` build, when the daemon already runs that commit, or while an earlier
+The loop does nothing while the factory is paused, while a release (of any project) is being
+deployed or verified, for a `dev` build, when the daemon already runs that commit, or while an earlier
 updater is alive (its PID is in `data/self-update.lock`). A commit whose update fails three times is
 skipped until the daemon restarts, and one that was rolled back is not tried again.
 

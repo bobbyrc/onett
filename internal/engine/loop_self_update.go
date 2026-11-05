@@ -11,24 +11,15 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/notify"
-	"github.com/bobbyrc/onett/internal/store"
 )
 
 // selfUpdateMaxFailures is how many times an update to one commit may fail before the loop stops
 // trying that commit. The count is in memory and resets when the daemon restarts.
 const selfUpdateMaxFailures = 3
-
-// selfUpdateBusyExit is the exit status update.sh uses when the factory stayed busy for the
-// whole drain and it resumed without changing anything (EX_TEMPFAIL).
-const selfUpdateBusyExit = 75
-
-// selfUpdateBackoff is how long a commit is left alone after its updater gave up on a busy factory.
-const selfUpdateBackoff = time.Hour
 
 // selfUpdateTailLines and selfUpdateTailBytes bound the log excerpt sent with a failure notice.
 const (
@@ -47,40 +38,6 @@ const (
 type selfUpdateState struct {
 	mu    sync.Mutex
 	fails map[string]int // failed attempts by full commit SHA
-	// retryAt holds a commit back until then: its updater gave up because the factory stayed
-	// busy. Separate from fails, which counts real failures.
-	retryAt map[string]time.Time
-	// behindSince is when a release different from the running version first became eligible,
-	// and behindVersion the running version it was measured for. max_defer counts from here, not
-	// from the newest release, so a steady stream of releases cannot keep pushing the update away.
-	behindSince   time.Time
-	behindVersion string
-}
-
-// behind returns when the daemon first fell behind while running version, noting eligible as that
-// moment if it had not yet. It starts over when the running version changes.
-func (s *selfUpdateState) behind(version string, eligible time.Time) time.Time {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.behindVersion != version || s.behindSince.IsZero() {
-		s.behindVersion, s.behindSince = version, eligible
-	}
-	return s.behindSince
-}
-
-func (s *selfUpdateState) backoff(ref string, until time.Time) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.retryAt == nil {
-		s.retryAt = map[string]time.Time{}
-	}
-	s.retryAt[ref] = until
-}
-
-func (s *selfUpdateState) backedOff(ref string, now time.Time) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return now.Before(s.retryAt[ref])
 }
 
 func (s *selfUpdateState) failures(ref string) int {
@@ -136,22 +93,16 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 		return nil
 	}
 
-	if e.selfUpd.backedOff(dep.Ref, e.d.Now()) {
-		return nil
+	// The updater restarts the daemon. Agent runs, chat turns and goal turns carry on across a
+	// restart, but a release's deploy command is a child of this daemon and would be killed by it,
+	// so wait until no project has a release in flight. Nothing is paused for this: a new release
+	// starts only on a tick when none is in flight, and the next tick after it settles gets here.
+	inFlight, err := e.releaseInFlight(ctx)
+	if err != nil {
+		return fmt.Errorf("self_update: %w", err)
 	}
-	// Starting the updater pauses the factory, so prefer a moment when nothing is going on. A
-	// busy factory is waited out until max_defer after the daemon first fell behind (not after
-	// the newest release, whose clock every new release would restart); then the updater drains
-	// whatever is running. The newest healthy release is still the one installed.
-	behindSince := e.selfUpd.behind(version, dep.UpdatedAt.Add(su.MinHealthy.Duration))
-	if e.d.Now().Sub(behindSince) < su.MaxDefer.Duration {
-		busy, err := e.selfUpdateBusy(ctx, p.Name)
-		if err != nil {
-			return fmt.Errorf("self_update: %w", err)
-		}
-		if busy {
-			return nil
-		}
+	if inFlight {
+		return nil
 	}
 
 	dataDir := cfg.Server.DataDir
@@ -170,8 +121,7 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 	}
 	defer logFile.Close() // the child holds its own copy of the descriptor
 
-	wait := cfg.Limits.RunTimeout.Duration + 5*time.Minute
-	cmd := updaterCommand(su.Command, dep.Ref, dataDir, wait, logFile)
+	cmd := updaterCommand(su.Command, dep.Ref, dataDir, logFile)
 	start := e.d.StartUpdater
 	if start == nil {
 		start = startDetached
@@ -181,8 +131,7 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 		e.selfUpdateFailed(ctx, p.Name, dep.Ref, logPath, "could not start: "+err.Error())
 		return nil
 	}
-	// A failed lock write is not fatal: the loop's own mutex covers this daemon, and the
-	// updater's pause makes a second one wait.
+	// A failed lock write is not fatal: the scheduler runs one tick of a loop at a time.
 	if err := os.WriteFile(lock, []byte(strconv.Itoa(pid)+"\n"), 0o600); err != nil {
 		e.d.Logger.Warn("self_update: write lock", "err", err)
 	}
@@ -197,47 +146,26 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 	bg := context.WithoutCancel(ctx)
 	go func() {
 		if werr := waitCmd(); werr != nil {
-			if exitCode(werr) == selfUpdateBusyExit {
-				e.selfUpd.backoff(dep.Ref, e.d.Now().Add(selfUpdateBackoff))
-				e.d.Bus.Emit(bg, domain.EvSystem, p.Name, "", "", "self-update to "+short+" gave up: the factory stayed busy; trying again in 1h", nil)
-				return
-			}
 			e.selfUpdateFailed(bg, p.Name, dep.Ref, logPath, "exited with an error: "+werr.Error())
 		}
 	}()
 	return nil
 }
 
-// selfUpdateBusy reports whether a task run is live or a task of the project is queued. Chat and
-// goal turns have no task and are short, so they do not count.
-func (e *Engine) selfUpdateBusy(ctx context.Context, project string) (bool, error) {
-	runs, err := e.d.Store.ListRuns(ctx, store.RunFilter{
-		Statuses: []domain.RunStatus{domain.RunStarting, domain.RunRunning}, Limit: 1000,
-	})
+// releaseInFlight reports whether any project has a release being deployed or verified. A
+// release's deploy command runs as a child of this daemon, so a restart would cut it off.
+func (e *Engine) releaseInFlight(ctx context.Context) (bool, error) {
+	deps, err := e.d.Store.ListDeployments(ctx, "", 50)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("list deployments: %w", err)
 	}
-	for _, r := range runs {
-		if r.TaskID != "" {
+	for _, d := range deps {
+		switch d.State {
+		case domain.DeployPending, domain.DeployDeploying, domain.DeployVerifying:
 			return true, nil
 		}
 	}
-	queued, err := e.d.Store.ListTasks(ctx, store.TaskFilter{
-		Project: project, Statuses: []domain.TaskStatus{domain.TaskQueued}, Limit: 1,
-	})
-	if err != nil {
-		return false, err
-	}
-	return len(queued) > 0, nil
-}
-
-// exitCode is the exit status carried by err, or -1 when it carries none.
-func exitCode(err error) int {
-	var ee interface{ ExitCode() int }
-	if errors.As(err, &ee) {
-		return ee.ExitCode()
-	}
-	return -1
+	return false, nil
 }
 
 // selfUpdateFailed counts a failed update of ref and tells the owner, with the end of the log.
@@ -255,8 +183,8 @@ func (e *Engine) selfUpdateFailed(ctx context.Context, project, ref, logPath, wh
 // updaterCommand builds the updater: the command run by sh, in its own session so a launchd
 // stop of the daemon, which signals the daemon's process group, does not reach it. It gets onett's
 // own environment (it is the owner's script, not an agent) plus ONETT_UPDATE_REF, the data
-// directory and ONETT_UPDATE_WAIT (seconds it may wait for runs to drain), and none of the agent run variables.
-func updaterCommand(command, ref, dataDir string, wait time.Duration, out *os.File) *exec.Cmd {
+// directory, and none of the agent run variables.
+func updaterCommand(command, ref, dataDir string, out *os.File) *exec.Cmd {
 	cmd := exec.Command("sh", "-c", command)
 	cmd.Dir = dataDir
 	for _, kv := range os.Environ() {
@@ -265,8 +193,7 @@ func updaterCommand(command, ref, dataDir string, wait time.Duration, out *os.Fi
 		}
 		cmd.Env = append(cmd.Env, kv)
 	}
-	cmd.Env = append(cmd.Env, "ONETT_UPDATE_REF="+ref, "ONETT_DATA_DIR="+dataDir,
-		"ONETT_UPDATE_WAIT="+strconv.Itoa(int(wait.Seconds())))
+	cmd.Env = append(cmd.Env, "ONETT_UPDATE_REF="+ref, "ONETT_DATA_DIR="+dataDir)
 	cmd.Stdout, cmd.Stderr = out, out
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	return cmd
