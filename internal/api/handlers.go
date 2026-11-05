@@ -73,6 +73,8 @@ type Stats struct {
 	CostTodayUSD     float64        `json:"cost_today_usd"`
 	DailyBudgetUSD   float64        `json:"daily_budget_usd"`
 	Paused           bool           `json:"paused"`
+	// Preflight is the daemon's last tool-directory check per project; see the engine.
+	Preflight []domain.Preflight `json:"preflight"`
 }
 
 // AgentView describes one agent role as GET /agents shows it: where its settings come from,
@@ -645,6 +647,7 @@ func (s *server) stats(w http.ResponseWriter, r *http.Request) {
 		CostTodayUSD:     cost,
 		DailyBudgetUSD:   s.opts.Controller.Config().Limits.DailyBudgetUSD,
 		Paused:           s.opts.Controller.Paused(),
+		Preflight:        s.opts.Controller.Preflight(),
 	})
 }
 

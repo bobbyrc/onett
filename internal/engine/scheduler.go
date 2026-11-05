@@ -31,6 +31,11 @@ func (e *Engine) runScheduler(ctx context.Context) {
 // schedule starts as many task runs as the limits allow. Projects already at
 // Limits.MaxRunsPerProject and paused projects are skipped by the store's claim.
 func (e *Engine) schedule(ctx context.Context) {
+	// Probe first: a probe can take seconds, and the pause and budget checks below must not go
+	// stale while it runs. The loop below then reads the cached results.
+	for _, p := range e.Config().Projects {
+		e.checkPreflight(ctx, p)
+	}
 	if e.Paused() {
 		return
 	}
@@ -49,8 +54,9 @@ func (e *Engine) schedule(ctx context.Context) {
 				busy = append(busy, name)
 			}
 		}
-		for name := range cfg.Projects {
-			if e.projectPaused(name) {
+		for name, p := range cfg.Projects {
+			// A project whose tool directories cannot be read stays queued: its runs would hang.
+			if e.projectPaused(name) || !e.checkPreflight(ctx, p).OK {
 				busy = append(busy, name)
 			}
 		}

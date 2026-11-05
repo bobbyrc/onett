@@ -46,6 +46,8 @@ type rtOpts struct {
 	projectExtra map[string]string
 	// fakePrice, when set, is the YAML body of the fake harness price (e.g. "input_per_mtok: 2").
 	fakePrice string
+	// preflightRead, when set, replaces the directory read of the preflight probe.
+	preflightRead func(string) error
 }
 
 // rtEnv is a real engine wired to an in-memory store, a shared fake SCM and local bare repos.
@@ -143,6 +145,10 @@ agents:
 	})
 	require.NoError(t, err)
 	env.e = e
+	if o.preflightRead != nil {
+		e.pre.readDir = o.preflightRead
+		e.pre.timeout = 20 * time.Millisecond
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	env.ctx = ctx

@@ -182,6 +182,13 @@ from `~/Library/LaunchAgents`. The daemon's log is `onett.log` in the config's d
 Run `service install` once, and do not also keep `onett serve` running in a terminal: two daemons
 cannot both listen on the same address.
 
+A launchd service on macOS also needs explicit access to external volumes and other
+privacy-protected folders: a service that was not granted it hangs on any read under such a path
+(for example a toolchain symlinked to an external drive), even though the same path works in your
+terminal. The daemon checks the directories its agents read before it starts a run, holds a
+project's tasks in the queue while one is unreadable, and notifies you with the path and the fix.
+`onett doctor` shows the daemon's last result per project.
+
 launchd starts the daemon without your shell's environment. `service install` therefore records,
 in the plist, the `PATH` of the shell you run it from and every variable your config references
 as `${NAME}`. The plist is readable only by you, because those values can be secrets. Install

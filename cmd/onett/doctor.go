@@ -70,6 +70,7 @@ func cmdDoctor(e *env, args []string) error {
 		d.checkProjects(cfg)
 	}
 	d.checkDaemon(apiBaseURL(cfg))
+	d.checkPreflight()
 
 	if d.failures > 0 {
 		return fmt.Errorf("%d check(s) failed", d.failures)
@@ -248,6 +249,29 @@ func (d *doctor) checkDaemon(base string) {
 		return
 	}
 	d.ok(fmt.Sprintf("daemon: running at %s (version %s)", base, h.Version))
+}
+
+// checkPreflight reports the daemon's own last check of each project's tool directories. It has
+// to come from the daemon: a launchd service can be refused access to a path (an external drive)
+// that this terminal can read. Skipped when the daemon cannot be asked.
+func (d *doctor) checkPreflight() {
+	c, err := apiClient()
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), externalTimeout)
+	defer cancel()
+	stats, err := c.Stats(ctx)
+	if err != nil {
+		return
+	}
+	for _, p := range stats.Preflight {
+		if p.OK {
+			d.ok("daemon preflight " + p.Project + ": tool directories readable")
+		} else {
+			d.fail("daemon preflight "+p.Project+": cannot read "+p.Path+" ("+p.Error+")", p.Fix)
+		}
+	}
 }
 
 // firstLine returns the first non-empty line of out, or of err when out has none. With a nil err
