@@ -28,6 +28,9 @@ type Spec struct {
 	Env map[string]string
 	// Args are extra adapter-specific CLI arguments from the agent profile.
 	Args []string
+	// AllowedTools are tool permission rules the run is pre-approved for, in the agent CLI's own
+	// syntax (claude-code: "Bash(onett:*)"). Adapters without such rules ignore them.
+	AllowedTools []string
 	// ConversationID and KeepAlive ask for a long-lived agent process shared by the turns of
 	// one conversation. With both set, an adapter that supports it (claude-code) writes Prompt
 	// to the conversation's live process instead of starting a new one, and starts one, resuming

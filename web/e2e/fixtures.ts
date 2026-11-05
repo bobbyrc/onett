@@ -412,3 +412,12 @@ export const configText = {
   version: 'v1',
   text: `server:\n  addr: 127.0.0.1:7777\n  data_dir: ${config.server.data_dir}\n# ${UNBROKEN}\n`,
 };
+
+/** A long conversation (40 turns), for scroll behaviour in the chat. */
+export const longChatMessages: ChatMessage[] = Array.from({ length: 40 }, (_, n) => ({
+  id: id(100 + n),
+  conversation_id: CONV_ID,
+  role: n % 2 ? ('assistant' as const) : ('user' as const),
+  text: `Message ${n + 1}. ${'Some words to fill a few lines of a phone screen. '.repeat(3)}`,
+  created_at: NOW,
+}));
