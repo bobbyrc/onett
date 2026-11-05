@@ -372,10 +372,15 @@ reason on the page and changes nothing.
 **Config** (`/config`) — everyone sees the file path and the redacted config as syntax-highlighted
 JSON (keys `--info`, strings `--ok`, numbers `--warn`), with the note "Only an owner can change
 settings. Secrets are hidden." Operators also get a Reload button. An owner gets the editor, which
-opens on the **Visual** tab. The top-level sections of `onett.yaml` sit in a list on the left (a
-square `--lamp-call` after a section with unsaved edits, `--lamp-stop` after one with problems); the
-active section's settings are on the right. A number, text or duration setting is an input; a
-checkbox is "On", with a "Default: on" note when leaving it out of the file means on (a loop's `enabled`, friction's `auto_file`, a deploy's `auto_rollback`); clearing an input removes the key. A value written as `${NAME}` shows as text with
+opens on the **Visual** tab. The settings of `onett.yaml` sit in groups in a list on the left, in
+the order Projects, Agents & routing, Policies, Limits & budget, Loops, Goals, Self-update,
+Channels & notifiers, Server, then Users (a link to the Users page; users are not in the file). A
+square `--lamp-call` after a group means unsaved edits, `--lamp-stop` problems. The table that says
+which settings each group shows is `web/src/lib/configGroups.ts`; its test fails when a setting is in no group
+or in two. The active group's settings are on the right. A setting
+with a built-in default shows it as the input's placeholder ("default: 15m") while unset, and once
+it is set a "Reset to default" link removes the key again. A number, text or duration setting is an input; a
+checkbox is "On", with a "Default: on" note while unset when leaving it out of the file means on (a loop's `enabled`, friction's `auto_file`, a deploy's `auto_rollback`); clearing an input removes the key. A value written as `${NAME}` shows as text with
 a note that onett reads that environment variable. A map is one card per entry, with Rename and
 Remove (Remove asks first), and a form at the end to add one. A list has a row or a card per item,
 with Remove, and an Add button. A setting with fixed choices, such as a notifier's `type`, is a
@@ -391,8 +396,8 @@ page until saved: a bar at the bottom says how many there are, with Save and Dis
 nothing when the file changed on disk since the page opened (a notice offers to load the latest,
 which discards your edits) or when the result would be invalid (the problems are listed above the
 editor, and each is also shown under its field). Settings that take effect only after a restart are
-named in a note until dismissed. A link can open one map entry: `/config?section=projects&entry=onett`
-opens that section and scrolls to the `onett` card, which gets an `--info` outline (Projects'
+named in a note until dismissed. A link can open one map entry: `/config?section=projects&entry=onett` (`section` is a group id; an older top-level key such as `routing` still opens its group)
+opens that group and scrolls to the `onett` card, which gets an `--info` outline (Projects'
 Edit settings uses it). The **YAML** tab edits the raw text of the file, with the same bar
 and checks, and switching tabs with unsaved edits asks first. The **Secrets** tab manages
 `secrets.env` and is write-only: each name shows set or not set, where the value comes from

@@ -24,7 +24,7 @@ func TestSchemaShowsBoolDefaults(t *testing.T) {
 		{"loops", "friction", "enabled"},
 		{"loops", "friction", "auto_file"},
 	} {
-		if d := findNode(t, root, p...).Default; d == nil || !*d {
+		if d := findNode(t, root, p...).Default; d != true {
 			t.Errorf("%v: Default = %v, want true", p, d)
 		}
 	}
@@ -35,13 +35,13 @@ func TestSchemaShowsBoolDefaults(t *testing.T) {
 		{"loops", "friction", "auto_queue"},
 	} {
 		if d := findNode(t, root, p...).Default; d != nil {
-			t.Errorf("%v: Default = %v, want none", p, *d)
+			t.Errorf("%v: Default = %v, want none", p, d)
 		}
 	}
 	// auto_rollback lives in a project's deploy section, under the projects map.
 	projects := findNode(t, root, "projects")
 	deploy := findNode(t, *projects.Item, "deploy", "auto_rollback")
-	if deploy.Default == nil || !*deploy.Default {
+	if deploy.Default != true {
 		t.Errorf("auto_rollback Default = %v, want true", deploy.Default)
 	}
 }
