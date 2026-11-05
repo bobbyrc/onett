@@ -65,7 +65,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `PUT /secrets/{name}` | `{"value"}` | `{"name","set","shadowed"}` (owner); 400 bad name or empty value; writes `secrets.env` (0600) and reloads |
 | `DELETE /secrets/{name}` | | 204 (owner); 404 when the file lacks it |
 | `POST /notify/test` | `{"index"}` | `{"ok":true}` (owner); builds notifier N of the current config and sends one labelled test notification. 404 bad index; 422 `{"ok":false,"error"}` it cannot be built; 502 delivery failed. The error never holds a secret value |
-| `POST /restart` | | 202 `{"ok":true}` (owner); the daemon then shuts down as on SIGTERM and starts again on the current config. Under the launchd service it exits and launchd restarts it; otherwise it re-executes itself with the same arguments and environment. Poll `GET /health`. 501 if not supported |
+| `POST /restart` | | 202 `{"ok":true}` (owner); the daemon then shuts down as on SIGTERM and starts again on the current config. Under the launchd service it exits and launchd restarts it; otherwise it re-executes itself with the same arguments and environment. Poll `GET /health`. 409 if the config's `server.addr` differs from the running one and cannot be bound (the daemon stays up). 501 if not supported |
 | `POST /channels/test` | `{"index"}` | `{"ok":true}` (owner); sends one labelled message through the running bot of channel N to its allowed users. 404 bad index; 409 the bot is not running (the error says why); 501 this channel type cannot send a test; 502 delivery failed |
 | `GET /users` | | `[]User` (owner) |
 | `POST /users` | `{"username","password","role"}` | `User` (201, owner); 409 taken |
