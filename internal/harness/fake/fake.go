@@ -218,7 +218,7 @@ func DefaultScript(ctx context.Context, spec harness.Spec, emit func(harness.Eve
 // report writes rr to the outbox, emits a text event describing what was done, and returns the
 // matching harness result.
 func report(spec harness.Spec, sessionID string, say func(domain.LogKind, string), rr domain.RunResult, did string) (harness.Result, error) {
-	if err := writeResult(spec.Workdir, rr); err != nil {
+	if err := WriteResult(spec.Workdir, rr); err != nil {
 		return harness.Result{SessionID: sessionID, IsError: true}, err
 	}
 	say(domain.LogText, "fake: "+did)
@@ -229,8 +229,8 @@ func report(spec harness.Spec, sessionID string, say func(domain.LogKind, string
 	return harness.Result{SessionID: sessionID, FinalText: final}, nil
 }
 
-// writeResult writes rr to Workdir/.onett-run/result.json.
-func writeResult(workdir string, rr domain.RunResult) error {
+// WriteResult writes rr to Workdir/.onett-run/result.json.
+func WriteResult(workdir string, rr domain.RunResult) error {
 	if workdir == "" {
 		return fmt.Errorf("fake harness: Spec.Workdir is required to write %s", domain.ResultFile)
 	}
