@@ -73,6 +73,10 @@ export interface Task {
   created_by_run?: string;
   goal_id?: string;
   waiting_on?: string[];
+  /** Only in the task list: a claimable queued task's place in the scheduler's claim order (1 = next). */
+  queue_position?: number;
+  /** Only in the task list: its place among its own project's queued tasks. */
+  project_queue_position?: number;
 }
 
 export type GoalStatus = 'active' | 'paused' | 'blocked' | 'done';

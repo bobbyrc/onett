@@ -280,7 +280,11 @@ when blocked), the goal text and the tasks queued for it. `goal.updated` events 
 
 **Tasks** (`/tasks`) — filter bar: project select, status chips (multi-select; default
 "active" = queued, running, review, awaiting_approval, merged, deploying, blocked), kind
-select, text search (client-side over title). "New task" opens a modal: project, kind,
+select, an Order select (Pickup order, the default, or Newest created), text search (client-side
+over title). In pickup order the table is split into sections: Running now (oldest start first);
+In review, CI or deploy; Queued, in the order they will start, each with its place beside the
+status ("#1 next", "#2", plus "#N in project" when the project's own count differs); Waiting on
+other tasks (says what for); Blocked; and Finished, collapsed. "New task" opens a modal: project, kind,
 title, body (textarea, Markdown), role (optional; lists agents), priority (number). Table
 columns: status, title (with kind tag and source muted under it), project, role, risk, PR
 (#123 link), attempts (`1/3`), updated.

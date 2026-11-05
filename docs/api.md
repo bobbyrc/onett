@@ -87,7 +87,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `POST /projects` | `{"name","repo","path"?,"branch"?,"policy"?,"instructions"?}` | `ProjectView` plus `ConfigSaved` fields (owner); same insertion as `onett project add`, comments kept; no clone is made; 409 name taken; 422 `problems` |
 | `DELETE /projects/{name}` | `?force=true` | `ConfigSaved` (owner); removes the block from `onett.yaml` and reloads; 409 while the project has queued or running tasks (unless `force`); 404 unknown; deletes no files |
 | `POST /projects/{name}/pause`, `POST /projects/{name}/resume` | | `{"paused":bool,"paused_by":""\|"config"\|"owner"}` (409 resuming a project paused in config) |
-| `GET /tasks` | `?project=&status=queued,running&kind=&goal_id=&limit=` | `[]Task` |
+| `GET /tasks` | `?project=&status=queued,running&kind=&goal_id=&sort=pickup\|created&limit=` | `[]Task`, in pickup order by default: running (oldest start first); review, approval, merged, deploying; queued in the scheduler's claim order; queued tasks waiting on others; blocked; then finished, newest first. A claimable queued task has `queue_position` (overall) and `project_queue_position` (among its project). `sort=created` is newest created first |
 | `POST /tasks` | `NewTask` | `Task` (201) |
 | `GET /tasks/{id}` | | `TaskDetail` |
 | `GET /tasks/{id}/conversation` | | `TaskConversation`: the task agent's root task, follow-up tasks, runs across them (oldest first), messages, `live_run_id`, and `can_send` with a `reason` when false. A follow-up task id returns its root's conversation. |

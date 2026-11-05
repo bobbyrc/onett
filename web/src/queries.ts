@@ -23,6 +23,8 @@ export interface TaskFilters {
   project?: string;
   status?: string;
   kind?: string;
+  /** "created" for newest created first; the server's default is pickup order. */
+  sort?: string;
   limit?: number;
 }
 

@@ -210,7 +210,16 @@ type TaskFilter struct {
 	Project string
 	Status  []string
 	Kind    string
+	Sort    string // "" or "pickup" for pickup order, "created" for newest first
 	Limit   int
+}
+
+// ListedTask is a task of GET /tasks. Queued claimable tasks carry their place in the queue:
+// QueuePosition overall, ProjectQueuePosition among their own project's tasks.
+type ListedTask struct {
+	domain.Task
+	QueuePosition        int `json:"queue_position,omitempty"`
+	ProjectQueuePosition int `json:"project_queue_position,omitempty"`
 }
 
 // RunFilter narrows GET /runs. Zero fields are not sent.
@@ -300,13 +309,14 @@ func (c *Client) Projects(ctx context.Context) ([]ProjectView, error) {
 }
 
 // ListTasks calls GET /tasks.
-func (c *Client) ListTasks(ctx context.Context, f TaskFilter) ([]domain.Task, error) {
+func (c *Client) ListTasks(ctx context.Context, f TaskFilter) ([]ListedTask, error) {
 	q := url.Values{}
 	setIf(q, "project", f.Project)
 	setIf(q, "status", strings.Join(f.Status, ","))
 	setIf(q, "kind", f.Kind)
+	setIf(q, "sort", f.Sort)
 	setLimit(q, f.Limit)
-	var out []domain.Task
+	var out []ListedTask
 	err := c.do(ctx, http.MethodGet, "/tasks", q, nil, &out)
 	return out, err
 }
