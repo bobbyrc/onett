@@ -350,8 +350,10 @@ attachments by id. The API and, later, the chat channels both save through `atta
   file keeps rendering and simply lists one attachment fewer (**decision:** the reference is dropped
   rather than shown as "expired", so clients need no extra state).
 
-Attachments are stored with the message only for now; the orchestrator's prompt does not see them
-yet.
+The orchestrator's prompt for a message ends with a list of its attachments (name, type, size and
+absolute path), labelled as data. The stored message keeps only the owner's text. Task agents run
+in other worktrees, so the note tells the orchestrator to copy what a task needs into the task
+body rather than pass a path.
 
 ### Goals
 
