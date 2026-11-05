@@ -158,14 +158,15 @@ The supervisor owns every harness session:
 ### Risk and auto-merge **(review)**
 
 Risk is `low < medium < high`. Final risk = max(rules matched by the diff, agent's own rating).
-Default policy: auto-merge `low` after green CI and an approving reviewer run; `medium` and
-`high` need your approval. Default high-risk paths: migrations, auth, CI/deploy config, secrets,
+Default policy: every level auto-merges after green CI and an approving reviewer run; risk is
+still computed and recorded on every PR. The built-in `supervised` policy (a project opts in
+with `policy: supervised`) auto-merges only `low`; `medium` and `high` need your approval. Default high-risk paths: migrations, auth, CI/deploy config, secrets,
 infra, dependency manifests with major bumps, `.onett/`, and onett's own gates and agent
 prompts (in onett's repo only); default size limit 400 changed lines. A policy's `extra_rules`
 add to these defaults, while `rules` replaces them, so use `extra_rules` unless you mean to drop
 the built-in protections.
 Work onett assigned itself (follow-ups and retrospectives, matched by task source) is rated
-`medium` by default, so a human approves it until the owner relaxes that rule.
+`medium` by default, so under `supervised` a human approves it.
 
 ### Deploy watch
 

@@ -214,12 +214,14 @@ A run ends with one of these outcomes:
 Once the PR exists, the PR shepherd waits for CI and runs a reviewer agent. Your trial repository
 needs no CI. Onett treats "no checks" as passing, so the reviewer is the only gate. A small docs
 change is usually rated `low` risk. If the agent and the policy both agree, the PR merges on its
-own after the reviewer approves. Otherwise it waits for you, as in step 8.
+own after the reviewer approves and CI is green, whatever its risk. Under the opt-in `supervised`
+policy (`policy: supervised` on the project), only `low` risk merges alone; otherwise it waits
+for you, as in step 8.
 
 To add your own risk rules to a policy, use `extra_rules`. Setting `rules` instead **replaces** the
 built-in protections (migrations, CI, auth, dependency manifests, onett's own gates and agent
 instructions) and you must then copy them back in. Built-in rules also rate work onett assigned
-itself (task sources `followup` and `retro`) `medium`, so it waits for your approval. For a
+itself (task sources `followup` and `retro`) `medium`, so under `supervised` it waits for your approval. For a
 repository that always runs CI, set the policy's `require_checks: true`: a PR with no checks then
 waits instead of being treated as "no CI".
 
@@ -229,7 +231,9 @@ are added to it as a comment instead of filing a duplicate.
 
 ## 8. Answer approvals
 
-A `medium` or `high` risk change does not merge on its own. The task moves to `awaiting_approval`,
+With the default policy nothing waits for you here. Under the opt-in `supervised` policy
+(`policy: supervised` on the project), a `medium` or `high` risk change does not merge on its
+own. The task moves to `awaiting_approval`,
 and the request appears in the web UI's **Needs you** list and in:
 
 ```sh

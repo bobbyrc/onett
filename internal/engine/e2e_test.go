@@ -76,6 +76,13 @@ type e2eEnv struct {
 // e2eNewEngine builds the engine, starts Run in a goroutine, and stops it on cleanup.
 func e2eNewEngine(t *testing.T, yamlExtra string) *e2eEnv {
 	t.Helper()
+	return e2eNewEngineWithPolicy(t, yamlExtra, "")
+}
+
+// e2eNewEngineWithPolicy is e2eNewEngine with the demo project on the named policy ("" keeps
+// the built-in default).
+func e2eNewEngineWithPolicy(t *testing.T, yamlExtra, policy string) *e2eEnv {
+	t.Helper()
 	root := t.TempDir()
 	bare := filepath.Join(root, "remote.git")
 	clone := filepath.Join(root, "clone")
@@ -83,6 +90,9 @@ func e2eNewEngine(t *testing.T, yamlExtra string) *e2eEnv {
 	e2eSeedRepo(t, bare)
 
 	doc := fmt.Sprintf(e2eConfigYAML, dataDir, bare, clone, yamlExtra)
+	if policy != "" {
+		doc = strings.Replace(doc, "    default_branch: main\n", "    default_branch: main\n    policy: "+policy+"\n", 1)
+	}
 	cfg, err := config.Parse([]byte(doc), "")
 	require.NoError(t, err, doc)
 
@@ -342,7 +352,7 @@ func TestE2ELowRiskAutoMergesAndDeploys(t *testing.T) {
 }
 
 func TestE2EHighRiskNeedsApproval(t *testing.T) {
-	v := e2eNewEngine(t, "")
+	v := e2eNewEngineWithPolicy(t, "", "supervised")
 	task := e2eCreate(v, domain.Task{Title: "risky change", Body: "[fake:commit] [fake:risk-high]"})
 
 	var approval domain.Approval

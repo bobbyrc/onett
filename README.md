@@ -22,10 +22,11 @@ by chat, from a web UI, or with the `onett` command.
 - **Run**: one attempt at a task by one agent session, in its own git worktree (a second checkout
   of the repository on its own branch).
 - **Policy and risk**: rules that look at a diff and rate it `low`, `medium` or `high`. The policy
-  decides which levels may merge on their own.
+  decides which levels may merge on their own: by default all of them, after review and green CI;
+the built-in `supervised` policy holds `medium` and `high` for you.
 - **Loop**: a recurring background job, such as checking open PRs or polling production.
 - **Outbox**: a folder in each worktree where the agent writes its report, `result.json`.
-- **Approval**: a request for your decision, such as merging a `medium` or `high` risk PR.
+- **Approval**: a request for your decision, such as merging a `medium` or `high` risk PR under the `supervised` policy.
 
 ## How a task flows
 
@@ -36,9 +37,9 @@ by chat, from a web UI, or with the `onett` command.
 3. If the run changed code, onett commits it, pushes a `onett/...` branch and opens a PR. The
    task moves to `review`.
 4. The PR shepherd (the loop that moves PRs along) waits for CI, starts a `reviewer` run when the
-   policy requires one, and then asks the policy. `low` risk merges automatically once the reviewer
-   approves. Otherwise the task
-   moves to `awaiting_approval` and waits for you.
+   policy requires one, and then asks the policy. the PR merges automatically once the reviewer
+   approves and CI is green, at any risk level. Under the opt-in `supervised` policy, `medium` and
+   `high` risk move the task to `awaiting_approval` and wait for you.
 5. After a merge, a project with a deployer goes through `deploying`. A health window (default 10
    minutes) checks the release. A failed check rolls back, opens an `incident` task and notifies you.
 6. The task becomes `done`.
@@ -68,8 +69,8 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   one through, name it in the harness's `inherit_env` list. Agents still run as your user and can
   read what your user can read; isolating them is an open decision, see
   [docs/proposals/agent-isolation.md](docs/proposals/agent-isolation.md).
-- **Self-assigned work waits for you.** Follow-up and retro tasks (task sources `followup` and
-  `retro`) are rated at least `medium` by a built-in policy rule, and so is any change to onett's
+- **Self-assigned work is rated higher.** Follow-up and retro tasks (task sources `followup` and
+  `retro`) are rated at least `medium` (under `supervised`, they wait for you) by a built-in policy rule, and so is any change to onett's
   own gates and agent instructions (`high`). Add rules with a policy's `extra_rules`. Setting
   `rules` instead **replaces** all the built-in rules, so copy back any you want to keep.
 - **Daily budget.** `limits.daily_budget_usd` stops new task runs once today's reported cost

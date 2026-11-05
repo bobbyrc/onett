@@ -44,6 +44,25 @@ func DefaultPolicy() Policy {
 func DefaultGates() map[string]Gate {
 	return map[string]Gate{
 		"low":    {AutoMerge: true, RequireReview: true, RequireCI: true},
+		"medium": {AutoMerge: true, RequireReview: true, RequireCI: true},
+		"high":   {AutoMerge: true, RequireReview: true, RequireCI: true},
+	}
+}
+
+// SupervisedPolicy returns the built-in opt-in policy named "supervised": the same rules, limits
+// and CI grace as the default, but only low-risk changes merge on their own. Each call returns
+// fresh values.
+func SupervisedPolicy() Policy {
+	p := DefaultPolicy()
+	p.Gates = SupervisedGates()
+	return p
+}
+
+// SupervisedGates returns the gates of the "supervised" policy: low auto-merges after review and
+// green CI, medium and high wait for a person. Each call returns a fresh map.
+func SupervisedGates() map[string]Gate {
+	return map[string]Gate{
+		"low":    {AutoMerge: true, RequireReview: true, RequireCI: true},
 		"medium": {AutoMerge: false, RequireReview: true, RequireCI: true},
 		"high":   {AutoMerge: false, RequireReview: true, RequireCI: true},
 	}
@@ -315,6 +334,9 @@ func applyPolicyDefaults(c *Config) {
 	}
 	if _, ok := c.Policies["default"]; !ok {
 		c.Policies["default"] = DefaultPolicy()
+	}
+	if _, ok := c.Policies["supervised"]; !ok {
+		c.Policies["supervised"] = SupervisedPolicy()
 	}
 	for name, p := range c.Policies {
 		if p.MaxLines == 0 {

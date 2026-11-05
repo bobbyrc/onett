@@ -95,6 +95,7 @@ func initialConfig(project, repo, dir string) string {
 		b.WriteString("projects:\n")
 		fmt.Fprintf(&b, "  %s:\n", project)
 		fmt.Fprintf(&b, "    repo: %s\n", strconv.Quote(repo))
+		b.WriteString("    # policy: supervised   # opt in: medium- and high-risk merges wait for you\n")
 		if dir != "" {
 			fmt.Fprintf(&b, "    path: %s\n", strconv.Quote(dir))
 		}

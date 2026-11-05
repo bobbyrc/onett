@@ -18,9 +18,20 @@ const lpBranch = "onett/aaaa1111-add-notes"
 // lpBranch, so the shepherd's diff of that head works, and it stays put until the test pushes.
 func lpShepherdEnv(t *testing.T, files map[string]string) (*lpEnv, domain.Task) {
 	t.Helper()
+	return lpShepherdEnvPolicy(t, files, "")
+}
+
+// lpShepherdEnvPolicy is lpShepherdEnv with project demo on the named policy ("" keeps the
+// built-in default).
+func lpShepherdEnvPolicy(t *testing.T, files map[string]string, policy string) (*lpEnv, domain.Task) {
+	t.Helper()
 	repo := lpNewRepo(t)
 	repo.pushBranch(t, lpBranch, files)
-	env := lpNewEngine(t, lpDoc(t, repo.clone, "", ""))
+	projectExtra := ""
+	if policy != "" {
+		projectExtra = "    policy: " + policy + "\n"
+	}
+	env := lpNewEngine(t, lpDoc(t, repo.clone, projectExtra, ""))
 	env.repo = repo
 	env.head = lpRevParse(t, repo.seed, lpBranch)
 	env.fake.HeadSHA = func(string) string { return env.head }
@@ -184,7 +195,7 @@ func TestLoopShepherdAutoMergesApprovedLowRisk(t *testing.T) {
 }
 
 func TestLoopShepherdHighRiskNeedsApprovalOnce(t *testing.T) {
-	env, task := lpShepherdEnv(t, map[string]string{"migrations/0001_init.sql": "create table t();\n"})
+	env, task := lpShepherdEnvPolicy(t, map[string]string{"migrations/0001_init.sql": "create table t();\n"}, "supervised")
 	lpSetTask(t, env, task.ID, func(x *domain.Task) { x.ApprovedSHA = env.head })
 
 	env.run(loopPRShepherd)
@@ -332,7 +343,7 @@ func TestLoopShepherdApprovalForCurrentHeadKeepsWaiting(t *testing.T) {
 
 // The approval records the PR head it was asked about.
 func TestLoopShepherdApprovalRecordsHeadSHA(t *testing.T) {
-	env, task := lpShepherdEnv(t, map[string]string{"migrations/0001_init.sql": "create table t();\n"})
+	env, task := lpShepherdEnvPolicy(t, map[string]string{"migrations/0001_init.sql": "create table t();\n"}, "supervised")
 	lpSetTask(t, env, task.ID, func(x *domain.Task) { x.ApprovedSHA = env.head })
 
 	env.run(loopPRShepherd)
