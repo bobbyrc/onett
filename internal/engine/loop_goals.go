@@ -124,14 +124,37 @@ func (e *Engine) goalStep(ctx context.Context, p *config.Project, g domain.Goal)
 	started := e.goTracked(func() {
 		runCtx, cancel := context.WithTimeout(base, timeout)
 		defer cancel()
-		e.chatReply(runCtx, conv, prompt, nil)
-		e.goalGuard(context.WithoutCancel(runCtx), g.ID, before)
+		if e.chatReply(runCtx, conv, prompt, nil, chatOpts{goal: true}) {
+			e.goalGuard(context.WithoutCancel(runCtx), g.ID, before)
+		}
 	})
 	if !started {
 		e.releaseConversation(context.WithoutCancel(ctx), conv.ID)
 		return errStopped
 	}
 	return nil
+}
+
+// finishGoalTurn is the after-turn check for a goal turn that was reattached after a restart. The
+// in-memory snapshot goalStep took is gone, so progress is judged from the goal's last_turn_at: a
+// task changed or created since then is progress.
+func (e *Engine) finishGoalTurn(ctx context.Context, goalID string) {
+	g, err := e.d.Store.GetGoal(ctx, goalID)
+	if err != nil || g.LastTurnAt == nil {
+		return
+	}
+	tasks, err := e.d.Store.ListTasks(ctx, store.TaskFilter{GoalID: goalID, Limit: 500})
+	if err != nil {
+		e.d.Logger.Error("goal guard: list tasks", "goal", goalID, "err", err)
+		return
+	}
+	before := make(map[string]time.Time, len(tasks))
+	for _, t := range tasks {
+		if !t.UpdatedAt.After(*g.LastTurnAt) {
+			before[t.ID] = t.UpdatedAt
+		}
+	}
+	e.goalGuard(ctx, goalID, before)
 }
 
 // goalChanged reports whether something happened since the goal's last turn: one of its tasks

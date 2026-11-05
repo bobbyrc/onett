@@ -564,7 +564,7 @@ func (e *Engine) startTurn(ctx context.Context, conv domain.Conversation, texts,
 	started := e.goTracked(func() {
 		runCtx, cancel := context.WithTimeout(base, timeout)
 		defer cancel()
-		e.chatReply(runCtx, conv, prompt, ids)
+		e.chatReply(runCtx, conv, prompt, ids, chatOpts{})
 	})
 	if !started {
 		e.releaseConversation(context.WithoutCancel(ctx), conv.ID)

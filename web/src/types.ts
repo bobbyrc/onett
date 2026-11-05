@@ -122,6 +122,7 @@ export interface Run {
   deadline_at?: string;
   start_sha?: string;
   remote_sha?: string;
+  goal_turn?: boolean;
 }
 
 export interface LogLine {

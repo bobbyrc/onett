@@ -2859,6 +2859,9 @@ components:
         remote_sha:
           type: string
           description: origin/<branch> when the agent started; empty when the branch was not on origin.
+        goal_turn:
+          type: boolean
+          description: The run is an orchestrator turn that was a goal check-in. Lets a restarted onett run the goal's after-turn check.
 
     LogLine:
       type: object

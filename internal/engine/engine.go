@@ -284,9 +284,11 @@ func (e *Engine) recover(ctx context.Context) error {
 	}
 	// reattached holds the tasks whose run was picked up again: they are still running.
 	reattached := map[string]bool{}
+	reattachedRuns := map[string]bool{} // by run ID: includes orchestrator turns, which have no task
 	for _, r := range runs {
 		if e.reattachRun(ctx, r) {
 			reattached[r.TaskID] = true
+			reattachedRuns[r.ID] = true
 			continue
 		}
 		now := e.d.Now().UTC()
@@ -330,7 +332,15 @@ func (e *Engine) recover(ctx context.Context) error {
 		return err
 	}
 	for _, c := range convs {
+		if c.Busy && reattachedRuns[c.ActiveRunID] {
+			continue // its turn went on running behind its shim and has been taken over
+		}
 		if c.Busy {
+			// An orchestrator turn that lost its agent is run again; any other busy
+			// conversation is released.
+			if e.rerunInterrupted(ctx, c) {
+				continue
+			}
 			if _, err := e.d.Store.UpdateConversation(ctx, c.ID, func(c *domain.Conversation) error {
 				c.Busy = false
 				c.ActiveRunID = ""

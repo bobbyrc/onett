@@ -273,14 +273,14 @@ func (e *Engine) cancelRun(runID, reason string) bool {
 	return true
 }
 
-// cancelAllRuns stops every live run at shutdown. A task run (not a chat turn, which is not
-// reattached) whose agent can outlive onett is let go instead of killed.
+// cancelAllRuns stops every live run at shutdown. A run (task or orchestrator turn) whose agent
+// can outlive onett is let go instead of killed.
 func (e *Engine) cancelAllRuns(reason string) {
 	e.runsMu.Lock()
 	ids := make([]string, 0, len(e.active))
 	for id, ar := range e.active {
 		ids = append(ids, id)
-		ar.detach.Store(ar.taskID != "")
+		ar.detach.Store(true)
 	}
 	e.runsMu.Unlock()
 	for _, id := range ids {
