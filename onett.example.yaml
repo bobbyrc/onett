@@ -114,8 +114,11 @@ routing:
 
 # Policies: deterministic rules that decide how risky a change is and whether it can merge
 # on its own. A project refers to one by name; the one named "default" applies otherwise.
+# Two policies are built in. "default": every risk level merges by itself once the reviewer
+# approves and CI is green (risk is still computed and recorded on every PR). "supervised":
+# opt in with `policy: supervised` on a project; low merges by itself, medium and high wait for
+# you. Defining a policy with either name here replaces the built-in one.
 policies:
-  # Setting "default" here would replace the built-in one. Left out, it is added for you.
   strict:
     max_lines: 200                     # a diff above this many changed lines is at least medium risk (default 400)
     max_files: 10                      # a diff touching more files than this is at least medium risk (default 20)
@@ -135,7 +138,7 @@ policies:
         labels: ["risky"]
       # A rule can match on the task's source ("followup", "retro", "github_issue", "signal", ...),
       # and a source rule with no paths is valid. Onett's built-in default already rates
-      # follow-up and retro work medium, so it waits for you; uncomment to do the same for signals:
+      # follow-up and retro work medium (it waits for you under "supervised"); uncomment to do the same for signals:
       #   - risk: medium
       #     reason: production signal fix
       #     sources: ["signal"]
@@ -145,7 +148,7 @@ policies:
         require_review: true           # a reviewer run must approve first (default true)
         require_ci: true               # CI must be green first (default true)
       medium:
-        auto_merge: false              # medium and high wait for you by default
+        auto_merge: false              # wait for you (the built-in default merges medium and high too)
         require_review: true
         require_ci: true
       high:
