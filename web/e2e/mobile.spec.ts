@@ -234,5 +234,24 @@ for (const vp of VIEWPORTS) {
       expect(box, 'composer is rendered').not.toBeNull();
       expect(vh - (box!.y + box!.height), `composer bottom is ${box!.y + box!.height}px in a ${vh}px viewport`).toBeGreaterThanOrEqual(33.5);
     });
+
+    // Touch devices have no hover, so the per-message copy button is always shown, 44px or more,
+    // and inside the screen.
+    test('chat message copy buttons are visible and tappable without hover', async ({ page }) => {
+      await open(page, `/chat/${CONV_ID}`);
+      const buttons = page.getByRole('button', { name: 'Copy message' });
+      await expect(buttons.first()).toBeVisible();
+      const vw = page.viewportSize()!.width;
+      for (const b of await buttons.all()) {
+        // toBeVisible ignores opacity, so check the wrapper that fades in on hover.
+        expect(await b.evaluate((el) => getComputedStyle(el.parentElement!).opacity)).toBe('1');
+        const box = await b.boundingBox();
+        expect(box!.width).toBeGreaterThanOrEqual(44);
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(vw);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+    });
   });
 }

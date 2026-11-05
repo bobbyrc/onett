@@ -3,6 +3,7 @@ import { cx, formatClock } from '../lib/format';
 import { parseTime } from '../lib/time';
 import { clipLines, type Entry } from '../lib/transcript';
 import type { TranscriptView } from '../lib/transcriptView';
+import { CopyButton } from './CopyButton';
 import { Markdown } from './Markdown';
 import { MessageAttachments } from './MessageAttachments';
 import './Transcript.css';
@@ -97,7 +98,8 @@ function ConversationEntry({
   switch (e.kind) {
     case 'owner':
       return (
-        <div className={cx('tr-you', e.queued && 'queued')}>
+        <div className={cx('tr-you', 'tr-copyable', e.queued && 'queued')}>
+          {e.text ? <CopyButton text={e.text} /> : null}
           {e.queued ? (
             <span className="tr-queued-note">
               {QUEUED_NOTE}
@@ -112,8 +114,9 @@ function ConversationEntry({
       return <PromptSheet label={e.label} text={e.text} />;
     case 'text':
       return (
-        <div className="tr-ai">
+        <div className="tr-ai tr-copyable">
           {labelled ? <div className="tr-lbl">{agentLabel}</div> : null}
+          <CopyButton text={e.text} />
           <Markdown text={e.text} />
         </div>
       );
