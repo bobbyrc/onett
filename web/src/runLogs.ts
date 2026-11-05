@@ -3,6 +3,7 @@ import { useQueries } from '@tanstack/react-query';
 import { getRunLogs } from './api';
 import { subscribe, useLiveStatus, watch } from './events';
 import { keys } from './keys';
+import { createFrameBatcher, type FrameBatcher } from './lib/frameBatch';
 import { maxSeq, mergeLogLines } from './lib/logs';
 import type { LogLine } from './types';
 
@@ -34,6 +35,7 @@ export function useRunLogLines(runId: string | undefined, active: boolean): { li
   const [error, setError] = useState<unknown>(null);
   const live = useLiveStatus() === 'live';
   const linesRef = useRef<LogLine[]>([]);
+  const batcherRef = useRef<FrameBatcher<LogLine> | null>(null);
 
   useEffect(() => {
     linesRef.current = lines;
@@ -60,17 +62,29 @@ export function useRunLogLines(runId: string | undefined, active: boolean): { li
     };
   }, [runId]);
 
-  // Live lines from the event stream.
-  useEffect(
-    () =>
-      subscribe((ev) => {
-        if (ev.type !== 'run.log' || !Array.isArray(ev.data)) return;
-        if (!runId) return;
-        const incoming = (ev.data as LogLine[]).filter((line) => line.run_id === runId);
-        if (incoming.length > 0) setLines((prev) => mergeLogLines(prev, incoming));
-      }),
-    [runId],
-  );
+  // Live lines from the event stream. They are buffered and applied once per animation frame, so a
+  // fast stream does not re-render the transcript for every event. mergeLogLines sorts and drops
+  // duplicates by seq, so a batch landing beside a catch-up read stays exact. Changing run or
+  // unmounting drops what is still queued: those lines belong to the old run.
+  useEffect(() => {
+    if (!runId) return;
+    const batcher = createFrameBatcher<LogLine>((batch) => setLines((prev) => mergeLogLines(prev, batch)));
+    batcherRef.current = batcher;
+    const unsubscribe = subscribe((ev) => {
+      if (ev.type !== 'run.log' || !Array.isArray(ev.data)) return;
+      batcher.push((ev.data as LogLine[]).filter((line) => line.run_id === runId));
+    });
+    return () => {
+      unsubscribe();
+      batcher.cancel();
+      if (batcherRef.current === batcher) batcherRef.current = null;
+    };
+  }, [runId]);
+
+  // When the run ends, apply what is queued at once so the final state is exact.
+  useEffect(() => {
+    if (!active) batcherRef.current?.flush();
+  }, [active]);
 
   const catchUp = async () => {
     if (!runId) return;
