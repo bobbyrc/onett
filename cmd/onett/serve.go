@@ -23,8 +23,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/api"
 	"github.com/bobbyrc/onett/internal/channel"
-	"github.com/bobbyrc/onett/internal/channel/discord"
-	"github.com/bobbyrc/onett/internal/channel/telegram"
+	_ "github.com/bobbyrc/onett/internal/channel/all"
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/deploy"
 	"github.com/bobbyrc/onett/internal/engine"
@@ -94,17 +93,12 @@ func cmdServe(e *env, args []string) error {
 	bus := events.NewBus(st, logger)
 
 	// Resolve the channels before anything starts, so a missing token stops startup.
-	tgChannel, err := telegramChannelOptions(cfg)
+	starters, skipApprovals, err := resolveChannels(cfg, logger)
 	if err != nil {
 		_ = st.Close()
 		return err
 	}
-	dcChannel, err := discordChannelOptions(cfg)
-	if err != nil {
-		_ = st.Close()
-		return err
-	}
-	notifCfgs := notifyConfigs(cfg.Notify, tgChannel != nil)
+	notifCfgs := notifyConfigs(cfg.Notify, skipApprovals)
 	notifier, err := notify.NewFanout(notifCfgs, logger)
 	if err != nil {
 		_ = st.Close()
@@ -170,29 +164,8 @@ func cmdServe(e *env, args []string) error {
 	engineDone := make(chan error, 1)
 	go func() { engineDone <- eng.Run(ctx) }()
 	var bots sync.WaitGroup
-	host := &channel.Host{Controller: eng, Store: st, Bus: bus}
-	// startBot runs one channel's bot. A bot failure must not take the daemon down.
-	startBot := func(name string, bot interface{ Run(context.Context) error }, err error) {
-		if err != nil {
-			logger.Error(name+" channel not started", "err", err)
-			return
-		}
-		bots.Add(1)
-		go func() {
-			defer bots.Done()
-			if err := bot.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				logger.Error(name+" channel stopped", "err", err)
-			}
-		}()
-	}
-	if tgChannel != nil {
-		bot, err := telegram.New(*tgChannel, host, logger)
-		startBot("telegram", bot, err)
-	}
-	if dcChannel != nil {
-		bot, err := discord.New(*dcChannel, host, logger)
-		startBot("discord", bot, err)
-	}
+	host := &channel.EngineHost{Controller: eng, Store: st, Bus: bus}
+	startBots(ctx, &bots, host, starters, logger)
 	serverDone := make(chan error, 1)
 	go func() { serverDone <- srv.ListenAndServe() }()
 
@@ -227,55 +200,67 @@ func cmdServe(e *env, args []string) error {
 	}
 }
 
-// telegramChannelOptions returns the bot options for the configured telegram channel, or nil when
-// there is none. The token is read from the environment variable the config names; an empty
-// variable is an error. Only the variable's name is ever put in a message.
-func telegramChannelOptions(cfg *config.Config) (*telegram.Options, error) {
-	for _, ch := range cfg.Channels {
-		if ch.Type != "telegram" {
+// startBots builds and runs each channel's bot. A bot failure must not take the daemon down, so
+// it is logged and the others carry on. bots counts the running bots so shutdown can wait.
+func startBots(ctx context.Context, bots *sync.WaitGroup, host channel.Host, starters []namedStarter, logger *slog.Logger) {
+	for _, s := range starters {
+		bot, err := s.start(host)
+		if err != nil {
+			logger.Error(s.name+" channel not started", "err", err)
 			continue
 		}
-		tc, err := config.ParseTelegramChannel(ch, cfg.Server.DataDir)
-		if err != nil {
-			return nil, fmt.Errorf("channel telegram: %w", err)
-		}
-		token := strings.TrimSpace(os.Getenv(tc.BotTokenEnv))
-		if token == "" {
-			return nil, fmt.Errorf("channel telegram: environment variable %q (bot_token_env) is empty", tc.BotTokenEnv)
-		}
-		return &telegram.Options{Token: token, AllowedUserIDs: tc.AllowedUserIDs, StateFile: tc.StateFile}, nil
+		bots.Add(1)
+		go func() {
+			defer bots.Done()
+			if err := bot.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Error(s.name+" channel stopped", "err", err)
+			}
+		}()
 	}
-	return nil, nil
 }
 
-// discordChannelOptions returns the bot options for the configured discord channel, or nil when
-// there is none. The token is read from the environment variable the config names; an empty
-// variable is an error. Only the variable's name is ever put in a message.
-func discordChannelOptions(cfg *config.Config) (*discord.Options, error) {
+// namedStarter is a channel's Starter with the type it came from, for log messages.
+type namedStarter struct {
+	name  string
+	start channel.Starter
+}
+
+// resolveChannels validates every configured channel and resolves its token, so a bad config or
+// an empty token variable stops startup. Only the first channel of each type is used. It also
+// returns the notifier types that must not send approval requests while a channel runs.
+func resolveChannels(cfg *config.Config, logger *slog.Logger) ([]namedStarter, map[string]bool, error) {
+	env := channel.Env{DataDir: cfg.Server.DataDir, Getenv: os.Getenv, Logger: logger}
+	var starters []namedStarter
+	skip := map[string]bool{}
+	seen := map[string]bool{}
 	for _, ch := range cfg.Channels {
-		if ch.Type != "discord" {
+		if seen[ch.Type] {
 			continue
 		}
-		dc, err := config.ParseDiscordChannel(ch, cfg.Server.DataDir)
+		seen[ch.Type] = true
+		reg, ok := channel.Lookup(ch.Type)
+		if !ok {
+			return nil, nil, fmt.Errorf("channel %q: unknown type (known: %s)", ch.Type, strings.Join(channel.Types(), ", "))
+		}
+		start, err := reg.Factory(ch, env)
 		if err != nil {
-			return nil, fmt.Errorf("channel discord: %w", err)
+			return nil, nil, err
 		}
-		token := strings.TrimSpace(os.Getenv(dc.BotTokenEnv))
-		if token == "" {
-			return nil, fmt.Errorf("channel discord: environment variable %q (bot_token_env) is empty", dc.BotTokenEnv)
+		starters = append(starters, namedStarter{name: ch.Type, start: start})
+		if reg.SkipApprovalsForNotifier != "" {
+			skip[reg.SkipApprovalsForNotifier] = true
 		}
-		return &discord.Options{Token: token, AllowedUserIDs: dc.AllowedUserIDs, StateFile: dc.StateFile}, nil
 	}
-	return nil, nil
+	return starters, skip, nil
 }
 
-// notifyConfigs converts the notify list. With a telegram channel running, every telegram
-// notifier gets skip_approvals so approvals reach the owner only through the bot.
-func notifyConfigs(list []config.Notifier, skipApprovals bool) []notify.Config {
+// notifyConfigs converts the notify list. A notifier whose type is in skipApprovals (a channel
+// of that kind is running) gets skip_approvals so approvals reach the owner only through the bot.
+func notifyConfigs(list []config.Notifier, skipApprovals map[string]bool) []notify.Config {
 	out := make([]notify.Config, 0, len(list))
 	for _, n := range list {
 		opts := n.Options
-		if skipApprovals && n.Type == "telegram" {
+		if skipApprovals[n.Type] {
 			opts = make(map[string]any, len(n.Options)+1)
 			for k, v := range n.Options {
 				opts[k] = v

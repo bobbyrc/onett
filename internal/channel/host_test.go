@@ -1,4 +1,4 @@
-package channel
+package channel_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bobbyrc/onett/internal/channel"
 	"github.com/bobbyrc/onett/internal/channel/telegram"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/events"
@@ -82,7 +83,7 @@ func TestBotOverHostCreatesConversationAndStopsOnCancel(t *testing.T) {
 	t.Cleanup(func() { _ = st.Close() })
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ctl := &fakeController{}
-	host := &Host{Controller: ctl, Store: st, Bus: events.NewBus(st, logger)}
+	host := &channel.EngineHost{Controller: ctl, Store: st, Bus: events.NewBus(st, logger)}
 	api := fakeTelegram(t)
 
 	bot, err := telegram.New(telegram.Options{
