@@ -626,3 +626,13 @@ export interface ConfigSaved {
   version: string;
   restart_required: string[];
 }
+
+/** POST /projects. Only name and repo are required; nothing is cloned. */
+export interface NewProjectRequest {
+  name: string;
+  repo: string;
+  path?: string;
+  branch?: string;
+  policy?: string;
+  instructions?: string;
+}

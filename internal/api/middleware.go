@@ -65,10 +65,10 @@ func allowedHostSet(extra []string) map[string]bool {
 
 // hostGuard rejects requests whose Host name is not in allowed, which stops DNS rebinding: a
 // page on another site cannot reach the API by pointing its own name at 127.0.0.1.
-func hostGuard(allowed map[string]bool) func(http.Handler) http.Handler {
+func hostGuard(allowed func() map[string]bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !allowed[hostOnly(r.Host)] {
+			if !allowed()[hostOnly(r.Host)] {
 				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				w.WriteHeader(http.StatusMisdirectedRequest)
 				_, _ = fmt.Fprintln(w, "misdirected request: host not allowed")

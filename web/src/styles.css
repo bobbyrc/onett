@@ -2556,3 +2556,8 @@ a.board-window:hover .board-name {
     padding-left: 12px;
   }
 }
+
+/* The secret_env field: the name input, with its status and the inline value form beneath. */
+.secret-picker .inline-form {
+  max-width: 420px;
+}

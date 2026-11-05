@@ -235,7 +235,15 @@ function FieldRow({
       {node.help ? <p className="config-field-help">{node.help}</p> : null}
       <div className="config-field-input">
         {node.secret_env && node.type === 'string' ? (
-          <SecretPicker id={id} value={value} invalid={issues.length > 0} onChange={onChange} />
+          <SecretPicker
+            id={id}
+            fieldKey={node.key}
+            help={node.help}
+            type={getAt(ctx.draft, [...path.slice(0, -2), 'type'])}
+            value={value}
+            invalid={issues.length > 0}
+            onChange={onChange}
+          />
         ) : (
           <ScalarInput
             id={id}
@@ -271,7 +279,7 @@ function FieldRow({
       ) : null}
       {node.secret_env ? (
         <p className="muted config-env">
-          The name of the secret (an environment variable or an entry in secrets.env), not its value. Pick one or create it here.
+          This is the name of an environment variable that holds the secret, not the secret itself.
         </p>
       ) : null}
       {envName ? (

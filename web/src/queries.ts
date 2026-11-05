@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import * as api from './api';
 import { ApiError } from './api';
-import type { ConfigChange, NewTask, Role, Run, Stats, TaskDetail } from './types';
+import type { ConfigChange, NewProjectRequest, NewTask, Role, Run, Stats, TaskDetail } from './types';
 import { keys } from './keys';
 import { normaliseProject } from './lib/projects';
 
@@ -301,6 +301,24 @@ export function useSetProjectPaused() {
     mutationFn: (vars: { name: string; pause: boolean }) =>
       vars.pause ? api.pauseProject(vars.name) : api.resumeProject(vars.name),
     onSuccess: () => invalidate(qc, keys.projectsAll, keys.stats),
+  });
+}
+
+/** Adds a project to onett.yaml. The config and project lists are stale afterwards. */
+export function useCreateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: NewProjectRequest) => api.createProject(body),
+    onSuccess: () => invalidate(qc, keys.projectsAll, keys.configAll, keys.stats),
+  });
+}
+
+/** Removes a project from onett.yaml; `force` removes it even with queued or running tasks. */
+export function useDeleteProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { name: string; force: boolean }) => api.deleteProject(vars.name, vars.force),
+    onSuccess: () => invalidate(qc, keys.projectsAll, keys.configAll, keys.stats),
   });
 }
 

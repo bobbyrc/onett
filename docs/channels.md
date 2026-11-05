@@ -36,9 +36,11 @@ You can also set it from the web UI: Config, then Secrets (an owner session is n
 panel only writes: it shows whether a name is set and where it comes from, never the value. It
 writes the same file (mode 0600) and reloads the config.
 
-A change to the file, from the UI or by hand, applies on the next config reload
-(`onett config --reload`), which rebuilds the channels and notifiers. Removing a secret needs a
-restart.
+A save reloads the config, and the reload rebuilds the notifiers and restarts any chat bot whose
+options or token changed (an unchanged bot keeps running). So a new or changed bot token, webhook
+URL or notifier token takes effect at once, with no restart. If the new notifiers or channels
+cannot be built (for example a token variable is unset), the old ones keep running and the save
+answers with an error that says so, without the secret value.
 
 ## Config
 
@@ -67,7 +69,7 @@ an unquoted number can lose digits.
    with the bot token. Save it as `TELEGRAM_BOT_TOKEN` in `secrets.env`.
 2. Find your numeric user ID: message **@userinfobot** and it replies with your ID. Put it in
    `allowed_user_ids`.
-3. Add the `telegram` entry above to `onett.yaml` and restart `onett serve`.
+3. Add the `telegram` entry above to `onett.yaml`; the daemon starts the bot when the config reloads.
 4. Open your new bot in Telegram and send it a message (`/start` works). A bot cannot start a
    chat with you, so it can only send you alerts and approvals after you have written to it once.
 
@@ -93,7 +95,7 @@ channel does not change any notifier.
    add the bot to a server you are in (a small private server is fine). No permissions are needed.
 4. Find your user ID: in Discord, turn on **Settings → Advanced → Developer Mode**, then
    right-click your name and choose **Copy User ID**. Put it, in quotes, in `allowed_user_ids`.
-5. Add the `discord` entry above to `onett.yaml` and restart `onett serve`.
+5. Add the `discord` entry above to `onett.yaml`; the daemon starts the bot when the config reloads.
 6. Direct-message the bot. Approvals work even before you write first: onett opens a DM with each
    allowed user when it has one to send.
 
@@ -105,7 +107,7 @@ ignored; only direct messages count.
 
 - **`channel telegram: environment variable "X" (bot_token_env) is empty`** (or `channel discord:`):
   the variable named in `bot_token_env` is not set. Add it to `~/.config/onett/secrets.env` and
-  restart. Onett refuses to start until it is set.
+  reload. Onett refuses to start, and a reload keeps the old bot, until it is set.
 - **`options.allowed_user_ids: must list at least one ... user ID`**: the allowlist is empty or
   missing. Telegram IDs must be whole numbers; Discord IDs must be digits in quotes.
 - **The bot does not answer.** Check that your ID is in `allowed_user_ids` (a wrong ID is ignored

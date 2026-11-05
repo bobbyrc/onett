@@ -208,8 +208,15 @@ non-zero count links to `/tasks`, filtered by that project and status. Blocked i
 you is yellow. Zero counts are muted and are not links. One muted line follows with the default
 branch, the deployer type (or "no deployer") and the observers (or "no observers"). The last line
 is the loops: "Loops: 5 on, 2 off", where "Loops" links to `/loops`. If any loop's last run
-failed, its name follows in red ("pr_shepherd failing"), and the error shows as a tooltip. The
-sidebar gets **Projects** between Overview and Chat.
+failed, its name follows in red ("pr_shepherd failing"), and the error shows as a tooltip.
+Owners also get an **Add project** button in the page header and, on each sheet, **Edit settings**
+(links to the Config page's Projects section) and **Remove**. Add opens a form: name, repository
+(`owner/name`), local path, default branch, a policy dropdown of the configured policies and an
+instructions box. Empty optional fields keep their defaults. Onett does not clone the repository:
+the clone must already be at the path (default `<data_dir>/repos/<name>`). Problems the server
+finds show under the form. Remove asks first, naming the project; when the project has queued or
+running tasks the question says so and the removal is forced. It only edits `onett.yaml`; no file
+on disk is deleted. Other roles see neither control. The sidebar gets **Projects** between Overview and Chat.
 
 **Chat** (`/chat`, `/chat/:id`, `/chat/task/:taskId`) — talk to the orchestrator or to any task
 agent, and read what an agent did as it works. With no conversation open, a centred block 640px
@@ -374,9 +381,11 @@ Remove (Remove asks first), and a form at the end to add one. `/config?section=p
 opens that section and scrolls to the `onett` card, which gets an `--info` outline. A list has a row or a card per item,
 with Remove, and an Add button. A setting with fixed choices, such as a notifier's `type`, is a
 dropdown. The `options` of a notifier, channel, deploy block or observer show the fields of the
-selected `type`. A setting that names a secret (such as a token's `*_env`) is a dropdown of the
-known secret names with "Create a new secret…", which asks for a name and a value, saves it to
-`secrets.env` and selects it; the value is never shown again. Changing `type` keeps the options the new type also has and asks before dropping the rest;
+selected `type`. A setting that names an environment variable for a secret is a picker: a box that
+suggests the known names (marked set or not set), accepts a new name written in capitals, and offers
+a suggested name when empty (such as `TELEGRAM_BOT_TOKEN`). Beside it, Set value (or Replace) stores
+the secret through the Secrets API, with the same write-only rules. That is separate from the config
+edit: the name still needs the Save bar. Changing `type` keeps the options the new type also has and asks before dropping the rest;
 with no `type`, or one this onett does not know, `options` is edited as JSON. Any other value with no
 simple form is edited as JSON. Edits stay on the
 page until saved: a bar at the bottom says how many there are, with Save and Discard. A save writes
@@ -388,5 +397,5 @@ and checks, and switching tabs with unsaved edits asks first. The **Secrets** ta
 `secrets.env` and is write-only: each name shows set or not set, where the value comes from
 (`secrets.env` or the daemon's own environment, which wins and is marked "shadowed") and which
 config paths use it. Set and Replace take the value in a password field that is cleared after
-saving; Delete asks to confirm; no value is ever shown. Channel and notifier secrets still need a
-restart to take effect. "Reload from file" makes the daemon read the file again.
+saving; Delete asks to confirm; no value is ever shown. A saved secret applies at once, including
+to chat bots and notifiers. "Reload from file" makes the daemon read the file again.
