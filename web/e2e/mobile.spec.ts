@@ -186,5 +186,22 @@ for (const vp of VIEWPORTS) {
       const side = await page.locator('#sidebar').boundingBox();
       expect(side?.y).toBeCloseTo(103, 0);
     });
+
+    // Same trick for the home indicator: the chat composer is sticky to the bottom edge, so on a
+    // notched iPhone its lower ~34px sits under the indicator. --composer-inset stands in for
+    // env(safe-area-inset-bottom), which Chromium reports as 0.
+    test('chat composer clears a 34px home indicator', async ({ page }) => {
+      await open(page, `/chat/${CONV_ID}`);
+      await page.addStyleTag({ content: ':root { --composer-inset: 34px !important; }' });
+      await page.evaluate(() => {
+        window.scrollTo(0, 0);
+        const main = document.querySelector('main.main') as HTMLElement;
+        main.scrollTop = 0;
+      });
+      const box = await page.locator('.chat-page .composer').boundingBox();
+      const vh = page.viewportSize()!.height;
+      expect(box, 'composer is rendered').not.toBeNull();
+      expect(vh - (box!.y + box!.height), `composer bottom is ${box!.y + box!.height}px in a ${vh}px viewport`).toBeGreaterThanOrEqual(33.5);
+    });
   });
 }

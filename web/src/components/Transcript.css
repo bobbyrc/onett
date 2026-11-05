@@ -175,6 +175,7 @@
   overflow-wrap: anywhere;
   color: var(--muted);
   max-height: 50vh;
+  max-height: 50dvh;
   overflow: auto;
 }
 

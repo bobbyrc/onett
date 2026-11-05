@@ -1555,6 +1555,7 @@ a.board-window:hover .board-name {
 .composer textarea {
   flex: 1;
   max-height: 40vh;
+  max-height: 40dvh;
   resize: none;
   overflow-y: auto;
 }
@@ -1579,6 +1580,7 @@ a.board-window:hover .board-name {
   flex: 1;
   min-height: 300px;
   max-height: 70vh;
+  max-height: 70dvh;
   overflow: auto;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -1658,6 +1660,7 @@ a.board-window:hover .board-name {
   padding: 16px;
   overflow: auto;
   max-height: 70vh;
+  max-height: 70dvh;
   margin: 0;
 }
 
@@ -2487,6 +2490,7 @@ a.board-window:hover .board-name {
   display: block;
   width: 100%;
   min-height: 60vh;
+  min-height: 60dvh;
   padding: 10px 12px;
   font-family: var(--mono);
   font-size: 13px;
