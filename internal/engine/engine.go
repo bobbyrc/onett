@@ -63,6 +63,8 @@ type Deps struct {
 	// StartUpdater starts the self-update command and returns its PID and a function that waits
 	// for it. Default: cmd.Start and cmd.Wait. Tests replace it.
 	StartUpdater func(cmd *exec.Cmd) (pid int, wait func() error, err error)
+	// Heartbeat is woken by the heartbeat loop when its digest has a new item. Default: log it.
+	Heartbeat HeartbeatWaker
 	// Now defaults to time.Now.
 	Now func() time.Time
 	// SchedulerTick is how often the scheduler looks for work without being woken (default 5s).
@@ -177,6 +179,9 @@ func New(d Deps) (*Engine, error) {
 	}
 	if d.Notifier == nil {
 		d.Notifier = noopNotifier{}
+	}
+	if d.Heartbeat == nil {
+		d.Heartbeat = logHeartbeatWaker{d.Logger}
 	}
 	if d.Now == nil {
 		d.Now = time.Now

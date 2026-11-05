@@ -196,6 +196,11 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `projects.*.loops.goals` | section | yes |  |
 | `projects.*.loops.goals.enabled` | bool | yes |  |
 | `projects.*.loops.goals.every` | duration | yes |  |
+| `projects.*.loops.heartbeat` | section | yes |  |
+| `projects.*.loops.heartbeat.enabled` | bool | yes |  |
+| `projects.*.loops.heartbeat.every` | duration | yes |  |
+| `projects.*.loops.heartbeat.quiet_hours` | string | yes |  |
+| `projects.*.loops.heartbeat.stale_queued` | duration | yes |  |
 | `projects.*.loops.friction` | section | yes |  |
 | `projects.*.loops.friction.enabled` | bool | yes |  |
 | `projects.*.loops.friction.every` | duration | yes |  |
@@ -235,6 +240,11 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `loops.goals` | section | yes |  |
 | `loops.goals.enabled` | bool | yes |  |
 | `loops.goals.every` | duration | yes |  |
+| `loops.heartbeat` | section | yes |  |
+| `loops.heartbeat.enabled` | bool | yes |  |
+| `loops.heartbeat.every` | duration | yes |  |
+| `loops.heartbeat.quiet_hours` | string | yes |  |
+| `loops.heartbeat.stale_queued` | duration | yes |  |
 | `loops.friction` | section | yes |  |
 | `loops.friction.enabled` | bool | yes |  |
 | `loops.friction.every` | duration | yes |  |

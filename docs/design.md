@@ -432,6 +432,27 @@ Goals add no new way to act: the orchestrator still only queues tasks, and merge
 the project's policy (the owner only under `supervised`). `loops.goals.enabled: false` turns the
 loop off.
 
+### Heartbeat
+
+The `heartbeat` loop (`loops.heartbeat`, default every 15m, per-project `enabled`) is the sweep for
+work nobody is looking at. Each tick, per project, code builds an attention digest from the store
+(`internal/engine/heartbeat.go`): blocked and failed tasks, blocked goals, runs that stalled, were
+denied, failed or timed out since the last digest, queued tasks waiting on a task that is blocked,
+failed, cancelled or already landed, tasks queued longer than `stale_queued` (default 4h), loops
+whose last run failed, failed or rolled-back deploys, self-update failures, a failing preflight,
+pending approvals, and agent results that say they need a human (matched conservatively by
+`resultNeedsHuman`). Each item has a stable key (kind, entity id, a fingerprint of the reason).
+The loop keeps the keys it has reported, with their first-seen times, in its `LoopState.Cursor`, so a
+restart does not repeat them. When the digest holds a key that is not stored, the loop calls
+`HeartbeatWaker.WakeHeartbeat`; otherwise nothing runs and no model is called. If the call fails, the
+keys are not stored and the next tick tries again. `quiet_hours` (`"22:00-07:00"`, daemon local time,
+may wrap midnight) skips the tick; what happened meanwhile is in the first digest after it. The
+loop records `next_run_at` and `item_count` in its `LoopState`. The waker is a log-only stub for now;
+the orchestrator conversation that receives the digest is a later change. The digest quotes agent-written
+text, so whatever hands it to an agent must label it data, not instructions.
+Not covered yet: a failed self-update is found from its system event, so it shows only while that
+event is in the project's recent events.
+
 ### Messaging a task's agent
 
 The owner can also message the agent working on a task (`POST /tasks/{id}/messages`). The

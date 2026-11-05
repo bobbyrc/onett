@@ -476,6 +476,12 @@ func applyLoopDefaults(c *Config) {
 	if l.Goals.Every.Duration == 0 {
 		l.Goals.Every.Duration = time.Minute
 	}
+	if l.Heartbeat.Every.Duration == 0 {
+		l.Heartbeat.Every.Duration = 15 * time.Minute
+	}
+	if l.Heartbeat.StaleQueued.Duration == 0 {
+		l.Heartbeat.StaleQueued.Duration = 4 * time.Hour
+	}
 }
 
 // expandHome replaces a leading "~" with the user's home directory. If the home directory is
