@@ -2089,6 +2089,19 @@ a.board-window:hover .board-name {
     overflow-wrap: anywhere;
   }
 
+  /* A cell with nothing to show (a goal with no controls left) would be a bare label. */
+  .table td:empty {
+    display: none;
+  }
+
+  /* A cell of several lines (a title over its meta line) must stack and take the card's width,
+     not sit beside its sibling in the flex row above. */
+  .cell-stack {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+  }
+
   .table td:first-child {
     display: block;
     padding-bottom: 6px;
@@ -2579,8 +2592,8 @@ a.board-window:hover .board-name {
   .config-nav {
     position: static;
     flex-direction: row;
+    flex-wrap: wrap;
     gap: 8px;
-    overflow-x: auto;
     border-top: 0;
     padding-bottom: 4px;
   }

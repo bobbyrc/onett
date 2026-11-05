@@ -462,3 +462,29 @@ and checks, and switching tabs with unsaved edits asks first. The **Secrets** ta
 config paths use it. Set and Replace take the value in a password field that is cleared after
 saving; Delete asks to confirm; no value is ever shown. A saved secret applies at once, including
 to chat bots and notifiers. "Reload from file" makes the daemon read the file again.
+
+## Screenshots for UI PRs
+
+Every chat UI PR shows before and after screenshots. One command takes them, one script
+publishes them:
+
+```sh
+cd web && npm run shots:chat && cd ..    # on the base commit
+scripts/pr-shots.sh before
+cd web && npm run shots:chat && cd ..    # on the PR head
+scripts/pr-shots.sh after
+```
+
+`npm run shots:chat` builds the UI and runs `web/e2e/chat-shots.spec.ts` against `vite preview`
+with the same in-browser mock as the mobile check, so no daemon is needed. It captures four
+scenes (`chat-thread`, `chat-running`, `task-thread`, `chat-empty`) in four variants each
+(desktop 1280x800 and iPhone 390x844, light and dark): 16 PNGs in
+`web/e2e-results/chat-shots/<scene>-<variant>.png`. The clock is frozen and animations are off, so
+two runs of the same code give the same pixels. It is not part of `npm run test:mobile`.
+
+`scripts/pr-shots.sh <label>` copies those PNGs to a branch `pr-assets/<current-branch>/<label>`
+(an orphan branch, created on first use) in a temporary git worktree, pushes it, and prints a
+Markdown table with permanent `raw.githubusercontent.com/<repo>/<commit-sha>/...` image links.
+Paste the `before` and `after` tables into the PR description. Your own branch and working tree
+are not touched, and the worktree is removed when the script exits. Never merge a `pr-assets`
+branch.
