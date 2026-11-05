@@ -611,8 +611,8 @@ paths:
         task with its own branch). While a run is live, the queue waits for that run to succeed;
         it is never sent after a run that was cancelled, denied, stalled, timed out or failed,
         only by another send or by the flush route. 409 carries the `reason` the agent cannot
-        be messaged (see `can_send` on the conversation). A signed-in person only; the API token
-        gets 403.
+        be messaged (see `can_send` on the conversation). A signed-in person or the API token may
+        send; the token's message is stored with `author: orchestrator`.
       parameters:
         - $ref: '#/components/parameters/TaskId'
       requestBody:
@@ -3215,6 +3215,9 @@ components:
         kind:
           type: string
           description: "`internal` on a prompt onett wrote to the orchestrator itself (follow-up or goal check-in); clients hide it. Omitted otherwise."
+        author:
+          type: string
+          description: "`orchestrator` on a message the API token sent to a task agent. Omitted on the owner's own messages."
         created_at:
           type: string
           format: date-time

@@ -183,6 +183,14 @@ role that uses it until the reset time plus a minute. With no reset time the hol
 resumes by itself when the hold ends. Holds are saved as loop state, so a restart keeps them. `onett status` lists each hold. An orchestrator chat turn on a held harness is
 not queued: the chat is told the limit and when it lifts.
 
+#### Pre-approved `onett` calls for the orchestrator
+
+Claude Code's auto permission mode runs a classifier over risky tool calls, and it once refused
+the orchestrator's `onett task cancel`. Orchestrator runs (chat and goal turns) therefore start
+with `--allowedTools "Bash(onett:*)"`, an allow rule for the `onett` command and nothing else.
+Other roles get no such rule. Repeated `--allowedTools` flags add up, so an owner's own
+`--allowedTools` in a harness's `args` is kept next to it rather than replacing it.
+
 #### The owner's Claude setup and the prompt cache (`harnesses.<name>.isolate`, off by default)
 
 Claude Code's prompt cache works on a prefix: the tool list, the system prompt, then the

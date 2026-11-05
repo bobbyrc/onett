@@ -38,20 +38,21 @@ func testRequest(method, target string, body io.Reader) *http.Request {
 
 // fakeCtl is a Controller that records calls. errs maps a method name to the error it returns.
 type fakeCtl struct {
-	mu          sync.Mutex
-	cfg         *config.Config
-	paused      bool
-	pause       *domain.PauseInfo
-	errs        map[string]error
-	calls       []string
-	created     domain.Task
-	loops       []LoopView
-	decided     string
-	loopRun     string
-	chatConvID  string
-	chatText    string
-	chatAtts    []string
-	reloadCalls int
+	mu            sync.Mutex
+	cfg           *config.Config
+	paused        bool
+	pause         *domain.PauseInfo
+	errs          map[string]error
+	calls         []string
+	created       domain.Task
+	loops         []LoopView
+	decided       string
+	loopRun       string
+	chatConvID    string
+	chatText      string
+	taskMsgAuthor string
+	chatAtts      []string
+	reloadCalls   int
 	// projectPaused maps a project to its runtime pause owner ("owner") when set.
 	projectPaused map[string]string
 }

@@ -26,7 +26,7 @@ func TestRetryAfterCancelDoesNotResumeOrDeliver(t *testing.T) {
 
 	// Pause so the follow-up the message sets up does not start before the owner cancels.
 	require.NoError(t, env.e.SetPaused(env.ctx, true))
-	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "carry on")
+	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "carry on", "")
 	require.NoError(t, err)
 	got := env.task(task.ID)
 	require.Equal(t, domain.TaskQueued, got.Status)
@@ -52,7 +52,7 @@ func TestFirstRunSkipsClosedConversationQueue(t *testing.T) {
 	env, rec, _, _ := fuEnv(t)
 	require.NoError(t, env.e.SetPaused(env.ctx, true))
 	task := env.create(domain.Task{Body: "[fake:block]"})
-	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "early note")
+	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "early note", "")
 	require.NoError(t, err)
 	require.NoError(t, env.e.CloseTaskConversation(env.ctx, task.ID, "owner:alice", "done talking"))
 	require.NoError(t, env.e.SetPaused(env.ctx, false))
@@ -79,7 +79,7 @@ func TestFailedFollowUpBlocksAndRestoresMessages(t *testing.T) {
 	env.waitStatus(task.ID, domain.TaskBlocked)
 	fuWaitRuns(t, env, task.ID, 1)
 
-	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "now do it [fake:fail]")
+	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "now do it [fake:fail]", "")
 	require.NoError(t, err)
 	fuWaitRuns(t, env, task.ID, 2)
 	got := env.waitStatus(task.ID, domain.TaskBlocked)
