@@ -2845,6 +2845,20 @@ components:
           type: string
         error:
           type: string
+        stream_offset:
+          type: integer
+          format: int64
+          description: For a run behind a shim (limits.run_shim), the byte offset in the shim's stdout log up to which lines are stored in the run's log. Lets a restarted onett reattach.
+        deadline_at:
+          type: string
+          format: date-time
+          description: When the run times out (started_at + limits.run_timeout). Kept absolute so a restart does not extend it.
+        start_sha:
+          type: string
+          description: The workspace's HEAD when the agent started.
+        remote_sha:
+          type: string
+          description: origin/<branch> when the agent started; empty when the branch was not on origin.
 
     LogLine:
       type: object

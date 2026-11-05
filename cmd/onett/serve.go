@@ -355,7 +355,7 @@ func harnessWithShim(name string, h config.Harness, cfg *config.Config, exe stri
 		Name: name, Type: h.Type, Command: h.Command, Args: h.Args, Env: h.Env,
 		InheritEnv: h.InheritEnv, Billing: h.Billing,
 	}
-	if cfg != nil && cfg.Limits.RunShim {
+	if cfg != nil && cfg.Limits.RunShimOn() {
 		hc.Shim = &harness.ShimOptions{
 			DataDir: cfg.Server.DataDir,
 			// The shim needs none of onett's environment; the agent's own comes in its spec.

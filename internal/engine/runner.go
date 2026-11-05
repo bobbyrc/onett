@@ -63,8 +63,11 @@ func (e *Engine) startTask(ctx context.Context, t domain.Task) {
 	}
 	t.Branch = branch
 
-	runCtx, cancel := context.WithTimeout(ctx, cfg.Limits.RunTimeout.Duration)
+	// The run's context does not end with ctx: at shutdown cancelAllRuns ends each run itself, so
+	// that supervise can tell a shutdown (let the agent go on) from a cancel (kill it).
+	runCtx, cancel := context.WithTimeout(bg, cfg.Limits.RunTimeout.Duration)
 	now := e.d.Now().UTC()
+	deadline := now.Add(cfg.Limits.RunTimeout.Duration)
 	run, err := e.d.Store.CreateRun(bg, domain.Run{
 		TaskID:       t.ID,
 		Project:      t.Project,
@@ -75,6 +78,7 @@ func (e *Engine) startTask(ctx context.Context, t domain.Task) {
 		Branch:       branch,
 		StartedAt:    now,
 		LastOutputAt: now,
+		DeadlineAt:   &deadline,
 	})
 	if err != nil {
 		cancel()
@@ -131,48 +135,93 @@ func (e *Engine) stillRunning(ctx context.Context, id string) bool {
 	return t.Status == domain.TaskRunning
 }
 
+// taskRun is what finishing a task's run needs. runTask builds it as it prepares the run, and
+// reattachTask rebuilds it from the stored run when onett restarted while the agent kept going.
+type taskRun struct {
+	t      domain.Task
+	run    domain.Run
+	ar     *activeRun
+	p      *config.Project
+	agent  config.Agent
+	parent *domain.Task
+	repo   workspace.Repo
+	ws     workspace.Workspace
+	cmdEnv []string
+	// setupOwed is set when setup did not pass before the agent started; it is run again after
+	// the agent's turn.
+	setupOwed bool
+	// root is the task whose conversation takes the owner's queued messages.
+	root domain.Task
+	// fail ends an attempt that went wrong: it re-queues the task, or blocks it when attempts are
+	// spent. Once this run has taken the owner's queued messages it is replaced by a version that
+	// blocks instead, so a failed follow-up is not retried behind the owner's back.
+	fail failFunc
+	// cancelled is set when someone else owns the task's state from here on.
+	cancelled bool
+}
+
+// guard is deferred by every run of a task: a run that ends without an outcome is a bug, and the
+// task must not be left running.
+func (e *Engine) guard(bg context.Context, st *taskRun) {
+	if st.cancelled {
+		return
+	}
+	cur, err := e.d.Store.GetTask(bg, st.t.ID)
+	if err == nil && cur.Status == domain.TaskRunning {
+		st.fail(bg, st.t.ID, "internal error: run ended without an outcome", "")
+	}
+}
+
+// runStopped handles a run that was cancelled, or ran out of time, before its agent started.
+// That is the run's outcome, not a setup failure, so it is never re-queued. It reports
+// whether it handled the run; the caller then returns.
+func (e *Engine) runStopped(ctx context.Context, st *taskRun) bool {
+	bg := context.WithoutCancel(ctx)
+	if reason := reasonOf(st.ar); reason != "" {
+		e.finishRun(bg, st.run.ID, domain.RunCancelled, reason)
+		st.cancelled = true
+		return true
+	}
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		msg := fmt.Sprintf("timed out after %s", e.Config().Limits.RunTimeout.Duration)
+		e.finishRun(bg, st.run.ID, domain.RunTimedOut, msg)
+		e.blockTask(bg, st.t.ID, msg)
+		return true
+	}
+	return false
+}
+
+// taskEnv is the environment of a task's agent and of its setup and checks.
+func (e *Engine) taskEnv(t domain.Task, run domain.Run, p *config.Project, ws workspace.Workspace) map[string]string {
+	env := map[string]string{}
+	for k, v := range e.d.AgentEnv {
+		env[k] = v
+	}
+	for k, v := range p.Env {
+		env[k] = v
+	}
+	env["ONETT_RUN_ID"] = run.ID
+	env["ONETT_TASK_ID"] = t.ID
+	env["ONETT_PROJECT"] = t.Project
+	env["ONETT_ROLE"] = t.Role
+	env["ONETT_OUTBOX"] = filepath.Join(ws.Dir, domain.OutboxDir)
+	env["ONETT_BASE_REF"] = ws.BaseRef
+	return env
+}
+
 // runTask runs one agent session for a task and applies its outcome. The task's state is
 // written with a context that survives cancellation, so a cancelled or timed-out run still
 // records what happened; ctx governs only the agent and the git work.
 func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar *activeRun,
 	p *config.Project, h harness.Harness, agent config.Agent, parent *domain.Task) {
 	bg := context.WithoutCancel(ctx)
-	// Deferred calls run last in, first out, so this sweep runs after the defer below and after
+	st := &taskRun{t: t, run: run, ar: ar, p: p, agent: agent, parent: parent, fail: e.requeueOrBlock}
+	// Deferred calls run last in, first out, so this sweep runs after the guard below and after
 	// every outcome path has recorded the run's end. Every exit path therefore sweeps. The run
 	// itself is still registered as live, so the sweep never removes its own worktree.
 	defer e.sweepWorktrees(bg, p)
-	cancelled := false
-	// fail ends an attempt that went wrong: it re-queues the task, or blocks it when attempts are
-	// spent. Once this run has taken the owner's queued messages it is replaced (below) by a
-	// version that blocks instead, so a failed follow-up is not retried behind the owner's back.
-	var fail failFunc = e.requeueOrBlock
-	defer func() {
-		if cancelled {
-			return
-		}
-		cur, err := e.d.Store.GetTask(bg, t.ID)
-		if err == nil && cur.Status == domain.TaskRunning {
-			fail(bg, t.ID, "internal error: run ended without an outcome", "")
-		}
-	}()
-
-	// stopped handles a run that was cancelled, or ran out of time, before its agent started.
-	// That is the run's outcome, not a setup failure, so it is never re-queued. It reports
-	// whether it handled the run; the caller then returns.
-	stopped := func() bool {
-		if reason := reasonOf(ar); reason != "" {
-			e.finishRun(bg, run.ID, domain.RunCancelled, reason)
-			cancelled = true
-			return true
-		}
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			msg := fmt.Sprintf("timed out after %s", e.Config().Limits.RunTimeout.Duration)
-			e.finishRun(bg, run.ID, domain.RunTimedOut, msg)
-			e.blockTask(bg, t.ID, msg)
-			return true
-		}
-		return false
-	}
+	defer e.guard(bg, st)
+	stopped := func() bool { return e.runStopped(ctx, st) }
 
 	repo := e.repoFor(p)
 	ws, err := e.d.Workspaces.Prepare(ctx, repo, t.Branch, run.ID)
@@ -202,10 +251,12 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 	_ = os.Remove(filepath.Join(ws.Dir, domain.OutboxDir, domain.ResultFile)) // no stale report
 	if r, err := e.updateRun(bg, run.ID, func(r *domain.Run) error {
 		r.Workdir, r.Branch = ws.Dir, ws.Branch
+		r.StartSHA, r.RemoteSHA = ws.StartSHA, ws.RemoteSHA
 		return nil
 	}); err == nil {
 		run = r
 	}
+	st.repo, st.ws, st.run = repo, ws, run
 
 	instructions, err := e.buildInstructions(agent, p)
 	if err != nil {
@@ -214,32 +265,21 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 		return
 	}
 
-	env := map[string]string{}
-	for k, v := range e.d.AgentEnv {
-		env[k] = v
-	}
-	for k, v := range p.Env {
-		env[k] = v
-	}
-	env["ONETT_RUN_ID"] = run.ID
-	env["ONETT_TASK_ID"] = t.ID
-	env["ONETT_PROJECT"] = t.Project
-	env["ONETT_ROLE"] = t.Role
-	env["ONETT_OUTBOX"] = filepath.Join(ws.Dir, domain.OutboxDir)
-	env["ONETT_BASE_REF"] = ws.BaseRef
+	env := e.taskEnv(t, run, p, ws)
 	// Setup and checks run with the agent's environment, not onett's: they execute code the
 	// agent may have written, so onett's tokens (GH_TOKEN and the like) must not reach them.
 	cmdEnv := sysproc.AgentEnv(e.Config().Harness[agent.Harness].InheritEnv, env)
+	st.cmdEnv = cmdEnv
 
 	// setupNote tells the agent about setup it has to deal with itself. setupOwed is set when
 	// setup did not pass before the agent started; it is run again after the agent's turn.
-	setupNote, setupOwed := "", false
+	setupNote := ""
 	switch {
 	case len(p.Setup) == 0:
 	case len(conflicts) > 0:
 		// Setup would run on a tree with conflict markers (npm ci fails to parse a conflicted
 		// package.json), and that is the agent's to fix first. It runs setup itself afterwards.
-		setupOwed = true
+		st.setupOwed = true
 		setupNote = setupDeferredSection(p.Setup)
 	default:
 		if f := runCommands(ctx, p.Setup, ws.Dir, cmdEnv); f != nil {
@@ -264,7 +304,7 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 			}
 			// The same command would fail the same way on this tree, so a retry is pointless.
 			// The agent can change the tree: hand it the failure as the first thing to fix.
-			setupOwed = true
+			st.setupOwed = true
 			setupNote = setupFailedSection(f)
 		}
 	}
@@ -274,6 +314,7 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 	prompt := buildTaskPrompt(t, p, parent, conflicts) + setupNote
 	resumeID := ""
 	root, claimed := e.claimOwnerMessages(bg, t)
+	st.root = root
 	if t.FollowUpPending {
 		e.setTask(bg, t.ID, "follow-up started", func(x *domain.Task) error {
 			x.FollowUpPending = false
@@ -281,7 +322,7 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 		})
 	}
 	if len(claimed) > 0 {
-		fail = e.failFollowUp(claimed)
+		st.fail = e.failFollowUp(claimed)
 		texts, _ := messageTexts(claimed)
 		if prev, ok := e.resumeSession(bg, root); ok {
 			prompt = ownerPrompt(texts) + "\n\n" + mergeConflictSection(p, conflicts) + setupNote
@@ -292,7 +333,14 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 		}
 	}
 
-	sess, err := h.Start(ctx, harness.Spec{
+	// A harness that can reattach is started without the run's cancellation: supervise ends the
+	// session when ctx is done, and at shutdown it detaches instead, which the harness's own
+	// cancel-on-ctx would pre-empt.
+	startCtx := ctx
+	if _, ok := h.(harness.Reattacher); ok {
+		startCtx = context.WithoutCancel(ctx)
+	}
+	sess, err := h.Start(startCtx, harness.Spec{
 		RunID:           run.ID,
 		Workdir:         ws.Dir,
 		Prompt:          prompt,
@@ -323,10 +371,26 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 	}
 
 	res, status, reason := e.supervise(ctx, run, sess, ar, nil)
+	if status == domain.RunRunning {
+		// onett is shutting down and the agent keeps running behind its shim; the run is still
+		// running and the next start reattaches to it.
+		st.cancelled = true
+		return
+	}
+	e.settleTask(ctx, st, res, status, reason)
+}
+
+// settleTask applies the outcome of a task's finished agent run: the run's end state, the
+// agent's report, the project's checks, the commit and the pull request.
+func (e *Engine) settleTask(ctx context.Context, st *taskRun, res harness.Result, status domain.RunStatus, reason string) {
+	bg := context.WithoutCancel(ctx)
+	t, run, ar, p, agent, parent := st.t, st.run, st.ar, st.p, st.agent, st.parent
+	ws, repo, cmdEnv, root, fail := st.ws, st.repo, st.cmdEnv, st.root, st.fail
+	stopped := func() bool { return e.runStopped(ctx, st) }
 	if res.RateLimit != nil && status == domain.RunCancelled {
 		// The harness's limit stopped this run: hold the harness and queue the task again
 		// without using up an attempt. Nothing was published, so nothing is lost but the run.
-		cancelled = true
+		st.cancelled = true
 		e.requeueHeld(bg, t.ID, e.noteRateLimit(bg, agent.Harness, *res.RateLimit))
 		return
 	}
@@ -349,7 +413,7 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 		e.blockTask(bg, t.ID, reason)
 		return
 	case domain.RunCancelled:
-		cancelled = true // the canceller owns the task state
+		st.cancelled = true // the canceller owns the task state
 		return
 	}
 
@@ -395,7 +459,7 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 
 	// Setup the agent was asked to fix or run must pass now. If it still fails after the agent's
 	// turn, the task is blocked with the real error, not retried.
-	if setupOwed {
+	if st.setupOwed {
 		if f := runCommands(ctx, p.Setup, ws.Dir, cmdEnv); f != nil {
 			if ctx.Err() != nil {
 				stopped()

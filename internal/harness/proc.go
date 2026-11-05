@@ -93,6 +93,10 @@ type Proc struct {
 
 	tailMu sync.Mutex
 	tail   []string
+
+	// detach lets go of a shim's agent without stopping it; nil for a direct child.
+	detach   func()
+	detached atomic.Bool
 }
 
 var _ Session = (*Proc)(nil)
@@ -295,6 +299,9 @@ func (p *Proc) Events() <-chan Event {
 func (p *Proc) Wait() (Result, error) {
 	p.readers.Wait()
 	<-p.exited
+	if p.detached.Load() {
+		return Result{}, ErrDetached
+	}
 	p.finish.Do(func() {
 		if p.onExit != nil {
 			p.result, p.resultErr = p.onExit(p.exitCode, p.waitErr)
@@ -305,6 +312,20 @@ func (p *Proc) Wait() (Result, error) {
 	})
 	return p.result, p.resultErr
 }
+
+// Detach lets go of an agent that runs behind a run shim without stopping it; see Detacher.
+// It returns false and does nothing for a direct child, which cannot outlive onett. Otherwise
+// Events closes and Wait returns ErrDetached.
+func (p *Proc) Detach() bool {
+	if p.detach == nil {
+		return false
+	}
+	p.detached.Store(true)
+	p.detach()
+	return true
+}
+
+var _ Detacher = (*Proc)(nil)
 
 // Cancel asks the process group to stop: SIGTERM now, SIGKILL after a 10 second grace period
 // if anything in the group is still running. It returns immediately and is idempotent.

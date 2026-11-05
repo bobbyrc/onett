@@ -45,9 +45,35 @@ type runner struct {
 
 // Start runs one codex exec session, or resumes one. The prompt is written to stdin.
 func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session, error) {
+	ps, proc := r.procSpec(spec)
+	p, err := harness.StartProcess(ctx, ps)
+	if err != nil {
+		return nil, err
+	}
+	*proc = p
+	return p, nil
+}
+
+// Reattach resumes the session that Start began for spec, if its shim is still running.
+func (r *runner) Reattach(ctx context.Context, spec harness.Spec, from int64) (harness.Session, error) {
+	ps, proc := r.procSpec(spec)
+	p, err := harness.ReattachProcess(ctx, ps, from)
+	if err != nil {
+		return nil, err
+	}
+	*proc = p
+	return p, nil
+}
+
+var _ harness.Reattacher = (*runner)(nil)
+
+// procSpec builds the process spec for spec, with a new parser, so a spec serves one process or
+// reattachment only. OnExit reads the Proc through the returned pointer, which the caller sets
+// before Wait can run.
+func (r *runner) procSpec(spec harness.Spec) (harness.ProcSpec, **harness.Proc) {
 	ps := newParser()
-	var proc *harness.Proc
-	p, err := harness.StartProcess(ctx, harness.ProcSpec{
+	proc := new(*harness.Proc)
+	return harness.ProcSpec{
 		Command:    buildArgs(r.cfg, spec),
 		Dir:        spec.Workdir,
 		Env:        mergeEnv(r.cfg.Env, spec.Env),
@@ -56,22 +82,16 @@ func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session,
 		Shim:       r.cfg.Shim,
 		Stdin:      stdinText(spec),
 		ParseLine:  ps.parseLine,
-		// proc is assigned before StartProcess returns, and OnExit only runs from Wait.
 		OnExit: func(exitCode int, _ error) (harness.Result, error) {
 			var tail []string
-			if proc != nil {
-				tail = proc.StderrTail()
+			if *proc != nil {
+				tail = (*proc).StderrTail()
 			}
 			res := ps.result(exitCode, tail)
 			res.Billing = r.billing(spec)
 			return res, nil
 		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	proc = p
-	return p, nil
+	}, proc
 }
 
 // stdinText is the prompt as codex receives it: instructions first, when there are any.

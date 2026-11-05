@@ -179,6 +179,9 @@ func (l Loops) FrictionAutoFile() bool {
 	return l.Friction.AutoFile == nil || *l.Friction.AutoFile
 }
 
+// RunShimOn reports whether agents run behind a per-run shim: true unless run_shim is false.
+func (l Limits) RunShimOn() bool { return l.RunShim == nil || *l.RunShim }
+
 // RetroOn reports whether the retro loop runs for project. An explicit enabled setting wins.
 // Unset, it runs only for selfProject, because a retrospective spends agent time.
 func (l Loops) RetroOn(project, selfProject string) bool {

@@ -183,9 +183,9 @@ role that uses it until the reset time plus a minute. With no reset time the hol
 resumes by itself when the hold ends. Holds are saved as loop state, so a restart keeps them. `onett status` lists each hold. An orchestrator chat turn on a held harness is
 not queued: the chat is told the limit and when it lifts.
 
-#### Run shim (`limits.run_shim`, off by default)
+#### Run shim (`limits.run_shim`, on by default)
 
-Step one of letting the daemon restart without killing running agents. With `run_shim: true`,
+Lets the daemon restart without killing running agents. Unless `run_shim: false`,
 each agent CLI is started by `onett run-shim` (the same binary, hidden from `onett help`), a
 small process in its own session that owns the agent and its pipes. The shim keeps draining the
 agent's stdout into `<data_dir>/runs/<run_id>/stream.log` whether or not the daemon is connected,
@@ -195,8 +195,24 @@ pids, timestamps, exit code, stderr tail). The daemon talks to it over a Unix so
 a versioned JSON-lines protocol: `hello`, `replay` (from a byte offset, then live), `write_stdin`,
 `close_stdin`, `signal` (SIGTERM or SIGKILL to the agent's process group), `status` and `ack`. The
 shim exits when the agent has exited and the daemon acked the last offset, or 24 hours after the
-agent exits. Through the harness the session looks the same as a direct child. The daemon does
-not yet reattach to a shim after a restart; that is the next step. See `internal/runshim`.
+agent exits. Through the harness the session looks the same as a direct child. See
+`internal/runshim`.
+
+**Reattaching after a restart.** At shutdown the daemon lets go of a task run's agent instead of
+killing it (`Detacher`), and leaves the run and its task `running`. The run stores what a new
+daemon needs: `stream_offset` (where in the shim's log to read next, saved after every flush of
+the run log, so a line is never skipped and a hard stop repeats at most one batch), `last_output_at`,
+`deadline_at` (started + `run_timeout`, absolute) and the workspace's `start_sha` and `remote_sha`.
+On start, `recover` looks at each run still `running`: if its shim is alive (`status.json`, then a
+dial) it replays the agent's output through the harness's parser, drops the events before the
+stored offset, and supervises the run again with the stall clock seeded from the stored
+`last_output_at` and the timeout from `deadline_at`. Cancel, stall and timeout reach the agent
+through the shim's `signal`. The run then finishes through the same code as any other
+(`settleTask`). If the shim is gone, the run fails and its task is re-queued, as before; a resume
+fallback is a later step. Covered: task and review runs. Not covered: orchestrator chat and goal
+turns, which are still killed at shutdown and failed by `recover`. A reattached run does not
+re-run setup after the agent when setup was owed, and does not restore the owner messages it had
+claimed for failure handling.
 
 ### Risk and auto-merge **(review)**
 

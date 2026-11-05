@@ -64,21 +64,62 @@ func userLine(text string) ([]byte, error) {
 // Start runs one Claude Code session. The prompt goes to stdin as the first stream-json input
 // line, and stdin stays open until the first result line so Send can add messages.
 func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session, error) {
+	ps, err := r.procSpec(spec)
+	if err != nil {
+		return nil, err
+	}
+	p, err := harness.StartProcess(ctx, ps.ProcSpec)
+	if err != nil {
+		return nil, err
+	}
+	return ps.attach(p), nil
+}
+
+// Reattach resumes the session that Start began for spec, if its shim is still running.
+func (r *runner) Reattach(ctx context.Context, spec harness.Spec, from int64) (harness.Session, error) {
+	ps, err := r.procSpec(spec)
+	if err != nil {
+		return nil, err
+	}
+	p, err := harness.ReattachProcess(ctx, ps.ProcSpec, from)
+	if err != nil {
+		return nil, err
+	}
+	return ps.attach(p), nil
+}
+
+var _ harness.Reattacher = (*runner)(nil)
+
+// claudeProc is the process spec of a session, with the Proc it will run as filled in by attach.
+type claudeProc struct {
+	harness.ProcSpec
+	proc  *harness.Proc
+	ready chan struct{}
+}
+
+// attach records the started Proc, which the parser and OnExit callbacks use, and wraps it.
+func (c *claudeProc) attach(p *harness.Proc) harness.Session {
+	c.proc = p
+	close(c.ready)
+	return &session{Proc: p}
+}
+
+// procSpec builds the process spec for spec. The parser it holds is new, so a spec is used for
+// one process or reattachment only.
+func (r *runner) procSpec(spec harness.Spec) (*claudeProc, error) {
 	ps := newParser(spec.Model)
 	first, err := userLine(spec.Prompt)
 	if err != nil {
 		return nil, err
 	}
-	var proc *harness.Proc
-	// ready is closed once proc is assigned; the parser goroutine can start before that.
-	ready := make(chan struct{})
-	defer close(ready)
+	c := &claudeProc{ready: make(chan struct{})}
 	ps.onResult = func() {
-		// Claude waits for more input after each result and exits only when stdin closes.
-		<-ready
-		proc.CloseStdin()
+		// Claude waits for more input after each result and exits only when stdin closes. The
+		// parser goroutine can run before attach has assigned the Proc.
+		<-c.ready
+		c.proc.CloseStdin()
 	}
-	p, err := harness.StartProcess(ctx, harness.ProcSpec{
+	c.ProcSpec = harness.ProcSpec{
 		Command:       buildArgs(r.cfg, spec),
 		Dir:           spec.Workdir,
 		Env:           mergeEnv(r.cfg.Env, spec.Env),
@@ -88,20 +129,12 @@ func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session,
 		Stdin:         string(first),
 		KeepStdinOpen: true,
 		ParseLine:     ps.parseLine,
-		// proc is assigned before StartProcess returns, and OnExit only runs from Wait.
+		// OnExit only runs from Wait, after attach.
 		OnExit: func(exitCode int, _ error) (harness.Result, error) {
-			var tail []string
-			if proc != nil {
-				tail = proc.StderrTail()
-			}
-			return ps.result(exitCode, tail), nil
+			return ps.result(exitCode, c.proc.StderrTail()), nil
 		},
-	})
-	if err != nil {
-		return nil, err
 	}
-	proc = p
-	return &session{Proc: p}, nil
+	return c, nil
 }
 
 // buildArgs returns the full command line: the binary, the fixed flags, the config and profile

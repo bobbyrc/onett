@@ -139,6 +139,13 @@ type activeRun struct {
 	// blocked reason): "cancelled by user", "stalled: no output for 15m", ...
 	reason atomic.Value // string
 
+	// detach is set at shutdown on a run whose agent may outlive onett: supervise then lets go of
+	// the agent instead of killing it, and the next start reattaches. See reattach.go.
+	detach atomic.Bool
+	// reattached marks a run picked up again after a restart; supervise seeds its stall clock
+	// from the stored last_output_at instead of the time of the restart.
+	reattached bool
+
 	// sess is the live harness session, set once Start succeeds; guarded by sessMu.
 	sessMu sync.Mutex
 	sess   harness.Session
@@ -234,8 +241,8 @@ func (e *Engine) goTracked(fn func()) bool {
 }
 
 // recover fixes state a crashed or restarted process left behind: runs still marked live are
-// failed, their running tasks re-queued, busy conversations released, and the pause switch
-// restored.
+// failed (unless their agent is still running behind a shim and reattachRun takes them over),
+// their running tasks re-queued, busy conversations released, and the pause switch restored.
 func (e *Engine) recover(ctx context.Context) error {
 	st, err := e.d.Store.GetLoopState(ctx, controlLoop, "")
 	if err != nil {
@@ -269,7 +276,13 @@ func (e *Engine) recover(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// reattached holds the tasks whose run was picked up again: they are still running.
+	reattached := map[string]bool{}
 	for _, r := range runs {
+		if e.reattachRun(ctx, r) {
+			reattached[r.TaskID] = true
+			continue
+		}
 		now := e.d.Now().UTC()
 		if _, err := e.d.Store.UpdateRun(ctx, r.ID, func(r *domain.Run) error {
 			r.Status, r.Error, r.EndedAt = domain.RunFailed, "onett restarted during this run", &now
@@ -288,6 +301,9 @@ func (e *Engine) recover(ctx context.Context) error {
 		return err
 	}
 	for _, t := range tasks {
+		if reattached[t.ID] {
+			continue
+		}
 		if t.Attempts >= t.MaxAttempts {
 			// The attempt that was running counted, so this task has no attempts left.
 			e.blockTaskFrom(context.WithoutCancel(ctx), t.ID, []domain.TaskStatus{domain.TaskRunning},

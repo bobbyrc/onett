@@ -24,7 +24,7 @@ func TestHarnessWithShimBuildsEitherWay(t *testing.T) {
 	h := config.Harness{Type: "exec", Command: []string{"true"}}
 	for _, on := range []bool{false, true} {
 		cfg := &config.Config{}
-		cfg.Limits.RunShim = on
+		cfg.Limits.RunShim = &on
 		got, err := harnessWithShim("plug", h, cfg, "/path/to/onett")
 		require.NoError(t, err)
 		assert.NotNil(t, got)
