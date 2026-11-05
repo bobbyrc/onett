@@ -16,6 +16,7 @@ import {
 } from '../../lib/configDoc';
 import { cx } from '../../lib/format';
 import { AnyInput, ScalarInput, isScalarType } from './ConfigFieldInput';
+import { EntryTest } from './EntryTest';
 import { SecretPicker } from './SecretPicker';
 
 export interface EditContext {
@@ -27,6 +28,8 @@ export interface EditContext {
   setValue: (path: Path, value: unknown) => void;
   /** Clears a value: removes its key, or drops the earlier edit when the file never had it. */
   clearValue: (path: Path) => void;
+  /** The file as saved, without pending changes. Lets an entry tell whether it has unsaved edits. */
+  saved?: unknown;
   /** A top-level map entry to bring into view (?entry=onett), so a link can open one project. */
   focusEntry?: string;
 }
@@ -620,6 +623,7 @@ function ListEditor({ node, path, ctx }: { node: SchemaNode; path: Path; ctx: Ed
                 {humanizeKey(singular)} {index + 1}
               </span>
               <span className="row-actions">
+                <EntryTest path={elementPath} ctx={ctx} />
                 <button type="button" className="link-button" onClick={() => removeAt(index)}>
                   Remove
                 </button>

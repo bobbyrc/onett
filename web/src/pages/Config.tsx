@@ -7,6 +7,7 @@ import { useCan } from '../auth';
 import { useConfig, useConfigDocument, useReloadConfig } from '../queries';
 import { useParamState } from '../useParamState';
 import { Button } from '../components/Button';
+import { ChannelSetup } from '../components/config/ChannelSetup';
 import { ConfigEditor } from '../components/config/ConfigEditor';
 import { SecretsPanel } from '../components/config/SecretsPanel';
 import { YamlEditor } from '../components/config/YamlEditor';
@@ -15,7 +16,7 @@ import { ErrorLine } from '../components/ErrorLine';
 import { JsonView } from '../components/JsonView';
 import { PageHeader } from '../components/PageHeader';
 
-type Mode = 'visual' | 'yaml' | 'secrets';
+type Mode = 'visual' | 'yaml' | 'secrets' | 'setup';
 
 export function Config() {
   return useCan('administer') ? <OwnerConfig /> : <ViewerConfig />;
@@ -50,10 +51,10 @@ function ViewerConfig() {
   );
 }
 
-/** The owner's page: the visual editor, the YAML tab or the Secrets tab, chosen with ?mode= in the URL. */
+/** The owner's page: the visual editor, the YAML tab, the Secrets tab or the guided Setup, chosen with ?mode= in the URL. */
 function OwnerConfig() {
   const [modeParam, setModeParam] = useParamState('mode');
-  const mode: Mode = modeParam === 'yaml' || modeParam === 'secrets' ? modeParam : 'visual';
+  const mode: Mode = modeParam === 'yaml' || modeParam === 'secrets' || modeParam === 'setup' ? modeParam : 'visual';
   const doc = useConfigDocument();
   const reload = useReloadConfig();
   // Whether the open editor has unsaved edits; it reports this up so a switch can ask first.
@@ -82,6 +83,14 @@ function OwnerConfig() {
                 onClick={() => switchMode('visual')}
               >
                 Visual
+              </button>
+              <button
+                type="button"
+                className={mode === 'setup' ? 'on' : undefined}
+                aria-pressed={mode === 'setup'}
+                onClick={() => switchMode('setup')}
+              >
+                Setup
               </button>
               <button
                 type="button"
@@ -114,6 +123,8 @@ function OwnerConfig() {
 
       {mode === 'secrets' ? (
         <SecretsPanel />
+      ) : mode === 'setup' ? (
+        doc.data ? <ChannelSetup doc={doc.data} /> : doc.isPending ? <Empty>Loading config…</Empty> : null
       ) : mode === 'yaml' ? (
         <YamlEditor onDirtyChange={setDirty} />
       ) : doc.data ? (

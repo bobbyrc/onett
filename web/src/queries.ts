@@ -500,6 +500,13 @@ export function useSaveConfigDocument() {
   });
 }
 
+/** Sends a test notification or chat message through one saved entry. */
+export function useSendTest() {
+  return useMutation({
+    mutationFn: (vars: { kind: 'notify' | 'channels'; index: number }) => api.sendTest(vars.kind, vars.index),
+  });
+}
+
 export function useSaveConfigFile() {
   const qc = useQueryClient();
   return useMutation({

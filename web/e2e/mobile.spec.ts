@@ -44,18 +44,7 @@ type Check = 'overflow' | 'content' | 'nav';
 // (not test.fail), so a parallel fix that makes one pass never breaks CI. Remove the entry in
 // the same PR that fixes the bug. Keys are ROUTES entries; a key may also list a viewport name
 // to limit it, as 'overflow@android-360x800'.
-// Reported by the first run; every one is the unbroken-title fixture (or a long unbroken value)
-// forcing the page wider than the phone.
-const KNOWN_MOBILE_FAILURES: Record<string, string[]> = {
-  '/': ['overflow'], // callout p, approval-card h3 and blocked call-item h3/call-body: ~1700px of unbroken title
-  [`/goals`]: ['overflow'], // table td holding the unbroken goal-title link
-  [`/goals/${GOAL_ID}`]: ['overflow'], // table td holding the unbroken task-title link
-  '/tasks': ['overflow'], // table td with the unbroken title link; div.muted.small, span.tag
-  [`/tasks/${TASK_ID}`]: ['overflow'], // div.task-body (unbroken body text), ol.task-line station label, subtask link
-  '/approvals': ['overflow'], // article.approval-card div.call-title h3 (unbroken title)
-  '/signals': ['overflow'], // table td with the unbroken title link
-  '/friction': ['overflow'], // table td with the unbroken title
-};
+const KNOWN_MOBILE_FAILURES: Record<string, string[]> = {};
 
 const isKnown = (route: string, check: Check, viewport: string) => {
   const entries = KNOWN_MOBILE_FAILURES[route] ?? [];
@@ -73,6 +62,35 @@ async function open(page: Page, route: string) {
 }
 
 const slug = (route: string) => (route === '/' ? 'overview' : route.slice(1).replace(/[^a-zA-Z0-9]+/g, '-'));
+
+/** Opens the drawer and polls until every nav item is the topmost element at its centre. */
+async function expectNavReachable(page: Page) {
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await expect(page.locator('#sidebar')).toHaveClass(/open/);
+  const items = page.locator('nav[aria-label="Main"] .nav-item');
+  expect(await items.count()).toBeGreaterThan(10);
+  // Poll: the drawer slides in, so the first reads may still be mid-transition.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const blocked: string[] = [];
+          for (const el of Array.from(document.querySelectorAll('nav[aria-label="Main"] .nav-item'))) {
+            const r = el.getBoundingClientRect();
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            const top = document.elementFromPoint(cx, cy);
+            if (!top || !(top === el || el.contains(top))) {
+              const t = top ? `${top.tagName.toLowerCase()}.${String(top.className)}` : 'nothing';
+              blocked.push(`"${el.textContent?.trim()}" at (${Math.round(cx)},${Math.round(cy)}) is covered by ${t}`);
+            }
+          }
+          return blocked;
+        }),
+      { timeout: 5_000 },
+    )
+    .toEqual([]);
+}
 
 for (const vp of VIEWPORTS) {
   test.describe(vp.name, () => {
@@ -152,31 +170,21 @@ for (const vp of VIEWPORTS) {
     test('mobile menu: every nav item is reachable', async ({ page }) => {
       test.fixme(isKnown('menu', 'nav', vp.name), 'known mobile bug: see KNOWN_MOBILE_FAILURES');
       await open(page, '/');
-      await page.getByRole('button', { name: 'Menu' }).click();
-      await expect(page.locator('#sidebar')).toHaveClass(/open/);
-      const items = page.locator('nav[aria-label="Main"] .nav-item');
-      expect(await items.count()).toBeGreaterThan(10);
-      // Poll: the drawer slides in, so the first reads may still be mid-transition.
-      await expect
-        .poll(
-          () =>
-            page.evaluate(() => {
-              const blocked: string[] = [];
-              for (const el of Array.from(document.querySelectorAll('nav[aria-label="Main"] .nav-item'))) {
-                const r = el.getBoundingClientRect();
-                const cx = r.left + r.width / 2;
-                const cy = r.top + r.height / 2;
-                const top = document.elementFromPoint(cx, cy);
-                if (!top || !(top === el || el.contains(top))) {
-                  const t = top ? `${top.tagName.toLowerCase()}.${String(top.className)}` : 'nothing';
-                  blocked.push(`"${el.textContent?.trim()}" at (${Math.round(cx)},${Math.round(cy)}) is covered by ${t}`);
-                }
-              }
-              return blocked;
-            }),
-          { timeout: 5_000 },
-        )
-        .toEqual([]);
+      await expectNavReachable(page);
+    });
+
+    // Chromium reports env(safe-area-inset-top) as 0, so the plain check above cannot see the
+    // notch bug (the top bar growing taller than the drawer's offset). Setting --topbar-h to what
+    // a 47px notch gives makes the real top bar that tall; a drawer with a fixed offset would
+    // start under the bar and cover the first item.
+    test('mobile menu: every nav item is reachable under a 47px notch', async ({ page }) => {
+      await open(page, '/');
+      await page.addStyleTag({ content: ':root { --topbar-h: calc(56px + 47px) !important; }' });
+      const bar = await page.locator('.topbar').boundingBox();
+      expect(bar?.height).toBeCloseTo(103, 0);
+      await expectNavReachable(page);
+      const side = await page.locator('#sidebar').boundingBox();
+      expect(side?.y).toBeCloseTo(103, 0);
     });
   });
 }

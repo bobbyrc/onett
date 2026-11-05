@@ -36,6 +36,10 @@ You can also set it from the web UI: Config, then Secrets (an owner session is n
 panel only writes: it shows whether a name is set and where it comes from, never the value. It
 writes the same file (mode 0600) and reloads the config.
 
+The Config page's **Setup** tab walks through the same steps for Telegram and Discord (and ntfy for
+notifications), and **Send test** on a channel or notifier entry sends one labelled message to check
+that it delivers.
+
 A save reloads the config, and the reload rebuilds the notifiers and restarts any chat bot whose
 options or token changed (an unchanged bot keeps running). So a new or changed bot token, webhook
 URL or notifier token takes effect at once, with no restart. If the new notifiers or channels

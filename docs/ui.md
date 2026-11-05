@@ -391,14 +391,23 @@ a suggested name when empty (such as `TELEGRAM_BOT_TOKEN`). Beside it, Set value
 the secret through the Secrets API, with the same write-only rules. That is separate from the config
 edit: the name still needs the Save bar. Changing `type` keeps the options the new type also has and asks before dropping the rest;
 with no `type`, or one this onett does not know, `options` is edited as JSON. Any other value with no
-simple form is edited as JSON. Edits stay on the
+simple form is edited as JSON. Each entry of `notify` and `channels` has a **Send test** button (see below). Edits stay on the
 page until saved: a bar at the bottom says how many there are, with Save and Discard. A save writes
 nothing when the file changed on disk since the page opened (a notice offers to load the latest,
 which discards your edits) or when the result would be invalid (the problems are listed above the
 editor, and each is also shown under its field). Settings that take effect only after a restart are
 named in a note until dismissed. A link can open one map entry: `/config?section=projects&entry=onett` (`section` is a group id; an older top-level key such as `routing` still opens its group)
 opens that group and scrolls to the `onett` card, which gets an `--info` outline (Projects'
-Edit settings uses it). The **YAML** tab edits the raw text of the file, with the same bar
+Edit settings uses it). **Send test** sends one clearly labelled test notification (a notifier) or message (a chat
+channel) through the saved entry and shows the result beside the button; a failure shows the reason
+without any secret. It is disabled with "Save first" while that entry has unsaved edits, because the
+daemon tests what is saved. The **Setup** tab (`?mode=setup`) is a guided flow for Telegram,
+Discord and ntfy: it explains how to get the bot token and your user ID, takes the token in a
+password field and stores it through the Secrets API (as `TELEGRAM_BOT_TOKEN`, `DISCORD_BOT_TOKEN`
+or `NTFY_TOKEN`, or the variable the entry already names), writes the same config entry `onett init`
+writes, and has a test button. The token is sent once, the field is emptied at once, and nothing
+shows it again. An existing entry of that type is edited instead of duplicated, and the server's
+validation problems are listed under the Save button. The **YAML** tab edits the raw text of the file, with the same bar
 and checks, and switching tabs with unsaved edits asks first. The **Secrets** tab manages
 `secrets.env` and is write-only: each name shows set or not set, where the value comes from
 (`secrets.env` or the daemon's own environment, which wins and is marked "shadowed") and which
