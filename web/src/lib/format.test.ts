@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCost, formatGoDuration, formatTokens, safeHref, shortId, shortSha } from './format';
+import { formatCacheHit, formatCost, formatGoDuration, formatTokens, safeHref, shortId, shortSha } from './format';
 
 describe('ids and shas', () => {
   it('shows the last 8 characters of an id and the first 7 of a sha', () => {
@@ -66,5 +66,14 @@ describe('formatGoDuration', () => {
     expect(formatGoDuration('10 minutes')).toBe('10 minutes');
     expect(formatGoDuration('30m0s junk')).toBe('30m0s junk');
     expect(formatGoDuration('500ms')).toBe('500ms');
+  });
+});
+
+describe('formatCacheHit', () => {
+  it('shows the share of input read from cache, or nothing when unreported', () => {
+    expect(formatCacheHit(1000, 900)).toBe('90%');
+    expect(formatCacheHit(1000, 0)).toBe('');
+    expect(formatCacheHit(1000, undefined)).toBe('');
+    expect(formatCacheHit(0, 5)).toBe('');
   });
 });

@@ -118,7 +118,16 @@ type Harness struct {
 	// overrides detection for every run. Subscription runs do not count toward
 	// limits.daily_budget_usd.
 	Billing string `yaml:"billing" json:"billing,omitempty"`
+	// Isolate runs the agent without the owner's personal Claude Code setup (their MCP
+	// connectors, plugins, hooks and user-level settings). Default true. Their tools come and
+	// go between turns, which breaks the prompt cache, and they are not what onett's agents
+	// need. Set false to give agents your MCP servers and plugins. Only claude-code has such a
+	// setup; other harness types ignore it. Read it with IsolateOn.
+	Isolate *bool `yaml:"isolate" json:"isolate,omitempty" default:"true"`
 }
+
+// IsolateOn reports whether the harness's agents run isolated: true unless isolate is false.
+func (h Harness) IsolateOn() bool { return h.Isolate == nil || *h.Isolate }
 
 // Price is USD per million tokens. Every field is optional; 0 means unknown. Cached input
 // tokens are billed at CachedInputPerMTok, falling back to InputPerMTok when that is 0.

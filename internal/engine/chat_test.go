@@ -144,19 +144,38 @@ func TestChatSecondSendWhileBusyIsQueued(t *testing.T) {
 	assert.True(t, msgs[1].Queued)
 }
 
-func TestChatInstructionsListProjectsAndAgents(t *testing.T) {
+func TestChatInstructionsAreStableAcrossTurns(t *testing.T) {
+	r := ctNewRig(t)
+	conv := domain.Conversation{Project: "demo"}
+	before := chatInstructions(conv, "BASE PROMPT")
+	snapBefore := factorySnapshot(r.cfg)
+
+	// The factory changes between turns: a project is paused and an agent is disabled.
+	r.cfg.Projects["demo"].Paused = true
+	improver := r.cfg.Agents["improver"]
+	improver.Disabled = true
+	r.cfg.Agents["improver"] = improver
+
+	assert.Equal(t, before, chatInstructions(conv, "BASE PROMPT"), "the system prompt does not follow factory state")
+	assert.NotEqual(t, snapBefore, factorySnapshot(r.cfg), "the per-turn snapshot does")
+	assert.True(t, strings.HasPrefix(before, "BASE PROMPT"))
+	assert.Contains(t, before, "\n\nDefault project for this conversation: demo.")
+	assert.NotContains(t, before, "The factory right now")
+}
+
+func TestFactorySnapshotListsProjectsAndAgents(t *testing.T) {
 	r := ctNewRig(t)
 	r.cfg.Projects["demo"].Paused = true
-	conv := domain.Conversation{Project: "demo"}
 
-	text := chatInstructions(r.cfg, conv, "BASE PROMPT")
-	assert.True(t, strings.HasPrefix(text, "BASE PROMPT\n\n## The factory right now\n\n"))
+	text := factorySnapshot(r.cfg)
+	assert.Contains(t, text, "## The factory right now\n\n")
 	assert.Contains(t, text, "- **demo** — /nonexistent/demo.git, "+r.cfg.Projects["demo"].Path+", paused: yes")
 	assert.Contains(t, text, "- **implementer** (codex) — ")
 	assert.Contains(t, text, "handles: bugfix, chore, feature, issue")
-	assert.Contains(t, text, "\n\nDefault project for this conversation: demo.")
+}
 
-	none := chatInstructions(r.cfg, domain.Conversation{}, "BASE")
+func TestChatInstructionsOnlyNameADefaultProjectWhenSet(t *testing.T) {
+	none := chatInstructions(domain.Conversation{}, "BASE")
 	assert.NotContains(t, none, "Default project for this conversation")
 }
 

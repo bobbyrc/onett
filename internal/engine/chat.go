@@ -154,11 +154,12 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 	if _, ok := h.(harness.Reattacher); ok {
 		startCtx = context.WithoutCancel(runCtx)
 	}
+	prompt := text + factorySnapshot(cfg)
 	sess, err := h.Start(startCtx, harness.Spec{
 		RunID:           run.ID,
 		Workdir:         dir,
-		Prompt:          text,
-		Instructions:    chatInstructions(cfg, conv, base),
+		Prompt:          prompt,
+		Instructions:    chatInstructions(conv, base),
 		Model:           agent.Model,
 		ResumeSessionID: conv.SessionID,
 		Env:             e.chatEnv(conv, run.ID),
@@ -169,7 +170,7 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 		return chatTurnResult{Reply: "I couldn't start: " + err.Error(), RunID: run.ID, Status: domain.RunFailed}
 	}
 	ar.setSession(sess)
-	e.appendRunLog(ctx, run.ID, domain.LogPrompt, text)
+	e.appendRunLog(ctx, run.ID, domain.LogPrompt, prompt)
 
 	return e.superviseChat(runCtx, conv, agent, run, sess, ar)
 }
@@ -275,12 +276,28 @@ func (e *Engine) failChatRun(ctx context.Context, run domain.Run, cause error) {
 	e.d.Bus.Emit(ctx, domain.EvRunUpdated, r.Project, "", r.ID, "orchestrator chat run failed to start", r)
 }
 
-// chatInstructions is the orchestrator's system prompt: its role prompt plus a snapshot of the
-// projects and agents that exist right now.
-func chatInstructions(cfg *config.Config, conv domain.Conversation, base string) string {
+// chatInstructions is the orchestrator's system prompt: its role prompt plus what is fixed for
+// the conversation. It must be byte-identical on every turn: the system prompt is the front of
+// the prompt cache, so any change makes the whole history miss the cache. Anything that can
+// change between turns (the projects and agents that exist) goes in factorySnapshot, which rides
+// in the user message instead.
+func chatInstructions(conv domain.Conversation, base string) string {
 	var b strings.Builder
 	b.WriteString(base)
-	b.WriteString("\n\n## The factory right now\n\n")
+	if conv.Project != "" {
+		fmt.Fprintf(&b, "\n\nDefault project for this conversation: %s.", conv.Project)
+	}
+	if conv.GoalID != "" {
+		b.WriteString(goalInstructions(conv.GoalID))
+	}
+	return b.String()
+}
+
+// factorySnapshot lists the projects and agents that exist right now. It is appended to each
+// turn's prompt rather than the system prompt (see chatInstructions).
+func factorySnapshot(cfg *config.Config) string {
+	var b strings.Builder
+	b.WriteString("\n\n---\n## The factory right now\n\n")
 	for _, name := range cfg.ProjectNames() {
 		p := cfg.Projects[name]
 		paused := "no"
@@ -306,12 +323,6 @@ func chatInstructions(cfg *config.Config, conv domain.Conversation, base string)
 			who += "/" + a.Model
 		}
 		fmt.Fprintf(&b, "- **%s** (%s) — %s; handles: %s\n", name, who, a.Description, handledKinds(cfg, name))
-	}
-	if conv.Project != "" {
-		fmt.Fprintf(&b, "\nDefault project for this conversation: %s.", conv.Project)
-	}
-	if conv.GoalID != "" {
-		b.WriteString(goalInstructions(conv.GoalID))
 	}
 	return b.String()
 }

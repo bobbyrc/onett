@@ -183,6 +183,23 @@ role that uses it until the reset time plus a minute. With no reset time the hol
 resumes by itself when the hold ends. Holds are saved as loop state, so a restart keeps them. `onett status` lists each hold. An orchestrator chat turn on a held harness is
 not queued: the chat is told the limit and when it lifts.
 
+#### Agent isolation and the prompt cache (`harnesses.<name>.isolate`, on by default)
+
+Claude Code's prompt cache works on a prefix: the tool list, the system prompt, then the
+conversation so far. If anything at the front changes, the whole history after it is read again
+at full price. A claude agent that inherits the owner's own setup (claude.ai MCP connectors,
+plugins, hooks) loads hundreds of tool definitions, and connectors that connect or drop between
+turns change that list. Measured on one machine, a two-message `--resume` conversation read about
+65k input tokens per turn at a 18-34% cache hit rate; isolated, about 18k at 78-80%. So unless
+`isolate: false`, the claude harness adds `--strict-mcp-config` (no MCP servers, since onett gives
+none) and `--setting-sources project,local` (no user-level hooks, plugins or permissions; the
+repository's own settings and CLAUDE.md still load, and the login is untouched). The owner's
+`args` come after these and can override them. For the same reason the orchestrator's system
+prompt is identical on every turn of a conversation, and the changing list of projects and agents
+rides in the user message instead. Each run records the cached and cache-written parts of its
+input (`cached_input_tokens`, `cache_write_tokens`); `onett run show` and the run page show the hit
+rate.
+
 #### Run shim (`limits.run_shim`, on by default)
 
 Lets the daemon restart without killing running agents. Unless `run_shim: false`,

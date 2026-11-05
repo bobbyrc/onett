@@ -44,6 +44,10 @@ harnesses:
     # metered and unknown runs count toward limits.daily_budget_usd; a subscription run's cost is
     # an API-price estimate nobody is billed for.
     billing: auto
+    # Run agents without your personal Claude Code setup (MCP connectors, plugins, hooks, user
+    # settings). Default true: those tools change between turns, which breaks the prompt cache,
+    # and onett's agents do not need them. Set false to give agents your MCP servers and plugins.
+    # isolate: true
   codex:
     type: codex                        # built-in harness type; default for "codex"
     # Codex reports tokens but no dollar cost. With a price, onett estimates each run's cost

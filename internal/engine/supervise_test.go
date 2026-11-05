@@ -82,3 +82,13 @@ func (env *rtEnv) firstEndedRun(taskID string) []domain.Run {
 	}, 10*time.Second, 20*time.Millisecond)
 	return []domain.Run{ended}
 }
+
+func TestSuperviseRecordsCacheTokens(t *testing.T) {
+	env := rtNewEngine(t, rtOpts{
+		script: costScript(harness.Result{InputTokens: 1000, CachedInputTokens: 800, CacheWriteTokens: 150}),
+	})
+	task := env.create(domain.Task{Body: "cache"})
+	runs := env.firstEndedRun(task.ID)
+	assert.Equal(t, int64(800), runs[0].CachedInputTokens)
+	assert.Equal(t, int64(150), runs[0].CacheWriteTokens)
+}

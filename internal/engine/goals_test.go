@@ -369,10 +369,9 @@ func TestCreateTaskChecksGoal(t *testing.T) {
 }
 
 func TestGoalInstructionsOnlyInGoalConversations(t *testing.T) {
-	cfg := ctNewRig(t).cfg
-	plain := chatInstructions(cfg, domain.Conversation{Project: "demo"}, "BASE")
+	plain := chatInstructions(domain.Conversation{Project: "demo"}, "BASE")
 	assert.NotContains(t, plain, "runs a goal")
-	goal := chatInstructions(cfg, domain.Conversation{Project: "demo", GoalID: "g1"}, "BASE")
+	goal := chatInstructions(domain.Conversation{Project: "demo", GoalID: "g1"}, "BASE")
 	assert.Contains(t, goal, "BASE")
 	assert.Contains(t, goal, "onett goal done g1 --summary")
 	assert.Contains(t, goal, "onett goal block g1 --reason")

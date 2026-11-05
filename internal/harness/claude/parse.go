@@ -87,6 +87,9 @@ type parser struct {
 	// input one process can answer several turns, and each result reports only its own turn.
 	inputTokens  int64
 	outputTokens int64
+	// cacheRead and cacheWrite are the cached parts of inputTokens, summed the same way.
+	cacheRead  int64
+	cacheWrite int64
 	// onResult, if set, runs after each result line is parsed.
 	onResult func()
 }
@@ -201,6 +204,8 @@ func (p *parser) resultEvents(sl streamLine) []harness.Event {
 	if sl.Usage != nil {
 		p.inputTokens += sl.Usage.InputTokens + sl.Usage.CacheCreationInputTokens + sl.Usage.CacheReadInputTokens
 		p.outputTokens += sl.Usage.OutputTokens
+		p.cacheRead += sl.Usage.CacheReadInputTokens
+		p.cacheWrite += sl.Usage.CacheCreationInputTokens
 	}
 	if p.onResult != nil {
 		defer p.onResult()
@@ -235,6 +240,8 @@ func (p *parser) result(exitCode int, stderrTail []string) harness.Result {
 		res.IsError = f.IsError
 		res.CostUSD = f.TotalCostUSD
 		res.InputTokens = p.inputTokens
+		res.CachedInputTokens = p.cacheRead
+		res.CacheWriteTokens = p.cacheWrite
 		res.OutputTokens = p.outputTokens
 		if f.Result != "" {
 			res.FinalText = f.Result

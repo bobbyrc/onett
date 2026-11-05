@@ -16,6 +16,14 @@ const harnessType = "claude-code"
 // Claude Code's auto mode reviews risky actions; its refusals surface as denials.
 const defaultPermissionMode = "auto"
 
+// isolationArgs keep an agent from loading the owner's personal Claude Code setup. Without them
+// every session connects the owner's MCP connectors and plugins, whose tools come and go between
+// turns: that changes the cached prompt prefix and costs the whole history a cache miss, and it
+// adds tens of thousands of tokens of tool definitions. --strict-mcp-config with no --mcp-config
+// means no MCP servers; --setting-sources without "user" drops user-level hooks, plugins and
+// permissions but keeps the repository's own settings and CLAUDE.md, and leaves the login alone.
+var isolationArgs = []string{"--strict-mcp-config", "--setting-sources", "project,local"}
+
 func init() {
 	harness.Register(harnessType, func(cfg harness.Config) (harness.Harness, error) {
 		return &runner{cfg: cfg}, nil
@@ -170,6 +178,10 @@ func buildArgs(cfg harness.Config, spec harness.Spec) []string {
 	}
 	if spec.ResumeSessionID != "" {
 		args = append(args, "--resume", spec.ResumeSessionID)
+	}
+	if cfg.Isolate {
+		// Before the extras, so an owner can still override any of them.
+		args = append(args, isolationArgs...)
 	}
 	args = append(args, cfg.Args...)
 	args = append(args, spec.Args...)

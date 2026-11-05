@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { cx, formatCost, formatTokens, shortId } from '../lib/format';
+import { cx, formatCacheHit, formatCost, formatTokens, shortId } from '../lib/format';
 import { isActiveRun } from '../lib/status';
 import { elapsedMs, formatDuration, parseTime } from '../lib/time';
 import { useNow } from '../lib/clock';
@@ -75,6 +75,11 @@ export function RunDetail() {
         <Fact label="Branch">{r.branch ? <span className="mono">{r.branch}</span> : '—'}</Fact>
         <Fact label="Cost">{formatCost(r.cost_usd, r.cost_estimated)}</Fact>
         <Fact label="Tokens">{`in ${formatTokens(r.input_tokens)} · out ${formatTokens(r.output_tokens)}`}</Fact>
+        {formatCacheHit(r.input_tokens, r.cached_input_tokens) ? (
+          <Fact label="Cache hit">
+            {`${formatCacheHit(r.input_tokens, r.cached_input_tokens)} (read ${formatTokens(r.cached_input_tokens ?? 0)} · written ${formatTokens(r.cache_write_tokens ?? 0)})`}
+          </Fact>
+        ) : null}
         <Fact label="Started">
           <RelTime value={r.started_at} />
         </Fact>

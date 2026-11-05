@@ -20,7 +20,7 @@ import (
 // check-in). They reuse reattachFixture: the agent is the same shell script, which also records
 // the session it was asked to resume and the prompt it was given.
 const chatAgent = `#!/bin/sh
-{ echo "resume=$ONETT_RESUME_SESSION"; cat; echo "---"; } >> "$SEEN_FILE"
+{ echo "resume=$ONETT_RESUME_SESSION"; cat; echo "@@END@@"; } >> "$SEEN_FILE"
 echo '{"type":"text","text":"line one","session_id":"s1"}'
 echo '{"type":"text","text":"line two"}'
 while [ ! -e "$GATE_FILE" ]; do sleep 0.05; done
@@ -128,7 +128,7 @@ func (f *chatFixture) seenRuns() []string {
 	f.t.Helper()
 	b, err := os.ReadFile(f.seen)
 	require.NoError(f.t, err)
-	parts := strings.Split(string(b), "---")
+	parts := strings.Split(string(b), "@@END@@")
 	var out []string
 	for _, p := range parts {
 		if p = strings.TrimSpace(p); p != "" {
