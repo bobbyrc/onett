@@ -437,6 +437,7 @@ func TestRepliesRelayedAndSplit(t *testing.T) {
 	host.emit(domain.EvChatMessage, domain.ChatMessage{ID: "r1", ConversationID: "conv1", Role: "assistant", Text: long}) // duplicate
 	host.emit(domain.EvChatMessage, domain.ChatMessage{ID: "r2", ConversationID: "other", Role: "assistant", Text: "not ours"})
 	host.emit(domain.EvChatMessage, domain.ChatMessage{ID: "r3", ConversationID: "conv1", Role: "user", Text: "echo of mine"})
+	host.emit(domain.EvChatMessage, domain.ChatMessage{ID: "r3b", ConversationID: "conv1", Role: "system", Kind: domain.ChatKindInternal, Text: "onett prompt"})
 	host.emit(domain.EvChatMessage, domain.ChatMessage{ID: "r4", ConversationID: "conv1", Role: "assistant", Text: "last"})
 	waitFor(t, "replies", func() bool { return len(f.messages("chan1")) >= 3 })
 	got := f.messages("chan1")

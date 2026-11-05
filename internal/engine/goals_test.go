@@ -149,6 +149,7 @@ func TestGoalFirstTurnQueuesLinkedTask(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, msgs, 2)
 	assert.Equal(t, "system", msgs[0].Role, "the check-in is not an owner message")
+	assert.Equal(t, domain.ChatKindInternal, msgs[0].Kind, "the check-in is hidden from the owner")
 	assert.Equal(t, "assistant", msgs[1].Role)
 
 	after, err := g.st.GetConversation(context.Background(), goal.ConversationID)

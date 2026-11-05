@@ -253,6 +253,8 @@ export interface ChatMessage {
   run_id?: string;
   created_at: string;
   queued?: boolean;
+  /** "internal" marks onett's own prompt to the orchestrator; the UI hides it. */
+  kind?: string;
 }
 
 export interface TaskConversation {

@@ -220,7 +220,7 @@ export function orchestratorEntries(
     } else if (m.role === 'assistant') {
       // The reply is already the last text line of the run's log when the log is loaded.
       if (!hasLogs) out.push({ id: `m:${m.id}`, runId: m.run_id, kind: 'text', text: m.text, time: m.created_at });
-    } else {
+    } else if (m.kind !== 'internal') {
       out.push({ id: `m:${m.id}`, kind: 'system', text: m.text, time: m.created_at });
     }
   }

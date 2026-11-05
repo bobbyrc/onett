@@ -394,7 +394,14 @@ type ChatMessage struct {
 	CreatedAt      time.Time `json:"created_at"`
 	// Queued is an owner message held until the agent's current run finishes.
 	Queued bool `json:"queued,omitempty"`
+	// Kind is "internal" for a prompt onett wrote to the orchestrator itself (a follow-up after
+	// tasks settle, a goal check-in). Clients hide these from the owner and never forward them to a
+	// chat app. Empty for every ordinary message.
+	Kind string `json:"kind,omitempty"`
 }
+
+// ChatKindInternal marks a ChatMessage as onett's own prompt to an agent, not conversation.
+const ChatKindInternal = "internal"
 
 // TaskConversation is the owner's view of a task agent: the root task, its conversation, the
 // follow-up tasks and runs, and the messages.
