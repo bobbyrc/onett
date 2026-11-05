@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -432,7 +431,7 @@ func ProblemsFrom(err error) []Problem {
 	return []Problem{{Message: msg}}
 }
 
-// RestartRequired lists settings read only at start-up that differ between old and new: "server.addr", "server.data_dir", "server.allowed_hosts", "notify" (reflect.DeepEqual; in that order).
+// RestartRequired lists settings read only at start-up that differ between old and new: "server.addr", "server.data_dir", "server.addr" and "server.data_dir", in that order. Notifiers, channels and server.allowed_hosts are applied live on reload, so they are not listed.
 func RestartRequired(old, new *Config) []string {
 	if old == nil || new == nil {
 		return nil
@@ -443,15 +442,6 @@ func RestartRequired(old, new *Config) []string {
 	}
 	if old.Server.DataDir != new.Server.DataDir {
 		out = append(out, "server.data_dir")
-	}
-	if !reflect.DeepEqual(old.Server.AllowedHosts, new.Server.AllowedHosts) {
-		out = append(out, "server.allowed_hosts")
-	}
-	if !reflect.DeepEqual(old.Notify, new.Notify) {
-		out = append(out, "notify")
-	}
-	if !reflect.DeepEqual(old.Channels, new.Channels) {
-		out = append(out, "channels")
 	}
 	return out
 }

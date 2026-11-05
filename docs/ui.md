@@ -396,5 +396,5 @@ and checks, and switching tabs with unsaved edits asks first. The **Secrets** ta
 `secrets.env` and is write-only: each name shows set or not set, where the value comes from
 (`secrets.env` or the daemon's own environment, which wins and is marked "shadowed") and which
 config paths use it. Set and Replace take the value in a password field that is cleared after
-saving; Delete asks to confirm; no value is ever shown. Channel and notifier secrets still need a
-restart to take effect. "Reload from file" makes the daemon read the file again.
+saving; Delete asks to confirm; no value is ever shown. A saved secret applies at once, including
+to chat bots and notifiers. "Reload from file" makes the daemon read the file again.
