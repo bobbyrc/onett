@@ -236,6 +236,13 @@ func (b schemaBuilder) structNode(t reflect.Type, base string, v reflect.Value) 
 			}
 		}
 	}
+	if t.Name() == "Harness" {
+		for i := range fields {
+			if fields[i].Key == "type" && fields[i].Type == "string" {
+				fields[i].Enum = HarnessTypes
+			}
+		}
+	}
 	return SchemaNode{Type: "section", Fields: fields}
 }
 
