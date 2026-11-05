@@ -351,3 +351,30 @@ export const createProject = (body: NewProjectRequest) =>
 
 export const deleteProject = (name: string, force: boolean) =>
   configRequest<ConfigSaved>('DELETE', `/projects/${encodeURIComponent(name)}${force ? '?force=true' : ''}`);
+
+// ---- test sends (owner only) ----
+
+/** The answer of POST /notify/test and /channels/test. A failed send is a result, not a throw. */
+export interface TestResult {
+  ok: boolean;
+  error?: string;
+}
+
+/** Sends one test through notifier or channel `index` of the saved config. */
+export async function sendTest(kind: 'notify' | 'channels', index: number): Promise<TestResult> {
+  const res = await fetch(`/api/v1/${kind}/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ index }),
+    cache: 'no-store',
+  });
+  if (res.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    // Not JSON: fall back to the status text.
+  }
+  if (res.ok) return { ok: true };
+  return { ok: false, error: data.error || res.statusText || `HTTP ${res.status}` };
+}

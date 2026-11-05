@@ -164,7 +164,14 @@ func cmdServe(e *env, args []string) error {
 		SecureCookies:    strings.HasPrefix(cfg.Server.PublicURL, "https://"),
 		AllowedHostsFunc: func() []string { return serveAllowedHosts(eng.Config().Server) },
 		Secrets:          secretStore,
-		Logger:           logger,
+		ChannelTest: func(ctx context.Context, ch config.Channel) error {
+			sup := sup.Load()
+			if sup == nil {
+				return fmt.Errorf("%w: the daemon is still starting", channel.ErrNotRunning)
+			}
+			return sup.Test(ctx, ch, chanEnv)
+		},
+		Logger: logger,
 	})
 	// Every request context derives from baseCtx. Streaming (SSE) handlers run until their
 	// context ends, and http.Server.Shutdown does not end it, so shutdown cancels baseCtx first.

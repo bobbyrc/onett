@@ -30,6 +30,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bobbyrc/onett/internal/channel"
 	"github.com/bobbyrc/onett/internal/domain"
 )
 
@@ -540,6 +541,25 @@ func (b *Bot) requestApproval(ctx context.Context, a domain.Approval) {
 		b.approvals[a.ID] = append(b.approvals[a.ID], sentMsg{c, sent.MessageID, text})
 		b.mu.Unlock()
 	}
+}
+
+var _ channel.Tester = (*Bot)(nil)
+
+// SendTest messages every allowed user directly (a private chat's ID is the user's ID). It
+// reports the first failure, which carries no token.
+func (b *Bot) SendTest(ctx context.Context) error {
+	ids := make([]int64, 0, len(b.allowed))
+	for id := range b.allowed {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	var errs []error
+	for _, id := range ids {
+		if err := b.call(ctx, "sendMessage", map[string]any{"chat_id": id, "text": channel.TestMessage}, nil); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // sendText sends plain text, split into Telegram-sized pieces.
