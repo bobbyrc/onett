@@ -80,8 +80,11 @@ start the daemon. Run the script from your own shell, never from an agent that o
 The factory can keep itself up to date. When the newest release of the `self_project` has been
 healthy on staging for `min_healthy`, the `self_update` loop starts `update.sh` with
 `ONETT_UPDATE_REF` set to that commit, so the daemon runs exactly what staging verified rather
-than whatever `main` is. It waits for a quiet moment (the script pauses the factory and waits for
-active runs to finish, including orchestrator chat turns), swaps the binary, and rolls back if the
+than whatever `main` is. It first waits for a quiet moment (no task run live, nothing queued; chat turns do not count)
+for up to `max_defer` (default 2h), then starts the script anyway. The script pauses the factory,
+which `onett status` and the web UI show as "Paused for self-update to <sha>" with the runs it
+waits on, waits up to `limits.run_timeout` plus 5 minutes for them to finish (if they never do it
+resumes, exits 75 and the loop tries that commit again after an hour), swaps the binary, and rolls back if the
 new one does not come up healthy. You get a notification when it starts, when it fails (with the end
 of `$DOGFOOD/data/self-update.log`) and when the new daemon is up. It is on by default for the
 `self_project` once a command is known, and never applies to other projects. If `command` is empty,

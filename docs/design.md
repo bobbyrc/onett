@@ -107,6 +107,13 @@ paths or accounts, nothing that assumes one machine and one person) when it cost
 - **Outbox** — files an agent writes in `<worktree>/.onett-run/` to report back:
   `result.json` (status, summary, self-assessed risk, PR title/body, follow-up tasks, friction).
   Files, not network calls, so it works inside sandboxed harnesses such as Codex's.
+- **Waiting** — a queued task can wait on other tasks (`waiting_on`); the scheduler does not
+  claim it until each has merged or finished without a pull request, and it is cancelled, with
+  the reason, if one ends blocked, failed or cancelled. A follow-up waits for the task that filed
+  it (its worktree is cut from the default branch, which lacks that task's code until the merge)
+  and inherits that task's goal. An agent blocked by another task's unmerged pull request reports
+  `depends_on` in `result.json`; onett then re-queues it as waiting, without using an attempt,
+  instead of blocking it. Review tasks never wait for the task they review.
 - **Policy** — deterministic rules mapping a diff (paths, size, labels, task kind) to a risk
   level, and the gates per risk level (auto-merge, review required, human approval required).
 - **Loop** — a recurring job: issue intake, PR shepherd, deploy watch, prod watch, friction
@@ -211,8 +218,14 @@ running daemon current. When the newest release of the self project is `healthy`
 `min_healthy`, and its commit is not the one the daemon was built from, code starts the configured
 `command` with `ONETT_UPDATE_REF=<sha>`, detached in its own session (a launchd stop kills the
 daemon's process group, and the updater must survive it). Agents never trigger it: the decision is
-deterministic code over deployment state. The updater pauses the factory, waits for it to go idle,
-swaps the binary and rolls back on a failed health check; it leaves a result file that the next
+deterministic code over deployment state. Before it starts the updater the loop waits for a quiet
+moment: no task run live and nothing queued for the self project (orchestrator chat and goal turns
+are short and do not count), for at most `max_defer` (default 2h) after the release became
+eligible; then it starts the updater anyway. The updater pauses the factory with the reason
+`self-update` (shown by `onett status`, `GET /stats` and the web UI's pause switch, with the runs
+it waits on), waits up to `limits.run_timeout` plus 5 minutes (`ONETT_UPDATE_WAIT`) for it to go
+idle, and exits 75 if it never does after resuming; the loop then leaves that commit alone for an
+hour (separate from the failure count). It then swaps the binary and rolls back on a failed health check; it leaves a result file that the next
 daemon reports once. A PID lock file keeps one updater at a time, and a commit that fails three
 times (counted in memory) is skipped.
 

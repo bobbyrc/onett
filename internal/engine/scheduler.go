@@ -36,6 +36,7 @@ func (e *Engine) schedule(ctx context.Context) {
 	for _, p := range e.Config().Projects {
 		e.checkPreflight(ctx, p)
 	}
+	e.releaseWaiting(ctx)
 	if e.Paused() {
 		return
 	}

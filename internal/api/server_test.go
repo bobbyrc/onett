@@ -41,6 +41,7 @@ type fakeCtl struct {
 	mu          sync.Mutex
 	cfg         *config.Config
 	paused      bool
+	pause       *domain.PauseInfo
 	errs        map[string]error
 	calls       []string
 	created     domain.Task
@@ -141,7 +142,31 @@ func (f *fakeCtl) SetPaused(_ context.Context, p bool) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.paused = p
+	if !p {
+		f.pause = nil
+	}
 	return f.note(fmt.Sprintf("SetPaused:%t", p))
+}
+
+func (f *fakeCtl) PauseWith(_ context.Context, info domain.PauseInfo) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.paused = true
+	f.pause = &info
+	return f.note("PauseWith:" + info.Reason + ":" + info.By + ":" + info.Detail)
+}
+
+func (f *fakeCtl) PauseInfo() *domain.PauseInfo {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !f.paused {
+		return nil
+	}
+	if f.pause == nil {
+		return &domain.PauseInfo{Reason: domain.PauseOwner}
+	}
+	cp := *f.pause
+	return &cp
 }
 
 func (f *fakeCtl) ProjectPausedBy(project string) string {
@@ -665,13 +690,16 @@ func TestControl(t *testing.T) {
 	x := newHarness(t)
 	rec := x.call(t, http.MethodPost, "/api/v1/control/pause", "")
 	require.Equal(t, http.StatusOK, rec.Code)
-	assert.JSONEq(t, `{"paused":true}`, rec.Body.String())
+	var c ControlState
+	decode(t, rec, &c)
+	assert.True(t, c.Paused)
 
 	rec = x.call(t, http.MethodGet, "/api/v1/control", "")
-	assert.JSONEq(t, `{"paused":true}`, rec.Body.String())
+	decode(t, rec, &c)
+	assert.True(t, c.Paused)
 
 	rec = x.call(t, http.MethodPost, "/api/v1/control/resume", "")
-	assert.JSONEq(t, `{"paused":false}`, rec.Body.String())
+	assert.JSONEq(t, `{"paused":false,"pause":null}`, rec.Body.String())
 }
 
 func TestLoops(t *testing.T) {

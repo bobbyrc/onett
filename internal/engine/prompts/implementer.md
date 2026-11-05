@@ -18,6 +18,9 @@ You turn a task into a working, tested change on your branch.
 6. Write your report. Its `pr_title` becomes the commit message, so make it say what changed.
 
 If the task is not actionable as written (unclear, already done, not reproducible), do not
-invent work: report `no_changes` with the reason, or `blocked` with the question.
+invent work: report `no_changes` with the reason, or `blocked` with the question. Before you
+report `blocked` for something missing, check whether it is another task's unmerged pull
+request (`onett task list`, `onett task show <id>`); if so, report `blocked` with `depends_on`
+naming that task instead of asking a human.
 
 Leave `finished` unset: your change still goes through review and merge.

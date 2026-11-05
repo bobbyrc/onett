@@ -63,9 +63,70 @@ type Health struct {
 	Version string `json:"version"`
 }
 
-// ControlState is the answer of the pause and resume routes.
+// ControlState is the answer of GET /control and the pause and resume routes.
 type ControlState struct {
-	Paused bool `json:"paused"`
+	Paused bool       `json:"paused"`
+	Pause  *PauseView `json:"pause,omitempty"`
+}
+
+// PauseView says why the factory is paused: the reason ("owner" or "self-update"), who set it,
+// since when, the reason's detail (the commit for a self-update) and the task runs a drain is
+// waiting on.
+type PauseView struct {
+	Reason  string      `json:"reason"`
+	By      string      `json:"by"`
+	Detail  string      `json:"detail"`
+	Since   time.Time   `json:"since"`
+	Waiting []PauseWait `json:"waiting"`
+}
+
+// PauseWait is one live task run holding up a drain.
+type PauseWait struct {
+	RunID  string `json:"run_id"`
+	TaskID string `json:"task_id"`
+}
+
+// Describe renders the pause in a sentence, e.g. "Paused for self-update to 69f1660 since 22:36,
+// waiting for 1 run (task 01a1a9c6…)."
+func (p PauseView) Describe() string {
+	since := ""
+	if !p.Since.IsZero() {
+		since = " since " + p.Since.Local().Format("15:04")
+	}
+	if p.Reason != "self-update" {
+		if p.By != "" {
+			return "Paused by " + p.By + since + "."
+		}
+		return "Paused" + since + "."
+	}
+	out := "Paused for self-update"
+	if p.Detail != "" {
+		out += " to " + p.Detail
+	}
+	out += since
+	switch n := len(p.Waiting); n {
+	case 0:
+		return out + ", swapping the binary."
+	case 1:
+		return out + ", waiting for 1 run (task " + shortID(p.Waiting[0].TaskID) + ")."
+	default:
+		ids := make([]string, 0, min(n, 3))
+		for _, w := range p.Waiting[:min(n, 3)] {
+			ids = append(ids, shortID(w.TaskID))
+		}
+		more := ""
+		if n > 3 {
+			more = ", …"
+		}
+		return fmt.Sprintf("%s, waiting for %d runs (tasks %s%s).", out, n, strings.Join(ids, ", "), more)
+	}
+}
+
+func shortID(id string) string {
+	if len(id) > 8 {
+		return id[:8] + "…"
+	}
+	return id
 }
 
 // Stats is the answer of GET /stats.
@@ -78,6 +139,7 @@ type Stats struct {
 	SubscriptionCostTodayUSD float64            `json:"subscription_cost_today_usd"`
 	DailyBudgetUSD           float64            `json:"daily_budget_usd"`
 	Paused                   bool               `json:"paused"`
+	Pause                    *PauseView         `json:"pause,omitempty"`
 	Preflight                []domain.Preflight `json:"preflight"`
 }
 
@@ -215,10 +277,15 @@ func (c *Client) Control(ctx context.Context) (ControlState, error) {
 	return out, err
 }
 
-// Pause calls POST /control/pause.
-func (c *Client) Pause(ctx context.Context) (ControlState, error) {
+// Pause calls POST /control/pause. reason is "owner" or "self-update" ("" = owner); detail is
+// free text about it, such as the commit being installed.
+func (c *Client) Pause(ctx context.Context, reason, detail string) (ControlState, error) {
 	var out ControlState
-	err := c.do(ctx, http.MethodPost, "/control/pause", nil, nil, &out)
+	var body any
+	if reason != "" || detail != "" {
+		body = map[string]string{"reason": reason, "detail": detail}
+	}
+	err := c.do(ctx, http.MethodPost, "/control/pause", nil, body, &out)
 	return out, err
 }
 

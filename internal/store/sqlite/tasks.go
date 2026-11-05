@@ -100,6 +100,8 @@ func (s *Store) ClaimNextTask(ctx context.Context, busyProjects []string) (domai
 	err := withTx(ctx, s.db, func(tx *sql.Tx) error {
 		var c cond
 		c.add("status = ?", string(domain.TaskQueued))
+		// A task waiting on other tasks stays queued but is not eligible.
+		c.add("COALESCE(json_array_length(json_extract(data, '$.waiting_on')), 0) = 0")
 		if len(busyProjects) > 0 {
 			c.in("project", true, toAny(busyProjects))
 		}

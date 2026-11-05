@@ -257,7 +257,23 @@ paths:
       operationId: pauseControl
       tags: [control]
       summary: Pause all work.
-      description: While paused, no run starts and no loop acts.
+      description: While paused, no run starts and no loop acts. The optional body records why.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  enum: [owner, self-update]
+                  description: Defaults to owner.
+                detail:
+                  type: string
+                  maxLength: 200
+                  description: One line, e.g. the commit being installed.
       responses:
         '200':
           description: The new pause state.
@@ -2147,11 +2163,43 @@ components:
 
     Control:
       type: object
-      required: [paused]
+      required: [paused, pause]
       properties:
         paused:
           type: boolean
           description: While true, no run starts and no loop acts.
+        pause:
+          $ref: '#/components/schemas/PauseView'
+
+    PauseView:
+      type: object
+      nullable: true
+      description: Why the factory is paused; null while it runs.
+      required: [reason, by, detail, since, waiting]
+      properties:
+        reason:
+          type: string
+          enum: [owner, self-update]
+        by:
+          type: string
+          description: The signed-in user, or "api token".
+        detail:
+          type: string
+          description: For a self-update, the commit being installed.
+        since:
+          type: string
+          format: date-time
+        waiting:
+          type: array
+          description: Live task runs. Chat and goal turns are not listed.
+          items:
+            type: object
+            required: [run_id, task_id]
+            properties:
+              run_id:
+                type: string
+              task_id:
+                type: string
 
     ProjectPauseState:
       type: object
@@ -2167,7 +2215,7 @@ components:
 
     Stats:
       type: object
-      required: [tasks_by_status, active_runs, approvals_pending, cost_today_usd, subscription_cost_today_usd, daily_budget_usd, paused, preflight]
+      required: [tasks_by_status, active_runs, approvals_pending, cost_today_usd, subscription_cost_today_usd, daily_budget_usd, paused, pause, preflight]
       properties:
         tasks_by_status:
           type: object
@@ -2190,6 +2238,8 @@ components:
           description: "`limits.daily_budget_usd`; 0 when unlimited. New runs stop once `cost_today_usd` reaches it."
         paused:
           type: boolean
+        pause:
+          $ref: '#/components/schemas/PauseView'
         preflight:
           type: array
           description: |
@@ -2325,6 +2375,11 @@ components:
         goal_id:
           type: string
           description: The goal this task works toward, when it was queued for one.
+        waiting_on:
+          type: array
+          items:
+            type: string
+          description: Tasks that must merge (or finish without a pull request) before this queued task may start. Onett clears an entry when its task lands and cancels this task when one ends blocked, failed or cancelled.
         created_by_run:
           type: string
           description: The run that created this task, when an agent created it through the CLI with the API token. Set from the `X-Onett-Run-ID` request header; ignored for a signed-in user.

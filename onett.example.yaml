@@ -265,6 +265,7 @@ loops:
   #   enabled: false                 # unset = on when a command is known
   #   every: 5m                      # default 5m
   #   min_healthy: 10m               # default 10m
+  #   max_defer: 2h                  # wait this long for an idle moment before draining; default 2h
   #   command: ./update.sh           # run with sh -c, gets ONETT_UPDATE_REF; inferred when possible
 
 # Channels: two-way links to onett, started and stopped with `onett serve`. Uncomment to use one.

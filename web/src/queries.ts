@@ -44,7 +44,12 @@ export function useStats() {
 }
 
 export function useControl() {
-  return useQuery({ queryKey: keys.control, queryFn: () => api.getControl() });
+  return useQuery({
+    queryKey: keys.control,
+    queryFn: () => api.getControl(),
+    // While paused, the runs a drain waits on change without an event for this key.
+    refetchInterval: (query) => (query.state.data?.paused ? 10_000 : false),
+  });
 }
 
 export function useProjects() {
@@ -283,7 +288,7 @@ export function useTogglePause() {
     mutationFn: (pause: boolean) => (pause ? api.pauseFactory() : api.resumeFactory()),
     onSuccess: (state) => {
       qc.setQueryData(keys.control, state);
-      qc.setQueryData<Stats | undefined>(keys.stats, (prev) => (prev ? { ...prev, paused: state.paused } : prev));
+      qc.setQueryData<Stats | undefined>(keys.stats, (prev) => (prev ? { ...prev, paused: state.paused, pause: state.pause } : prev));
       invalidate(qc, keys.stats, keys.projectsAll);
     },
   });

@@ -290,6 +290,9 @@ func (c *Config) LoopsFor(project string) Loops {
 	if ov.SelfUpdate.MinHealthy.Duration != 0 {
 		out.SelfUpdate.MinHealthy = ov.SelfUpdate.MinHealthy
 	}
+	if ov.SelfUpdate.MaxDefer.Duration != 0 {
+		out.SelfUpdate.MaxDefer = ov.SelfUpdate.MaxDefer
+	}
 	if ov.SelfUpdate.Command != "" {
 		out.SelfUpdate.Command = ov.SelfUpdate.Command
 	}

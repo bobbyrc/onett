@@ -71,6 +71,7 @@ export interface Task {
   updated_at: string;
   created_by_run?: string;
   goal_id?: string;
+  waiting_on?: string[];
 }
 
 export type GoalStatus = 'active' | 'paused' | 'blocked' | 'done';
@@ -311,6 +312,20 @@ export interface AgentUse {
   description: string;
 }
 
+/** Why the factory is paused. `waiting` lists the task runs a self-update drain is waiting on. */
+export interface PauseView {
+  reason: 'owner' | 'self-update' | string;
+  by: string;
+  detail: string;
+  since: string;
+  waiting: { run_id: string; task_id: string }[];
+}
+
+export interface Control {
+  paused: boolean;
+  pause: PauseView | null;
+}
+
 export interface Stats {
   tasks_by_status: Partial<Record<TaskStatus, number>>;
   active_runs: number;
@@ -318,6 +333,7 @@ export interface Stats {
   cost_today_usd: number;
   subscription_cost_today_usd: number;
   paused: boolean;
+  pause: PauseView | null;
   preflight: Preflight[];
 }
 

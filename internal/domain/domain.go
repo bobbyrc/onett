@@ -116,6 +116,10 @@ type Task struct {
 	CreatedByRun string `json:"created_by_run,omitempty"`
 	// GoalID is the goal this task works toward, when it was queued for one.
 	GoalID string `json:"goal_id,omitempty"`
+	// WaitingOn lists the tasks that must land (merge, or finish without a pull request) before
+	// the scheduler may claim this queued task. Onett clears an entry when that task lands, and
+	// cancels this task when one of them ends without landing.
+	WaitingOn []string `json:"waiting_on,omitempty"`
 }
 
 type RunStatus string
@@ -392,6 +396,21 @@ type LoopState struct {
 	LastRunAt time.Time `json:"last_run_at"`
 	LastError string    `json:"last_error,omitempty"`
 	Cursor    string    `json:"cursor,omitempty"` // loop-specific resume point
+}
+
+// Pause reasons: why the factory is paused.
+const (
+	PauseOwner      = "owner"       // a person (or their CLI) pressed pause
+	PauseSelfUpdate = "self-update" // the updater is draining runs to swap the binary
+)
+
+// PauseInfo says why the global pause switch is on, who set it and since when. Detail is
+// reason-specific: for a self-update, the commit being installed.
+type PauseInfo struct {
+	Reason string    `json:"reason"`
+	By     string    `json:"by,omitempty"`
+	Detail string    `json:"detail,omitempty"`
+	Since  time.Time `json:"since"`
 }
 
 type GoalStatus string

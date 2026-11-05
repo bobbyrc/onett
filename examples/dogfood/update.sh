@@ -15,6 +15,10 @@
 # the daemon ends every run it supervises. The self_update loop is not an agent run: it starts
 # this script detached, so the script outlives the daemon it restarts.
 #
+# ONETT_UPDATE_WAIT (seconds, default 1800) is how long it waits for runs to drain once paused. It
+# exits 75 when the factory stayed busy for that long (nothing changed; the loop backs off), 1 on
+# any other failure.
+#
 # It leaves $ONETT_DATA_DIR/self-update.result (default $DOGFOOD/data) for the new daemon to
 # report: old, new, ref, status ok or rolled_back and, for a rollback with a known cause, reason.
 set -euo pipefail
@@ -89,22 +93,30 @@ esac
 status=$("$bin" status)
 was_paused=no
 grep -q '^Factory: PAUSED' <<<"$status" && was_paused=yes
-"$bin" pause >/dev/null
-echo "update.sh: paused; waiting for active runs and releases to finish (up to 30 minutes)"
-for i in $(seq 1 360); do
+# The pause says why, so `onett status` and the web UI can show "paused for self-update to <sha>".
+# A daemon from before pause reasons rejects the flags; fall back to a plain pause for it. A pause
+# the owner already holds keeps its own reason.
+if [ "$was_paused" = no ]; then
+  "$bin" pause --reason self-update --detail "${ref:0:7}" >/dev/null 2>&1 || "$bin" pause >/dev/null
+fi
+# The daemon passes limits.run_timeout + 5 minutes: a run that has just started may use all of it.
+wait_secs=${ONETT_UPDATE_WAIT:-1800}
+tries=$(( (wait_secs + 4) / 5 ))
+echo "update.sh: paused; waiting for active runs and releases to finish (up to $((wait_secs / 60)) minutes)"
+for i in $(seq 1 "$tries"); do
   status=$("$bin" status)
   latest=$("$bin" deploys | sed -n 2p)
   if grep -q 'Active runs: 0 ' <<<"$status" && ! grep -qE ' (pending|deploying|verifying) ' <<<"$latest"; then
     break
   fi
-  if [ "$i" = 360 ]; then
+  if [ "$i" = "$tries" ]; then
     if [ "$was_paused" = yes ]; then
-      echo "update.sh: still busy after 30 minutes; the factory is left paused" >&2
+      echo "update.sh: still busy after $((wait_secs / 60)) minutes; the factory is left paused" >&2
     else
       "$bin" resume >/dev/null
-      echo "update.sh: still busy after 30 minutes; resumed the factory, nothing changed" >&2
+      echo "update.sh: still busy after $((wait_secs / 60)) minutes; resumed the factory, nothing changed" >&2
     fi
-    exit 1
+    exit 75 # EX_TEMPFAIL: the self_update loop waits an hour before trying this commit again
   fi
   sleep 5
 done

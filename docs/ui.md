@@ -91,7 +91,8 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
   characters, confirm); on success it says "Password changed." for three seconds. The dialog
   is drawn over the page, not inside the rail. The pause switch is the line's cord: a dark
   window with the line's state on the left (green lamp "Running", or red lamp "Paused" with
-  "No new runs start." and a red rule) and the action on the right (an outlined "Pause", or a
+  the reason in words, such as "Paused for self-update to 69f1660 since 22:36, waiting for 1 run
+  (task 01a1a9c6…).", or "Paused by <user> since 22:36." for your own pause, and a red rule) and the action on the right (an outlined "Pause", or a
   filled "Resume"; viewers see only the state). Below it the live
   indicator: green square "live" when the event stream is connected, yellow "reconnecting…".
 - Main area: content up to 1360px wide, 28px top and 32px side padding.
