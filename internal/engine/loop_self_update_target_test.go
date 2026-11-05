@@ -143,3 +143,39 @@ func TestSelfUpdateNothingNewerThanRunningAfterFailureLimit(t *testing.T) {
 		t.Fatalf("started %d updaters, want none", n)
 	}
 }
+
+// Every candidate is too young, or the newer release failed: nothing starts, and an older
+// eligible release is still chosen over a failed newer one.
+func TestSelfUpdateTargetHoldOffAndFailedNewer(t *testing.T) {
+	s := suStarvedEnv(t)
+	s.deploy(suRefA, domain.DeployHealthy, 3*time.Minute)
+	s.deploy(suRefB, domain.DeployHealthy, 1*time.Minute)
+	s.loop()
+	if n := s.started(); n != 0 {
+		t.Fatalf("started %d updaters with only young releases, want none", n)
+	}
+	if s.e.selfUpdateWaiting(s.ctx) {
+		t.Fatal("young releases are not an eligible target")
+	}
+
+	s = suStarvedEnv(t)
+	s.deploy(suRefA, domain.DeployHealthy, 30*time.Minute)
+	s.deploy(suRefB, domain.DeployRolledBack, 5*time.Minute)
+	s.loop()
+	if s.started() != 1 || s.startedRef(0) != suRefA {
+		t.Fatalf("want one updater for A, got %d (%s)", s.started(), s.startedRef(0))
+	}
+}
+
+// A paused self project never updates, so it must not make the deploy loop hold releases back.
+func TestSelfUpdatePausedProjectDoesNotHoldReleases(t *testing.T) {
+	s := suStarvedEnv(t)
+	s.deploy(suRefA, domain.DeployHealthy, 30*time.Minute)
+	if !s.e.selfUpdateWaiting(s.ctx) {
+		t.Fatal("precondition: A should be eligible")
+	}
+	s.e.paused.Store(true)
+	if s.e.selfUpdateWaiting(s.ctx) {
+		t.Fatal("a paused project must not hold releases back")
+	}
+}

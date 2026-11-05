@@ -95,12 +95,6 @@ func (e *Engine) deployLoop(ctx context.Context, p *config.Project) error {
 	if e.projectPaused(p.Name) {
 		return nil // paused: releases in flight were advanced above, but nothing new starts
 	}
-	if e.selfUpdateWaiting(ctx) {
-		// An eligible self-update goes first: the updater cannot start while a release is in
-		// flight, and releases landing back to back would starve it. The release waits one tick.
-		e.d.Logger.Info("deploy watch: new release held back for the self-update", "project", p.Name)
-		return nil
-	}
 	return e.startRelease(ctx, p, dep)
 }
 
@@ -133,6 +127,12 @@ func (e *Engine) startRelease(ctx context.Context, p *config.Project, dep deploy
 		return fmt.Errorf("deploy watch: list merged tasks: %w", err)
 	}
 	if len(merged) == 0 {
+		return nil
+	}
+	if e.selfUpdateWaiting(ctx) {
+		// An eligible self-update goes first: the updater cannot start while a release is in
+		// flight, and releases landing back to back would starve it. The release waits one tick.
+		e.d.Logger.Info("deploy watch: new release held back for the self-update", "project", p.Name)
 		return nil
 	}
 	oldest := merged[len(merged)-1] // lists are newest first

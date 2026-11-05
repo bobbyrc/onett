@@ -67,20 +67,14 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 	if su.Command == "" {
 		return errors.New("self_update: no command configured")
 	}
-	version := e.d.Version
-	if version == "" || strings.HasPrefix(version, "dev") {
-		return nil // a dev build has no commit to compare with, so it never replaces itself
-	}
-	if e.projectPaused(p.Name) {
-		return nil
-	}
-	dep, ok, err := e.selfUpdateTarget(ctx, p, su.MinHealthy.Duration, version)
+	dep, ok, err := e.selfUpdateEligible(ctx, p)
 	if err != nil {
 		return err
 	}
 	if !ok {
 		return nil
 	}
+	version := e.d.Version
 
 	// The updater restarts the daemon. Agent runs, chat turns and goal turns carry on across a
 	// restart, but a release's deploy command is a child of this daemon and would be killed by it,
@@ -171,21 +165,28 @@ func (e *Engine) selfUpdateTarget(ctx context.Context, p *config.Project, minHea
 	return domain.Deployment{}, false, nil
 }
 
+// selfUpdateEligible returns the release the daemon should update to now, if any. Both the
+// self_update loop and the deploy loop's hold-back use it, so they cannot disagree. A dev build
+// never replaces itself, and a paused project does not update.
+func (e *Engine) selfUpdateEligible(ctx context.Context, p *config.Project) (domain.Deployment, bool, error) {
+	su := e.Config().LoopsFor(p.Name).SelfUpdate
+	version := e.d.Version
+	if version == "" || strings.HasPrefix(version, "dev") || e.projectPaused(p.Name) {
+		return domain.Deployment{}, false, nil
+	}
+	return e.selfUpdateTarget(ctx, p, su.MinHealthy.Duration, version)
+}
+
 // selfUpdateWaiting reports whether a self-update target is eligible, so the deploy loop should
 // not start another release: a new release in flight would hold the updater back again.
 func (e *Engine) selfUpdateWaiting(ctx context.Context) bool {
 	cfg := e.Config()
 	name := cfg.SelfProject
 	p := cfg.Projects[name]
-	if name == "" || p == nil || !loopOn(cfg, loopSelfUpdate, name) {
+	if name == "" || p == nil || !loopOn(cfg, loopSelfUpdate, name) || cfg.LoopsFor(name).SelfUpdate.Command == "" {
 		return false
 	}
-	su := cfg.LoopsFor(name).SelfUpdate
-	version := e.d.Version
-	if su.Command == "" || version == "" || strings.HasPrefix(version, "dev") {
-		return false
-	}
-	_, ok, err := e.selfUpdateTarget(ctx, p, su.MinHealthy.Duration, version)
+	_, ok, err := e.selfUpdateEligible(ctx, p)
 	return err == nil && ok
 }
 
