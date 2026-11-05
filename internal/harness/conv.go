@@ -4,8 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/bobbyrc/onett/internal/runshim"
 )
 
 // Long-lived processes for conversations.
@@ -18,8 +22,13 @@ import (
 // turns, and the idle timer. The adapter supplies how to start the process and how to encode a
 // prompt, and marks the end of each turn with an Event whose TurnResult is set.
 //
-// These processes are direct children of onett, not behind a run shim: a restart of onett ends
-// them, and the conversation resumes its session in a new process on the next message.
+// Without limits.run_shim these processes are direct children of onett: a restart of onett ends
+// them, and the conversation resumes its session in a new process on the next message. With it
+// each process runs behind its own run shim (package runshim), named by ConvRunID, so it outlives
+// a restart. The next turn after the restart finds the shim, replays its log to rebuild the
+// parser's state and goes on with the same process, if it was idle between turns and was started
+// with the same configuration; otherwise the old process is stopped and a new one resumes the
+// session.
 
 // convs is the process-wide registry. Harnesses are built anew for each use, so it cannot live
 // on one.
@@ -85,7 +94,32 @@ type ConvStart struct {
 	// Start starts the process with first (an encoded prompt) as its first input, keeping stdin
 	// open.
 	Start func(first []byte) (*Proc, error)
+
+	// The rest is for a process behind a run shim; leave it zero for a direct child.
+	//
+	// RunDir is the shim's directory (runshim.RunDir of ConvRunID).
+	RunDir string
+	// Replay parses the shim's whole stream.log with a fresh parser.
+	Replay func() ([]Event, error)
+	// Reattach dials the shim and follows its output with a fresh parser, delivering events for
+	// lines from stream offset from on only.
+	Reattach func(from int64) (*Proc, error)
 }
+
+// ConvRunID is the run shim name of a conversation's process. It is stable, so a restarted onett
+// finds the shim again.
+func ConvRunID(conversationID string) string {
+	return "conv-" + strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+			return r
+		}
+		return '_'
+	}, conversationID)
+}
+
+// convFingerprintFile records the fingerprint a shim-backed process started with.
+const convFingerprintFile = "conv.fp"
 
 // convProc is one live process and the turn it is answering, if any.
 type convProc struct {
@@ -127,8 +161,17 @@ func StartConvTurn(ctx context.Context, spec Spec, cs ConvStart) (Session, error
 	defer convs.lockStart(spec.ConversationID)()
 
 	// A live process can turn out to be gone only when the write fails; then one fresh start.
-	for attempt := 0; attempt < 2; attempt++ {
+	// The first pass may also adopt a process an earlier onett left running behind its shim.
+	for attempt := 0; attempt < 3; attempt++ {
 		c := convs.get(spec.ConversationID)
+		if c == nil && attempt == 0 && cs.Reattach != nil {
+			if c = reattachConv(spec, cs); c != nil {
+				convs.mu.Lock()
+				convs.procs[spec.ConversationID] = c
+				convs.mu.Unlock()
+				go c.route()
+			}
+		}
 		if c != nil {
 			t, err := c.beginTurn(spec, cs)
 			switch {
@@ -155,6 +198,10 @@ func StartConvTurn(ctx context.Context, spec Spec, cs ConvStart) (Session, error
 		if err != nil {
 			return nil, err
 		}
+		if cs.RunDir != "" {
+			// Best effort: without it a restarted onett will not reuse this process.
+			_ = os.WriteFile(cs.RunDir+"/"+convFingerprintFile, []byte(cs.Fingerprint), 0o600)
+		}
 		c = &convProc{key: spec.ConversationID, fp: cs.Fingerprint, proc: p, encode: cs.Encode}
 		t := newConvTurn(c, spec.KeepAlive)
 		c.turn = t // before the router runs, so the first events have a turn to go to
@@ -165,6 +212,51 @@ func StartConvTurn(ctx context.Context, spec Spec, cs ConvStart) (Session, error
 		return t.watch(ctx), nil
 	}
 	return nil, fmt.Errorf("harness: conversation %s: agent process would not take input", spec.ConversationID)
+}
+
+// reattachConv adopts the process an earlier onett left behind this conversation's shim, or
+// returns nil when there is none worth keeping. A process that is not idle between turns (it was
+// answering when onett went away: its next result would be taken for the next turn's), or that
+// was started with other settings, is stopped and its shim waited for, so that a new one can take
+// the same files and socket.
+func reattachConv(spec Spec, cs ConvStart) *convProc {
+	st, err := runshim.ReadStatus(cs.RunDir)
+	if err != nil {
+		return nil // no shim was ever started
+	}
+	// Anything unreadable below counts as "not reusable", so that a shim still holding the
+	// socket is stopped rather than left to block the new one.
+	fp, _ := os.ReadFile(cs.RunDir + "/" + convFingerprintFile)
+	// One size for both the idle check and the reattach point: a shim still writing must not
+	// move the line between "already seen" and "for the next turn".
+	fi, statErr := os.Stat(runshim.StreamPath(cs.RunDir))
+	if statErr != nil {
+		return nil
+	}
+	size := fi.Size()
+	evs, replayErr := cs.Replay()
+	for len(evs) > 0 && evs[len(evs)-1].Offset > size {
+		evs = evs[:len(evs)-1] // written after the snapshot
+	}
+	p, err := cs.Reattach(size)
+	if err != nil {
+		return nil // the shim is gone
+	}
+	idle := !st.Exited && replayErr == nil && len(evs) > 0 &&
+		evs[len(evs)-1].TurnResult != nil && evs[len(evs)-1].Offset == size
+	if string(fp) != cs.Fingerprint || !idle {
+		p.Cancel()
+		_, _ = p.Wait()
+		for deadline := time.Now().Add(5 * time.Second); st.Socket != "" && time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+			if _, err := os.Stat(st.Socket); err != nil {
+				break
+			}
+		}
+		return nil
+	}
+	c := &convProc{key: spec.ConversationID, fp: cs.Fingerprint, proc: p, encode: cs.Encode}
+	c.idle = time.AfterFunc(spec.KeepAlive, c.stopIfIdle)
+	return c
 }
 
 func newConvTurn(c *convProc, keepAlive time.Duration) *convTurn {
@@ -298,7 +390,8 @@ func (c *convProc) stop() {
 	time.AfterFunc(procKillGrace, c.proc.Cancel)
 }
 
-// StopConversations stops every live conversation process (at shutdown).
+// StopConversations stops every live conversation process (at shutdown). One behind a run shim
+// is let go instead, to be adopted by the next onett.
 func StopConversations() {
 	convs.mu.Lock()
 	all := make([]*convProc, 0, len(convs.procs))
@@ -307,7 +400,19 @@ func StopConversations() {
 	}
 	convs.mu.Unlock()
 	for _, c := range all {
-		c.stop()
+		if !c.proc.Detach() {
+			c.stop()
+			continue
+		}
+		// Forget it now: route notices the closed stream only a moment later, and a turn
+		// started in between would write to a process nobody listens to.
+		c.mu.Lock()
+		c.stopping = true
+		if c.idle != nil {
+			c.idle.Stop()
+		}
+		c.mu.Unlock()
+		convs.remove(c.key, c)
 	}
 }
 

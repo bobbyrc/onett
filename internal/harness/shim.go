@@ -162,7 +162,10 @@ func (p *Proc) readShim(stream *runshim.Stream, client *runshim.Client, parse fu
 	defer func() {
 		p.exitCode, p.waitErr = exitCode, exitErr
 		close(p.exited)
-		p.CloseStdin()
+		if !p.detached.Load() {
+			// Not for a detached agent: it keeps running, and its stdin must stay open.
+			p.CloseStdin()
+		}
 	}()
 	for m := range stream.C {
 		switch m.Type {
