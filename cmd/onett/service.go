@@ -43,6 +43,9 @@ var (
 		return filepath.Join(home, "Library", "LaunchAgents")
 	}()
 
+	// pause waits between launchctl polls and retries; tests replace it so they do not sleep.
+	pause = time.Sleep
+
 	// commandRunner runs an external program and returns its combined stdout and stderr.
 	commandRunner = func(ctx context.Context, name string, args ...string) (string, error) {
 		out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
@@ -156,6 +159,15 @@ func serviceInstall(e *env, cfgFlag string) error {
 	}
 	if readErr == nil && string(existing) == body {
 		fmt.Fprintf(e.out, "already installed: %s\n", plist)
+		// A failed earlier install or update can leave the plist on disk with the job unloaded;
+		// kickstart cannot start a job launchd does not know, so load it instead.
+		if out, err := runExternal("launchctl", "print", target); err != nil && notLoadedOutput(out) {
+			if err := bootstrapService(plist); err != nil {
+				return err
+			}
+			fmt.Fprintf(e.out, "loaded %s\n", serviceLabel)
+			return nil
+		}
 		if _, err := runLaunchctl("kickstart", "-k", target); err != nil {
 			return err
 		}
@@ -176,11 +188,14 @@ func serviceInstall(e *env, cfgFlag string) error {
 		if err != nil && !notLoadedOutput(out) {
 			return launchctlError([]string{"bootout", target}, out, err)
 		}
+		// bootout returns before launchd has finished removing the job, and a bootstrap
+		// straight after it fails with error 5.
+		waitUnloaded(target)
 		fmt.Fprintf(e.out, "updated %s\n", plist)
 	}
-	if _, err := runLaunchctl("bootstrap", launchdDomain(), plist); err != nil {
-		// Leave no half-installed plist behind: the next install should start clean.
-		_ = os.Remove(plist)
+	// On failure the plist stays as written: a later install sees it, finds the job not
+	// loaded and loads it.
+	if err := bootstrapService(plist); err != nil {
 		return err
 	}
 	fmt.Fprintf(e.out, "installed %s\n  plist: %s\n  log:   %s\n", serviceLabel, plist, logPath)
@@ -192,6 +207,52 @@ func serviceInstall(e *env, cfgFlag string) error {
 		fmt.Fprintf(e.out, "  env:   %s (from the config; uninstall and install again to change them)\n", strings.Join(names, ", "))
 	}
 	return nil
+}
+
+// unloadPolls and unloadInterval bound how long waitUnloaded waits for launchd: 15 seconds.
+const (
+	unloadPolls    = 60
+	unloadInterval = 250 * time.Millisecond
+)
+
+// waitUnloaded polls `launchctl print` until launchd reports the service gone. It gives up
+// quietly after the bound: bootstrapService retries the errors a lingering job causes.
+func waitUnloaded(target string) {
+	for range unloadPolls {
+		if out, err := runExternal("launchctl", "print", target); err != nil && notLoadedOutput(out) {
+			return
+		}
+		pause(unloadInterval)
+	}
+}
+
+// bootstrapAttempts is how many times bootstrapService tries; the wait doubles from 500ms.
+const bootstrapAttempts = 5
+
+// bootstrapService loads the plist into the user's launchd domain. launchd answers a bootstrap
+// that races a recent bootout with exit status 5 (Input/output error), so only that failure is
+// retried, with a growing wait; any other error is returned at once.
+func bootstrapService(plist string) error {
+	wait := 500 * time.Millisecond
+	args := []string{"bootstrap", launchdDomain(), plist}
+	var err error
+	for i := range bootstrapAttempts {
+		var out string
+		if out, err = runLaunchctl(args...); err == nil {
+			return nil
+		}
+		if !busyOutput(out, err) || i == bootstrapAttempts-1 {
+			break
+		}
+		pause(wait)
+		wait *= 2
+	}
+	return err
+}
+
+// busyOutput reports whether a launchctl failure is the transient error 5.
+func busyOutput(out string, err error) bool {
+	return strings.Contains(out, "Input/output error") || strings.Contains(err.Error(), "exit status 5")
 }
 
 // serviceUninstall unloads the service and removes its plist. A service that was not loaded is
