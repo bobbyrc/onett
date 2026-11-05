@@ -373,9 +373,11 @@ a note that onett reads that environment variable. A map is one card per entry, 
 Remove (Remove asks first), and a form at the end to add one. A list has a row or a card per item,
 with Remove, and an Add button. A setting with fixed choices, such as a notifier's `type`, is a
 dropdown. The `options` of a notifier, channel, deploy block or observer show the fields of the
-selected `type`. A setting that names a secret (such as a token's `*_env`) is a dropdown of the
-known secret names with "Create a new secret…", which asks for a name and a value, saves it to
-`secrets.env` and selects it; the value is never shown again. Changing `type` keeps the options the new type also has and asks before dropping the rest;
+selected `type`. A setting that names an environment variable for a secret is a picker: a box that
+suggests the known names (marked set or not set), accepts a new name written in capitals, and offers
+a suggested name when empty (such as `TELEGRAM_BOT_TOKEN`). Beside it, Set value (or Replace) stores
+the secret through the Secrets API, with the same write-only rules. That is separate from the config
+edit: the name still needs the Save bar. Changing `type` keeps the options the new type also has and asks before dropping the rest;
 with no `type`, or one this onett does not know, `options` is edited as JSON. Any other value with no
 simple form is edited as JSON. Edits stay on the
 page until saved: a bar at the bottom says how many there are, with Save and Discard. A save writes

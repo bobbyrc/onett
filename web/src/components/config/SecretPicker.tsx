@@ -1,52 +1,83 @@
-// The input for a `*_env` setting: pick one of the secrets onett knows, or create one right here.
-// Creating writes the value to secrets.env (write-only, like the Secrets tab) and then points the
-// setting at the new name. The value is never kept after the save.
-import { useState, type FormEvent } from 'react';
+// The input for a `secret_env` field: a setting that holds the NAME of an environment variable
+// that holds a secret. It offers the names the daemon knows (with set / not set), accepts a new
+// name, and can store the value for the chosen name right here. Saving the value is separate from
+// the config draft: the name still goes through the Save bar. It never reads or shows a value.
+import { useState } from 'react';
 import { usePutSecret, useSecrets } from '../../queries';
-import { SECRET_NAME_RE, pickerNames, valueProblem } from '../../lib/secrets';
+import { SECRET_NAME_RE, isShadowed, secretStatus, sortSecrets, valueProblem } from '../../lib/secrets';
 import { Button } from '../Button';
 import { ErrorLine } from '../ErrorLine';
 
-const NEW = '\u0000new';
+const NAME_RE = SECRET_NAME_RE;
+// A name the help text spells out, such as "Default TELEGRAM_BOT_TOKEN". It needs an underscore,
+// so a word in capitals (ONETT, URL) is not taken for one.
+const HELP_NAME_RE = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/;
 
-export function SecretPicker({
-  id,
-  invalid,
-  value,
-  onChange,
-}: {
+/** Why a name cannot be used, or null. Empty is fine: the field is then simply unset. */
+export function secretNameProblem(name: string): string | null {
+  if (name === '' || NAME_RE.test(name)) return null;
+  return 'Use capital letters, digits and underscores, and do not start with a digit.';
+}
+
+/**
+ * The name to suggest for an empty field. A name the schema help gives wins; otherwise it is built
+ * from the sibling `type` and the key: telegram + bot_token_env is TELEGRAM_BOT_TOKEN.
+ */
+export function suggestSecretName(key: string, help: string | undefined, type: unknown): string {
+  const fromHelp = help?.match(HELP_NAME_RE)?.[0];
+  if (fromHelp) return fromHelp;
+  const base = key.replace(/_env$/, '').toUpperCase();
+  const prefix = typeof type === 'string' ? type.toUpperCase().replace(/[^A-Z0-9]+/g, '_') : '';
+  const name = prefix && !base.startsWith(prefix) ? `${prefix}_${base}` : base;
+  return NAME_RE.test(name) ? name : '';
+}
+
+interface SecretPickerProps {
   id: string;
-  invalid?: boolean;
+  /** The field's key, such as bot_token_env. */
+  fieldKey: string;
+  help?: string;
+  /** The sibling `type` (telegram, discord, ...), when the field sits in a variant's options. */
+  type?: unknown;
   value: unknown;
+  invalid?: boolean;
   onChange: (next: unknown) => void;
-}) {
+}
+
+export function SecretPicker({ id, fieldKey, help, type, value, invalid, onChange }: SecretPickerProps) {
   const secrets = useSecrets();
   const put = usePutSecret();
-  const [creating, setCreating] = useState(false);
-  const [name, setName] = useState('');
+  const [open, setOpen] = useState(false);
   const [secret, setSecret] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
   const [failure, setFailure] = useState<unknown>(null);
 
-  const current = typeof value === 'string' ? value : '';
-  const nameProblem = name !== '' && !SECRET_NAME_RE.test(name) ? 'Use capital letters, digits and underscores.' : null;
+  const name = typeof value === 'string' ? value : '';
+  const known = sortSecrets(secrets.data?.secrets ?? []);
+  const current = known.find((s) => s.name === name);
+  const problem = secretNameProblem(name);
+  const usable = name !== '' && problem === null;
+  const suggestion = name === '' ? suggestSecretName(fieldKey, help, type) : '';
   const valueIssue = secret === '' ? null : valueProblem(secret);
 
   const close = () => {
-    setCreating(false);
-    setName('');
+    setOpen(false);
     setSecret('');
-    setFailure(null);
   };
 
-  const create = (event: FormEvent) => {
-    event.preventDefault();
+  const save = () => {
     setFailure(null);
+    setNotice(null);
     put.mutate(
       { name, value: secret },
       {
         onSuccess: (saved) => {
-          onChange(saved.name);
           close();
+          setNotice(
+            saved.shadowed
+              ? `Secret saved, but the daemon's own environment defines ${saved.name} and wins (shadowed by the daemon's environment). Save the config to use the name.`
+              : 'Secret saved. Save the config to use it.',
+          );
         },
         onError: setFailure,
       },
@@ -54,65 +85,101 @@ export function SecretPicker({
   };
 
   return (
-    <>
-      <select
+    <div className="secret-picker">
+      <input
         id={id}
-        className="config-input"
-        aria-invalid={invalid || undefined}
-        value={creating ? NEW : current}
+        className="config-input mono"
+        type="text"
+        list={`${id}-names`}
+        autoComplete="off"
+        spellCheck={false}
+        aria-invalid={invalid || problem !== null || undefined}
+        placeholder={suggestion || undefined}
+        value={name}
         onChange={(event) => {
-          if (event.target.value === NEW) setCreating(true);
-          else {
-            close();
-            onChange(event.target.value === '' ? undefined : event.target.value);
-          }
+          // A different name is a different secret: forget the form and the last result.
+          close();
+          setNotice(null);
+          setFailure(null);
+          const raw = event.target.value.trim();
+          onChange(raw === '' ? undefined : raw);
         }}
-      >
-        <option value="">(not set)</option>
-        {pickerNames(secrets.data?.secrets ?? [], current).map((n) => (
-          <option key={n} value={n}>
-            {n}
+      />
+      <datalist id={`${id}-names`}>
+        {known.map((s) => (
+          <option key={s.name} value={s.name}>
+            {secretStatus(s)}
           </option>
         ))}
-        <option value={NEW}>Create a new secret…</option>
-      </select>
-      {creating ? (
-        <form className="inline-form" onSubmit={create}>
-          <label>
-            Name
-            <input
-              type="text"
-              className="mono"
-              value={name}
-              placeholder="TELEGRAM_BOT_TOKEN"
-              autoComplete="off"
-              spellCheck={false}
-              onChange={(event) => setName(event.target.value)}
-              autoFocus
-            />
-          </label>
-          {nameProblem ? <p className="error-line">{nameProblem}</p> : null}
-          <label>
-            Value
+      </datalist>
+
+      {problem ? <p className="error-line">{problem}</p> : null}
+
+      {suggestion ? (
+        <p className="muted config-env">
+          Suggested name: <span className="mono">{suggestion}</span>{' '}
+          <button type="button" className="link-button" onClick={() => onChange(suggestion)}>
+            Use it
+          </button>
+        </p>
+      ) : null}
+
+      {usable ? (
+        <p className="muted config-env">
+          <span className="mono">{name}</span>:{' '}
+          <span data-testid="secret-status">{secrets.isPending ? 'checking…' : current?.set ? 'set' : 'not set'}</span>
+          {current && isShadowed(current) ? ' (shadowed by the daemon’s environment)' : null}{' '}
+          <button
+            type="button"
+            className="link-button"
+            aria-expanded={open}
+            onClick={() => {
+              setSecret('');
+              setOpen(!open);
+            }}
+          >
+            {current?.set ? 'Replace' : 'Set value'}
+          </button>
+        </p>
+      ) : null}
+
+      {usable && open ? (
+        <div className="inline-form">
+          <label className="field">
+            <span className="field-label">{`Value for ${name}`}</span>
             <input
               type="password"
               autoComplete="new-password"
               value={secret}
               onChange={(event) => setSecret(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && secret !== '' && valueIssue === null && !put.isPending) {
+                  event.preventDefault();
+                  save();
+                }
+              }}
+              autoFocus
             />
+            {valueIssue ? <span className="field-hint">{valueIssue}</span> : null}
           </label>
-          {valueIssue ? <p className="error-line">{valueIssue}</p> : null}
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={put.isPending || !SECRET_NAME_RE.test(name) || secret === '' || valueIssue !== null}
-          >
-            Save secret
-          </Button>
-          <Button onClick={close}>Cancel</Button>
-          <ErrorLine error={failure} />
-        </form>
+          <p className="muted config-env">
+            Stored in secrets.env and never shown again. This does not change the config: save the config afterwards.
+          </p>
+          <div>
+            <Button variant="primary" disabled={put.isPending || secret === '' || valueIssue !== null} onClick={save}>
+              Save
+            </Button>{' '}
+            <Button onClick={close}>Cancel</Button>
+          </div>
+        </div>
       ) : null}
-    </>
+
+      {notice ? (
+        <p className="muted config-env" role="status">
+          {notice}
+        </p>
+      ) : null}
+      <ErrorLine error={failure} />
+    </div>
   );
 }
