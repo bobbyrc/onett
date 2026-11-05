@@ -96,6 +96,11 @@ func (e *Engine) finishChat(ctx context.Context, conv domain.Conversation, res c
 	return true
 }
 
+// orchestratorAllowedTools pre-approves the onett CLI, which is how the orchestrator manages the
+// factory, so Claude Code's auto-mode classifier does not refuse routine calls such as
+// `onett task cancel`. Nothing else is allowed: no wildcard Bash.
+var orchestratorAllowedTools = []string{"Bash(onett:*)"}
+
 // chatTurn runs the orchestrator harness for one prompt. claimed are the messages in it; once
 // the run exists they are stamped with its ID.
 func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text string, claimed []string, opts chatOpts) chatTurnResult {
@@ -164,6 +169,7 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 		ResumeSessionID: conv.SessionID,
 		Env:             e.chatEnv(conv, run.ID),
 		Args:            agent.Args,
+		AllowedTools:    orchestratorAllowedTools,
 		// Turns of one conversation share a long-lived agent process, so the prompt cache and
 		// MCP connections carry over; a harness that cannot do that starts one per turn.
 		ConversationID: conv.ID,
