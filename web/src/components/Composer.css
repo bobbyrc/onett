@@ -28,8 +28,8 @@
   margin-top: var(--chat-space-3);
   padding: 0;
   background: var(--chat-surface);
-  border: 1px solid var(--chat-field-border);
-  border-radius: var(--chat-radius-md);
+  border: 1px solid var(--chat-composer-border);
+  border-radius: var(--chat-radius-xl);
 }
 
 .chat-page .composer:focus-within {
@@ -78,7 +78,7 @@
   font-size: var(--chat-text-sm);
 }
 
-/* Send and Stop: one 44px square-cornered button; the label is text, not only an icon or colour. */
+/* Send and Stop: one 44px button; the label is text, not only an icon or colour. */
 .chat-page .composer-send {
   display: inline-flex;
   align-items: center;

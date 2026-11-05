@@ -1118,7 +1118,8 @@ input[type='checkbox'] {
 }
 
 .markdown code {
-  background: var(--chat-code-bg);
+  background: var(--chat-inline-code-bg);
+  border: 1px solid var(--chat-inline-code-border);
   border-radius: var(--chat-radius-sm);
   padding: 1px var(--chat-space-1);
   font-size: var(--chat-text-code);

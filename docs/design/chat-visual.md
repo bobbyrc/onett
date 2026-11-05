@@ -161,8 +161,8 @@ column width as the transcript, a hairline border (`--chat-composer-border`, 9â€
 change from the canvas, with attachment chips above, an action row below and notices docked above.
 
 **Adaptation.** The composer stays sticky at the bottom, at `--chat-max-width`. Field fill is
-`--chat-surface`, outline 1px `--chat-field-border` (a typing field must clear 3:1; Orca's hairline
-does not), radius `--chat-radius-md`, `--chat-shadow-composer` on the sticky wrapper. Send and
+`--chat-surface`, outline 1px `--chat-composer-border` (Orca's hairline; the 2px focus ring is what
+marks the field while you type), radius `--chat-radius-xl`, `--chat-shadow-composer` on the sticky wrapper. Send and
 Attach stay square-cornered buttons. On focus the outline becomes the `--chat-focus-ring`.
 
 ## Status and activity line
@@ -196,7 +196,7 @@ in the strong tone and a `max-w-sm` 12px faint explanation.
 
 **Adaptation.** Centred under the top of the thread (as the current new-chat page is), a title in
 `--chat-fg-strong` at `--chat-text-md` weight 600, one `--chat-fg-faint` line of explanation and
-the example prompts as quiet square-cornered chips. A small line icon (22px, `currentColor`), no
+the example prompts as quiet rounded chips. A small line icon (22px, `currentColor`), no
 circle, no illustration. Loading shows a skeleton (a right-aligned user sheet and full-width
 assistant lines) only after 150ms, static under `prefers-reduced-motion`.
 
@@ -226,7 +226,7 @@ Colours written `var(--x)` are references to `styles.css`, not copies; the hex b
 | `--chat-fg-faint` | `#4b5751` | `#a1aea7` | labels, tool names, timestamps (= `var(--muted)`) |
 | `--chat-border` | `#b9c6bd` | `#3a4741` | decorative 1px rules and card edges (= `var(--border)`) |
 | `--chat-field-border`* | `#6f7d76` | `#64736b` | outline of the composer input (= `var(--field)`) |
-| `--chat-composer-border`* | `--text` 11% | `--text` 9% | Orca's composer hairline, mixed toward transparent; not used until the composer restyle |
+| `--chat-composer-border`* | `--text` 11% | `--text` 9% | Orca's composer hairline, mixed toward transparent; the composer card's border |
 | `--chat-accent` | `#1d6f3d` | `#5fd08b` | working lamp, links, selection (= `var(--ok)`) |
 | `--chat-warning` | `#7a5800` | `#f2c230` | waiting-for-owner text (= `var(--warn)`) |
 | `--chat-warning-bg`* | `#fbf3d4` | `#2b2308` | queued-message notice fill (text is `--chat-warning`) |
