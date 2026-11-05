@@ -23,57 +23,201 @@
 }
 
 .tr-col {
-  max-width: 760px;
+  max-width: var(--chat-max-width);
   min-width: 0;
   width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--chat-msg-gap);
 }
 
-.tr-copyable {
-  position: relative;
-}
-
-.tr-you {
-  align-self: flex-end;
-  max-width: min(72ch, 100%);
+/* One message with its action row underneath. The owner's sits on the right, the agent's on the left. */
+.tr-row {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  padding: 9px 13px;
+}
+
+.tr-row-you {
+  align-items: flex-end;
+}
+
+/* The owner's message: a right-aligned sheet, no avatar. */
+.tr-you {
+  max-width: min(72ch, 85%);
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--chat-user-bg);
+  color: var(--chat-user-fg);
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius-lg);
+  padding: var(--chat-space-3) var(--chat-space-4);
+  font-size: var(--chat-text-md);
+  line-height: var(--chat-leading);
   overflow-wrap: anywhere;
 }
 
 .tr-you.queued {
   border-style: dashed;
   background: transparent;
-  color: var(--muted);
+  color: var(--chat-fg-faint);
 }
 
 .tr-body {
+  display: block;
   white-space: pre-wrap;
+}
+
+/* A long message shows about eight lines and fades into the sheet. */
+.tr-body.folded {
+  position: relative;
+  max-height: calc(8 * var(--chat-leading) * 1em);
+  overflow: hidden;
+}
+
+.tr-body.folded::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3em;
+  background: linear-gradient(to bottom, transparent, var(--chat-user-bg));
+  pointer-events: none;
+}
+
+.tr-you.queued .tr-body.folded::after {
+  background: linear-gradient(to bottom, transparent, var(--chat-bg));
+}
+
+.tr-fold {
+  display: block;
+  margin-top: var(--chat-space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--chat-text-sm);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tr-fold:focus-visible {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: -2px;
 }
 
 .tr-queued-note {
   display: block;
-  font-size: 12px;
-  color: var(--muted);
+  font-size: var(--chat-text-sm);
+  color: var(--chat-fg-faint);
 }
 
 .tr-lbl {
-  font-family: var(--font-cond);
-  font-weight: 700;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  margin-bottom: 2px;
+  font-size: var(--chat-text-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--chat-fg-faint);
+  margin-bottom: var(--chat-space-1);
+}
+
+/* The timestamp and copy button under a message. Always in layout, so revealing them moves nothing. */
+.tr-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-space-2);
+  min-height: 26px;
+  font-size: var(--chat-text-sm);
+  color: var(--chat-fg-faint);
+  transition: opacity 0.12s;
+}
+
+.tr-time {
+  font-size: var(--chat-text-sm);
+  color: var(--chat-fg-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tr-actions .copy-btn-wrap {
+  position: static;
+  opacity: 1;
+}
+
+.tr-actions .copy-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  justify-content: center;
+  border-color: transparent;
+  background: transparent;
+  color: var(--chat-fg-faint);
+  border-radius: var(--chat-radius-md);
+}
+
+.tr-actions .copy-btn:hover {
+  color: var(--chat-fg-strong);
+}
+
+.tr-actions .copy-btn:focus-visible {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: 1px;
+}
+
+.tr-actions .copy-note {
+  position: static;
+  font-size: var(--chat-text-sm);
+  color: var(--chat-fg-faint);
+  background: transparent;
+}
+
+/* A mouse reveals them on hover or focus; a touch screen has no hover, so they stay visible there. */
+@media (hover: hover) and (pointer: fine) {
+  .tr-actions {
+    opacity: 0;
+  }
+
+  .tr-row:hover .tr-actions,
+  .tr-row:focus-within .tr-actions {
+    opacity: 1;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .tr-actions {
+    min-height: 44px;
+  }
+
+  .tr-actions .copy-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .tr-fold {
+    min-height: 44px;
+    padding: 0 var(--chat-space-2);
+    margin-left: calc(-1 * var(--chat-space-2));
+  }
+}
+
+@media (max-width: 759px) {
+  .tr-you {
+    max-width: 90%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tr-actions {
+    transition: none;
+  }
 }
 
 .tr-ai {
   min-width: 0;
+  color: var(--chat-fg);
+  font-size: var(--chat-text-md);
+  line-height: var(--chat-leading);
 }
 
 .tr-ai code,
@@ -84,12 +228,6 @@
 .tr-note,
 .tr-divider {
   min-width: 0;
-}
-
-.tr-more {
-  display: block;
-  font: inherit;
-  font-size: 12.5px;
 }
 
 .tr-ai .markdown > :last-child {
