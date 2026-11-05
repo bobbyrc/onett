@@ -151,6 +151,12 @@ In its own terminal:
 It keeps running and prints the address it listens on (`127.0.0.1:7777` by default). Leave it
 running. Stop it with Ctrl-C.
 
+If there is no config file yet, `onett serve` writes the same starter file `onett init` writes
+(no project, only the log notifier; it never overwrites an existing file) and says where. While no
+owner account exists it prints one line with the web UI address: open it, create the owner
+account, then follow the "Finish setting up onett" card on the Overview (add a project, check the
+agents, choose a policy, set up a way to reach you, set secrets). No token is put in that URL.
+
 In a second terminal:
 
 ```sh

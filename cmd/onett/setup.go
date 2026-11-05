@@ -103,6 +103,30 @@ func cmdInit(e *env, args []string) error {
 	return nil
 }
 
+// writeStarterConfig writes the starter config (no project, no notifier beyond the log) to
+// path for a first `onett serve`. It creates the directory (0700) and the file (0600), and
+// never overwrites: created is false when the file already exists.
+func writeStarterConfig(path string) (created bool, err error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return false, fmt.Errorf("create config dir: %w", err)
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("create %s: %w", path, err)
+	}
+	_, werr := f.WriteString(initialConfig("", "", ""))
+	if cerr := f.Close(); werr == nil {
+		werr = cerr
+	}
+	if werr != nil {
+		return false, fmt.Errorf("write %s: %w", path, werr)
+	}
+	return true, nil
+}
+
 // initialConfig is the starter onett.yaml. Every key it leaves out has a default.
 func initialConfig(project, repo, dir string) string {
 	return initialConfigWith(project, repo, dir, notifySetup{})

@@ -2610,3 +2610,18 @@ a.board-window:hover .board-name {
 .setup-steps { padding-left: 1.25rem; display: grid; gap: 1rem; max-width: 46rem; }
 .setup-steps .field { margin-top: 0.5rem; }
 .send-test { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+/* First-run checklist on the Overview. */
+.setup-checklist {
+  margin-bottom: 1rem;
+}
+.setup-steps {
+  list-style: none;
+  margin: 0.5rem 0 0.75rem;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.setup-steps .is-done a {
+  color: var(--muted, inherit);
+}

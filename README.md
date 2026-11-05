@@ -172,6 +172,7 @@ mise exec -- scripts/build.sh
 ./onett init --project myproject --repo you/myproject   # writes ~/.config/onett/onett.yaml
 ./onett doctor     # checks your setup: config, git, gh, harness CLIs, daemon
 ./onett serve      # run the daemon; leave it running in its own terminal
+                   # (with no config file it writes a starter one and you finish setup in the web UI)
 ./onett open       # open the web UI in your browser (second terminal)
 ./onett chat "What is running right now?"
 ```
