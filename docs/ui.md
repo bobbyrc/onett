@@ -165,6 +165,8 @@ as a fallback.
 ## Pages
 
 **Overview** (`/`): the andon board, then the work.
+- **Rate-limit holds**: under the board, an info note per harness held for a rate limit (from
+  `holds` in `/stats`): "claude is rate limited. New runs wait until 15:04." Gone once the hold lifts.
 - **Board**: a charcoal band with one window per project (from `/projects`). A window's lamp
   bar is lit by what the project needs (`src/lib/lamp.ts`): red when a task is blocked, yellow
   when approvals wait, off when paused, green when tasks run or are in review, off when only
