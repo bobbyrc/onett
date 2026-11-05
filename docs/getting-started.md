@@ -54,7 +54,19 @@ pwd    # note this path; you will need it in step 4
 ```
 
 This writes `~/.config/onett/onett.yaml`. It refuses to overwrite an existing file. The starter
-file has a `log` notifier and one project. Open it in your editor and add `paused: true` to the
+file has a `log` notifier and one project.
+
+With only the `log` notifier, onett cannot tell you when a goal blocks. So when you run `init` in a
+terminal it asks once how to reach you: `[1] Telegram [2] Discord [3] ntfy [4] skip`, and then only
+for non-secret values (your user ID, or the ntfy topic). To skip the question, or to run `init` from
+a script, pass flags instead: `--notify ntfy --ntfy-topic T [--ntfy-server URL]` and/or
+`--channel telegram|discord --user-ids ID[,ID]`. Without a terminal and without flags it never asks;
+it prints a warning that onett cannot reach you and points at `onett doctor`.
+
+The config never holds a token. For Telegram and Discord, `init` creates
+`~/.config/onett/secrets.env` (mode 600) with an empty `TELEGRAM_BOT_TOKEN=` or
+`DISCORD_BOT_TOKEN=` line, unless the file exists, and tells you which key to fill in; see
+[channels.md](channels.md) for getting the token. An ntfy topic on `ntfy.sh` needs no secret. Open it in your editor and add `paused: true` to the
 `trial` project, so the factory starts nothing until you are ready:
 
 ```yaml
