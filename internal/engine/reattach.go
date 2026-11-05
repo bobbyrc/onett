@@ -216,6 +216,66 @@ func (e *Engine) interruptedResume(ctx context.Context, t domain.Task, current d
 	return "", false
 }
 
+// ingestStreamLog stores what the agent of an interrupted run wrote after the last line onett
+// stored, which is still in the dead shim's stream.log. Without it that output, and any session ID
+// it carried, would be lost to the restart. Best effort: a run that cannot be replayed is
+// interrupted all the same.
+func (e *Engine) ingestStreamLog(ctx context.Context, r domain.Run) {
+	log := e.d.Logger.With("run", r.ID, "task", r.TaskID)
+	t, err := e.d.Store.GetTask(ctx, r.TaskID)
+	if err != nil {
+		log.Warn("not ingesting the interrupted run's stream log: task lookup failed", "err", err)
+		return
+	}
+	h, agent, err := e.harnessFor(t.Project, t.Role)
+	if err != nil {
+		log.Warn("not ingesting the interrupted run's stream log: no harness", "err", err)
+		return
+	}
+	lr, ok := h.(harness.LogReplayer)
+	if !ok {
+		return // this harness cannot replay a log; not worth a warning
+	}
+	evs, err := lr.ReplayLog(harness.Spec{
+		RunID: r.ID, Workdir: r.Workdir, Model: agent.Model, Args: agent.Args,
+	}, r.StreamOffset)
+	if err != nil {
+		log.Warn("could not read the interrupted run's stream log", "err", err)
+		return
+	}
+	if len(evs) == 0 {
+		return
+	}
+	var lines []domain.LogLine
+	var offset int64
+	var sessionID string
+	for _, ev := range evs {
+		offset = max(offset, ev.Offset)
+		if sessionID == "" {
+			sessionID = ev.SessionID
+		}
+		at := ev.Time
+		if at.IsZero() {
+			at = e.d.Now()
+		}
+		lines = append(lines, domain.LogLine{RunID: r.ID, Time: at, Kind: ev.Kind, Text: ev.Text, ToolID: ev.ToolID})
+	}
+	// Lines first, then the offset past them, as supervise does: a crash between the two repeats
+	// lines rather than losing them.
+	if err := e.storeRunLogs(ctx, r, lines); err != nil {
+		return // offset stays put, so nothing is skipped
+	}
+	e.updateRun(ctx, r.ID, func(r *domain.Run) error {
+		r.StreamOffset = max(r.StreamOffset, offset)
+		if r.SessionID == "" {
+			r.SessionID = sessionID
+		}
+		return nil
+	})
+	e.appendRunLog(ctx, r.ID, domain.LogSystem,
+		fmt.Sprintf("recovered %d lines of output the agent wrote before onett stopped", len(lines)))
+}
+
 // shimKillGrace is how long terminateShim waits after SIGTERM before SIGKILL (as the harness's
 // procKillGrace), and shimExitWait how long it waits for the shim to wind down after the ack.
 const (

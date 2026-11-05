@@ -88,7 +88,24 @@ func (r *runner) Reattach(ctx context.Context, spec harness.Spec, from int64) (h
 	return ps.attach(p), nil
 }
 
-var _ harness.Reattacher = (*runner)(nil)
+// ReplayLog returns the output a dead shim's log holds from offset from on. It uses a parser
+// without the onResult hook that procSpec installs: that hook waits for attach and closes the
+// stdin of a live process, and a replay has neither.
+func (r *runner) ReplayLog(spec harness.Spec, from int64) ([]harness.Event, error) {
+	ps := newParser(spec.Model)
+	return harness.ReplayProcessLog(harness.ProcSpec{
+		Command:   buildArgs(r.cfg, spec),
+		Dir:       spec.Workdir,
+		RunID:     spec.RunID,
+		Shim:      r.cfg.Shim,
+		ParseLine: ps.parseLine,
+	}, from)
+}
+
+var (
+	_ harness.Reattacher  = (*runner)(nil)
+	_ harness.LogReplayer = (*runner)(nil)
+)
 
 // claudeProc is the process spec of a session, with the Proc it will run as filled in by attach.
 type claudeProc struct {

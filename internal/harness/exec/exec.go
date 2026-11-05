@@ -99,7 +99,21 @@ func (r *runner) Reattach(ctx context.Context, spec harness.Spec, from int64) (h
 	return p, nil
 }
 
-var _ harness.Reattacher = (*runner)(nil)
+// ReplayLog returns the output a dead shim's log holds from offset from on.
+func (r *runner) ReplayLog(spec harness.Spec, from int64) ([]harness.Event, error) {
+	ps := newParser()
+	return harness.ReplayProcessLog(harness.ProcSpec{
+		Command:   []string{r.cfg.Command[0]},
+		RunID:     spec.RunID,
+		Shim:      r.cfg.Shim,
+		ParseLine: ps.parseLine,
+	}, from)
+}
+
+var (
+	_ harness.Reattacher  = (*runner)(nil)
+	_ harness.LogReplayer = (*runner)(nil)
+)
 
 // writeTemp writes content to a new temporary file and returns its path.
 func writeTemp(pattern, content string) (string, error) {
