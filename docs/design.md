@@ -463,8 +463,19 @@ is queued behind it, never run beside it. The prompt (`heartbeatPrompt`) lists e
 ones, labels the item text as data, not instructions, and limits the orchestrator to what the owner
 already asked for (retry, cancel duplicates, re-queue a dependency, file one small fix, resume a
 goal, answer an agent), ending with one `<entity id>: <action | left alone | escalate>` line per
-item. For now an `escalate:` line is only text in the conversation; notifiers and a repeat threshold
-come later.
+item.
+
+The loop is the only writer of the per-item memory, kept in the same cursor: how many ticks in a
+row (quiet hours not counted) the key has been in the digest, and the last five actions. At the
+start of each tick it reads the orchestrator's replies in the Operations conversation posted since
+the last tick, parses the `<entity id>: <text>` lines whose id is a remembered item
+(`parseHeartbeatReplies`) and appends each to that item's actions; the prompt shows them as
+"previously:" and tells the orchestrator not to repeat one. An item that leaves the digest is
+forgotten, and a changed reason is a new key with fresh memory. Escalation is plain code, no model
+call, and happens on unchanged digests too: once per key, the loop sends one high-priority
+notification (item, time open, actions tried, link to the Operations conversation) when the item
+reaches `escalate_after` heartbeats (default 3), or at once when a reply line says `escalate:`. The
+old cursor format (first-seen times only) is migrated on read.
 Not covered yet: a failed self-update is found from its system event, so it shows only while that
 event is in the project's recent events.
 

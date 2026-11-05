@@ -127,6 +127,15 @@ func heartbeatPrompt(d HeartbeatDigest, cfg *config.Config) string {
 		summary := firstRunes(redactSecrets(oneLineText(it.Summary), evidenceEnv(proj)), hbSummaryLimit)
 		fmt.Fprintf(&b, "\n- %s%s: %s (project %s, id %s, first seen %s)",
 			it.Kind, mark, summary, it.Project, it.EntityID, it.FirstSeen.UTC().Format("2006-01-02 15:04 MST"))
+		if it.Heartbeats > 0 {
+			fmt.Fprintf(&b, " [heartbeat %d]", it.Heartbeats)
+		}
+		if it.Escalated {
+			b.WriteString(" [owner already notified]")
+		}
+		for _, a := range it.Actions {
+			fmt.Fprintf(&b, "\n    previously: %s", firstRunes(redactSecrets(oneLineText(a), evidenceEnv(proj)), hbSummaryLimit))
+		}
 	}
 	b.WriteString(`
 
@@ -139,6 +148,8 @@ You are the operator on duty. Look at each item and act only within what the own
 - message a task agent to answer its question when the answer is already known.
 
 Do not start new product work. Inspect before you act (` + "`onett task show`, `onett run logs`" + `); never guess.
+
+Do not repeat an action already listed for an item ("previously:"); if every useful action has been tried, escalate. An item that stays open for several heartbeats is escalated to the owner by onett itself.
 
 End your reply with one short line per item, exactly in this form:
 <entity id>: <action taken | left alone: why | escalate: why>

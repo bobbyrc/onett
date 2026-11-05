@@ -59,11 +59,14 @@ func (q QuietHours) Contains(t time.Time) bool {
 }
 
 // validateHeartbeat checks the heartbeat settings found at path.
-func validateHeartbeat(path, quiet string, stale time.Duration, add func(format string, args ...any)) {
+func validateHeartbeat(path, quiet string, stale time.Duration, escalateAfter int, add func(format string, args ...any)) {
 	if _, err := ParseQuietHours(quiet); err != nil {
 		add("%s.quiet_hours: %v", path, err)
 	}
 	if stale < 0 {
 		add("%s.stale_queued: must be 0 (default 4h) or greater", path)
+	}
+	if escalateAfter < 0 {
+		add("%s.escalate_after: must be 0 (default 3) or greater", path)
 	}
 }

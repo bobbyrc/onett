@@ -201,6 +201,7 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `projects.*.loops.heartbeat.every` | duration | yes |  |
 | `projects.*.loops.heartbeat.quiet_hours` | string | yes |  |
 | `projects.*.loops.heartbeat.stale_queued` | duration | yes |  |
+| `projects.*.loops.heartbeat.escalate_after` | int | yes |  |
 | `projects.*.loops.friction` | section | yes |  |
 | `projects.*.loops.friction.enabled` | bool | yes |  |
 | `projects.*.loops.friction.every` | duration | yes |  |
@@ -245,6 +246,7 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `loops.heartbeat.every` | duration | yes |  |
 | `loops.heartbeat.quiet_hours` | string | yes |  |
 | `loops.heartbeat.stale_queued` | duration | yes |  |
+| `loops.heartbeat.escalate_after` | int | yes |  |
 | `loops.friction` | section | yes |  |
 | `loops.friction.enabled` | bool | yes |  |
 | `loops.friction.every` | duration | yes |  |

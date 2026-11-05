@@ -334,6 +334,9 @@ type Loops struct {
 		QuietHours string `yaml:"quiet_hours" json:"quiet_hours"`
 		// StaleQueued is how long a task may sit queued before it counts as stuck; default 4h.
 		StaleQueued Duration `yaml:"stale_queued" json:"stale_queued"`
+		// EscalateAfter is how many heartbeats in a row an item may stay unresolved before the
+		// owner is notified once, at high priority; default 3.
+		EscalateAfter int `yaml:"escalate_after" json:"escalate_after"`
 	} `yaml:"heartbeat" json:"heartbeat"`
 	// Friction files GitHub issues for reported friction.
 	Friction struct {
