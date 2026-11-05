@@ -114,6 +114,31 @@ The bot connects to the Discord Gateway, a websocket that onett opens outward, s
 public URL and no interactions endpoint URL in the portal. Messages in server channels are
 ignored; only direct messages count.
 
+## Photos and files
+
+Send a file in the same direct message you would send text in, and the orchestrator can read it.
+As everywhere else, only allowlisted users count.
+
+- **Telegram** takes a photo (the largest size Telegram offers), a document, a video, an audio file
+  or a voice message. One file per message; the caption becomes the message text. A message with
+  neither text nor a file gets "I can read text, photos and files."
+- **Discord** takes the files attached to a direct message, with the message text as usual. A
+  message with more files than `max_per_message` keeps the first ones, and the bot says how many it
+  ignored.
+- **Limits** live under `chat.attachments` in `onett.yaml` and on the web Config page:
+  `max_size` (default 25 MB per file), `max_per_message` (default 10) and `retention` (default
+  30d, after which a file is deleted). Each must be greater than 0. Write sizes like `25MB`.
+- **Too big.** The bot replies "That file is 30 MB; the limit is 25 MB." and drops the file
+  (on Discord the reply names the file, and the others in the message still go through). Telegram
+  also stops bots downloading anything over 20 MB, so on Telegram the effective cap is the lower
+  of the two, with its own reply.
+- **Where they go.** Files are saved under `<data_dir>/attachments/<conversation id>/`. The
+  orchestrator opens them with its Read tool. To give one to a task agent, it runs
+  `onett task create --attach ID`, which copies the file into the agent's worktree under
+  `.onett-run/attachments/` (git ignores that folder, so it is never committed).
+
+The web UI takes files too: see the Chat section of [ui.md](ui.md#pages).
+
 ## Troubleshooting
 
 - **`channel telegram: environment variable "X" (bot_token_env) is empty`** (or `channel discord:`):
