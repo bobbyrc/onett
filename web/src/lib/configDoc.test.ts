@@ -215,6 +215,7 @@ describe('singularize', () => {
     expect(singularize('policies')).toBe('policy');
     expect(singularize('loops')).toBe('loop');
     expect(singularize('address')).toBe('address');
+    expect(singularize('harnesses')).toBe('harness');
   });
 });
 

@@ -139,6 +139,7 @@ export function humanizeKey(key: string): string {
 /** The singular of a config key: "projects" -> "project", "policies" -> "policy". */
 export function singularize(key: string): string {
   if (/ies$/.test(key)) return key.replace(/ies$/, 'y');
+  if (/sses$/.test(key)) return key.replace(/es$/, '');
   if (/(ss|us|is)$/.test(key)) return key;
   return key.replace(/s$/, '');
 }
