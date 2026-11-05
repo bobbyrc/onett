@@ -23,6 +23,8 @@ All hosted by Orca; none is committed here.
 - Mobile companion showcase: <https://raw.githubusercontent.com/stablyai/orca/main/docs/assets/feature-wall/mobile-companion-app-showcase.gif>
 - Site card: <https://www.onorca.dev/og-image.png>
 
+Every visual PR attaches `pr-shots.sh` before/after tables, next to the Orca reference (see "Screenshots for UI PRs" in `docs/ui.md`).
+
 ## Principles (from Orca's `native-chat.md`)
 
 1. **One reading column.** Transcript and composer share one maximum width (`--chat-content-max-width: 46rem` in Orca).
