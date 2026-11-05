@@ -65,6 +65,15 @@ func cmdServe(e *env, args []string) error {
 		return err
 	}
 
+	// First run: no config yet. Write the starter one so the owner can finish setup in the
+	// web UI. A file that exists but is broken still fails in loadConfig.
+	starter, err := writeStarterConfig(path)
+	if err != nil {
+		return err
+	}
+	if starter {
+		fmt.Fprintf(e.errOut, "no config found: wrote a starter config to %s\n", path)
+	}
 	cfg, err := loadConfig(path)
 	if err != nil {
 		return err
@@ -190,6 +199,10 @@ func cmdServe(e *env, args []string) error {
 	defer stop()
 
 	fmt.Fprintf(e.out, "onett %s listening on http://%s — open the UI with `onett open`\n", version, cfg.Server.Addr)
+	// Until an owner account exists, the UI's first page creates it. The URL carries no token.
+	if n, err := st.CountUsers(context.Background()); err == nil && n == 0 {
+		fmt.Fprintf(e.out, "No owner account yet: open %s/ to create one and finish setup.\n", strings.TrimRight(publicBaseURL(cfg), "/"))
+	}
 
 	engineDone := make(chan error, 1)
 	go func() { engineDone <- eng.Run(ctx) }()
