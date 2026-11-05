@@ -155,11 +155,17 @@ func (m *Manager) Prepare(ctx context.Context, r Repo, branch, runID string) (Wo
 		}
 	} else {
 		flag := "-b"
+		start = baseRef
 		if _, err := git(ctx, r.Path, "rev-parse", "--verify", "--quiet",
 			"refs/heads/"+branch); err == nil {
-			flag = "-B" // a stale local branch of that name; it was never pushed
+			flag = "-B"
+			// A local branch that was never pushed is an earlier attempt that failed before
+			// publishing (a failed check, say). Keep its commits so the retry builds on them;
+			// only a branch with nothing beyond the default branch starts over.
+			if ahead, err := git(ctx, r.Path, "rev-list", "--count", baseRef+".."+branch); err == nil && ahead != "0" {
+				start = branch
+			}
 		}
-		start = baseRef
 		if _, err := git(ctx, r.Path, "worktree", "add", flag, branch, dir, start); err != nil {
 			return Workspace{}, fmt.Errorf("add worktree for %s: %w", branch, err)
 		}
@@ -229,6 +235,9 @@ func releaseBranch(ctx context.Context, clone, branch string) error {
 			continue
 		}
 		if _, err := os.Stat(e.path); err == nil {
+			if err := saveWork(ctx, e.path); err != nil {
+				return err
+			}
 			if _, err := git(ctx, clone, "worktree", "remove", "--force", e.path); err != nil {
 				return fmt.Errorf("remove stale worktree %s of %s: %w", e.path, branch, err)
 			}
@@ -236,6 +245,31 @@ func releaseBranch(ctx context.Context, clone, branch string) error {
 	}
 	if _, err := git(ctx, clone, "worktree", "prune"); err != nil {
 		return fmt.Errorf("prune worktrees of %s: %w", clone, err)
+	}
+	return nil
+}
+
+// saveWork commits whatever a kept worktree still holds uncommitted, so removing it does not lose
+// an earlier attempt's work: a run whose checks failed never reached the commit step.
+func saveWork(ctx context.Context, dir string) error {
+	if _, err := git(ctx, dir, "add", "-A"); err != nil {
+		return fmt.Errorf("stage unsaved work in %s: %w", dir, err)
+	}
+	// Exit 1 means staged changes; a merge in progress is concluded either way.
+	code, err := gitExitCode(ctx, dir, "diff", "--cached", "--quiet")
+	if err != nil {
+		return err
+	}
+	merging, err := gitExitCode(ctx, dir, "rev-parse", "-q", "--verify", "MERGE_HEAD")
+	if err != nil {
+		return err
+	}
+	if code == 0 && merging != 0 {
+		return nil
+	}
+	if _, err := git(ctx, dir, "-c", "user.name=Onett", "-c", "user.email=onett@localhost",
+		"commit", "-m", "WIP: work from an earlier attempt"); err != nil {
+		return fmt.Errorf("save unsaved work in %s: %w", dir, err)
 	}
 	return nil
 }
