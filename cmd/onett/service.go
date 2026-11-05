@@ -93,25 +93,15 @@ func cmdService(e *env, args []string) error {
 	}
 }
 
-// serviceInstall writes the plist and loads it. When the plist already exists it only restarts
-// the running service, so repeated installs are harmless.
+// serviceInstall writes the plist and loads it. When the plist already exists and renders the same,
+// it only restarts the running service, so repeated installs are harmless. When it differs (an
+// older onett wrote it, or the PATH or config variables changed), the new plist replaces it and
+// the service is unloaded and loaded again: launchd reads the plist only at load time.
 func serviceInstall(e *env, cfgFlag string) error {
 	plist, err := plistPath()
 	if err != nil {
 		return err
 	}
-	target := serviceTarget()
-	if _, err := os.Stat(plist); err == nil {
-		fmt.Fprintf(e.out, "already installed: %s\n", plist)
-		if _, err := runLaunchctl("kickstart", "-k", target); err != nil {
-			return err
-		}
-		fmt.Fprintf(e.out, "restarted %s\n", serviceLabel)
-		return nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-
 	cfgPath, err := configPath(cfgFlag)
 	if err != nil {
 		return err
@@ -159,12 +149,34 @@ func serviceInstall(e *env, cfgFlag string) error {
 	if err != nil {
 		return err
 	}
+	target := serviceTarget()
+	existing, readErr := os.ReadFile(plist)
+	if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+		return readErr
+	}
+	if readErr == nil && string(existing) == body {
+		fmt.Fprintf(e.out, "already installed: %s\n", plist)
+		if _, err := runLaunchctl("kickstart", "-k", target); err != nil {
+			return err
+		}
+		fmt.Fprintf(e.out, "restarted %s\n", serviceLabel)
+		return nil
+	}
 	if err := os.MkdirAll(filepath.Dir(plist), 0o755); err != nil {
 		return fmt.Errorf("create %s: %w", filepath.Dir(plist), err)
 	}
 	// Only the user may read it: recorded variables can hold secrets.
 	if err := os.WriteFile(plist, []byte(body), 0o600); err != nil {
 		return fmt.Errorf("write %s: %w", plist, err)
+	}
+	if readErr == nil {
+		// Unloading stops the running daemon; with the old plist that also kills run shims, so
+		// install while the factory is idle. A service that was not loaded is fine.
+		out, err := runExternal("launchctl", "bootout", target)
+		if err != nil && !notLoadedOutput(out) {
+			return launchctlError([]string{"bootout", target}, out, err)
+		}
+		fmt.Fprintf(e.out, "updated %s\n", plist)
 	}
 	if _, err := runLaunchctl("bootstrap", launchdDomain(), plist); err != nil {
 		// Leave no half-installed plist behind: the next install should start clean.
@@ -276,6 +288,8 @@ const plistText = `<?xml version="1.0" encoding="UTF-8"?>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>KeepAlive</key>
+	<true/>
+	<key>AbandonProcessGroup</key>
 	<true/>
 	<key>ThrottleInterval</key>
 	<integer>10</integer>
