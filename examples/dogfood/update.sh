@@ -15,6 +15,10 @@
 # the daemon ends every run it supervises. The self_update loop is not an agent run: it starts
 # this script detached, so the script outlives the daemon it restarts.
 #
+# ONETT_UPDATE_DRY_RUN=1 builds the commit and reports what it would do, then stops before it pauses
+# the factory, swaps the binary or restarts anything. That is the one mode allowed inside an
+# onett agent run, so an agent can test the script without touching the running daemon.
+#
 # ONETT_UPDATE_WAIT (seconds, default 1800) is how long it waits for runs to drain once paused. It
 # exits 75 when the factory stayed busy for that long (nothing changed; the loop backs off), 1 on
 # any other failure.
@@ -25,8 +29,9 @@ set -euo pipefail
 
 DOGFOOD=${DOGFOOD:?set DOGFOOD to the dogfood directory}
 export DOGFOOD
-if [ -n "${ONETT_OUTBOX:-}" ]; then
-  echo "update.sh: refusing to run inside an onett agent run" >&2
+dry_run=${ONETT_UPDATE_DRY_RUN:-}
+if [ -n "${ONETT_OUTBOX:-}" ] && [ -z "$dry_run" ]; then
+  echo "update.sh: refusing to run inside an onett agent run (ONETT_UPDATE_DRY_RUN=1 is allowed)" >&2
   exit 1
 fi
 if [ -z "${ONETT_CONFIG:-}" ]; then
@@ -63,6 +68,11 @@ new=$("$tmp/onett" version | awk '{print $2}')
 running=$(curl -sf "http://$addr/api/v1/health" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' || true)
 if [ "$new" = "$running" ]; then
   echo "update.sh: already running $new"
+  exit 0
+fi
+
+if [ -n "$dry_run" ]; then
+  echo "update.sh: dry run: built $new from ${ref:0:7} (running: ${running:-unreachable}); nothing paused, swapped or restarted"
   exit 0
 fi
 
