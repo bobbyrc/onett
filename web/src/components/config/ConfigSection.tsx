@@ -18,6 +18,7 @@ import { cx } from '../../lib/format';
 import { AnyInput, ScalarInput, isScalarType } from './ConfigFieldInput';
 import { EntryTest } from './EntryTest';
 import { SecretPicker } from './SecretPicker';
+import { useAgents } from '../../queries';
 
 export interface EditContext {
   /** The file with the pending changes applied: what the inputs show. */
@@ -479,6 +480,7 @@ function MapEditor({ node, path, ctx }: { node: SchemaNode; path: Path; ctx: Edi
   return (
     <section className="config-section">
       {head}
+      {path.length === 1 && path[0] === 'agents' ? <BuiltinAgentsNote written={names} /> : null}
       {names.map((name) => {
         const entryPath = [...path, name];
         const open = action?.name === name ? action.op : null;
@@ -567,6 +569,22 @@ function MapEditor({ node, path, ctx }: { node: SchemaNode; path: Path; ctx: Edi
       })}
       <AddEntry singular={singular} taken={names} onAdd={add} />
     </section>
+  );
+}
+
+/**
+ * The built-in agents the file does not write. They are in effect without an entry, so an empty
+ * Agents list on a fresh install is not "no agents"; the Agents page edits them.
+ */
+function BuiltinAgentsNote({ written }: { written: string[] }) {
+  const { data } = useAgents();
+  const builtin = (data ?? []).filter((a) => a.origin === 'builtin' && !written.includes(a.name));
+  if (builtin.length === 0) return null;
+  return (
+    <p className="muted" data-testid="builtin-agents-note">
+      Built in, so not listed here: {builtin.map((a) => a.name).join(', ')}. Add an entry with the
+      same name to replace one.
+    </p>
   );
 }
 

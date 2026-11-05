@@ -389,7 +389,7 @@ with a built-in default shows it as the input's placeholder ("default: 15m") whi
 it is set a "Reset to default" link removes the key again. A number, text or duration setting is an input; a
 checkbox is "On", with a "Default: on" note while unset when leaving it out of the file means on (a loop's `enabled`, friction's `auto_file`, a deploy's `auto_rollback`); clearing an input removes the key. A value written as `${NAME}` shows as text with
 a note that onett reads that environment variable. A map is one card per entry, with Rename and
-Remove (Remove asks first), and a form at the end to add one. A list has a row or a card per item,
+Remove (Remove asks first), and a form at the end to add one. The Agents map also names the built-in agents the file does not write (they are in effect without an entry), so a fresh install's empty list is not read as no agents. A list has a row or a card per item,
 with Remove, and an Add button. A setting with fixed choices, such as a notifier's `type`, is a
 dropdown. The `options` of a notifier, channel, deploy block or observer show the fields of the
 selected `type`. A setting that names an environment variable for a secret is a picker: a box that
