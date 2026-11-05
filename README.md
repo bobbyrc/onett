@@ -146,6 +146,10 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   default 10m) run after the agent finishes and before onett commits and pushes. A failing check
   re-queues the task with its output, like a CI failure, without spending a CI run. Both run with
   the agent's environment, not onett's, because they execute code the agent may have written.
+  Setup is skipped on a tree with merge conflicts, and a setup failure that is not a network or
+  registry error goes to the agent as its first job; setup runs again after the agent, and the
+  task blocks with the real error if it still fails. Network-like failures wait a minute, then
+  re-queue.
   A policy's `require_checks: true` makes a PR with no CI checks wait (then block after 30 minutes)
   instead of counting as "no CI"; use it for repositories that always run CI.
 - **Evidence is redacted, agent text cannot ping.** Deploy output, service logs, loop errors and
