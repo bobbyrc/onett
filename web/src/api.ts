@@ -28,6 +28,7 @@ import type {
   NewTask,
   ChatMessage,
   PausedBy,
+  Control,
   ProjectView,
   Role,
   Run,
@@ -136,11 +137,11 @@ export const getEventsHistory = (q: { after?: number; project?: string; task_id?
 
 export const getStats = () => request<Stats>('GET', '/stats');
 
-export const getControl = () => request<{ paused: boolean }>('GET', '/control');
+export const getControl = () => request<Control>('GET', '/control');
 
-export const pauseFactory = () => request<{ paused: boolean }>('POST', '/control/pause');
+export const pauseFactory = () => request<Control>('POST', '/control/pause');
 
-export const resumeFactory = () => request<{ paused: boolean }>('POST', '/control/resume');
+export const resumeFactory = () => request<Control>('POST', '/control/resume');
 
 // ---- projects and tasks ----
 

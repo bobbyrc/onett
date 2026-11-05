@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -311,15 +312,57 @@ func (e *Engine) ReloadConfig(ctx context.Context) error {
 // SetPaused persists the pause switch. Pausing does not cancel running runs; they finish and
 // nothing new starts.
 func (e *Engine) SetPaused(ctx context.Context, paused bool) error {
-	cursor := ""
+	if paused {
+		return e.PauseWith(ctx, domain.PauseInfo{Reason: domain.PauseOwner})
+	}
+	return e.setPaused(ctx, false, nil)
+}
+
+// PauseWith pauses the factory and records why, who and since when.
+func (e *Engine) PauseWith(ctx context.Context, info domain.PauseInfo) error {
+	switch info.Reason {
+	case domain.PauseOwner, domain.PauseSelfUpdate:
+	default:
+		return fmt.Errorf("%w: unknown pause reason %q", api.ErrInvalid, info.Reason)
+	}
+	info.Since = e.d.Now()
+	return e.setPaused(ctx, true, &info)
+}
+
+// PauseInfo implements api.Controller. A pause saved before reasons existed reads as the owner's.
+func (e *Engine) PauseInfo() *domain.PauseInfo {
+	if !e.paused.Load() {
+		return nil
+	}
+	if info := e.pauseInfo.Load(); info != nil {
+		cp := *info
+		return &cp
+	}
+	return &domain.PauseInfo{Reason: domain.PauseOwner}
+}
+
+func (e *Engine) setPaused(ctx context.Context, paused bool, info *domain.PauseInfo) error {
+	cursor, reason := "", ""
 	title := "factory resumed"
 	if paused {
 		cursor = "paused"
 		title = "factory paused — running agents finish, nothing new starts"
+		if info.Reason == domain.PauseSelfUpdate {
+			title = "factory paused for self-update — waiting for running agents to finish"
+		}
+		b, err := json.Marshal(info)
+		if err != nil {
+			return err
+		}
+		reason = string(b)
+	}
+	if err := e.d.Store.SaveLoopState(ctx, domain.LoopState{Name: pauseReasonLoop, Cursor: reason}); err != nil {
+		return err
 	}
 	if err := e.d.Store.SaveLoopState(ctx, domain.LoopState{Name: controlLoop, Cursor: cursor}); err != nil {
 		return err
 	}
+	e.pauseInfo.Store(info)
 	e.paused.Store(paused)
 	e.d.Bus.Emit(ctx, domain.EvSystem, "", "", "", title, nil)
 	e.notify(ctx, notify.PriorityNormal, title, "", "/")
