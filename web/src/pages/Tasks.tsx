@@ -44,13 +44,13 @@ function makeColumns(paused: string[]): Column<Task>[] {
       key: 'title',
       header: 'Title',
       cell: (t) => (
-        <>
+        <div className="cell-stack">
           <Link to={`/tasks/${t.id}`}>{t.title}</Link>
           <div className="muted small">
             <span className="tag">{t.kind}</span> {t.source}
             {t.source_ref ? ` · ${t.source_ref}` : ''}
           </div>
-        </>
+        </div>
       ),
     },
     { key: 'project', header: 'Project', cell: (t) => t.project },
