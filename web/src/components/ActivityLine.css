@@ -35,6 +35,27 @@
   }
 }
 
+.chat-page .activity-waiting .activity-lamp,
+.chat-page .activity-blocked .activity-lamp {
+  animation: none;
+}
+
+.chat-page .activity-waiting .activity-lamp {
+  background: var(--chat-warning);
+}
+
+.chat-page .activity-blocked .activity-lamp {
+  background: var(--chat-danger);
+}
+
+.chat-page .activity-waiting {
+  color: var(--chat-fg);
+}
+
+.chat-page .activity-blocked {
+  color: var(--chat-danger);
+}
+
 .chat-page .activity-working {
   color: var(--chat-fg);
 }
