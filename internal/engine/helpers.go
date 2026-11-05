@@ -160,7 +160,25 @@ func (e *Engine) blockTaskFrom(ctx context.Context, id string, from []domain.Tas
 	if !applied {
 		return
 	}
+	if e.goalHandlesBlock(ctx, t) {
+		return
+	}
 	e.notify(ctx, notify.PriorityHigh, "Blocked: "+t.Title, reason, "/tasks/"+t.ID)
+}
+
+// goalHandlesBlock reports whether t belongs to a goal that is still active. Its orchestrator
+// sees the block on its next turn and retries, replans or splits; only when it needs the owner
+// does it block the goal, and that notifies. A paused, blocked or finished goal gets no turns,
+// so the owner is told as for any other task.
+func (e *Engine) goalHandlesBlock(ctx context.Context, t domain.Task) bool {
+	if t.GoalID == "" {
+		return false
+	}
+	g, err := e.d.Store.GetGoal(ctx, t.GoalID)
+	if err != nil {
+		return false
+	}
+	return g.Status == domain.GoalActive
 }
 
 // requeueOrBlock re-queues a task for another attempt, appending context for the next agent to
