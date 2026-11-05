@@ -16,4 +16,6 @@ out=${OUT:-./onett}
 
 go build -trimpath -ldflags "-X main.version=${version}" -o "$out" ./cmd/onett
 
+"$(dirname "$0")/codesign.sh" "$out"
+
 echo "built $out (version $version)"

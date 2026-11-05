@@ -16,7 +16,7 @@
 # this script detached, so the script outlives the daemon it restarts.
 #
 # It leaves $ONETT_DATA_DIR/self-update.result (default $DOGFOOD/data) for the new daemon to
-# report: old, new, ref and status ok or rolled_back.
+# report: old, new, ref, status ok or rolled_back and, for a rollback with a known cause, reason.
 set -euo pipefail
 
 DOGFOOD=${DOGFOOD:?set DOGFOOD to the dogfood directory}
@@ -151,15 +151,28 @@ result=${ONETT_DATA_DIR:-$DOGFOOD/data}/self-update.result
 write_result() {
   mkdir -p "$(dirname "$result")"
   printf 'old=%s\nnew=%s\nref=%s\nstatus=%s\n' "$old" "$new" "$ref" "$1" >"$result"
+  [ -z "${2:-}" ] || printf 'reason=%s\n' "$2" >>"$result"
 }
 
-old=$("$bin" version | awk '{print $2}')
-cp "$bin" "$bin.prev"
-cp "$tmp/onett" "$bin.new" && mv "$bin.new" "$bin"
-write_result ok
-if ! restart_daemon "$new"; then
-  echo "update.sh: $new did not come up healthy; restoring $old (see $log)" >&2
-  write_result rolled_back
+# preflight_state prints whether the running daemon's last tool-directory check passed: pass,
+# fail, or none when it has not run one yet. `onett doctor` reports the daemon's own result,
+# which can differ from what a shell can read (a launchd service may lack Full Disk Access).
+preflight_state() {
+  local out
+  out=$("$bin" doctor 2>&1 || true)
+  if grep -qE '^FAIL +daemon preflight' <<<"$out"; then
+    echo fail
+  elif grep -qE '^ok +daemon preflight' <<<"$out"; then
+    echo pass
+  else
+    echo none
+  fi
+}
+
+# rollback puts the previous binary back and restarts the daemon on it. $1 is the reason for the
+# result file, empty for a daemon that did not come up.
+rollback() {
+  write_result rolled_back "${1:-}"
   cp "$bin.prev" "$bin.new" && mv "$bin.new" "$bin"
   if restart_daemon "$old"; then
     # The pause outlives the restart; leaving it would stall the factory after a failed update.
@@ -167,7 +180,33 @@ if ! restart_daemon "$new"; then
   else
     echo "update.sh: $old did not come up either" >&2
   fi
+}
+
+old=$("$bin" version | awk '{print $2}')
+# A new build that loses macOS privacy access (an ad-hoc signed binary is a new app to macOS) would
+# leave the factory holding every run, so remember whether the running daemon can read its tools.
+preflight_before=$(preflight_state)
+cp "$bin" "$bin.prev"
+cp "$tmp/onett" "$bin.new" && mv "$bin.new" "$bin"
+write_result ok
+if ! restart_daemon "$new"; then
+  echo "update.sh: $new did not come up healthy; restoring $old (see $log)" >&2
+  rollback
   exit 1
+fi
+# The new daemon runs its first preflight when the scheduler next passes; give it 30 seconds.
+if [ "$preflight_before" = pass ]; then
+  state=none
+  for _ in $(seq 1 15); do
+    state=$(preflight_state)
+    [ "$state" = none ] || break
+    sleep 2
+  done
+  if [ "$state" = fail ]; then
+    echo "update.sh: $new lost macOS privacy access; restoring $old" >&2
+    rollback "new build lost macOS privacy access; set ONETT_CODESIGN_IDENTITY, see README"
+    exit 1
+  fi
 fi
 [ "$was_paused" = yes ] || "$bin" resume >/dev/null
 echo "update.sh: running $new (was $old); previous binary kept as $bin.prev"
