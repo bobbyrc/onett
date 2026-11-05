@@ -180,6 +180,7 @@ export interface TaskQuery {
   /** Comma-separated statuses. */
   status?: string;
   kind?: string;
+  sort?: string;
   limit?: number;
 }
 

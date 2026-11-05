@@ -241,7 +241,10 @@ func cmdServe(e *env, args []string) error {
 
 	engineDone := make(chan error, 1)
 	go func() { engineDone <- eng.Run(ctx) }()
-	host := &channel.EngineHost{Controller: eng, Store: st, Bus: bus}
+	host := &channel.EngineHost{
+		Controller: eng, Store: st, Bus: bus, Attachments: attachments,
+		MaxPerMessage: func() int { return eng.Config().Chat.Attachments.MaxPerMessage },
+	}
 	supervisor := channel.NewSupervisor(ctx, host, logger)
 	if err := supervisor.Reconcile(eng.Config().Channels, chanEnv); err != nil {
 		logger.Error("channels not started", "err", err)

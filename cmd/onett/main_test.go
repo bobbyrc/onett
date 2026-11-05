@@ -101,9 +101,9 @@ func TestTaskListRendersTable(t *testing.T) {
 	require.Equal(t, 0, code, errOut)
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	require.Len(t, lines, 3)
-	assert.Regexp(t, `^ID\s+STATUS\s+KIND\s+PROJECT\s+PR\s+RISK\s+TITLE$`, lines[0])
-	assert.Regexp(t, `task-1\s+queued\s+feature\s+onett\s+#123\s+low\s+Short$`, lines[1])
-	assert.Regexp(t, `task-2\s+running\s+bugfix\s+onett\s+-\s+-\s+x`, lines[2])
+	assert.Regexp(t, `^ID\s+STATUS\s+QUEUE\s+KIND\s+PROJECT\s+PR\s+RISK\s+TITLE$`, lines[0])
+	assert.Regexp(t, `task-1\s+queued\s+-\s+feature\s+onett\s+#123\s+low\s+Short$`, lines[1])
+	assert.Regexp(t, `task-2\s+running\s+-\s+bugfix\s+onett\s+-\s+-\s+x`, lines[2])
 	assert.Contains(t, lines[2], strings.Repeat("x", 57)+"...")
 	assert.NotContains(t, out, long)
 }

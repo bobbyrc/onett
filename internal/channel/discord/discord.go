@@ -34,6 +34,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/bobbyrc/onett/internal/attach"
 	"github.com/bobbyrc/onett/internal/channel"
 	"github.com/bobbyrc/onett/internal/domain"
 )
@@ -62,6 +63,10 @@ var backoffBase = time.Second
 type Host interface {
 	CreateConversation(ctx context.Context, title string) (domain.Conversation, error)
 	SendChat(ctx context.Context, conversationID, text string) (domain.ChatMessage, error)
+	SendChatWith(ctx context.Context, conversationID, text string, attachmentIDs []string) (domain.ChatMessage, error)
+	SaveAttachment(ctx context.Context, conversationID, name string, r io.Reader) (domain.Attachment, error)
+	MaxAttachmentSize() int64      // bytes; 0 means attachments are off
+	MaxAttachmentsPerMessage() int // files one chat message may carry
 	DecideApproval(ctx context.Context, id string, approve bool, note string) (domain.Approval, error)
 	Subscribe() (<-chan domain.Event, func())
 }
@@ -544,6 +549,14 @@ type message struct {
 	GuildID   string `json:"guild_id"`
 	Author    user   `json:"author"`
 	Content   string `json:"content"`
+	// Attachments are the files on the message. Their URLs are signed CDN links.
+	Attachments []messageFile `json:"attachments"`
+}
+
+type messageFile struct {
+	Filename string `json:"filename"`
+	Size     int64  `json:"size"`
+	URL      string `json:"url"`
 }
 
 type interaction struct {
@@ -602,11 +615,15 @@ func (b *Bot) ignore(userID string) {
 
 func (b *Bot) handleMessage(ctx context.Context, m message) {
 	ch := m.ChannelID
-	if m.Content == "" {
-		b.sendText(ctx, ch, "Only text messages are supported.")
+	if strings.TrimSpace(m.Content) == "" && len(m.Attachments) == 0 {
+		b.sendText(ctx, ch, "I can read text and attached files. Send one of those.")
 		return
 	}
-	switch strings.Fields(m.Content)[0] {
+	cmd := ""
+	if f := strings.Fields(m.Content); len(f) > 0 && len(m.Attachments) == 0 {
+		cmd = f[0]
+	}
+	switch cmd {
 	case "/start":
 		b.sendText(ctx, ch, "Send me a message to chat with the onett orchestrator. /new starts a fresh conversation; approval requests arrive here with Approve and Reject buttons.")
 		return
@@ -629,13 +646,74 @@ func (b *Bot) handleMessage(ctx context.Context, m message) {
 		}
 		convID = conv
 	}
-	if _, err := b.host.SendChat(ctx, convID, m.Content); err != nil {
+	var ids []string
+	if len(m.Attachments) > 0 {
+		var notes []string
+		ids, notes = b.fetchAttachments(ctx, convID, m.Attachments)
+		if len(notes) > 0 {
+			b.sendText(ctx, ch, strings.Join(notes, "\n"))
+		}
+		if len(ids) == 0 && strings.TrimSpace(m.Content) == "" {
+			return // nothing usable arrived; the notes say why
+		}
+	}
+	var err error
+	if len(ids) > 0 {
+		_, err = b.host.SendChatWith(ctx, convID, m.Content, ids)
+	} else {
+		_, err = b.host.SendChat(ctx, convID, m.Content)
+	}
+	if err != nil {
 		b.sendText(ctx, ch, "Could not send your message: "+err.Error())
 		return
 	}
 	if err := b.call(ctx, http.MethodPost, "/channels/"+ch+"/typing", nil, nil); err != nil {
 		b.log.Debug("discord: typing indicator failed", "err", err)
 	}
+}
+
+// fetchAttachments downloads and saves a message's files, up to the per-message cap. It returns
+// the saved attachment IDs and user-facing notes about anything that was dropped. Only names,
+// ids, sizes and types are logged: never the contents or the signed download URL.
+func (b *Bot) fetchAttachments(ctx context.Context, convID string, files []messageFile) (ids, notes []string) {
+	limit := b.host.MaxAttachmentSize()
+	if limit <= 0 {
+		return nil, []string{"Attachments are turned off, so I can only read text."}
+	}
+	if max := b.host.MaxAttachmentsPerMessage(); len(files) > max {
+		notes = append(notes, fmt.Sprintf("A message can carry %d files; I ignored the last %d.", max, len(files)-max))
+		files = files[:max]
+	}
+	dl := channel.DownloadClient(b.client)
+	for _, f := range files {
+		if f.Size > limit {
+			notes = append(notes, f.Filename+": "+channel.TooLarge(f.Size, limit))
+			continue
+		}
+		att, err := b.fetchOne(ctx, dl, convID, f, limit)
+		switch {
+		case errors.Is(err, attach.ErrTooLarge):
+			notes = append(notes, f.Filename+": "+channel.TooLarge(0, limit))
+		case err != nil:
+			b.log.Warn("discord: attachment failed", "err", b.scrub(err.Error()))
+			notes = append(notes, f.Filename+": could not fetch that file.")
+		default:
+			b.log.Info("discord: attachment saved", "attachment_id", att.ID, "size", att.Size, "mime", att.MIME)
+			ids = append(ids, att.ID)
+		}
+	}
+	return ids, notes
+}
+
+func (b *Bot) fetchOne(ctx context.Context, dl *http.Client, convID string, f messageFile, limit int64) (domain.Attachment, error) {
+	ctx, cancel := context.WithTimeout(ctx, channel.DownloadTimeout)
+	defer cancel()
+	body, err := channel.Download(ctx, dl, f.URL, limit)
+	if err != nil {
+		return domain.Attachment{}, err
+	}
+	defer body.Close()
+	return b.host.SaveAttachment(ctx, convID, f.Filename, body)
 }
 
 func (b *Bot) newConversation(ctx context.Context, channelID, userID string) (string, error) {

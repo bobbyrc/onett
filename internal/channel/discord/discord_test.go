@@ -19,12 +19,15 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/bobbyrc/onett/internal/attach"
 	"github.com/bobbyrc/onett/internal/domain"
 )
 
 const testToken = "MTIz.SECRET-TOKEN.xyz"
 
 func init() { backoffBase = time.Millisecond }
+
+type download struct{ name, auth string }
 
 type restCall struct {
 	Method string
@@ -42,10 +45,12 @@ type gwConn struct {
 
 // fakeDiscord serves both the REST API (under /api) and the Gateway (at /gateway).
 type fakeDiscord struct {
-	t        *testing.T
-	srv      *httptest.Server
-	interval int // heartbeat_interval sent in HELLO, ms
-	failPath string
+	t         *testing.T
+	srv       *httptest.Server
+	interval  int // heartbeat_interval sent in HELLO, ms
+	failPath  string
+	cdnSizes  map[string]int // file name -> bytes served at /cdn/<name>
+	downloads []download
 
 	mu         sync.Mutex
 	calls      []restCall
@@ -70,6 +75,14 @@ func (f *fakeDiscord) wsURL() string {
 func (f *fakeDiscord) serve(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/gateway" {
 		f.gateway(w, r)
+		return
+	}
+	if name, ok := strings.CutPrefix(r.URL.Path, "/cdn/"); ok {
+		f.mu.Lock()
+		f.downloads = append(f.downloads, download{name, r.Header.Get("Authorization")})
+		size := f.cdnSizes[name]
+		f.mu.Unlock()
+		_, _ = w.Write(bytes.Repeat([]byte("x"), size))
 		return
 	}
 	path := strings.TrimPrefix(r.URL.Path, "/api")
@@ -144,10 +157,13 @@ func (f *fakeDiscord) gateway(w http.ResponseWriter, r *http.Request) {
 		case 2:
 			f.mu.Lock()
 			f.identifies = append(f.identifies, fr.D)
-			f.conns = append(f.conns, gc)
 			f.mu.Unlock()
 			ready := fmt.Sprintf(`{"op":0,"s":1,"t":"READY","d":{"session_id":"sess","resume_gateway_url":%q,"user":{"id":"BOT"}}}`, f.wsURL())
 			c.Write(ctx, websocket.MessageText, []byte(ready))
+			// Register only after READY is written, so a test push cannot overtake it.
+			f.mu.Lock()
+			f.conns = append(f.conns, gc)
+			f.mu.Unlock()
 		case 6:
 			f.mu.Lock()
 			f.conns = append(f.conns, gc)
@@ -205,6 +221,10 @@ func (f *fakeDiscord) messages(channel string) []string {
 
 type fakeHost struct {
 	mu        sync.Mutex
+	saved     []savedFile
+	sentWith  []sentWith
+	maxSize   int64 // 0 = 25 MB
+	maxFiles  int   // 0 = 10
 	convs     int
 	sent      [][2]string // conversation, text
 	decisions []string
@@ -229,6 +249,46 @@ func (h *fakeHost) SendChat(_ context.Context, conv, text string) (domain.ChatMe
 	defer h.mu.Unlock()
 	h.sent = append(h.sent, [2]string{conv, text})
 	return domain.ChatMessage{ID: "u", ConversationID: conv, Role: "user", Text: text}, nil
+}
+
+func (h *fakeHost) SendChatWith(_ context.Context, conv, text string, ids []string) (domain.ChatMessage, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.sentWith = append(h.sentWith, sentWith{conv, text, ids})
+	return domain.ChatMessage{ID: "u", ConversationID: conv, Role: "user", Text: text}, nil
+}
+
+func (h *fakeHost) MaxAttachmentSize() int64 {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.maxSize == 0 {
+		return 25 << 20
+	}
+	return h.maxSize
+}
+
+func (h *fakeHost) MaxAttachmentsPerMessage() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.maxFiles == 0 {
+		return 10
+	}
+	return h.maxFiles
+}
+
+func (h *fakeHost) SaveAttachment(_ context.Context, conv, name string, r io.Reader) (domain.Attachment, error) {
+	limit := h.MaxAttachmentSize()
+	data, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return domain.Attachment{}, err
+	}
+	if int64(len(data)) > limit {
+		return domain.Attachment{}, attach.ErrTooLarge
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.saved = append(h.saved, savedFile{conv, name, data})
+	return domain.Attachment{ID: fmt.Sprintf("att%d", len(h.saved)), ConversationID: conv, Name: name, MIME: "image/png", Size: int64(len(data))}, nil
 }
 
 func (h *fakeHost) DecideApproval(_ context.Context, id string, approve bool, note string) (domain.Approval, error) {
@@ -256,7 +316,18 @@ func (h *fakeHost) snapshot() (sent [][2]string, decisions []string, convs int) 
 	return append([][2]string(nil), h.sent...), append([]string(nil), h.decisions...), h.convs
 }
 
+type savedFile struct {
+	conv, name string
+	data       []byte
+}
+
+type sentWith struct {
+	conv, text string
+	ids        []string
+}
+
 type harness struct {
+	bot    *Bot
 	f      *fakeDiscord
 	host   *fakeHost
 	state  string
@@ -279,7 +350,7 @@ func start(t *testing.T, f *fakeDiscord, host *fakeHost, state string, users ...
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	h := &harness{f: f, host: host, state: state, logs: logs, cancel: cancel, done: make(chan error, 1)}
+	h := &harness{bot: b, f: f, host: host, state: state, logs: logs, cancel: cancel, done: make(chan error, 1)}
 	go func() { h.done <- b.Run(ctx) }()
 	t.Cleanup(h.stop)
 	return h
@@ -466,11 +537,18 @@ func requestApproval(host *fakeHost) {
 func TestApprovalButtonsAndClick(t *testing.T) {
 	f := newFakeDiscord(t)
 	host := newFakeHost()
-	start(t, f, host, statePath(t), "42", "43")
+	h := start(t, f, host, statePath(t), "42", "43")
 	f.conn(t, 0)
 	requestApproval(host)
 	waitFor(t, "both approval messages", func() bool {
 		return len(f.messages("dm-42")) == 1 && len(f.messages("dm-43")) == 1
+	})
+	// The fake sees a POST before the bot has read the reply and recorded the message ID. A click
+	// in that gap would find no copy to edit, so wait for the bot's own record.
+	waitFor(t, "bot to record both messages", func() bool {
+		h.bot.mu.Lock()
+		defer h.bot.mu.Unlock()
+		return len(h.bot.approvals["ap1"]) == 2
 	})
 	call := f.rest("POST", "/channels/dm-42/messages")[0]
 	if call.Auth != "Bot "+testToken {
