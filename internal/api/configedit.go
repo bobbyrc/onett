@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -106,6 +107,16 @@ func (s *server) patchConfigDocument(w http.ResponseWriter, r *http.Request) {
 // than the file's current one, builds the new text with edit, validates it exactly as a load does,
 // writes it atomically and reloads the daemon. Saves run one at a time.
 func (s *server) saveConfig(w http.ResponseWriter, r *http.Request, version string, edit func(current []byte) ([]byte, error)) {
+	s.saveConfigAs(w, r, &version, edit, func(saved configSaved, _ *config.Config) any { return saved })
+}
+
+// saveConfigAs is saveConfig with two differences for callers that edit the file themselves
+// (add and remove a project): version nil skips the stale-version check, since the edit is made
+// against whatever the file holds now, and reply builds the success body from the saved result
+// and the config as parsed. An edit that returns ErrConflict is a 409, and one that returns a
+// *config.InvalidResultError is a 422 with the problems.
+func (s *server) saveConfigAs(w http.ResponseWriter, r *http.Request, version *string,
+	edit func(current []byte) ([]byte, error), reply func(configSaved, *config.Config) any) {
 	s.configMu.Lock()
 	defer s.configMu.Unlock()
 
@@ -114,12 +125,20 @@ func (s *server) saveConfig(w http.ResponseWriter, r *http.Request, version stri
 		s.fail(w, err)
 		return
 	}
-	if config.Version(current) != version {
+	if version != nil && config.Version(current) != *version {
 		writeErrorMsg(w, http.StatusConflict, "the config file changed since you opened it; reload and try again")
 		return
 	}
 	text, err := edit(current)
-	if err != nil {
+	var invalid *config.InvalidResultError
+	switch {
+	case errors.Is(err, ErrConflict):
+		writeErrorMsg(w, http.StatusConflict, err.Error())
+		return
+	case errors.As(err, &invalid):
+		writeErrorProblems(w, http.StatusUnprocessableEntity, "the config is not valid", config.ProblemsFrom(invalid.Err))
+		return
+	case err != nil:
 		writeErrorMsg(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
@@ -139,8 +158,8 @@ func (s *server) saveConfig(w http.ResponseWriter, r *http.Request, version stri
 			"the config was saved, but the daemon could not reload it: "+err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, configSaved{
+	writeJSON(w, http.StatusOK, reply(configSaved{
 		Version:         config.Version(text),
 		RestartRequired: nonNil(config.RestartRequired(old, cfg)),
-	})
+	}, cfg))
 }

@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -18,10 +17,10 @@ import (
 )
 
 // projectName matches names usable as YAML keys and in CLI flags.
-var projectName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`)
+var projectName = config.ProjectNamePattern
 
 // selfRepo is onett's own repository; a project for it becomes self_project.
-const selfRepo = "bobbyrc/onett"
+const selfRepo = config.SelfRepo
 
 func cmdInit(e *env, args []string) error {
 	fs := newFlagSet("init", e)

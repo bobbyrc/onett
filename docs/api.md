@@ -81,6 +81,8 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `POST /control/pause` | optional `{"reason":"owner"\|"self-update","detail":"one line"}` | `{"paused":bool,"pause":PauseView\|null}`; the reason defaults to `owner` |
 | `POST /control/resume` | | `{"paused":false,"pause":null}`; clears the reason |
 | `GET /projects` | | `[]ProjectView` |
+| `POST /projects` | `{"name","repo","path"?,"branch"?,"policy"?,"instructions"?}` | `ProjectView` plus `ConfigSaved` fields (owner); same insertion as `onett project add`, comments kept; no clone is made; 409 name taken; 422 `problems` |
+| `DELETE /projects/{name}` | `?force=true` | `ConfigSaved` (owner); removes the block from `onett.yaml` and reloads; 409 while the project has queued or running tasks (unless `force`); 404 unknown; deletes no files |
 | `POST /projects/{name}/pause`, `POST /projects/{name}/resume` | | `{"paused":bool,"paused_by":""\|"config"\|"owner"}` (409 resuming a project paused in config) |
 | `GET /tasks` | `?project=&status=queued,running&kind=&goal_id=&limit=` | `[]Task` |
 | `POST /tasks` | `NewTask` | `Task` (201) |

@@ -205,3 +205,9 @@ a.sheet-count:hover .sheet-count-n {
     white-space: normal;
   }
 }
+
+/* Owner-only controls under the sheet's header. */
+.sheet-owner {
+  margin: 8px 0 4px;
+  align-items: center;
+}

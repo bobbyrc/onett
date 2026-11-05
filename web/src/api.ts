@@ -15,6 +15,7 @@ import type {
   ConfigProblem,
   ConfigSaved,
   ConfigText,
+  NewProjectRequest,
   AgentConversation,
   Conversation,
   ConversationDetail,
@@ -341,3 +342,12 @@ export const getConfigFile = () => configRequest<ConfigText>('GET', '/config/fil
 
 export const putConfigFile = (version: string, text: string) =>
   configRequest<ConfigSaved>('PUT', '/config/file', { version, text });
+
+// ---- projects (owner only) ----
+// These go through configRequest so a 422 keeps its problems list.
+
+export const createProject = (body: NewProjectRequest) =>
+  configRequest<ProjectView & ConfigSaved>('POST', '/projects', body);
+
+export const deleteProject = (name: string, force: boolean) =>
+  configRequest<ConfigSaved>('DELETE', `/projects/${encodeURIComponent(name)}${force ? '?force=true' : ''}`);

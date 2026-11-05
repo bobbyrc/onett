@@ -208,8 +208,15 @@ non-zero count links to `/tasks`, filtered by that project and status. Blocked i
 you is yellow. Zero counts are muted and are not links. One muted line follows with the default
 branch, the deployer type (or "no deployer") and the observers (or "no observers"). The last line
 is the loops: "Loops: 5 on, 2 off", where "Loops" links to `/loops`. If any loop's last run
-failed, its name follows in red ("pr_shepherd failing"), and the error shows as a tooltip. The
-sidebar gets **Projects** between Overview and Chat.
+failed, its name follows in red ("pr_shepherd failing"), and the error shows as a tooltip.
+Owners also get an **Add project** button in the page header and, on each sheet, **Edit settings**
+(links to the Config page's Projects section) and **Remove**. Add opens a form: name, repository
+(`owner/name`), local path, default branch, a policy dropdown of the configured policies and an
+instructions box. Empty optional fields keep their defaults. Onett does not clone the repository:
+the clone must already be at the path (default `<data_dir>/repos/<name>`). Problems the server
+finds show under the form. Remove asks first, naming the project; when the project has queued or
+running tasks the question says so and the removal is forced. It only edits `onett.yaml`; no file
+on disk is deleted. Other roles see neither control. The sidebar gets **Projects** between Overview and Chat.
 
 **Chat** (`/chat`, `/chat/:id`, `/chat/task/:taskId`) — talk to the orchestrator or to any task
 agent, and read what an agent did as it works. With no conversation open, a centred block 640px
