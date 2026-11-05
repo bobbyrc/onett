@@ -269,6 +269,10 @@ type Loops struct {
 	SelfUpdate struct {
 		Loop       `yaml:",inline"`
 		MinHealthy Duration `yaml:"min_healthy" json:"min_healthy"` // default 10m
+		// MaxDefer is how long after a release becomes eligible the loop waits for a quiet
+		// moment (no task run live, nothing queued) before it starts the updater anyway and
+		// drains. Default 2h.
+		MaxDefer Duration `yaml:"max_defer" json:"max_defer"`
 		// Command is run with sh -c, detached, with ONETT_UPDATE_REF set to the commit to run.
 		Command string `yaml:"command" json:"command"`
 	} `yaml:"self_update" json:"self_update"`

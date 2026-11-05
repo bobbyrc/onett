@@ -1,6 +1,7 @@
 import { useCan } from '../auth';
 import { useControl, useTogglePause } from '../queries';
 import { cx } from '../lib/format';
+import { describePause } from '../lib/pause';
 import { Button } from './Button';
 import { ErrorLine } from './ErrorLine';
 
@@ -26,7 +27,7 @@ export function PauseSwitch() {
           {paused ? 'Resume' : 'Pause'}
         </Button>
       ) : null}
-      {paused ? <span className="pause-note">No new runs start.</span> : null}
+      {paused ? <span className="pause-note">{control.data?.pause ? describePause(control.data.pause) : 'No new runs start.'}</span> : null}
       <ErrorLine error={toggle.error ?? control.error} />
     </div>
   );

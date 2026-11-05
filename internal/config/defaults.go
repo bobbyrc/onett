@@ -456,6 +456,9 @@ func applyLoopDefaults(c *Config) {
 	if l.SelfUpdate.MinHealthy.Duration == 0 {
 		l.SelfUpdate.MinHealthy.Duration = 10 * time.Minute
 	}
+	if l.SelfUpdate.MaxDefer.Duration == 0 {
+		l.SelfUpdate.MaxDefer.Duration = 2 * time.Hour
+	}
 	if l.Goals.Every.Duration == 0 {
 		l.Goals.Every.Duration = time.Minute
 	}

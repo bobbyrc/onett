@@ -60,6 +60,11 @@ type Controller interface {
 	// Paused reports the global pause switch. While paused no run starts and no loop acts.
 	Paused() bool
 	SetPaused(ctx context.Context, paused bool) error
+	// PauseWith pauses the factory and records why. The reason must be a known domain.Pause*
+	// value (ErrInvalid otherwise).
+	PauseWith(ctx context.Context, info domain.PauseInfo) error
+	// PauseInfo reports why the factory is paused, or nil when it is running.
+	PauseInfo() *domain.PauseInfo
 	// ProjectPausedBy reports why a project is paused: "config" (paused: true in onett.yaml,
 	// which the API cannot change), "owner" (paused at runtime through the API) or "".
 	ProjectPausedBy(project string) string

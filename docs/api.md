@@ -74,8 +74,9 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /ws` | `?after=<id>` | WebSocket stream for the web UI (below) |
 | `GET /events/history` | `?after=&project=&task_id=&limit=` (default 500) | `[]Event` |
 | `GET /stats` | | `Stats` |
-| `GET /control` | | `{"paused":bool}` |
-| `POST /control/pause`, `POST /control/resume` | | `{"paused":bool}` |
+| `GET /control` | | `{"paused":bool,"pause":PauseView\|null}` |
+| `POST /control/pause` | optional `{"reason":"owner"\|"self-update","detail":"one line"}` | `{"paused":bool,"pause":PauseView\|null}`; the reason defaults to `owner` |
+| `POST /control/resume` | | `{"paused":false,"pause":null}`; clears the reason |
 | `GET /projects` | | `[]ProjectView` |
 | `POST /projects/{name}/pause`, `POST /projects/{name}/resume` | | `{"paused":bool,"paused_by":""\|"config"\|"owner"}` (409 resuming a project paused in config) |
 | `GET /tasks` | `?project=&status=queued,running&kind=&goal_id=&limit=` | `[]Task` |
@@ -180,7 +181,14 @@ case the approval is recorded as rejected and the task goes back to review so on
 // Stats
 {"tasks_by_status":{"queued":3,...},"active_runs":1,"approvals_pending":0,
  "cost_today_usd":1.23,"subscription_cost_today_usd":38.47,"daily_budget_usd":25,"paused":false,
+ "pause":null,  // while paused: a PauseView
  "preflight":[{"project":"onett","ok":true,"checked_at":"…"}]}
+
+// PauseView: why the factory is paused. "by" is the signed-in user, or "api token" for the CLI.
+// "waiting" lists the task runs still live (chat and goal turns are not listed); for a
+// self-update drain these are what the updater waits on. "detail" is the commit for a self-update.
+{"reason":"self-update","by":"api token","detail":"69f1660","since":"2026-11-04T22:36:00Z",
+ "waiting":[{"run_id":"…","task_id":"…"}]}
 
 // LoopView
 {"name":"pr_shepherd","project":"onett","enabled":true,"every":"1m",

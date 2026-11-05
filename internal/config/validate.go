@@ -227,6 +227,9 @@ func (c *Config) Validate() error {
 	if c.Loops.SelfUpdate.MinHealthy.Duration < 0 {
 		add("loops.self_update.min_healthy: must be 0 (default 10m) or greater")
 	}
+	if c.Loops.SelfUpdate.MaxDefer.Duration < 0 {
+		add("loops.self_update.max_defer: must be 0 (default 2h) or greater")
+	}
 	if l.DailyBudgetUSD < 0 {
 		add("limits.daily_budget_usd: must be 0 (no limit) or greater, not %v", l.DailyBudgetUSD)
 	}

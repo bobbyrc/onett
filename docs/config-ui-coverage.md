@@ -172,6 +172,7 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `projects.*.loops.self_update.enabled` | bool | yes |  |
 | `projects.*.loops.self_update.every` | duration | yes |  |
 | `projects.*.loops.self_update.min_healthy` | duration | yes |  |
+| `projects.*.loops.self_update.max_defer` | duration | yes |  |
 | `projects.*.loops.self_update.command` | string | yes |  |
 | `projects.*.loops.goals` | section | yes |  |
 | `projects.*.loops.goals.enabled` | bool | yes |  |
@@ -211,6 +212,7 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `loops.self_update.enabled` | bool | yes |  |
 | `loops.self_update.every` | duration | yes |  |
 | `loops.self_update.min_healthy` | duration | yes |  |
+| `loops.self_update.max_defer` | duration | yes |  |
 | `loops.self_update.command` | string | yes |  |
 | `loops.goals` | section | yes |  |
 | `loops.goals.enabled` | bool | yes |  |

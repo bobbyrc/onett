@@ -6,6 +6,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -73,7 +74,10 @@ type Engine struct {
 	selfUpd selfUpdateState // loop_self_update.go
 
 	paused atomic.Bool
-	wake   chan struct{}
+	// pauseInfo is why the factory is paused (nil when running or when the pause predates
+	// reasons). Persisted as LoopState {Name: pauseReasonLoop}.
+	pauseInfo atomic.Pointer[domain.PauseInfo]
+	wake      chan struct{}
 
 	// convMu serialises the steps that decide how a task agent conversation continues, so two
 	// messages cannot both start a follow-up or both create the conversation.
@@ -231,6 +235,14 @@ func (e *Engine) recover(ctx context.Context) error {
 		return err
 	}
 	e.paused.Store(st.Cursor == "paused")
+	if st.Cursor == "paused" {
+		if ps, err := e.d.Store.GetLoopState(ctx, pauseReasonLoop, ""); err == nil && ps.Cursor != "" {
+			var info domain.PauseInfo
+			if json.Unmarshal([]byte(ps.Cursor), &info) == nil {
+				e.pauseInfo.Store(&info)
+			}
+		}
+	}
 	states, err := e.d.Store.ListLoopStates(ctx)
 	if err != nil {
 		return err
@@ -303,6 +315,10 @@ func (e *Engine) recover(ctx context.Context) error {
 
 // controlLoop is the LoopState name that persists the pause switch (Cursor "paused").
 const controlLoop = "control"
+
+// pauseReasonLoop is the LoopState name that persists why the factory is paused (Cursor holds a
+// domain.PauseInfo as JSON).
+const pauseReasonLoop = "control_pause"
 
 type noopNotifier struct{}
 

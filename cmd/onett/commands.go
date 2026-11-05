@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -109,7 +110,11 @@ func costToday(s client.Stats) string {
 
 func writeStatus(w io.Writer, s statusSnapshot) error {
 	if s.Control.Paused {
+		// The first line always starts "Factory: PAUSED": examples/dogfood/update.sh greps for it.
 		fmt.Fprintln(w, "Factory: PAUSED. No new runs start and no new work is picked up; release verification/rollback and production watching continue. `onett resume` to continue.")
+		if p := cmp.Or(s.Stats.Pause, s.Control.Pause); p != nil {
+			fmt.Fprintln(w, p.Describe())
+		}
 	} else {
 		fmt.Fprintln(w, "Factory: running.")
 	}
@@ -1081,7 +1086,17 @@ func setPaused(e *env, args []string, pause bool) error {
 	if pause {
 		name = "pause"
 	}
-	if err := requireArgs(args, 0, name); err != nil {
+	fs := newFlagSet(name, e)
+	var reason, detail *string
+	if pause {
+		reason = fs.String("reason", "", `why: "owner" (default) or "self-update" (used by the updater script)`)
+		detail = fs.String("detail", "", "one line about the reason, e.g. the commit being installed")
+	}
+	positional, err := parseArgs(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := requireArgs(positional, 0, name); err != nil {
 		return err
 	}
 	c, err := apiClient()
@@ -1090,7 +1105,7 @@ func setPaused(e *env, args []string, pause bool) error {
 	}
 	ctx := context.Background()
 	if pause {
-		_, err = c.Pause(ctx)
+		_, err = c.Pause(ctx, *reason, *detail)
 		fmt.Fprintln(e.out, "paused: no new runs start; release verification/rollback and production watching continue (`onett resume` to continue)")
 	} else {
 		_, err = c.Resume(ctx)
