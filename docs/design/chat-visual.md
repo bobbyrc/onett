@@ -3,10 +3,15 @@
 How onett's web chat should look: the orchestrator chat at `/chat` and the task-agent threads at
 `/chat/task/:id`. The reference is the native chat in [Orca](https://github.com/stablyai/orca)
 (MIT, Copyright 2026 Lovecast Inc.). We borrow its **layout, rhythm, hierarchy and calm density**.
-We do not borrow its logo, marks, illustrations, name or exact colours. Onett keeps its own
-identity (`docs/ui.md`, "Tokens"): Barlow, square corners, the green/grey palette, 1px rules, and
-the andon-board lamps for status. Every place where chat departs from Orca to stay onett is marked
-**Adaptation**.
+We do not borrow its logo, marks, illustrations or name.
+
+**Chat takes Orca's shape, type and layout: its font (Geist), radius scale, spacing and type scale
+and colour-mix percentages. Colours and the andon status lamps are onett's** (the green/grey
+palette from `styles.css`, the lamp squares with text labels). The rest of the app keeps Barlow,
+square corners and 1px rules (`docs/ui.md`, "Tokens"). Where a section below still describes
+square corners or Barlow in chat, it predates the token change and is rewritten with the component
+restyling PRs; the token tables here are current. Every place where chat departs from Orca to stay
+onett is marked **Adaptation**.
 
 The tokens in `web/src/chat-tokens.css` are the contract. The chat components read them through
 `var(--chat-*)`; new chat styles must not invent colours or sizes, and must not rename a token.
@@ -42,9 +47,17 @@ Orca derives every chat colour by `color-mix`ing its foreground into its canvas 
 `--chat-*-mix` variables): user surface 4% in light and 7% in dark, hairlines 7%, code surface 2%.
 The result is near-monochrome neutral.
 
-**Adaptation.** Onett uses fixed hex values taken from its own palette (`--bg`, `--panel`,
-`--text`, `--muted`, `--border`, `--field`, `--focus` in `styles.css`), so chat is a green-tinted
-grey, not Orca's neutral grey, and each pair can be measured exactly. The canvas is the page ground
+**Adaptation.** Onett's palette stays: the chat colour tokens are `var()` references to the app
+tokens (`--bg`, `--panel`, `--text`, `--muted`, `--border`, `--field`, `--focus`, `--ok`, `--warn`,
+`--danger` in `styles.css`), so chat is a green-tinted grey, not Orca's neutral grey, dark mode is
+onett's green-black, and each pair can still be measured exactly (the contrast test resolves the
+references). The derived surfaces use Orca's `color-mix` form and percentages with onett's `--text`
+over onett's `--bg`: user surface 4% (7% dark), user border 7% (6%), code block 2% (3.5%), inline
+code 4% (6%), inline code border 9% (8%), composer border 11% (9%). Borders mix toward
+`transparent`, as Orca's do; Orca's dark block mixes toward `transparent` for code and inline
+code too, which here is `--bg` so the fill stays opaque and measurable. Text colours are not
+mixed: `--chat-fg` stays onett's own value, the strong and faint tones are `--text` and `--muted`.
+Orca's 82% / 92% text mixes are not used. The canvas is the page ground
 (`--chat-bg` = `--bg`); cards sit on the lighter `--panel` (`--chat-surface`). Status text uses
 onett's readable status colours (`--run`, `--warn`, `--danger`), not raw lamp fills. Light is the
 default and dark follows `prefers-color-scheme`; there is no manual theme switch.
@@ -55,10 +68,14 @@ Orca: `text-sm` 14px for everything the user reads, `text-xs` 12px for labels an
 `text-2xs` 11px for captions, `text-chat-code` 12px for code and tool output; sans for UI, mono for
 code (`native-chat.md`, "Chat type scale").
 
-**Adaptation.** Same four steps, set in Barlow (`--chat-font` = `--font`) and the app mono stack
-(`--chat-font-mono` = `--mono`). Barlow runs small for its size, so body stays at 14px with a 1.55
-line height rather than going lower. Headings inside assistant Markdown stay the same size as
-prose and are told apart by weight (600), as Orca does. `Barlow Condensed` is not used in chat.
+Same four steps, in Orca's font stacks: `--chat-font` is `'Geist', -apple-system,
+BlinkMacSystemFont, 'Segoe UI', sans-serif` and `--chat-font-mono` is `'SF Mono', SFMono-Regular,
+ui-monospace, Menlo, monospace`. Geist (SIL OFL 1.1, from the npm `geist` package) is self-hosted
+at weights 400, 500 and 600 in `web/src/assets/fonts` (licence: `OFL-Geist.txt`) with
+`font-display: swap`; chat no longer inherits Barlow, and the rest of the app is unchanged. Line
+height is 1.625 (Tailwind `leading-relaxed`, which Orca uses for prose). Headings inside assistant
+Markdown stay the same size as prose and are told apart by weight (600), as Orca does.
+`Barlow Condensed` is not used in chat.
 
 ## Spacing rhythm
 
@@ -66,8 +83,8 @@ Orca ties its unit to the text size (4px at 14px): rows are 24–26px high (`min
 blocks have 12px of vertical margin (`my-3` on code), message cells are 14px (`px-3.5`) by 10px
 (`py-2.5`) and messages are separated by a few rem.
 
-**Adaptation.** None needed: a 4px unit suits onett. `--chat-space-1..6` are 4, 8, 12, 16, 24, 32px;
-`--chat-msg-gap` is 16px (onett's current `.tr-col` gap is 14px); tool rows stay about 26px tall.
+The unit is the same: `--chat-space-1..6` are 4, 8, 12, 16, 24, 32px. `--chat-msg-gap` is 1.25rem
+(20px, Orca's `gap-5` between transcript rows); tool rows stay about 26px tall.
 `--chat-max-width` is 46rem (736px) against 760px now; the 24px difference is not worth a media query.
 
 ## Radii, borders and shadows
@@ -75,12 +92,11 @@ blocks have 12px of vertical margin (`my-3` on code), message cells are 14px (`p
 Orca: radius 10px base; user bubble `rounded-xl`, code/diff/tool output `rounded-lg`, controls
 `rounded-md`; borders are 1px hairlines at 6–11% foreground; no shadow on messages.
 
-**Adaptation.** Onett draws structure with square corners and 1px rules. `--chat-radius-sm/md/lg`
-are 2px, 3px and 4px: small enough to look like onett, different enough that controls, cards and
-the user message can be told apart. Borders are 1px `--chat-border`. Content gets no shadow; the
-one exception is `--chat-shadow-composer`, a faint upward shadow that shows only while the sticky
-composer floats over scrolled transcript. The existing "no shadows" rule in `docs/ui.md` should be
-read with that single exception.
+Chat takes the scale: `--chat-radius` is 0.625rem (10px) and `-sm`, `-md`, `-lg`, `-xl` are 0.6,
+0.8, 1 and 1.4 times it (6, 8, 10 and 14px), so a component picks the same step Orca does.
+Components are restyled onto the scale in later PRs; until then one that reads a `--chat-radius-*`
+token gets the larger corner. Borders are 1px hairlines. Orca's composer has no shadow, so
+`--chat-shadow-composer` is `none` (the token stays so the two rules that read it keep working).
 
 ## User and assistant messages
 
@@ -196,25 +212,30 @@ indicator (already covered by `web/e2e/mobile.spec.ts`), and tap targets stay at
 
 All defined in `web/src/chat-tokens.css` on `:root`; dark values sit in `@media (prefers-color-scheme: dark)`.
 Names marked * are additions to the frozen list from the brief.
+Colours written `var(--x)` are references to `styles.css`, not copies; the hex beside them is what they resolve to today.
 
 | Token | Light | Dark | Purpose |
 |---|---|---|---|
-| `--chat-bg` | `#e3eae4` | `#111614` | chat canvas (= `--bg`) |
-| `--chat-surface` | `#f5f8f5` | `#181e1b` | assistant/tool cards, composer field (= `--panel`) |
-| `--chat-user-bg` | `#d3ddd5` | `#242c28` | user message sheet |
-| `--chat-user-fg` | `#18201c` | `#e4ebe6` | user message text |
+| `--chat-bg` | `#e3eae4` | `#111614` | chat canvas (= `var(--bg)`) |
+| `--chat-surface` | `#f5f8f5` | `#181e1b` | assistant/tool cards, composer field (= `var(--panel)`) |
+| `--chat-user-bg` | `#dbe2dc` | `#202523` | user message sheet: `--text` 4% (dark 7%) over `--bg` |
+| `--chat-user-fg` | `#18201c` | `#e4ebe6` | user message text (= `var(--text)`) |
+| `--chat-user-border`* | `--text` 7% | `--text` 6% | user message edge, mixed toward transparent |
 | `--chat-fg` | `#2a342e` | `#cfd8d2` | assistant prose |
-| `--chat-fg-strong` | `#18201c` | `#e4ebe6` | titles, emphasis |
-| `--chat-fg-faint` | `#4b5751` | `#a1aea7` | labels, tool names, timestamps |
-| `--chat-border` | `#b9c6bd` | `#3a4741` | decorative 1px rules and card edges |
-| `--chat-field-border`* | `#6f7d76` | `#64736b` | outline of the composer input |
-| `--chat-accent` | `#1d6f3d` | `#5fd08b` | working lamp, links, selection |
-| `--chat-warning` | `#7a5800` | `#f2c230` | waiting-for-owner text |
+| `--chat-fg-strong` | `#18201c` | `#e4ebe6` | titles, emphasis (= `var(--text)`) |
+| `--chat-fg-faint` | `#4b5751` | `#a1aea7` | labels, tool names, timestamps (= `var(--muted)`) |
+| `--chat-border` | `#b9c6bd` | `#3a4741` | decorative 1px rules and card edges (= `var(--border)`) |
+| `--chat-field-border`* | `#6f7d76` | `#64736b` | outline of the composer input (= `var(--field)`) |
+| `--chat-composer-border`* | `--text` 11% | `--text` 9% | Orca's composer hairline, mixed toward transparent; not used until the composer restyle |
+| `--chat-accent` | `#1d6f3d` | `#5fd08b` | working lamp, links, selection (= `var(--ok)`) |
+| `--chat-warning` | `#7a5800` | `#f2c230` | waiting-for-owner text (= `var(--warn)`) |
 | `--chat-warning-bg`* | `#fbf3d4` | `#2b2308` | queued-message notice fill (text is `--chat-warning`) |
-| `--chat-danger` | `#b0251c` | `#ff7a70` | errors, blocked |
+| `--chat-danger` | `#b0251c` | `#ff7a70` | errors, blocked (= `var(--danger)`) |
 | `--chat-diff-add-fg` / `-bg` | `#1d6f3d` / `#d3e8d9` | `#7fdca1` / `#16301f` | added lines |
 | `--chat-diff-del-fg` / `-bg` | `#a3231a` / `#f1d6d2` | `#ff9a92` / `#3a1a17` | removed lines |
-| `--chat-code-bg` | `#edf2ee` | `#0d1210` | code blocks, tool output, inline code |
+| `--chat-code-bg` | `#dfe6e0` | `#181d1b` | code blocks, tool output: `--text` 2% (dark 3.5%) over `--bg` |
+| `--chat-inline-code-bg`* | `#dbe2dc` | `#1e2321` | inline code: `--text` 4% (dark 6%) over `--bg` |
+| `--chat-inline-code-border`* | `--text` 9% | `--text` 8% | inline code edge, mixed toward transparent |
 | `--chat-syntax-keyword` | `#a3236b` | `#ff9ac8` | keywords, built-ins, literals |
 | `--chat-syntax-string` | `#0b6b35` | `#8fd6a8` | strings, regular expressions |
 | `--chat-syntax-comment` | `#56625b` | `#94a39a` | comments, quotes |
@@ -222,16 +243,18 @@ Names marked * are additions to the frozen list from the brief.
 | `--chat-syntax-function` | `#1d4fa3` | `#8fbaff` | function and section titles |
 | `--chat-syntax-type` | `#0b6674` | `#6fd3e0` | types and class names |
 | `--chat-syntax-meta` | `#6a3fa0` | `#c9a6ff` | attributes, tags, selectors, meta lines |
-| `--chat-focus-ring` | `#18201c` | `#f2c230` | focus outline (= `--focus`) |
-| `--chat-font` / `--chat-font-mono` | `var(--font)` / `var(--mono)` | same | font stacks |
+| `--chat-focus-ring` | `#18201c` | `#f2c230` | focus outline (= `var(--focus)`) |
+| `--chat-font` | `'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif` | same | chat sans (Orca's stack; Geist self-hosted) |
+| `--chat-font-mono` | `'SF Mono', SFMono-Regular, ui-monospace, Menlo, monospace` | same | chat mono (Orca's stack) |
 | `--chat-text-md` / `-sm` / `-xs` | 14 / 12 / 11px | same | body / labels / captions |
 | `--chat-text-code` | 12px | same | code, diffs, tool output |
-| `--chat-leading` | 1.55 | same | line height |
+| `--chat-leading` | 1.625 | same | line height (`leading-relaxed`) |
 | `--chat-space-1` … `-6` | 4, 8, 12, 16, 24, 32px | same | spacing scale |
-| `--chat-msg-gap` | 16px | same | between messages |
+| `--chat-msg-gap` | 1.25rem (20px) | same | between messages (Orca `gap-5`) |
 | `--chat-max-width` | 46rem | same | reading column cap |
-| `--chat-radius-sm` / `-md` / `-lg` | 2 / 3 / 4px | same | controls / cards / user sheet |
-| `--chat-shadow-composer` | `0 -8px 16px -10px rgba(24,32,28,.22)` | `… rgba(0,0,0,.6)` | sticky composer lift |
+| `--chat-radius` | 0.625rem | same | base of the radius scale |
+| `--chat-radius-sm` / `-md` / `-lg` / `-xl` | ×0.6 / ×0.8 / ×1 / ×1.4 (6 / 8 / 10 / 14px) | same | controls / cards / user sheet / large panels |
+| `--chat-shadow-composer` | `none` | same | Orca's composer has no shadow |
 
 ## Applies to
 
@@ -247,19 +270,22 @@ Names marked * are additions to the frozen list from the brief.
 ## Accessibility
 
 Targets: text at least 4.5:1, large text and UI boundaries at least 3:1, focus ring at least 3:1
-on both backgrounds. Measured with the WCAG 2.x relative-luminance formula on the hex values above
-(light / dark):
+on both backgrounds. Measured with the WCAG 2.x relative-luminance formula on the resolved values above
+(light / dark; the test resolves `var()` and `color-mix` with a plain sRGB mix):
 
 | Pair | Light | Dark |
 |---|---|---|
 | `--chat-fg` on `--chat-bg` | 10.53 | 12.54 |
 | `--chat-fg` on `--chat-surface` | 12.05 | 11.61 |
-| `--chat-fg` on `--chat-code-bg` | 11.38 | 12.97 |
+| `--chat-fg` on `--chat-code-bg` | 10.15 | 11.71 |
+| `--chat-fg` on `--chat-inline-code-bg` | 9.77 | 10.93 |
+| `--chat-fg` on `--chat-user-bg` | 9.77 | 10.67 |
 | `--chat-fg-strong` on `--chat-bg` / `--chat-surface` | 13.59 / 15.55 | 15.08 / 13.97 |
 | `--chat-fg-faint` on `--chat-bg` | 6.17 | 7.95 |
 | `--chat-fg-faint` on `--chat-surface` | 7.06 | 7.36 |
-| `--chat-fg-faint` on `--chat-code-bg` | 6.66 | 8.22 |
-| `--chat-user-fg` on `--chat-user-bg` | 11.94 | 11.82 |
+| `--chat-fg-faint` on `--chat-code-bg` | 5.94 | 7.42 |
+| `--chat-fg-faint` on `--chat-inline-code-bg` | 5.73 | 6.93 |
+| `--chat-user-fg` on `--chat-user-bg` | 12.62 | 12.83 |
 | `--chat-accent` on `--chat-bg` / `--chat-surface` | 5.06 / 5.78 | 9.47 / 8.77 |
 | `--chat-warning` on `--chat-bg` / `--chat-surface` | 5.32 / 6.09 | 10.91 / 10.11 |
 | `--chat-warning` on `--chat-warning-bg` | 5.85 | 9.31 |
@@ -267,17 +293,17 @@ on both backgrounds. Measured with the WCAG 2.x relative-luminance formula on th
 | `--chat-diff-add-fg` on `--chat-diff-add-bg` | 4.81 | 8.57 |
 | `--chat-diff-del-fg` on `--chat-diff-del-bg` | 5.44 | 7.68 |
 | `--chat-fg` on `--chat-diff-add-bg` / `-del-bg` | 10.01 / 9.39 | 9.76 / 10.75 |
-| `--chat-syntax-keyword` on `--chat-code-bg` | 6.16 | 9.64 |
-| `--chat-syntax-string` on `--chat-code-bg` | 5.85 | 11.12 |
-| `--chat-syntax-comment` on `--chat-code-bg` | 5.63 | 7.17 |
-| `--chat-syntax-number` on `--chat-code-bg` | 6.00 | 11.28 |
-| `--chat-syntax-function` on `--chat-code-bg` | 6.87 | 9.57 |
-| `--chat-syntax-type` on `--chat-code-bg` | 5.85 | 10.86 |
-| `--chat-syntax-meta` on `--chat-code-bg` | 6.55 | 9.34 |
-| `--chat-diff-add-fg` / `-del-fg` on `--chat-code-bg` (diff lines in code) | 5.46 / 6.59 | 11.39 / 9.26 |
+| `--chat-syntax-keyword` on `--chat-code-bg` | 5.49 | 8.70 |
+| `--chat-syntax-string` on `--chat-code-bg` | 5.22 | 10.04 |
+| `--chat-syntax-comment` on `--chat-code-bg` | 5.02 | 6.47 |
+| `--chat-syntax-number` on `--chat-code-bg` | 5.36 | 10.19 |
+| `--chat-syntax-function` on `--chat-code-bg` | 6.12 | 8.64 |
+| `--chat-syntax-type` on `--chat-code-bg` | 5.22 | 9.81 |
+| `--chat-syntax-meta` on `--chat-code-bg` | 5.84 | 8.44 |
+| `--chat-diff-add-fg` / `-del-fg` on `--chat-code-bg` (diff lines in code) | 4.87 / 5.88 | 10.28 / 8.36 |
 | `--chat-focus-ring` on `--chat-bg` | 13.59 | 10.91 |
 | `--chat-focus-ring` on `--chat-surface` | 15.55 | 10.11 |
-| `--chat-focus-ring` on `--chat-user-bg` | 11.94 | 8.55 |
+| `--chat-focus-ring` on `--chat-user-bg` | 12.62 | 9.28 |
 | `--chat-field-border` on `--chat-bg` | 3.52 | 3.66 |
 | `--chat-field-border` on `--chat-surface` | 4.03 | 3.39 |
 

@@ -1,32 +1,87 @@
 /* Chat design tokens (docs/design/chat-visual.md). The chat components read them (guarded by
    src/lib/chatCss.test.ts), so do not rename one. Light by default; dark follows the system, like
    styles.css. Contrast ratios for every pair are listed in the design doc and checked by
-   src/lib/chatContrast.test.ts. */
+   src/lib/chatContrast.test.ts.
+
+   Shape, type and layout follow Orca (https://github.com/stablyai/orca): the font stacks, the radius
+   scale, the spacing and type scale and the colour-mix percentages come from its
+   src/renderer/src/assets/main.css and native-chat components. Colours are onett's: every colour
+   token below is a var() of a styles.css token (or a mix of two), never one of Orca's.
+
+   Orca is MIT licensed:
+
+   Copyright (c) 2026 Lovecast Inc.
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+   associated documentation files (the "Software"), to deal in the Software without restriction,
+   including without limitation the rights to use, copy, modify, merge, publish, distribute,
+   sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in all copies or
+   substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+   NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+   DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+   OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+   Geist (assets/fonts/Geist-*.woff2, from the npm `geist` package) is SIL OFL 1.1: see
+   assets/fonts/OFL-Geist.txt. */
+
+/* Chat only: the rest of the app stays Barlow. */
+@font-face {
+  font-family: 'Geist';
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/Geist-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Geist';
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/Geist-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Geist';
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/Geist-600.woff2') format('woff2');
+}
 
 :root {
-  /* colour: canvas, cards, messages */
-  --chat-bg: #e3eae4;
-  --chat-surface: #f5f8f5;
-  --chat-user-bg: #d3ddd5;
-  --chat-user-fg: #18201c;
+  /* colour: canvas, cards, messages. App tokens from styles.css, so light and dark follow it. */
+  --chat-bg: var(--bg);
+  --chat-surface: var(--panel);
+  --chat-user-fg: var(--text);
   --chat-fg: #2a342e;
-  --chat-fg-strong: #18201c;
-  --chat-fg-faint: #4b5751;
+  --chat-fg-strong: var(--text);
+  --chat-fg-faint: var(--muted);
   /* hairline between cards and rows; decorative, never the only cue for a boundary */
-  --chat-border: #b9c6bd;
+  --chat-border: var(--border);
   /* outline of an input the user types into: 3:1 against both the canvas and a card */
-  --chat-field-border: #6f7d76;
+  --chat-field-border: var(--field);
   /* colour: state */
-  --chat-accent: #1d6f3d;
-  --chat-warning: #7a5800;
+  --chat-accent: var(--ok);
+  --chat-warning: var(--warn);
   --chat-warning-bg: #fbf3d4;
-  --chat-danger: #b0251c;
+  --chat-danger: var(--danger);
   --chat-diff-add-fg: #1d6f3d;
   --chat-diff-add-bg: #d3e8d9;
   --chat-diff-del-fg: #a3231a;
   --chat-diff-del-bg: #f1d6d2;
-  --chat-code-bg: #edf2ee;
-  --chat-focus-ring: #18201c;
+  --chat-focus-ring: var(--focus);
+  /* derived surfaces: Orca's colour-mix, with onett's text over onett's canvas. Borders mix toward
+     transparent, as Orca does, so they sit on any surface. */
+  --chat-user-bg: color-mix(in srgb, var(--text) 4%, var(--bg));
+  --chat-user-border: color-mix(in srgb, var(--text) 7%, transparent);
+  --chat-code-bg: color-mix(in srgb, var(--text) 2%, var(--bg));
+  --chat-inline-code-bg: color-mix(in srgb, var(--text) 4%, var(--bg));
+  --chat-inline-code-border: color-mix(in srgb, var(--text) 9%, transparent);
+  --chat-composer-border: color-mix(in srgb, var(--text) 11%, transparent);
   /* syntax colours, measured on --chat-code-bg */
   --chat-syntax-keyword: #a3236b;
   --chat-syntax-string: #0b6b35;
@@ -36,53 +91,53 @@
   --chat-syntax-type: #0b6674;
   --chat-syntax-meta: #6a3fa0;
 
-  /* type */
-  --chat-font: var(--font, 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
-  --chat-font-mono: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  /* type: Orca's stacks. Geist is self-hosted above; the rest of the app does not use it. */
+  --chat-font: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --chat-font-mono: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, monospace;
   --chat-text-md: 14px;
   --chat-text-sm: 12px;
   --chat-text-xs: 11px;
   --chat-text-code: 12px;
-  --chat-leading: 1.55;
+  /* Tailwind leading-relaxed, which Orca uses for message prose */
+  --chat-leading: 1.625;
 
-  /* space: a 4px unit */
+  /* space: a 4px unit at the 14px base, as Orca */
   --chat-space-1: 4px;
   --chat-space-2: 8px;
   --chat-space-3: 12px;
   --chat-space-4: 16px;
   --chat-space-5: 24px;
   --chat-space-6: 32px;
-  --chat-msg-gap: 16px;
+  /* Orca's transcript rows are gap-5: five 4px units */
+  --chat-msg-gap: 1.25rem;
   --chat-max-width: 46rem;
 
-  /* radius and elevation: onett's corners stay nearly square */
-  --chat-radius-sm: 2px;
-  --chat-radius-md: 3px;
-  --chat-radius-lg: 4px;
-  --chat-shadow-composer: 0 -8px 16px -10px rgba(24, 32, 28, 0.22);
+  /* radius: Orca's scale; the composer has no shadow there, so none here */
+  --chat-radius: 0.625rem;
+  --chat-radius-sm: calc(var(--chat-radius) * 0.6);
+  --chat-radius-md: calc(var(--chat-radius) * 0.8);
+  --chat-radius-lg: var(--chat-radius);
+  --chat-radius-xl: calc(var(--chat-radius) * 1.4);
+  --chat-shadow-composer: none;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --chat-bg: #111614;
-    --chat-surface: #181e1b;
-    --chat-user-bg: #242c28;
-    --chat-user-fg: #e4ebe6;
+    /* Orca's dark block mixes a little more foreground and, for code and the composer border,
+       a little less; same expression shapes. Its transparent bases are --bg here so the surface
+       stays opaque and measurable. */
     --chat-fg: #cfd8d2;
-    --chat-fg-strong: #e4ebe6;
-    --chat-fg-faint: #a1aea7;
-    --chat-border: #3a4741;
-    --chat-field-border: #64736b;
-    --chat-accent: #5fd08b;
-    --chat-warning: #f2c230;
     --chat-warning-bg: #2b2308;
-    --chat-danger: #ff7a70;
     --chat-diff-add-fg: #7fdca1;
     --chat-diff-add-bg: #16301f;
     --chat-diff-del-fg: #ff9a92;
     --chat-diff-del-bg: #3a1a17;
-    --chat-code-bg: #0d1210;
-    --chat-focus-ring: #f2c230;
+    --chat-user-bg: color-mix(in srgb, var(--text) 7%, var(--bg));
+    --chat-user-border: color-mix(in srgb, var(--text) 6%, transparent);
+    --chat-code-bg: color-mix(in srgb, var(--text) 3.5%, var(--bg));
+    --chat-inline-code-bg: color-mix(in srgb, var(--text) 6%, var(--bg));
+    --chat-inline-code-border: color-mix(in srgb, var(--text) 8%, transparent);
+    --chat-composer-border: color-mix(in srgb, var(--text) 9%, transparent);
     --chat-syntax-keyword: #ff9ac8;
     --chat-syntax-string: #8fd6a8;
     --chat-syntax-comment: #94a39a;
@@ -90,6 +145,5 @@
     --chat-syntax-function: #8fbaff;
     --chat-syntax-type: #6fd3e0;
     --chat-syntax-meta: #c9a6ff;
-    --chat-shadow-composer: 0 -8px 16px -10px rgba(0, 0, 0, 0.6);
   }
 }
