@@ -131,3 +131,42 @@ func hydrateAttachments(ctx context.Context, ex execer, msgs []domain.ChatMessag
 	}
 	return nil
 }
+
+// linkTaskAttachments records the attachments ids as the task's, in order. Each must exist; the
+// name, type and size are copied into the link so they survive retention deleting the file.
+func linkTaskAttachments(ctx context.Context, ex execer, taskID string, ids []string) error {
+	for i, id := range ids {
+		res, err := ex.ExecContext(ctx,
+			`INSERT INTO task_attachments (task_id, attachment_id, position, conversation_id, name, mime, size)
+			 SELECT ?, id, ?, conversation_id, name, mime, size FROM attachments WHERE id = ?`,
+			taskID, i, id)
+		if err != nil {
+			return fmt.Errorf("link attachment %s: %w", id, err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return fmt.Errorf("attachment %s: %w", id, store.ErrNotFound)
+		}
+	}
+	return nil
+}
+
+// loadTaskAttachments returns the task's attachments in order. Path is loaded (it is never
+// serialised); an attachment whose record retention has deleted comes back Expired, with no Path.
+func loadTaskAttachments(ctx context.Context, ex execer, taskID string) ([]domain.Attachment, error) {
+	out, err := queryRows(ctx, ex, func(r rowScanner) (domain.Attachment, error) {
+		var a domain.Attachment
+		var created int64
+		var live int
+		err := r.Scan(&a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.Path, &created, &live)
+		a.CreatedAt = fromNanos(created)
+		a.Expired = live == 0
+		return a, err
+	}, `SELECT l.attachment_id, l.conversation_id, l.name, l.mime, l.size,
+			COALESCE(a.path, ''), COALESCE(a.created_at, 0), a.id IS NOT NULL
+		FROM task_attachments l LEFT JOIN attachments a ON a.id = l.attachment_id
+		WHERE l.task_id = ? ORDER BY l.position ASC`, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("load task attachments: %w", err)
+	}
+	return out, nil
+}

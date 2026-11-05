@@ -337,12 +337,14 @@ func taskCreate(e *env, args []string) error {
 	parent := fs.String("parent", "", "parent task ID")
 	source := fs.String("source", "", "task source (default: chat:<id> inside an orchestrator chat turn, else api)")
 	goal := fs.String("goal", os.Getenv("ONETT_GOAL"), "goal this task works toward (default: $ONETT_GOAL)")
+	var attach multiFlag
+	fs.Var(&attach, "attach", "chat attachment ID to hand to the agent (repeatable)")
 	jsonOut := fs.Bool("json", false, "print the created task as JSON")
 	positional, err := parseArgs(fs, args)
 	if err != nil {
 		return err
 	}
-	if err := requireArgs(positional, 0, "task create --project P --kind K --title T [--body B | --body-file F]"); err != nil {
+	if err := requireArgs(positional, 0, "task create --project P --kind K --title T [--body B | --body-file F] [--attach ID]..."); err != nil {
 		return err
 	}
 	if *project == "" || *kind == "" || *title == "" {
@@ -366,6 +368,7 @@ func taskCreate(e *env, args []string) error {
 	task, err := c.CreateTask(context.Background(), client.NewTask{
 		Project: *project, Kind: *kind, Title: *title, Body: text, Role: *role,
 		Priority: *priority, ParentID: *parent, Source: taskSource(*source, os.Getenv("ONETT_CONVERSATION_ID")), GoalID: *goal,
+		Attachments: attach,
 	})
 	if err != nil {
 		return err
@@ -1209,4 +1212,14 @@ func newestAssistantText(msgs []domain.ChatMessage) string {
 		return "(the orchestrator sent no reply)"
 	}
 	return best.Text
+}
+
+// multiFlag is a string flag that may be given more than once; each use adds a value.
+type multiFlag []string
+
+func (m *multiFlag) String() string { return strings.Join(*m, ",") }
+
+func (m *multiFlag) Set(v string) error {
+	*m = append(*m, v)
+	return nil
 }

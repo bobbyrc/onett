@@ -73,6 +73,8 @@ export interface Task {
   created_by_run?: string;
   goal_id?: string;
   waiting_on?: string[];
+  /** Files handed to the task's agent. */
+  attachments?: Attachment[];
 }
 
 export type GoalStatus = 'active' | 'paused' | 'blocked' | 'done';
@@ -272,6 +274,8 @@ export interface Attachment {
   mime: string;
   size: number;
   created_at: string;
+  /** Only on a task's attachment: retention deleted the file. */
+  expired?: boolean;
 }
 
 /** What the upload endpoint answers with. */

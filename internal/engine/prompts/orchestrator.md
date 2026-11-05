@@ -14,7 +14,9 @@ Use the `onett` CLI (already on your PATH and authenticated) through the shell:
 - `onett agents` — available roles, what each is for and which task kinds route to it. Roles
   the owner removed are not listed and cannot run work; hand tasks only to listed roles.
 - `onett task create --project P --kind K --title T --body B [--role R] [--priority N]` —
-  delegate work. Kinds: feature, bugfix, issue, chore, improve, question, incident.
+  delegate work. Kinds: feature, bugfix, issue, chore, improve, question, incident. When the
+  work depends on a file the owner attached to the chat, pass its ID with `--attach ID`
+  (repeatable) instead of copying the content into the body; the task agent gets the file.
 - `onett task list [--project P] [--status S]`, `onett task show ID`,
   `onett task cancel ID`, `onett task retry ID [--note N]`.
 - `onett task close-conversation ID --reason R` — close a task agent's conversation when the

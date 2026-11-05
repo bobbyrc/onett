@@ -309,9 +309,19 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 		}
 	}
 
+	// The task's attachments are copied into every run's fresh worktree, so a retry or a
+	// follow-up sees the same files. One that retention deleted is listed as expired.
+	placed, err := workspace.CopyAttachments(ws, t.Attachments)
+	if err != nil {
+		e.finishRun(bg, run.ID, domain.RunFailed, "attachments: "+err.Error())
+		e.requeueOrBlock(bg, t.ID, "could not copy attachments", err.Error())
+		return
+	}
+	attNote := taskAttachmentNote(placed)
+
 	// Owner messages queued for this task's agent go with this run: a follow-up resumes the
 	// agent's session with just the messages; a first run gets them after the task prompt.
-	prompt := buildTaskPrompt(t, p, parent, conflicts) + setupNote
+	prompt := buildTaskPrompt(t, p, parent, conflicts) + attNote + setupNote
 	resumeID := ""
 	root, claimed := e.claimOwnerMessages(bg, t)
 	st.root = root
@@ -325,7 +335,7 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 		st.fail = e.failFollowUp(claimed)
 		texts, _ := messageTexts(claimed)
 		if prev, ok := e.resumeSession(bg, root); ok {
-			prompt = ownerPrompt(texts) + "\n\n" + mergeConflictSection(p, conflicts) + setupNote
+			prompt = ownerPrompt(texts) + attNote + "\n\n" + mergeConflictSection(p, conflicts) + setupNote
 			prompt = strings.TrimRight(prompt, "\n") + "\n\n" + resumeReportReminder
 			resumeID = prev.SessionID
 		} else {

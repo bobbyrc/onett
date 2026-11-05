@@ -113,7 +113,7 @@ func TestGoalMigrationKeepsExistingTasks(t *testing.T) {
 	}
 	require.NotZero(t, goalsVersion)
 	_, err := s.db.ExecContext(ctx, `DROP TABLE goals; DROP INDEX tasks_goal_id; ALTER TABLE tasks DROP COLUMN goal_id;
-		DROP TABLE attachments; DROP TABLE chat_message_attachments;
+		DROP TABLE attachments; DROP TABLE chat_message_attachments; DROP TABLE task_attachments;
 		DELETE FROM schema_migrations WHERE version >= ?`, goalsVersion)
 	require.NoError(t, err)
 	_, err = s.db.ExecContext(ctx, `INSERT INTO tasks (id, project, status, kind, priority, created_at, data)
