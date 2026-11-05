@@ -10,6 +10,16 @@ export const STALL_HINT_MS = 30_000;
 
 export type ActivityKind = 'working' | 'worked' | 'stopped' | 'failed';
 
+/** Why a thread that is not working needs a person: an approval to give, or a block to clear. */
+export type Attention = 'waiting' | 'blocked';
+
+/** Which attention label a task status earns, if any. */
+export function attentionFor(status: string | undefined): Attention | undefined {
+  if (status === 'awaiting_approval') return 'waiting';
+  if (status === 'blocked') return 'blocked';
+  return undefined;
+}
+
 /** How a finished run reads: done, stopped by someone, or failed. */
 export function finishedKind(status: Run['status']): Exclude<ActivityKind, 'working'> {
   if (status === 'succeeded') return 'worked';
@@ -54,14 +64,26 @@ export function ActivityLine({
   working,
   label,
   lines,
+  attention,
 }: {
   run?: Run;
   working: boolean;
   label: string;
   lines?: LogLine[];
+  /** Set when the thread is idle but waits on the owner; it replaces the finished-run line. */
+  attention?: Attention;
 }) {
   const now = useSecond(working);
   const started = parseTime(run?.started_at);
+  if (!working && attention) {
+    // No timer: the wait is not work. The lamp is static, since nothing is running.
+    return (
+      <p className={cx('activity-line', `activity-${attention}`)} role="status" aria-live="polite">
+        <span className="activity-lamp" aria-hidden="true" />
+        <span className="activity-text">{attention === 'waiting' ? 'Waiting for you' : 'Blocked'}</span>
+      </p>
+    );
+  }
   if (!working) {
     const ended = parseTime(run?.ended_at);
     if (!run || !started || !ended) return null;

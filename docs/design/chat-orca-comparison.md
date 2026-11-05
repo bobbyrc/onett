@@ -253,7 +253,8 @@ Nothing was changed for these; each is for a follow-up.
    "Applies to" row ("Diff cards: the edit rows in `Transcript.tsx`") read as if added and removed lines
    are tinted; the code only has `+n −m` counts and the `--chat-diff-*` tokens are used for those.
 2. **`chat-visual.md` promises "Waiting for you" and "Blocked" activity labels** (warning and danger
-   lamps). `ActivityLine.tsx` only produces Working, Worked for, Stopped after and Failed after.
+   lamps). Fixed for task threads: `ActivityLine` takes an `attention` prop, set from the task status
+   (`awaiting_approval`, `blocked`). The orchestrator thread has no such status, so it never shows them.
 3. **Stale wording in two places.** `web/src/chat-tokens.css` says "Nothing reads them yet" and
    `chat-visual.md` says "This PR changes no visuals: nothing reads the tokens yet"; both predate
    the restyle PRs.

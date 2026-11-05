@@ -30,7 +30,7 @@ import {
   useTaskConversation,
   useTasks,
 } from '../queries';
-import { ActivityLine } from '../components/ActivityLine';
+import { ActivityLine, attentionFor, type Attention } from '../components/ActivityLine';
 import { Button } from '../components/Button';
 import { ChatSkeleton, ChatState } from '../components/ChatState';
 import { ErrorLine } from '../components/ErrorLine';
@@ -304,14 +304,16 @@ function TurnActivity({
   working,
   label,
   lines,
+  attention,
 }: {
   runId?: string;
   working: boolean;
   label: string;
   lines?: LogLine[];
+  attention?: Attention;
 }) {
   const run = useRun(runId ?? '');
-  return <ActivityLine run={run.data} working={working} label={label} lines={lines} />;
+  return <ActivityLine run={run.data} working={working} label={label} lines={lines} attention={attention} />;
 }
 
 /** Edit and Cancel for one queued message, shown in its note. */
@@ -697,6 +699,7 @@ function TaskThread({
           working={!!liveRunId}
           label={capitalise(role)}
           lines={liveRunId ? logs[liveRunId] : undefined}
+          attention={attentionFor(task.status)}
         />
         {canOperate && queued > 0 && !liveRunId && !closed ? (
           <SendNow pending={flush.isPending} onClick={() => flush.mutate({ taskId })} />
