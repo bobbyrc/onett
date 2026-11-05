@@ -88,8 +88,8 @@ func (e *Engine) chatFollowupTick(ctx context.Context) {
 	f.seeded = true
 	byID := map[string]domain.Task{}
 	for _, t := range tasks {
-		convID, ok := strings.CutPrefix(t.Source, domain.SourceChatPrefix)
-		if !ok || convID == "" {
+		convID := t.ChatConversationID()
+		if convID == "" {
 			continue
 		}
 		byID[t.ID] = t

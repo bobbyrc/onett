@@ -260,7 +260,9 @@ conversation's project is paused, one orchestrator turn runs with a `system` mes
 each task's status, PR, blocked reason and summary (redacted, marked as data) and asks for one to
 three sentences, plus action only on what the owner already asked for. A conversation gets at most
 one such turn per two minutes. The pending list is in memory: a restart forgets it and starts from
-the tasks' current statuses, so nothing is reported twice.
+the tasks' current statuses, so nothing is reported twice. A follow-up that an agent files for such
+a task keeps the source `followup` (policy rules match it) and carries the link in its source ref,
+`chat:<conversation id>`, so the loop reports it too.
 
 ### Goals
 
