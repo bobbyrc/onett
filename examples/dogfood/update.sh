@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Updates the long-lived dogfood instance to origin/main (or, when ONETT_UPDATE_REF is set, to
 # that commit: the daemon's self_update loop sets it to the release that was healthy on staging).
-# It builds the commit in a temporary worktree,
-# pauses the factory and waits until no run is active and no release is in flight, swaps the
-# binary ($DOGFOOD/onett; the old one is kept as onett.prev), restarts the daemon, checks that
-# it answers with the new version, and resumes the factory if it was running before. A restart
-# that fails health is undone with the previous binary.
+# It builds the commit in a temporary worktree, swaps the binary ($DOGFOOD/onett; the old one is
+# kept as onett.prev), restarts the daemon and checks that it answers with the new version. A
+# restart that fails health is undone with the previous binary. It does not pause the factory or
+# wait for runs: agent runs reattach to their shims (or resume their session) in the new daemon.
+# The daemon's self_update loop does not start this script while a release is in flight.
 #
 # Needs DOGFOOD (see README.md) and go/node on PATH (`mise exec -- examples/dogfood/update.sh`).
 # The config is ONETT_CONFIG, else $DOGFOOD/onett.yaml, else the example in the clone. When
@@ -15,13 +15,9 @@
 # the daemon ends every run it supervises. The self_update loop is not an agent run: it starts
 # this script detached, so the script outlives the daemon it restarts.
 #
-# ONETT_UPDATE_DRY_RUN=1 builds the commit and reports what it would do, then stops before it pauses
-# the factory, swaps the binary or restarts anything. That is the one mode allowed inside an
-# onett agent run, so an agent can test the script without touching the running daemon.
-#
-# ONETT_UPDATE_WAIT (seconds, default 1800) is how long it waits for runs to drain once paused. It
-# exits 75 when the factory stayed busy for that long (nothing changed; the loop backs off), 1 on
-# any other failure.
+# ONETT_UPDATE_DRY_RUN=1 builds the commit and reports what it would do, then stops before it swaps
+# the binary or restarts anything. That is the one mode allowed inside an onett agent run, so an
+# agent can test the script without touching the running daemon.
 #
 # It leaves $ONETT_DATA_DIR/self-update.result (default $DOGFOOD/data) for the new daemon to
 # report: old, new, ref, status ok or rolled_back and, for a rollback with a known cause, reason.
@@ -72,7 +68,7 @@ if [ "$new" = "$running" ]; then
 fi
 
 if [ -n "$dry_run" ]; then
-  echo "update.sh: dry run: built $new from ${ref:0:7} (running: ${running:-unreachable}); nothing paused, swapped or restarted"
+  echo "update.sh: dry run: built $new from ${ref:0:7} (running: ${running:-unreachable}); nothing swapped or restarted"
   exit 0
 fi
 
@@ -98,38 +94,6 @@ case "$(head -n 1 <<<"$svc")" in
     exit 1
     ;;
 esac
-
-# The status probe must succeed: an erroring command prints nothing, which would look idle.
-status=$("$bin" status)
-was_paused=no
-grep -q '^Factory: PAUSED' <<<"$status" && was_paused=yes
-# The pause says why, so `onett status` and the web UI can show "paused for self-update to <sha>".
-# A daemon from before pause reasons rejects the flags; fall back to a plain pause for it. A pause
-# the owner already holds keeps its own reason.
-if [ "$was_paused" = no ]; then
-  "$bin" pause --reason self-update --detail "${ref:0:7}" >/dev/null 2>&1 || "$bin" pause >/dev/null
-fi
-# The daemon passes limits.run_timeout + 5 minutes: a run that has just started may use all of it.
-wait_secs=${ONETT_UPDATE_WAIT:-1800}
-tries=$(( (wait_secs + 4) / 5 ))
-echo "update.sh: paused; waiting for active runs and releases to finish (up to $((wait_secs / 60)) minutes)"
-for i in $(seq 1 "$tries"); do
-  status=$("$bin" status)
-  latest=$("$bin" deploys | sed -n 2p)
-  if grep -q 'Active runs: 0 ' <<<"$status" && ! grep -qE ' (pending|deploying|verifying) ' <<<"$latest"; then
-    break
-  fi
-  if [ "$i" = "$tries" ]; then
-    if [ "$was_paused" = yes ]; then
-      echo "update.sh: still busy after $((wait_secs / 60)) minutes; the factory is left paused" >&2
-    else
-      "$bin" resume >/dev/null
-      echo "update.sh: still busy after $((wait_secs / 60)) minutes; resumed the factory, nothing changed" >&2
-    fi
-    exit 75 # EX_TEMPFAIL: the self_update loop waits an hour before trying this commit again
-  fi
-  sleep 5
-done
 
 stop_daemon() {
   local pid
@@ -196,12 +160,7 @@ preflight_state() {
 rollback() {
   write_result rolled_back "${1:-}"
   cp "$bin.prev" "$bin.new" && mv "$bin.new" "$bin"
-  if restart_daemon "$old"; then
-    # The pause outlives the restart; leaving it would stall the factory after a failed update.
-    [ "$was_paused" = yes ] || "$bin" resume >/dev/null
-  else
-    echo "update.sh: $old did not come up either" >&2
-  fi
+  restart_daemon "$old" || echo "update.sh: $old did not come up either" >&2
 }
 
 old=$("$bin" version | awk '{print $2}')
@@ -230,5 +189,4 @@ if [ "$preflight_before" = pass ]; then
     exit 1
   fi
 fi
-[ "$was_paused" = yes ] || "$bin" resume >/dev/null
 echo "update.sh: running $new (was $old); previous binary kept as $bin.prev"

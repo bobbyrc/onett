@@ -102,6 +102,9 @@ func cmdServe(e *env, args []string) error {
 	}
 
 	logger := slog.New(slog.NewJSONHandler(e.errOut, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	for _, w := range cfg.Warnings {
+		logger.Warn(w)
+	}
 
 	st, err := sqlite.Open(filepath.Join(cfg.Server.DataDir, "onett.db"))
 	if err != nil {
@@ -157,6 +160,9 @@ func cmdServe(e *env, args []string) error {
 			c, err := config.Load(p)
 			if err != nil {
 				return nil, err
+			}
+			for _, w := range c.Warnings {
+				logger.Warn(w)
 			}
 			inferSelfUpdate(c, p, exe)
 			return c, nil

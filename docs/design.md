@@ -282,15 +282,15 @@ running daemon current. When the newest release of the self project is `healthy`
 `min_healthy`, and its commit is not the one the daemon was built from, code starts the configured
 `command` with `ONETT_UPDATE_REF=<sha>`, detached in its own session (a launchd stop kills the
 daemon's process group, and the updater must survive it). Agents never trigger it: the decision is
-deterministic code over deployment state. Before it starts the updater the loop waits for a quiet
-moment: no task run live and nothing queued for the self project (orchestrator chat and goal turns
-are short and do not count), for at most `max_defer` (default 2h) after the release became
-eligible; then it starts the updater anyway. The updater pauses the factory with the reason
-`self-update` (shown by `onett status`, `GET /stats` and the web UI's pause switch, with the runs
-it waits on), waits up to `limits.run_timeout` plus 5 minutes (`ONETT_UPDATE_WAIT`) for it to go
-idle, and exits 75 if it never does after resuming; the loop then leaves that commit alone for an
-hour (separate from the failure count). It then swaps the binary and rolls back on a failed health check; it leaves a result file that the next
-daemon reports once. A PID lock file keeps one updater at a time, and a commit that fails three
+deterministic code over deployment state. It does not wait for a quiet factory and does not
+pause anything: agent runs and orchestrator turns survive a daemon restart. A run lives behind a
+detached `onett run-shim` process that the new daemon reattaches to at startup; if the shim is gone,
+the run resumes the agent's session. The one thing a restart would break is a release in flight,
+because a deploy command is a child of the daemon, so the loop does not start the updater while any
+project has a release `pending`, `deploying` or `verifying`. The updater swaps the binary,
+restarts the daemon and rolls back on a failed health check; it leaves a result file that the next
+daemon reports once. (The retired `max_defer` key is still accepted, ignored, with a warning in the
+log.) A PID lock file keeps one updater at a time, and a commit that fails three
 times (counted in memory) is skipped.
 
 The retro loop (`loops.retro`, default every 24h) is the factory's retrospective. Each day, code
