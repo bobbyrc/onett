@@ -187,6 +187,35 @@ for (const vp of VIEWPORTS) {
       expect(side?.y).toBeCloseTo(103, 0);
     });
 
+    // The top bar sits flush under the status bar in both colour schemes: its colour is the
+    // theme-color Safari tints its own bar with, it stays at the top edge while the page scrolls,
+    // and its top padding is the safe-area inset (faked through --topbar-h, as above).
+    for (const scheme of ['light', 'dark'] as const) {
+      test(`top bar matches theme-color and sits at the safe-area inset (${scheme})`, async ({ page }) => {
+        await page.emulateMedia({ colorScheme: scheme });
+        await open(page, '/tasks');
+        await page.addStyleTag({ content: ':root { --topbar-h: calc(56px + 47px) !important; }' });
+        const bar = page.locator('.topbar');
+        const bg = await bar.evaluate((el) => getComputedStyle(el).backgroundColor);
+        const themeColor = await page.evaluate((s) => {
+          const metas = [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')];
+          const m = metas.find((x) => matchMedia(x.media || 'all').matches && x.media.includes(s));
+          const probe = document.createElement('i');
+          probe.style.color = m?.content ?? '';
+          document.body.append(probe);
+          const c = getComputedStyle(probe).color;
+          probe.remove();
+          return c;
+        }, scheme);
+        expect(bg).toBe(themeColor);
+        expect(await bar.evaluate((el) => getComputedStyle(el).paddingTop)).toBe('47px');
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        expect((await bar.boundingBox())?.y).toBeCloseTo(0, 0);
+        mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
+        await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/topbar-${scheme}.png` });
+      });
+    }
+
     // Same trick for the home indicator: the chat composer is sticky to the bottom edge, so on a
     // notched iPhone its lower ~34px sits under the indicator. --composer-inset stands in for
     // env(safe-area-inset-bottom), which Chromium reports as 0.
