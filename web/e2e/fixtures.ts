@@ -27,6 +27,7 @@ import type {
 
 const NOW = '2026-11-05T12:00:00Z';
 const EARLIER = '2026-11-05T11:00:00Z';
+const LAST = '2026-11-05T12:30:00Z';
 
 // 26-char ULID-style IDs.
 const id = (n: number) => `01HZX${String(n).padStart(2, '0')}K8M3Q7R2T5V9W4Y6ABCD`.slice(0, 26);
@@ -122,6 +123,20 @@ export const logs: LogLine[] = [
   { run_id: RUN_ID, seq: 6, time: NOW, kind: 'denial', text: `denied: ${UNBROKEN}` },
   { run_id: RUN_ID, seq: 7, time: NOW, kind: 'system', text: SHA },
   { run_id: RUN_ID, seq: 8, time: NOW, kind: 'error', text: `error: ${PATH}: ${UNBROKEN}` },
+  // A lone call (the chat message that follows it keeps it out of the run below), then a 5-call tool
+  // run: a long command, a read, an edit with a long path, a search and a failing command.
+  { run_id: RUN_ID, seq: 9, time: LAST, kind: 'tool_use', text: 'Bash: git status', tool_id: 'r0' },
+  { run_id: RUN_ID, seq: 10, time: LAST, kind: 'tool_result', text: 'clean', tool_id: 'r0' },
+  { run_id: RUN_ID, seq: 19, time: LAST, kind: 'tool_use', text: `Bash: cd ${PATH} && go test ./... ${UNBROKEN}`, tool_id: 'r1' },
+  { run_id: RUN_ID, seq: 20, time: LAST, kind: 'tool_result', text: 'ok', tool_id: 'r1' },
+  { run_id: RUN_ID, seq: 11, time: LAST, kind: 'tool_use', text: `Read: {"file_path":"${PATH}"}`, tool_id: 'r2' },
+  { run_id: RUN_ID, seq: 12, time: LAST, kind: 'tool_result', text: UNBROKEN, tool_id: 'r2' },
+  { run_id: RUN_ID, seq: 13, time: LAST, kind: 'tool_use', text: `Edit: {"file_path":"${PATH}","old_string":"a\\nb","new_string":"a\\nb\\nc"}`, tool_id: 'r3' },
+  { run_id: RUN_ID, seq: 14, time: LAST, kind: 'tool_result', text: 'edited', tool_id: 'r3' },
+  { run_id: RUN_ID, seq: 15, time: LAST, kind: 'tool_use', text: `Grep: {"pattern":"${UNBROKEN}"}`, tool_id: 'r4' },
+  { run_id: RUN_ID, seq: 16, time: LAST, kind: 'tool_result', text: UNBROKEN, tool_id: 'r4' },
+  { run_id: RUN_ID, seq: 17, time: LAST, kind: 'tool_use', text: `Bash: ${UNBROKEN}`, tool_id: 'r5' },
+  { run_id: RUN_ID, seq: 18, time: LAST, kind: 'tool_result', text: 'error: exit 1\n' + UNBROKEN, tool_id: 'r5' },
 ];
 
 export const goals: Goal[] = [

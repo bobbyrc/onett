@@ -282,6 +282,35 @@ for (const vp of VIEWPORTS) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
     });
 
+    // A 5-call run (long command, edit, error): collapsed and expanded it stays inside the screen
+    // and the run header and every call row are at least 44px tall on touch.
+    test('chat tool run: no overflow, header and call rows are tappable', async ({ page }) => {
+      await open(page, `/chat/task/${CHAT_TASK_ID}`);
+      const vw = page.viewportSize()!.width;
+      const head = page.getByRole('button', { name: /Ran 2 commands, read 1 file, edited 1 file, searched 1 time/ }).first();
+      await head.scrollIntoViewIfNeeded();
+      await expect(head).toHaveAttribute('aria-expanded', 'false');
+      const coarse = await page.evaluate(() => matchMedia('(pointer: coarse)').matches);
+      const check = async (button: ReturnType<Page['locator']>) => {
+        const box = await button.boundingBox();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(vw);
+        if (coarse) expect(box!.height).toBeGreaterThanOrEqual(44);
+      };
+      await check(head);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      await head.tap();
+      await expect(head).toHaveAttribute('aria-expanded', 'true');
+      const rows = page.locator('.tl-calls').first().locator('.tl-row');
+      await expect(rows).toHaveCount(5);
+      for (const row of await rows.all()) await check(row);
+      await rows.nth(4).tap();
+      await expect(rows.nth(4)).toHaveAttribute('aria-expanded', 'true');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
+      await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-tool-run.png` });
+    });
+
     // A long chat opens at the end. Scrolling up shows the Jump to latest pill: inside the screen,
     // clear of the composer, 44px tall; tapping it returns to the end and hides it.
     test('chat Jump to latest pill is visible, tappable and returns to the bottom', async ({ page }) => {

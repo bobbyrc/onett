@@ -1,0 +1,183 @@
+/* Tool runs and tool lines: docs/design/chat-visual.md, "Tool runs and tool lines". */
+.tl {
+  min-width: 0;
+  font-size: var(--chat-text-md);
+}
+
+.tl-row {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-space-2);
+  width: 100%;
+  min-height: 26px;
+  border: 0;
+  background: none;
+  padding: 0 var(--chat-space-1);
+  font: inherit;
+  color: var(--chat-fg-faint);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tl-row:hover {
+  color: var(--chat-fg-strong);
+}
+
+/* Inset, so a scroll container never clips the ring. */
+.tl-row:focus-visible {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: -2px;
+}
+
+/* The pointer is not precise on touch: the row grows to a 44px target there. */
+@media (pointer: coarse) {
+  .tl-row {
+    min-height: 44px;
+  }
+}
+
+.tl-chev {
+  flex: none;
+  width: 10px;
+  font-family: var(--chat-font-mono);
+  font-size: var(--chat-text-sm);
+}
+
+.tl-name {
+  flex: none;
+  font-weight: 600;
+}
+
+.tl-arg,
+.tl-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tl-arg {
+  font-family: var(--chat-font-mono);
+  font-size: var(--chat-text-code);
+}
+
+.tl-summary.live {
+  color: var(--chat-fg);
+}
+
+/* Status is a lamp square plus the "Running ..." words; the square never carries it alone. */
+.tl-lamp {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--chat-accent);
+  animation: tl-lamp 1.2s steps(1, end) infinite;
+}
+
+@keyframes tl-lamp {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-lamp {
+    animation: none;
+  }
+}
+
+.tl-err {
+  flex: none;
+  font-size: var(--chat-text-sm);
+  font-weight: 600;
+  color: var(--chat-danger);
+}
+
+.tl-total {
+  flex: none;
+  display: inline-flex;
+  gap: var(--chat-space-2);
+  white-space: nowrap;
+}
+
+.tl-diff {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--chat-font-mono);
+  font-size: var(--chat-text-sm);
+  white-space: nowrap;
+}
+
+.tl-total .tl-diff {
+  margin-left: 0;
+}
+
+.tl-diff .a {
+  color: var(--chat-diff-add-fg);
+}
+
+.tl-diff .d {
+  color: var(--chat-diff-del-fg);
+}
+
+.tl-files {
+  font-size: var(--chat-text-sm);
+}
+
+.tl-calls {
+  margin-left: var(--chat-space-6);
+  min-width: 0;
+}
+
+.tl-changed {
+  list-style: none;
+  margin: 0 0 var(--chat-space-1);
+  padding: 0 var(--chat-space-1);
+  font-size: var(--chat-text-sm);
+  color: var(--chat-fg-faint);
+}
+
+.tl-changed li {
+  display: flex;
+  gap: var(--chat-space-2);
+  min-height: 22px;
+  align-items: center;
+}
+
+.tl-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--chat-font-mono);
+}
+
+.tl-body {
+  margin: var(--chat-space-1) 0 var(--chat-space-2);
+  min-width: 0;
+}
+
+.tl-body pre {
+  margin: 0 0 var(--chat-space-1);
+  background: var(--chat-code-bg);
+  color: var(--chat-fg);
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius-md);
+  padding: var(--chat-space-2) var(--chat-space-3);
+  font: var(--chat-text-code) / 1.45 var(--chat-font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.tl-body pre:focus-visible {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: -2px;
+}
+
+.tl-body pre.tl-result-error {
+  color: var(--chat-danger);
+}

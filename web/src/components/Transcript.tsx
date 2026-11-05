@@ -6,6 +6,8 @@ import type { TranscriptView } from '../lib/transcriptView';
 import { CopyButton } from './CopyButton';
 import { Markdown } from './Markdown';
 import { MessageAttachments } from './MessageAttachments';
+import { ToolLine, ToolRun } from './ToolRun';
+import { groupToolRuns, type ToolEntry } from './toolRuns';
 import './Transcript.css';
 
 const RESULT_PREVIEW_LINES = 3;
@@ -13,8 +15,6 @@ const RESULT_PREVIEW_LINES = 3;
 const authorLabel = (author: string) => (author === 'orchestrator' ? 'Orchestrator' : author);
 
 const QUEUED_NOTE = 'Queued · sends when the agent finishes this run';
-
-type ToolEntry = Extract<Entry, { kind: 'tool' }>;
 
 function clock(time: string): string {
   const t = parseTime(time);
@@ -53,6 +53,8 @@ export interface TranscriptProps {
   afterRun?: (runId: string) => ReactNode;
   /** Rendered in the note of a queued owner message, for Edit and Cancel. */
   queuedActions?: (messageId: string) => ReactNode;
+  /** The run that is producing output now. Without it, a trailing call with no result counts as live. */
+  liveRunId?: string;
 }
 
 /** A run of agent entries, or an owner's turn, laid out as a conversation or as terminal lines. */
@@ -69,20 +71,33 @@ function runEnd(entries: Entry[], i: number, afterRun: TranscriptProps['afterRun
   return afterRun(runId);
 }
 
-function ConversationView({ entries, agentLabel, afterRun, queuedActions }: TranscriptProps) {
+function ConversationView({ entries, agentLabel, afterRun, queuedActions, liveRunId }: TranscriptProps) {
+  const blocks = groupToolRuns(entries);
+  // Index in `entries` of each block's last entry, so afterRun and the agent label see the same neighbours.
+  let end = -1;
   return (
     <div className="tr-col">
-      {entries.map((e, i) => (
-        <Fragment key={e.id}>
-          <ConversationEntry
-            entry={e}
-            agentLabel={agentLabel}
-            queuedActions={queuedActions}
-            labelled={isAgentKind(e) && !(i > 0 && isAgentKind(entries[i - 1]))}
-          />
-          {runEnd(entries, i, afterRun)}
-        </Fragment>
-      ))}
+      {blocks.map((b, bi) => {
+        const start = end + 1;
+        end += b.type === 'run' ? b.calls.length : 1;
+        const labelled = start === 0 || !(isAgentKind(b.type === 'run' ? b.calls[0] : b.entry) && isAgentKind(entries[start - 1]));
+        return (
+          <Fragment key={b.type === 'run' ? b.id : b.entry.id}>
+            {b.type === 'run' ? (
+              <div className="tr-ai tr-ai-tool">
+                {labelled ? <div className="tr-lbl">{agentLabel}</div> : null}
+                <ToolRun
+                  calls={b.calls}
+                  active={bi === blocks.length - 1 && (liveRunId === undefined || b.calls[b.calls.length - 1].runId === liveRunId)}
+                />
+              </div>
+            ) : (
+              <ConversationEntry entry={b.entry} agentLabel={agentLabel} queuedActions={queuedActions} labelled={isAgentKind(b.entry) && labelled} />
+            )}
+            {runEnd(entries, end, afterRun)}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -128,7 +143,7 @@ function ConversationEntry({
       return (
         <div className="tr-ai tr-ai-tool">
           {labelled ? <div className="tr-lbl">{agentLabel}</div> : null}
-          <ToolRow entry={e} />
+          <ToolLine entry={e} />
         </div>
       );
     case 'denial':
@@ -179,39 +194,6 @@ function PromptSheet({ label, text }: { label: string; text: string }) {
         <button type="button" className="link-button tr-more" onClick={() => setAll(!all)}>
           {all ? 'show less' : 'show more'}
         </button>
-      ) : null}
-    </div>
-  );
-}
-
-function ToolRow({ entry }: { entry: ToolEntry }) {
-  const [open, setOpen] = useState(false);
-  const { tool } = entry;
-  const hasDiff = tool.added !== undefined || tool.removed !== undefined;
-  return (
-    <div className={cx('tr-tool', open && 'open')}>
-      <button type="button" className="tr-tool-row" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="tr-chev" aria-hidden="true">
-          {open ? '▾' : '▸'}
-        </span>
-        <span className="tr-name">{tool.name}</span>
-        <span className="tr-arg">{tool.arg}</span>
-        {entry.resultError ? <span className="tr-denied tr-errtag">error</span> : null}
-        {hasDiff ? (
-          <span className="tr-diff">
-            <span className="a">+{tool.added ?? 0}</span> <span className="d">−{tool.removed ?? 0}</span>
-          </span>
-        ) : null}
-      </button>
-      {open ? (
-        <>
-          {entry.input ? <pre>{entry.input}</pre> : null}
-          {entry.result !== undefined ? (
-            <pre className={cx(entry.resultError && 'tr-result-error')}>{entry.result}</pre>
-          ) : (
-            <pre className="tr-pending">No result yet.</pre>
-          )}
-        </>
       ) : null}
     </div>
   );
