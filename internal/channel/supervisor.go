@@ -31,6 +31,7 @@ type Supervisor struct {
 type runningBot struct {
 	fingerprint  string
 	skipNotifier string
+	bot          Bot
 	cancel       context.CancelFunc
 	done         chan struct{}
 }
@@ -150,7 +151,7 @@ func (s *Supervisor) Reconcile(chans []config.Channel, env Env) error {
 			continue
 		}
 		bctx, cancel := context.WithCancel(s.ctx)
-		b := &runningBot{fingerprint: w.fingerprint, skipNotifier: w.skipNotifier, cancel: cancel, done: make(chan struct{})}
+		b := &runningBot{fingerprint: w.fingerprint, skipNotifier: w.skipNotifier, bot: bot, cancel: cancel, done: make(chan struct{})}
 		s.running[w.typ] = b
 		s.wg.Add(1)
 		go func() {
@@ -162,6 +163,26 @@ func (s *Supervisor) Reconcile(chans []config.Channel, env Env) error {
 		}()
 	}
 	return nil
+}
+
+// Test sends a test message through the running bot of ch's type. ErrNotRunning (wrapped, with
+// the reason: an unset token variable, a bad option, or another channel of the same type being
+// the one that runs) when no bot runs for it, ErrNoTest when the bot cannot send one.
+func (s *Supervisor) Test(ctx context.Context, ch config.Channel, env Env) error {
+	s.mu.Lock()
+	b := s.running[ch.Type]
+	s.mu.Unlock()
+	if b == nil {
+		if _, err := resolve([]config.Channel{ch}, env); err != nil {
+			return fmt.Errorf("%w: %v", ErrNotRunning, err)
+		}
+		return fmt.Errorf("%w: its bot has not started; see the daemon log", ErrNotRunning)
+	}
+	t, ok := b.bot.(Tester)
+	if !ok {
+		return fmt.Errorf("%w (%s)", ErrNoTest, ch.Type)
+	}
+	return t.SendTest(ctx)
 }
 
 // stop cancels a bot and waits for it to exit. The caller holds s.mu.

@@ -2,6 +2,7 @@ package channel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -24,6 +25,23 @@ type Host interface {
 type Bot interface {
 	Run(ctx context.Context) error
 }
+
+// Tester is an optional interface of a Bot: it sends one clearly labelled message to the bot's
+// allowed users, so the owner can check from the web UI that the token and user IDs work. The
+// error never carries the bot token.
+type Tester interface {
+	SendTest(ctx context.Context) error
+}
+
+// TestMessage is the text a Tester sends.
+const TestMessage = "onett test message, sent from the web UI"
+
+var (
+	// ErrNotRunning marks a test of a channel that has no running bot; the wrapped text says why.
+	ErrNotRunning = errors.New("channel is not running")
+	// ErrNoTest marks a channel type whose bot cannot send a test message.
+	ErrNoTest = errors.New("this channel type has no test message")
+)
 
 // Env is what a channel type needs from the process around it.
 type Env struct {

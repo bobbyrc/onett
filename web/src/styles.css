@@ -2561,3 +2561,9 @@ a.board-window:hover .board-name {
 .secret-picker .inline-form {
   max-width: 420px;
 }
+
+/* Guided channel setup and the per-entry "Send test" button on the Config page. */
+.channel-setup .segmented { margin: 0.75rem 0; }
+.setup-steps { padding-left: 1.25rem; display: grid; gap: 1rem; max-width: 46rem; }
+.setup-steps .field { margin-top: 0.5rem; }
+.send-test { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }

@@ -59,6 +59,7 @@ export function ConfigEditor({
 
   const ctx: EditContext = {
     draft,
+    saved: doc.document,
     problems: problemMap,
     setValue: (path, value) => setChanges((prev) => addChange(prev, { op: 'set', path, value })),
     clearValue: (path) => setChanges((prev) => clearChange(doc.document, prev, path)),
