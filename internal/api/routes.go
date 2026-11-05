@@ -73,10 +73,6 @@ func (s *server) apiRoutes(r chi.Router) {
 	s.administer(r, http.MethodPut, "/secrets/{name}", s.putSecret)
 	s.administer(r, http.MethodDelete, "/secrets/{name}", s.deleteSecret)
 
-	s.administer(r, http.MethodGet, "/secrets", s.listSecrets)
-	s.administer(r, http.MethodPut, "/secrets/{name}", s.putSecret)
-	s.administer(r, http.MethodDelete, "/secrets/{name}", s.deleteSecret)
-
 	s.administer(r, http.MethodPost, "/notify/test", s.testNotifier)
 	s.administer(r, http.MethodPost, "/channels/test", s.testChannel)
 
