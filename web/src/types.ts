@@ -583,6 +583,23 @@ export interface ConfigText {
   text: string;
 }
 
+/** One entry of GET /secrets. A value, or its length, is never part of it. */
+export interface SecretView {
+  name: string;
+  set: boolean;
+  /** "file" (secrets.env), "environment" (the daemon's own, which wins) or "" (unset). */
+  source: 'file' | 'environment' | '';
+  /** Config paths that refer to the name, such as channels[0].options.bot_token_env. */
+  referenced_by: string[];
+}
+
+/** The answer to PUT /secrets/{name}. `shadowed`: the daemon's environment owns the name. */
+export interface SecretSaved {
+  name: string;
+  set: boolean;
+  shadowed: boolean;
+}
+
 /** The answer to a successful save. `restart_required` lists the settings that need a restart. */
 export interface ConfigSaved {
   version: string;

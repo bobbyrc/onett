@@ -3,6 +3,7 @@
 package api
 
 import (
+	"github.com/bobbyrc/onett/internal/secrets"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -36,8 +37,10 @@ type Options struct {
 	// address, so remote access needs the name listed in server.allowed_hosts.
 	AllowedHosts []string
 	// Web is the UI to serve. Nil serves the build embedded from webdist (see DefaultWeb).
-	Web    fs.FS
-	Logger *slog.Logger
+	Web fs.FS
+	// Secrets is the secrets.env store behind /secrets. Nil makes those routes answer 501.
+	Secrets *secrets.Store
+	Logger  *slog.Logger
 }
 
 type server struct {

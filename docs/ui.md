@@ -371,5 +371,9 @@ nothing when the file changed on disk since the page opened (a notice offers to 
 which discards your edits) or when the result would be invalid (the problems are listed above the
 editor, and each is also shown under its field). Settings that take effect only after a restart are
 named in a note until dismissed. The **YAML** tab edits the raw text of the file, with the same bar
-and checks, and switching tabs with unsaved edits asks first. "Reload from file" makes the daemon
-read the file again.
+and checks, and switching tabs with unsaved edits asks first. The **Secrets** tab manages
+`secrets.env` and is write-only: each name shows set or not set, where the value comes from
+(`secrets.env` or the daemon's own environment, which wins and is marked "shadowed") and which
+config paths use it. Set and Replace take the value in a password field that is cleared after
+saving; Delete asks to confirm; no value is ever shown. Channel and notifier secrets still need a
+restart to take effect. "Reload from file" makes the daemon read the file again.

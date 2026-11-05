@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -33,6 +31,7 @@ import (
 	"github.com/bobbyrc/onett/internal/observe"
 	"github.com/bobbyrc/onett/internal/scm"
 	"github.com/bobbyrc/onett/internal/scm/github"
+	"github.com/bobbyrc/onett/internal/secrets"
 	"github.com/bobbyrc/onett/internal/store/sqlite"
 	"github.com/bobbyrc/onett/internal/workspace"
 
@@ -61,7 +60,8 @@ func cmdServe(e *env, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := loadSecretsFile(filepath.Join(dir, "secrets.env")); err != nil {
+	secretStore := secrets.New(filepath.Join(dir, "secrets.env"))
+	if err := secretStore.Load(); err != nil {
 		return err
 	}
 
@@ -125,6 +125,10 @@ func cmdServe(e *env, args []string) error {
 		DeployerFor:  deployerFor,
 		ObserversFor: observersFor,
 		ReloadConfig: func(p string) (*config.Config, error) {
+			// Re-read secrets.env first: ${NAME} references expand from the environment.
+			if err := secretStore.Load(); err != nil {
+				return nil, err
+			}
 			c, err := config.Load(p)
 			if err == nil {
 				inferSelfUpdate(c, p, exe)
@@ -148,6 +152,7 @@ func cmdServe(e *env, args []string) error {
 		Version:       version,
 		SecureCookies: strings.HasPrefix(cfg.Server.PublicURL, "https://"),
 		AllowedHosts:  serveAllowedHosts(cfg.Server),
+		Secrets:       secretStore,
 		Logger:        logger,
 	})
 	// Every request context derives from baseCtx. Streaming (SSE) handlers run until their
@@ -346,63 +351,6 @@ func scmFor(p *config.Project) (scm.SCM, error) {
 		return nil, fmt.Errorf("project %s has no GitHub repository; pull requests need one", p.Name)
 	}
 	return github.New(p.Repo), nil
-}
-
-// loadSecretsFile sets environment variables from a secrets file before the config is read,
-// because ${NAME} references in the config expand from the environment. A missing file is not
-// an error. Variables already set in the environment win.
-func loadSecretsFile(path string) error {
-	f, err := os.Open(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("read secrets: %w", err)
-	}
-	defer f.Close()
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return fmt.Errorf("read secrets: %w", err)
-	}
-	for _, kv := range parseSecrets(data) {
-		if _, set := os.LookupEnv(kv.key); !set {
-			if err := os.Setenv(kv.key, kv.value); err != nil {
-				return fmt.Errorf("set %s from secrets: %w", kv.key, err)
-			}
-		}
-	}
-	return nil
-}
-
-// secret is one KEY=value line of secrets.env. The value is never printed.
-type secret struct {
-	key, value string
-}
-
-// parseSecrets reads KEY=value lines. Blank lines and lines starting with # are skipped, an
-// optional leading "export " is dropped, and one pair of matching quotes around the value is
-// removed. Lines without "=" or with an empty key are ignored.
-func parseSecrets(data []byte) []secret {
-	var out []secret
-	sc := bufio.NewScanner(strings.NewReader(string(data)))
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
-		key, value, ok := strings.Cut(line, "=")
-		key = strings.TrimSpace(key)
-		if !ok || key == "" {
-			continue
-		}
-		value = strings.TrimSpace(value)
-		if len(value) >= 2 && (value[0] == '"' && value[len(value)-1] == '"' || value[0] == '\'' && value[len(value)-1] == '\'') {
-			value = value[1 : len(value)-1]
-		}
-		out = append(out, secret{key: key, value: value})
-	}
-	return out
 }
 
 // serveAllowedHosts returns the Host names the API accepts beyond localhost: the bind host, the

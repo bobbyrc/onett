@@ -61,6 +61,9 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `POST /auth/login` | `{"username","password"}` | `User` and sets the cookie (200); 401 wrong credentials; 429 locked; 503 busy |
 | `POST /auth/logout` | | 204, clears the cookie; session only (token gets 403) |
 | `POST /auth/password` | `{"current","new"}` | 204; 403 wrong current password; 429 too many wrong guesses (same count rules as sign-in, keyed to the user); 503 busy; other sessions end; session only |
+| `GET /secrets` | | `{"secrets":[{"name","set","source","referenced_by"}]}` (owner); names the config refers to plus names in `secrets.env`; never a value or length |
+| `PUT /secrets/{name}` | `{"value"}` | `{"name","set","shadowed"}` (owner); 400 bad name or empty value; writes `secrets.env` (0600) and reloads |
+| `DELETE /secrets/{name}` | | 204 (owner); 404 when the file lacks it |
 | `GET /users` | | `[]User` (owner) |
 | `POST /users` | `{"username","password","role"}` | `User` (201, owner); 409 taken |
 | `POST /users/{name}/role` | `{"role"}` | `User` (owner); 409 last owner |
@@ -120,7 +123,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 
 Which role may call each route: every `GET` needs `viewer` or better (the token included). Every
 `POST` that acts on work (tasks, approvals, pause, loops, chat, `config/reload`, projects) needs
-`operator` or better (the token included). Everything under `/users` and `/config/file` and
+`operator` or better (the token included). Everything under `/users`, `/secrets` and `/config/file` and
 `/config/document` needs `owner` (the token gets 403).
 
 `User` is `{"username","role","created_at","updated_at"}`. `ConfigSaved` is
