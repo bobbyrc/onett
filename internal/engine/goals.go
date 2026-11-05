@@ -142,13 +142,16 @@ previous step has settled; the owner is not prompting you.
 
 - Plan only the next step that can start now. Keep tasks small and independent. New tasks you
   create with `+"`onett task create`"+` are linked to this goal automatically.
-- If a task is blocked or failed and the cause is fixed or fixable, retry it with a note
-  (`+"`onett task retry ID --note N`"+`); otherwise plan around it.
+- A blocked or failed task in this goal is yours to handle first. Read why
+  (`+"`onett task show ID`, `onett run logs ID`"+`), then retry it with a note
+  (`+"`onett task retry ID --note N`"+`), re-plan, or split it into smaller tasks.
 - Say plainly in your reply what you queued and why, or why you queued nothing.
-- Never approve merges, change config or pause the factory. Awaiting approval is the owner's
-  decision; the goal waits for it.
-- When the goal is met, run `+"`onett goal done %[1]s --summary S`"+`. When only the owner can
-  unblock it, run `+"`onett goal block %[1]s --reason R`"+`. A turn that queues nothing, retries
+- Never approve merges, change config or pause the factory. With the default policy merges
+  happen on their own. If the project opts into supervision and a PR is awaiting approval, that
+  is the owner's decision: keep doing other independent work and do not approve it yourself.
+- When the goal is met, run `+"`onett goal done %[1]s --summary S`"+`. Block the goal with
+  `+"`onett goal block %[1]s --reason R`"+` only when the owner truly is needed (a decision only
+  they can make, credentials or access, a hard limit), and say exactly what they must do. A turn that queues nothing, retries
   nothing and does not finish or block the goal blocks it automatically.
 `, goalID)
 }
