@@ -371,3 +371,27 @@ func TestRestartWithoutShimKeepsTheOldRecovery(t *testing.T) {
 	assert.Contains(t, got.BlockedReason, "onett restarted")
 	assert.Equal(t, domain.RunFailed, f.run(task.ID).Status)
 }
+
+func TestReattachStopsTheShimWhenItsTaskIsNoLongerRunning(t *testing.T) {
+	f := newReattachFixture(t, time.Hour, time.Hour)
+	e1, stop1 := f.engine(time.Now)
+	task := f.create(e1)
+	run := f.waitStoredBothLines(task.ID)
+	stop1()
+
+	// While onett was down the task was cancelled; its agent must not be left running unwatched.
+	_, err := f.st.UpdateTask(context.Background(), task.ID, func(tk *domain.Task) error {
+		tk.Status = domain.TaskCancelled
+		return nil
+	})
+	require.NoError(t, err)
+	st := f.shimStatus(run.ID)
+
+	_, _ = f.engine(time.Now)
+	f.waitShimGone(run.ID)
+	rtWait(t, 15*time.Second, "agent to die", func() bool { return syscall.Kill(-st.AgentPGID, 0) == syscall.ESRCH })
+	rtWait(t, 15*time.Second, "recover to settle the run", func() bool { return f.run(task.ID).Status != domain.RunRunning })
+	// recover still has the conversation sweep to do after failing the run; let it finish so the
+	// engine is not cancelled in the middle of it.
+	time.Sleep(500 * time.Millisecond)
+}

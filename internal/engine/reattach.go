@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"syscall"
+	"time"
 
+	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/runshim"
@@ -45,6 +48,18 @@ func (e *Engine) reattachRun(ctx context.Context, r domain.Run) bool {
 	if err != nil || !pidAlive(st.ShimPID) {
 		return false // no shim, or it has exited: nothing to reattach to
 	}
+	if e.takeOver(ctx, r, log, cfg) {
+		return true
+	}
+	// The shim is alive but the run cannot be supervised (its task moved on, the project or
+	// harness is gone, the workdir is missing...). recover fails the run next; without this the
+	// shim would keep an unwatched agent alive, waiting for an ack that never comes.
+	e.terminateShim(log, st)
+	return false
+}
+
+// takeOver is the part of reattachRun that needs a live shim; false means the run was not taken.
+func (e *Engine) takeOver(ctx context.Context, r domain.Run, log *slog.Logger, cfg *config.Config) bool {
 	t, err := e.d.Store.GetTask(ctx, r.TaskID)
 	if err != nil || t.Status != domain.TaskRunning {
 		return false
@@ -143,6 +158,55 @@ func (e *Engine) resumeTask(ctx context.Context, st *taskRun, sess harness.Sessi
 		return
 	}
 	e.settleTask(ctx, st, res, status, reason)
+}
+
+// shimKillGrace is how long terminateShim waits after SIGTERM before SIGKILL (as the harness's
+// procKillGrace), and shimExitWait how long it waits for the shim to wind down after the ack.
+const (
+	shimKillGrace = 10 * time.Second
+	shimExitWait  = 5 * time.Second
+)
+
+// terminateShim stops the agent behind a shim nobody will supervise: SIGTERM to its process group,
+// SIGKILL after shimKillGrace, then it acks the final offset so the shim exits. Best effort: if
+// the shim cannot be dialled it is left to its own grace period.
+func (e *Engine) terminateShim(log *slog.Logger, st runshim.Status) {
+	c, err := runshim.Dial(st.Socket)
+	if err != nil {
+		log.Warn("could not reach the shim to stop its agent", "err", err)
+		return
+	}
+	defer c.Close()
+	exited := func() (runshim.Status, bool) {
+		s, err := c.Status()
+		return s, err != nil || s.Exited
+	}
+	waitExit := func(d time.Duration) (runshim.Status, bool) {
+		deadline := time.Now().Add(d)
+		for {
+			if s, ok := exited(); ok {
+				return s, true
+			}
+			if time.Now().After(deadline) {
+				return runshim.Status{}, false
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+	_ = c.Signal(syscall.SIGTERM)
+	s, ok := waitExit(shimKillGrace)
+	if !ok {
+		_ = c.Signal(syscall.SIGKILL)
+		s, _ = waitExit(shimKillGrace)
+	}
+	if s.Exited {
+		_ = c.Ack(s.LogSize)
+	}
+	// Give the shim a moment to remove its socket and exit.
+	rtDeadline := time.Now().Add(shimExitWait)
+	for pidAlive(st.ShimPID) && time.Now().Before(rtDeadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 // pidAlive reports whether a process with this pid exists. A pid owned by another user still
