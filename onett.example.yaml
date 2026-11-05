@@ -256,12 +256,16 @@ loops:
     lookback: 24h                      # evidence window; default is every
     # enabled: true                    # unset, retro runs for self_project only; true or false overrides that
   # self_update starts command to move the running daemon to self_project's latest release once it
-  # has been healthy for min_healthy. Off unless enabled. See examples/dogfood/README.md.
+  # has been healthy for min_healthy. Unset, it is on for self_project once a command is known;
+  # enabled: false turns it off. If command is empty, onett infers it only when the binary is
+  # <dir>/onett, this file is <dir>/onett.yaml, data_dir is <dir>/data, mise is on PATH and the
+  # self_project clone has examples/dogfood/update.sh; otherwise self-update stays off and
+  # `onett doctor` says so. See examples/dogfood/README.md.
   # self_update:
-  #   enabled: true
+  #   enabled: false                 # unset = on when a command is known
   #   every: 5m                      # default 5m
   #   min_healthy: 10m               # default 10m
-  #   command: ./update.sh           # required; run with sh -c, gets ONETT_UPDATE_REF
+  #   command: ./update.sh           # run with sh -c, gets ONETT_UPDATE_REF; inferred when possible
 
 # Channels: two-way links to onett, started and stopped with `onett serve`. Uncomment to use one.
 # A telegram channel is a bot you chat with: it relays your messages to the orchestrator and sends

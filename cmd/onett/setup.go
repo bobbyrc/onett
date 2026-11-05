@@ -73,6 +73,10 @@ func cmdInit(e *env, args []string) error {
 	fmt.Fprintf(e.out, "Wrote %s\n\nNext steps:\n", path)
 	fmt.Fprintf(e.out, "  %s    start the daemon\n", serveHint)
 	fmt.Fprintln(e.out, "  onett open     open the web UI in a browser")
+	if *repo == selfRepo {
+		fmt.Fprintln(e.out, "\nSelf-update is on by default for this project once its command is known;")
+		fmt.Fprintln(e.out, "set loops.self_update.enabled: false to turn it off (see the comments in the file).")
+	}
 	fmt.Fprintln(e.out, "\nonett.example.yaml in the onett repository lists every option.")
 	return nil
 }
@@ -91,6 +95,12 @@ func initialConfig(project, repo, dir string) string {
 		b.WriteString("\n")
 		if repo == selfRepo {
 			fmt.Fprintf(&b, "self_project: %s           # onett itself: friction is filed here\n\n", project)
+			b.WriteString("# Self-update is on by default for onett's own project once a command is known: the daemon\n")
+			b.WriteString("# then moves itself to each release that has been healthy on staging. Turn it off with\n")
+			b.WriteString("# `enabled: false`. With the binary at <dir>/onett, this file at <dir>/onett.yaml, data_dir\n")
+			b.WriteString("# <dir>/data, mise on PATH and a clone with examples/dogfood/update.sh, onett works out the\n")
+			b.WriteString("# command itself; otherwise set it (see examples/dogfood/README.md).\n")
+			b.WriteString("# loops:\n#   self_update:\n#     enabled: false\n#     command: DOGFOOD=<dir> mise exec -- <clone>/examples/dogfood/update.sh\n\n")
 		}
 		b.WriteString("projects:\n")
 		fmt.Fprintf(&b, "  %s:\n", project)
@@ -171,4 +181,23 @@ func publicBaseURL(cfg *config.Config) string {
 		return cfg.Server.PublicURL
 	}
 	return apiBaseURL(cfg)
+}
+
+// inferSelfUpdate fills in loops.self_update.command from the running binary and config when
+// they follow the dogfood layout (see config.InferSelfUpdateCommand). exe "" means this
+// process's own binary. Failing to find either leaves self-update as configured.
+func inferSelfUpdate(cfg *config.Config, configPath, exe string) {
+	if exe == "" {
+		var err error
+		if exe, err = os.Executable(); err != nil {
+			return
+		}
+	}
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = resolved
+	}
+	if abs, err := filepath.Abs(configPath); err == nil {
+		configPath = abs
+	}
+	cfg.ApplySelfUpdateInference(configPath, exe, exec.LookPath)
 }

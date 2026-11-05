@@ -206,7 +206,7 @@ picks up issues labelled `onett` (configurable), so turning a friction issue int
 label — or automatic with `friction.auto_queue`. Comments from OWNER/MEMBER/COLLABORATOR are
 included in the task body; others are ignored.
 
-The self_update loop (`loops.self_update`, off by default, `self_project` only) keeps the
+The self_update loop (`loops.self_update`, on by default for `self_project` once a command is set or inferred, `enabled: false` turns it off) keeps the
 running daemon current. When the newest release of the self project is `healthy` and has been for
 `min_healthy`, and its commit is not the one the daemon was built from, code starts the configured
 `command` with `ONETT_UPDATE_REF=<sha>`, detached in its own session (a launchd stop kills the

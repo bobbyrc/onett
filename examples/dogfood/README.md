@@ -83,13 +83,19 @@ healthy on staging for `min_healthy`, the `self_update` loop starts `update.sh` 
 than whatever `main` is. It waits for a quiet moment (the script pauses the factory and waits for
 active runs to finish, including orchestrator chat turns), swaps the binary, and rolls back if the
 new one does not come up healthy. You get a notification when it starts, when it fails (with the end
-of `$DOGFOOD/data/self-update.log`) and when the new daemon is up. It is off by default. Add this
-to `$DOGFOOD/onett.yaml`:
+of `$DOGFOOD/data/self-update.log`) and when the new daemon is up. It is on by default for the
+`self_project` once a command is known, and never applies to other projects. If `command` is empty,
+onett infers it, but only for this exact layout: the binary is `$DOGFOOD/onett`, the config is
+`$DOGFOOD/onett.yaml`, `server.data_dir` is `$DOGFOOD/data`, `mise` is on `PATH`, and the
+`self_project` clone contains `examples/dogfood/update.sh`. Then it runs
+`DOGFOOD=$DOGFOOD mise exec -- <clone>/examples/dogfood/update.sh`. For any other layout nothing is
+guessed: self-update stays off and `onett doctor` says "self-update is off: no command". Set the
+command yourself, or turn it off with `enabled: false`, in `$DOGFOOD/onett.yaml`:
 
 ```yaml
 loops:
   self_update:
-    enabled: true
+    enabled: true      # unset = on when a command is known; false turns it off
     every: 5m          # how often to check (default 5m)
     min_healthy: 10m   # how long the release must have been healthy (default 10m)
     command: "DOGFOOD=$HOME/.local/share/onett-dogfood mise exec -- /path/to/clone/examples/dogfood/update.sh"
