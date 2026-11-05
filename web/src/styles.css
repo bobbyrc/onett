@@ -1101,14 +1101,16 @@ input[type='checkbox'] {
 }
 
 .markdown code {
-  background: var(--panel-2);
-  border: 1px solid var(--rule);
-  padding: 0 4px;
+  background: var(--chat-code-bg);
+  border-radius: var(--chat-radius-sm);
+  padding: 1px var(--chat-space-1);
+  font-size: var(--chat-text-code);
 }
 
 .markdown pre {
-  background: var(--panel-2);
-  border: 1px solid var(--rule);
+  background: var(--chat-code-bg);
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius-md);
   padding: 10px 12px;
   overflow-x: auto;
 }

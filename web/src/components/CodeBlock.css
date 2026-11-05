@@ -1,9 +1,11 @@
-/* Fenced code blocks in Markdown: header bar, wrap toggle and syntax colours. */
+/* Fenced code blocks in Markdown: header bar, wrap toggle and syntax colours (all --chat-* tokens). */
 
 .markdown .code-block {
-  margin: 8px 0;
-  border: 1px solid var(--rule);
-  background: var(--panel-2);
+  margin: var(--chat-space-3) 0;
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius-md);
+  background: var(--chat-code-bg);
+  color: var(--chat-fg);
   max-width: 100%;
   min-width: 0;
 }
@@ -16,12 +18,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 2px 4px 2px 12px;
-  border-bottom: 1px solid var(--rule);
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--muted);
+  gap: var(--chat-space-2);
+  padding: 0 var(--chat-space-1) 0 var(--chat-space-3);
+  border-bottom: 1px solid var(--chat-border);
+  font-family: var(--chat-font);
+  font-size: var(--chat-text-sm);
+  color: var(--chat-fg-faint);
 }
 
 .code-block-lang {
@@ -34,31 +36,39 @@
 .code-block-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--chat-space-1);
   flex: none;
 }
 
 .code-block-status {
-  color: var(--text);
-  padding-right: 4px;
+  color: var(--chat-fg);
+  padding-right: var(--chat-space-1);
 }
 
 .code-block-btn {
   min-height: 28px;
-  padding: 0 8px;
+  padding: 0 var(--chat-space-2);
   border: 0;
+  border-radius: var(--chat-radius-sm);
   background: transparent;
-  color: var(--text);
+  color: var(--chat-fg-faint);
   font: inherit;
   cursor: pointer;
 }
 
-.code-block-btn:hover {
-  background: var(--rule);
+.code-block-btn:hover,
+.code-block-btn:focus-visible {
+  color: var(--chat-fg-strong);
 }
 
+.code-block-btn:focus-visible {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: -2px;
+}
+
+/* On state: bright text and an underline, not colour alone. */
 .code-block-btn[aria-pressed='true'] {
-  background: var(--rule);
+  color: var(--chat-fg-strong);
   text-decoration: underline;
 }
 
@@ -75,6 +85,15 @@
   border: 0;
   background: none;
   overflow-x: auto;
+  padding: var(--chat-space-3);
+  font-family: var(--chat-font-mono);
+  font-size: var(--chat-text-code);
+  line-height: var(--chat-leading);
+  color: var(--chat-fg);
+}
+
+.markdown .code-block pre code {
+  font: inherit;
 }
 
 .markdown .code-block-wrap pre {
@@ -86,44 +105,19 @@
   overflow-wrap: anywhere;
 }
 
-/* Token colours. Light values pass 4.5:1 on --panel-2 (#eaf0eb); dark values likewise. */
-.markdown .code-block {
-  --tok-keyword: #a3236b;
-  --tok-string: #0b6b35;
-  --tok-number: #8a4b00;
-  --tok-comment: #5c675f;
-  --tok-title: #1d4fa3;
-  --tok-attr: #6a3fa0;
-  --tok-add: #0b6b35;
-  --tok-del: #b3261e;
-}
-
-@media (prefers-color-scheme: dark) {
-  .markdown .code-block {
-    --tok-keyword: #ff9ac8;
-    --tok-string: #8fd6a8;
-    --tok-number: #f2c230;
-    --tok-comment: #94a39a;
-    --tok-title: #8fbaff;
-    --tok-attr: #c9a6ff;
-    --tok-add: #8fd6a8;
-    --tok-del: #ff7a70;
-  }
-}
-
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-built_in,
 .hljs-literal,
 .hljs-doctag {
-  color: var(--tok-keyword);
+  color: var(--chat-syntax-keyword);
 }
 
 .hljs-string,
 .hljs-regexp,
 .hljs-addition,
 .hljs-meta .hljs-string {
-  color: var(--tok-string);
+  color: var(--chat-syntax-string);
 }
 
 .hljs-number,
@@ -131,37 +125,40 @@
 .hljs-bullet,
 .hljs-variable,
 .hljs-template-variable {
-  color: var(--tok-number);
+  color: var(--chat-syntax-number);
 }
 
 .hljs-comment,
-.hljs-quote,
-.hljs-meta {
-  color: var(--tok-comment);
+.hljs-quote {
+  color: var(--chat-syntax-comment);
 }
 
 .hljs-title,
-.hljs-section,
-.hljs-type,
-.hljs-class .hljs-title {
-  color: var(--tok-title);
+.hljs-section {
+  color: var(--chat-syntax-function);
 }
 
+.hljs-type,
+.hljs-class .hljs-title {
+  color: var(--chat-syntax-type);
+}
+
+.hljs-meta,
 .hljs-attr,
 .hljs-attribute,
 .hljs-name,
 .hljs-tag,
 .hljs-selector-class,
 .hljs-selector-id {
-  color: var(--tok-attr);
+  color: var(--chat-syntax-meta);
 }
 
 .hljs-addition {
-  color: var(--tok-add);
+  color: var(--chat-diff-add-fg);
 }
 
 .hljs-deletion {
-  color: var(--tok-del);
+  color: var(--chat-diff-del-fg);
 }
 
 .hljs-emphasis {

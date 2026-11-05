@@ -99,7 +99,7 @@ argument truncated, a chevron, and a pulsing label while running. Opening it sho
 indented 24px (`ml-6`), output in a `rounded-lg` bordered code surface capped at `max-h-64`.
 
 **Adaptation.** Keep onett's one-row-per-call (name, main argument, `+n −m` for edits) and
-collapse runs of three or more into a single summary row. Status stays a lamp square with a text
+fold consecutive tool calls into one run when there are **two or more** of them; a lone call stays a single tool line. The run header is a plain sentence ("Ran 3 commands, read 2 files, edited 1 file"), shows the latest call while the run is going, and carries a total `+n −m` when the run edits files. Status stays a lamp square with a text
 label, never colour alone (`docs/ui.md`); the row uses `--chat-fg-faint` and `--chat-text-md`.
 Expanded output is `--chat-code-bg`, `--chat-text-code`, `--chat-radius-md`, max 16rem tall. The
 running pulse is the existing two-step lamp switch, not Orca's fade, and it stops under
@@ -113,8 +113,14 @@ keyboard focus and always shows on touch.
 
 **Adaptation.** `--chat-code-bg` background, 1px `--chat-border`, `--chat-radius-md`, header row
 with the language in `--chat-text-sm` faint. Text is `--chat-fg` in `--chat-font-mono` at
-`--chat-text-code`; horizontal scroll, never wrap. The copy button is visible on touch and on
-keyboard focus. Inline code uses `--chat-code-bg` with no border. Syntax colouring is out of scope.
+`--chat-text-code`, padded `--chat-space-3`, with `--chat-space-3` of margin above and below. The
+header holds the language label (`--chat-text-sm`, faint) and two quiet buttons, **Copy** and
+**Wrap**, in the faint tone; they brighten to `--chat-fg-strong` on hover and keyboard focus and keep
+a 44px target on coarse pointers. Wrap is off by default, so long lines scroll horizontally; turning
+it on wraps them (the button shows `aria-pressed` and an underline, not colour alone). Code is
+highlighted lazily: it shows plain first, and colours arrive once the highlighter chunk has loaded
+(unknown languages stay plain). Token colours are the `--chat-syntax-*` tokens below, each measured
+against `--chat-code-bg`. Inline code uses `--chat-code-bg` with no border and a `--chat-radius-sm` corner.
 
 ## Diff cards
 
@@ -145,7 +151,9 @@ a spinner or shimmer, naming what the agent is doing now; the verb is normal ton
 
 **Adaptation.** One line at the tail of the transcript: a lamp (`--chat-accent` when working,
 `--chat-warning` when waiting for the owner, `--chat-danger` when stopped), then a text label
-("Working", "Waiting for you", "Blocked") in `--chat-text-md`. The lamp switches in two steps like
+("Working", "Waiting for you", "Blocked") in `--chat-text-md`. While a turn runs the label also
+shows elapsed time ("Working · 1m 12s"); once it finishes the line reads "Worked for 1m 40s".
+"Waiting for you" and "Blocked" carry no timer. The lamp switches in two steps like
 every onett lamp. No spinner. Errors are one line in `--chat-danger`, as Orca's `text-destructive/80`
 row, but at full strength to pass 4.5:1.
 
@@ -196,6 +204,13 @@ Names marked * are additions to the frozen list from the brief.
 | `--chat-diff-add-fg` / `-bg` | `#1d6f3d` / `#d3e8d9` | `#7fdca1` / `#16301f` | added lines |
 | `--chat-diff-del-fg` / `-bg` | `#a3231a` / `#f1d6d2` | `#ff9a92` / `#3a1a17` | removed lines |
 | `--chat-code-bg` | `#edf2ee` | `#0d1210` | code blocks, tool output, inline code |
+| `--chat-syntax-keyword` | `#a3236b` | `#ff9ac8` | keywords, built-ins, literals |
+| `--chat-syntax-string` | `#0b6b35` | `#8fd6a8` | strings, regular expressions |
+| `--chat-syntax-comment` | `#56625b` | `#94a39a` | comments, quotes |
+| `--chat-syntax-number` | `#8a4b00` | `#f2c230` | numbers, symbols, variables |
+| `--chat-syntax-function` | `#1d4fa3` | `#8fbaff` | function and section titles |
+| `--chat-syntax-type` | `#0b6674` | `#6fd3e0` | types and class names |
+| `--chat-syntax-meta` | `#6a3fa0` | `#c9a6ff` | attributes, tags, selectors, meta lines |
 | `--chat-focus-ring` | `#18201c` | `#f2c230` | focus outline (= `--focus`) |
 | `--chat-font` / `--chat-font-mono` | `var(--font)` / `var(--mono)` | same | font stacks |
 | `--chat-text-md` / `-sm` / `-xs` | 14 / 12 / 11px | same | body / labels / captions |
@@ -239,6 +254,14 @@ on both backgrounds. Measured with the WCAG 2.x relative-luminance formula on th
 | `--chat-diff-add-fg` on `--chat-diff-add-bg` | 4.81 | 8.57 |
 | `--chat-diff-del-fg` on `--chat-diff-del-bg` | 5.44 | 7.68 |
 | `--chat-fg` on `--chat-diff-add-bg` / `-del-bg` | 10.01 / 9.39 | 9.76 / 10.75 |
+| `--chat-syntax-keyword` on `--chat-code-bg` | 6.16 | 9.64 |
+| `--chat-syntax-string` on `--chat-code-bg` | 5.85 | 11.12 |
+| `--chat-syntax-comment` on `--chat-code-bg` | 5.63 | 7.17 |
+| `--chat-syntax-number` on `--chat-code-bg` | 6.00 | 11.28 |
+| `--chat-syntax-function` on `--chat-code-bg` | 6.87 | 9.57 |
+| `--chat-syntax-type` on `--chat-code-bg` | 5.85 | 10.86 |
+| `--chat-syntax-meta` on `--chat-code-bg` | 6.55 | 9.34 |
+| `--chat-diff-add-fg` / `-del-fg` on `--chat-code-bg` (diff lines in code) | 5.46 / 6.59 | 11.39 / 9.26 |
 | `--chat-focus-ring` on `--chat-bg` | 13.59 | 10.91 |
 | `--chat-focus-ring` on `--chat-surface` | 15.55 | 10.11 |
 | `--chat-focus-ring` on `--chat-user-bg` | 11.94 | 8.55 |

@@ -25,6 +25,14 @@
   --chat-diff-del-bg: #f1d6d2;
   --chat-code-bg: #edf2ee;
   --chat-focus-ring: #18201c;
+  /* syntax colours, measured on --chat-code-bg */
+  --chat-syntax-keyword: #a3236b;
+  --chat-syntax-string: #0b6b35;
+  --chat-syntax-comment: #56625b;
+  --chat-syntax-number: #8a4b00;
+  --chat-syntax-function: #1d4fa3;
+  --chat-syntax-type: #0b6674;
+  --chat-syntax-meta: #6a3fa0;
 
   /* type */
   --chat-font: var(--font, 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
@@ -72,6 +80,13 @@
     --chat-diff-del-bg: #3a1a17;
     --chat-code-bg: #0d1210;
     --chat-focus-ring: #f2c230;
+    --chat-syntax-keyword: #ff9ac8;
+    --chat-syntax-string: #8fd6a8;
+    --chat-syntax-comment: #94a39a;
+    --chat-syntax-number: #f2c230;
+    --chat-syntax-function: #8fbaff;
+    --chat-syntax-type: #6fd3e0;
+    --chat-syntax-meta: #c9a6ff;
     --chat-shadow-composer: 0 -8px 16px -10px rgba(0, 0, 0, 0.6);
   }
 }
