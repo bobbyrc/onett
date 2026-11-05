@@ -34,6 +34,10 @@ func main() {
 type env struct {
 	out    io.Writer
 	errOut io.Writer
+	// in and isTTY let a command ask questions; isTTY is false when stdin is a pipe or file,
+	// and a command must never prompt then.
+	in    io.Reader
+	isTTY bool
 }
 
 // command is one entry of the command list. run receives the arguments after the command name.
@@ -77,7 +81,7 @@ func commandList() []command {
 // run dispatches one invocation and returns the process exit code: 0 on success, 1 on a
 // runtime error and 2 on a usage error.
 func run(args []string, stdout, stderr io.Writer) int {
-	e := &env{out: stdout, errOut: stderr}
+	e := &env{out: stdout, errOut: stderr, in: os.Stdin, isTTY: stdinIsTerminal()}
 	if len(args) == 0 {
 		usage(stderr)
 		return 2
@@ -446,4 +450,10 @@ func joinNonZero(counts map[string]int) string {
 		parts = append(parts, fmt.Sprintf("%s=%d", k, counts[k]))
 	}
 	return strings.Join(parts, " ")
+}
+
+// stdinIsTerminal reports whether stdin is an interactive terminal (a character device).
+func stdinIsTerminal() bool {
+	fi, err := os.Stdin.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
 }
