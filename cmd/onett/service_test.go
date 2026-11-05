@@ -87,6 +87,7 @@ func TestRenderPlistContent(t *testing.T) {
 
 	assert.Contains(t, out, "<key>Label</key>\n\t<string>io.onett.serve</string>")
 	assert.Contains(t, out, "<key>KeepAlive</key>\n\t<true/>")
+	assert.Contains(t, out, "<key>AbandonProcessGroup</key>\n\t<true/>", "restarting the daemon must not kill run shims")
 	assert.Contains(t, out, "<key>RunAtLoad</key>\n\t<true/>")
 	assert.Contains(t, out, "<key>ThrottleInterval</key>\n\t<integer>10</integer>")
 	assert.Contains(t, out, "<key>PATH</key>\n\t\t<string>/opt/homebrew/bin:/usr/bin</string>")
@@ -145,6 +146,26 @@ func TestInstallTwiceKickstarts(t *testing.T) {
 	after, err := os.ReadFile(filepath.Join(plistDir, "io.onett.serve.plist"))
 	require.NoError(t, err)
 	assert.Equal(t, before, after, "a second install must not rewrite the plist")
+}
+
+func TestInstallRewritesAnOutdatedPlist(t *testing.T) {
+	plistDir := stubHost(t)
+	cfg := writeServiceConfig(t, filepath.Join(t.TempDir(), "data"))
+	calls := fakeRunner(t, nil)
+	plist := filepath.Join(plistDir, "io.onett.serve.plist")
+	require.NoError(t, os.WriteFile(plist, []byte("<plist>old, no AbandonProcessGroup</plist>"), 0o600))
+
+	code, out, errOut := runCLI("service", "install", "--config", cfg)
+	require.Equal(t, 0, code, errOut)
+
+	body, err := os.ReadFile(plist)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), "<key>AbandonProcessGroup</key>")
+	assert.Equal(t, []runCall{
+		{name: "launchctl", args: []string{"bootout", "gui/501/io.onett.serve"}},
+		{name: "launchctl", args: []string{"bootstrap", "gui/501", plist}},
+	}, *calls, "launchd reads the plist only when it loads it")
+	assert.Contains(t, out, "updated")
 }
 
 func TestInstallFailedBootstrapRemovesPlist(t *testing.T) {

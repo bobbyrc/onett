@@ -272,6 +272,12 @@ process ID.
 ./onett service uninstall   # stop the daemon and remove the plist
 ```
 
+The plist sets `AbandonProcessGroup`, so stopping or restarting the service never kills the
+per-run shims (and the agents under them) that outlive the daemon. Running `service install` again
+rewrites a plist that differs from the current one (for example one written by an older onett,
+which lacks that key) and reloads the service. The reload stops the daemon under the old plist, so
+do it while no agent is running.
+
 Run `service install` once, and do not also keep `onett serve` running in a terminal: two daemons
 cannot both listen on the same address.
 
