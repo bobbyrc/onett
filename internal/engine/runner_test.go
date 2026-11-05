@@ -50,6 +50,9 @@ type rtOpts struct {
 	fakePrice string
 	// preflightRead, when set, replaces the directory read of the preflight probe.
 	preflightRead func(string) error
+	// editConfig, when set, adjusts the parsed config before the engine is built, so the change is
+	// in place before the scheduler starts and cannot race it.
+	editConfig func(*config.Config)
 }
 
 // rtEnv is a real engine wired to an in-memory store, a shared fake SCM and local bare repos.
@@ -63,8 +66,9 @@ type rtEnv struct {
 	clone map[string]string // project name -> clone path
 }
 
-// rtNewEngine builds the engine and starts its scheduler. Cleanup cancels every run and waits
-// for them.
+// rtNewEngine builds the engine and starts its scheduler. Change the config through
+// rtOpts.editConfig, not after the call, which would race the scheduler. Cleanup cancels every
+// run and waits for them.
 func rtNewEngine(t *testing.T, o rtOpts) *rtEnv {
 	t.Helper()
 	if len(o.projects) == 0 {
@@ -114,6 +118,9 @@ agents:
 %s`, dataDir, self, o.maxAttempts, o.maxConcurrent, o.maxPerProject, fakeHarnessExtra(o.fakePrice), agents.String(), projects.String())
 	cfg, err := config.Parse([]byte(yaml), "")
 	require.NoError(t, err, yaml)
+	if o.editConfig != nil {
+		o.editConfig(cfg)
+	}
 
 	st, err := sqlite.Open(":memory:")
 	require.NoError(t, err)

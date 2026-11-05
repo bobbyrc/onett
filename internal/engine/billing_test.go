@@ -49,17 +49,17 @@ func TestSuperviseRecordsBilling(t *testing.T) {
 		{"", harness.BillingSubscription, harness.BillingSubscription},
 	} {
 		t.Run(tc.detected+"/"+tc.override, func(t *testing.T) {
-			env := rtNewEngine(t, rtOpts{script: costScript(harness.Result{CostUSD: 1, Billing: tc.detected})})
-			env.e.cfgMu.Lock()
-			cfg := *env.e.cfg
-			hs := map[string]config.Harness{}
-			for k, v := range cfg.Harness {
-				v.Billing = tc.override
-				hs[k] = v
-			}
-			cfg.Harness = hs
-			env.e.cfg = &cfg
-			env.e.cfgMu.Unlock()
+			env := rtNewEngine(t, rtOpts{
+				script: costScript(harness.Result{CostUSD: 1, Billing: tc.detected}),
+				editConfig: func(cfg *config.Config) {
+					hs := map[string]config.Harness{}
+					for k, v := range cfg.Harness {
+						v.Billing = tc.override
+						hs[k] = v
+					}
+					cfg.Harness = hs
+				},
+			})
 
 			task := env.create(domain.Task{Body: "billing"})
 			runs := env.firstEndedRun(task.ID)
