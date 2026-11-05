@@ -190,6 +190,37 @@ for (const vp of VIEWPORTS) {
     // Same trick for the home indicator: the chat composer is sticky to the bottom edge, so on a
     // notched iPhone its lower ~34px sits under the indicator. --composer-inset stands in for
     // env(safe-area-inset-bottom), which Chromium reports as 0.
+    // Several pending files, some with very long names: the chips wrap inside the composer, the
+    // page stays no wider than the screen, and every control is at least 44px to tap.
+    test('chat composer with several pending attachments fits and is tappable', async ({ page }) => {
+      await open(page, `/chat/${CONV_ID}`);
+      const long = 'a-very-long-file-name-that-must-be-cut-with-an-ellipsis-instead-of-pushing-the-page-wider.txt';
+      const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+      await page.getByTestId('attach-input').setInputFiles([
+        { name: 'photo-1.png', mimeType: 'image/png', buffer: png },
+        { name: 'photo-2.png', mimeType: 'image/png', buffer: png },
+        { name: long, mimeType: 'text/plain', buffer: Buffer.from('hello') },
+        { name: 'notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# hi') },
+      ]);
+      const chips = page.locator('.composer .att-chip');
+      await expect(chips).toHaveCount(4);
+      await expect(page.locator('.composer progress')).toHaveCount(0);
+      const vw = page.viewportSize()!.width;
+      for (const box of await Promise.all((await chips.all()).map((c) => c.boundingBox()))) {
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(vw);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      for (const button of await page.locator('.composer .att-remove, .composer .icon-btn').all()) {
+        const box = await button.boundingBox();
+        expect(box!.width).toBeGreaterThanOrEqual(44);
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+      }
+      await expect(page.getByRole('button', { name: 'Add a photo' })).toBeVisible();
+      mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
+      await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-composer-attachments.png` });
+    });
+
     test('chat composer clears a 34px home indicator', async ({ page }) => {
       await open(page, `/chat/${CONV_ID}`);
       await page.addStyleTag({ content: ':root { --composer-inset: 34px !important; }' });

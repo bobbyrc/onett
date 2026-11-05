@@ -1,5 +1,14 @@
 import './Chat.css';
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../api';
 import { useCan } from '../auth';
@@ -16,6 +25,7 @@ import {
   useCancelMessage,
   useCloseTaskConversation,
   useConversation,
+  useConfig,
   useConversations,
   useCreateConversation,
   useEditMessage,
@@ -35,6 +45,8 @@ import { ErrorLine } from '../components/ErrorLine';
 import { Modal } from '../components/Modal';
 import { PageHeader } from '../components/PageHeader';
 import { Transcript, ViewToggle } from '../components/Transcript';
+import { PendingChips, useAttachmentUploads, type AttachmentUploads } from '../components/ComposerAttachments';
+import { DEFAULT_MAX_PER_MESSAGE } from '../lib/attachments';
 
 const EXAMPLES = ["What's running right now?", 'Fix the flaky test in …', 'Triage open issues in …'];
 
@@ -406,6 +418,8 @@ interface ComposerProps {
   onEscape?: () => void;
   hint?: string;
   autoFocus?: boolean;
+  /** Files for this message; without it the composer takes text only. */
+  attach?: AttachmentUploads;
 }
 
 /** The message sheet: an auto-growing field, with the hint and Send inside the same sheet. */
@@ -421,7 +435,19 @@ function Composer({
   onEscape,
   hint = 'Enter to send · Shift+Enter for a new line',
   autoFocus = false,
+  attach,
 }: ComposerProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
+  // Phones get a second button that opens the camera and photo library directly.
+  const touch = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
+  const pick = (event: ChangeEvent<HTMLInputElement>) => {
+    attach?.add(Array.from(event.target.files ?? []));
+    event.target.value = ''; // so picking the same file again fires a change
+  };
+  const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes('Files');
   // Grow the field with its content.
   useLayoutEffect(() => {
     const el = textareaRef.current;
@@ -432,12 +458,44 @@ function Composer({
 
   return (
     <form
-      className="composer"
+      className={cx('composer', dragging && 'is-dragging')}
       onSubmit={(event) => {
         event.preventDefault();
         onSend();
       }}
+      onDragEnter={
+        attach
+          ? (event) => {
+              if (!hasFiles(event)) return;
+              dragDepth.current++;
+              setDragging(true);
+            }
+          : undefined
+      }
+      onDragOver={attach ? (event) => hasFiles(event) && event.preventDefault() : undefined}
+      onDragLeave={
+        attach
+          ? (event) => {
+              if (!hasFiles(event)) return;
+              dragDepth.current = Math.max(0, dragDepth.current - 1);
+              if (dragDepth.current === 0) setDragging(false);
+            }
+          : undefined
+      }
+      onDrop={
+        attach
+          ? (event) => {
+              if (!hasFiles(event)) return;
+              event.preventDefault();
+              dragDepth.current = 0;
+              setDragging(false);
+              attach.add(Array.from(event.dataTransfer.files));
+            }
+          : undefined
+      }
     >
+      {dragging ? <div className="composer-drop" aria-hidden="true">Drop files to attach</div> : null}
+      {attach ? <PendingChips uploads={attach} /> : null}
       <label className="sr-only" htmlFor="composer">
         {label}
       </label>
@@ -450,6 +508,16 @@ function Composer({
         disabled={disabled}
         placeholder={placeholder}
         onChange={(event) => onDraft(event.target.value)}
+        onPaste={
+          attach
+            ? (event) => {
+                const files = Array.from(event.clipboardData.files);
+                if (files.length === 0) return;
+                event.preventDefault();
+                attach.add(files);
+              }
+            : undefined
+        }
         onKeyDown={(event) => {
           if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
@@ -461,6 +529,22 @@ function Composer({
         }}
       />
       <div className="composer-foot">
+        {attach ? (
+          <span className="composer-attach">
+            <input ref={fileRef} type="file" multiple hidden data-testid="attach-input" onChange={pick} />
+            <button type="button" className="icon-btn" aria-label="Attach files" onClick={() => fileRef.current?.click()}>
+              <span aria-hidden="true">📎</span>
+            </button>
+            {touch ? (
+              <>
+                <input ref={photoRef} type="file" accept="image/*" multiple hidden data-testid="photo-input" onChange={pick} />
+                <button type="button" className="icon-btn" aria-label="Add a photo" onClick={() => photoRef.current?.click()}>
+                  <span aria-hidden="true">📷</span>
+                </button>
+              </>
+            ) : null}
+          </span>
+        ) : null}
         <span className="composer-hint muted small">{hint}</span>
         <Button type="submit" variant="primary" disabled={sendDisabled}>
           Send
@@ -481,6 +565,7 @@ function ComposerArea(props: {
   onEscape: () => void;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   label: string;
+  attach?: AttachmentUploads;
 }) {
   const { state } = props;
   if (!state.enabled) return state.note ? <p className="muted small">{state.note}</p> : null;
@@ -491,7 +576,10 @@ function ComposerArea(props: {
       onDraft={props.onDraft}
       onSend={props.onSend}
       disabled={false}
-      sendDisabled={props.sending || props.draft.trim() === ''}
+      sendDisabled={
+        props.sending || !!props.attach?.uploading || (props.draft.trim() === '' && !props.attach?.ids.length)
+      }
+      attach={props.attach}
       placeholder={state.placeholder}
       label={props.label}
       onEscape={props.working ? props.onEscape : undefined}
@@ -559,11 +647,18 @@ function OrchestratorThread({
     endRef.current?.scrollIntoView({ block: 'end' });
   }, [entries.length, working]);
 
-  const sendText = async (text: string) => {
+  const config = useConfig();
+  const attach = useAttachmentUploads(
+    conversationId,
+    config.data?.chat?.attachments?.max_per_message || DEFAULT_MAX_PER_MESSAGE,
+  );
+
+  const sendText = async (text: string, attachments: string[] = []) => {
     setSendError(null);
     try {
-      await send.mutateAsync(text);
+      await send.mutateAsync({ text, attachments });
       setDraft('');
+      attach.clear();
     } catch (err) {
       setSendError(errorMessage(err));
     }
@@ -656,8 +751,12 @@ function OrchestratorThread({
         working={working}
         draft={draft}
         onDraft={setDraft}
-        onSend={() => draft.trim() && void sendText(draft.trim())}
+        onSend={() => {
+          if (attach.uploading || (!draft.trim() && attach.ids.length === 0)) return;
+          void sendText(draft.trim(), attach.ids);
+        }}
         sending={send.isPending}
+        attach={attach}
         onEscape={() => liveRunId && stop.mutate(liveRunId)}
         textareaRef={textareaRef}
         label="Message the orchestrator"

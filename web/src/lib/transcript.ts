@@ -1,6 +1,6 @@
 // Turns stored chat messages and agent run logs into an ordered list of transcript entries.
 // Pure logic: no React, no fetching. The UI renders the entries like a coding-agent transcript.
-import type { ChatMessage, LogLine, RunStatus, TaskConversation } from '../types';
+import type { Attachment, ChatMessage, LogLine, RunStatus, TaskConversation } from '../types';
 
 export interface ToolSummary {
   name: string;
@@ -21,7 +21,7 @@ interface EntryBase {
 
 export type Entry = EntryBase &
   (
-    | { kind: 'owner'; text: string; queued?: boolean; messageId?: string }
+    | { kind: 'owner'; text: string; queued?: boolean; messageId?: string; attachments?: Attachment[] }
     | { kind: 'prompt'; text: string; label: string }
     | { kind: 'text'; text: string }
     | { kind: 'tool'; tool: ToolSummary; input: string; result?: string; resultError?: boolean }
@@ -138,10 +138,19 @@ export function runEntries(lines: LogLine[], fallbackPrompt?: string): Entry[] {
   return linesToEntries(lines, false, fallbackPrompt);
 }
 
+/** A user message as a transcript entry; its files, if any, ride along. */
+type OwnerEntry = Extract<Entry, { kind: 'owner' }>;
+
+function ownerEntry(m: ChatMessage): OwnerEntry {
+  const e: OwnerEntry = { id: `m:${m.id}`, kind: 'owner', text: m.text, time: m.created_at, messageId: m.id };
+  if (m.attachments?.length) e.attachments = m.attachments;
+  return e;
+}
+
 function queuedEntries(messages: ChatMessage[]): Entry[] {
   return messages
     .filter((m) => m.queued && m.role === 'user')
-    .map((m) => ({ id: `m:${m.id}`, kind: 'owner', text: m.text, time: m.created_at, queued: true, messageId: m.id }));
+    .map((m) => ({ ...ownerEntry(m), queued: true }));
 }
 
 /**
@@ -198,12 +207,16 @@ export function orchestratorEntries(
       if (m.run_id && shown.has(m.run_id)) {
         // The log carries a mid-run message as an owner line. One that rode the same turn's prompt
         // has no such line, so it still needs its own entry.
-        if (logs?.some((l) => l.kind === 'owner' && l.text === m.text)) continue;
+        if (logs?.some((l) => l.kind === 'owner' && l.text === m.text)) {
+          // The log line shows the text; the files only live on the message, so keep them.
+          if (m.attachments?.length) out.push({ ...ownerEntry(m), text: '' });
+          continue;
+        }
         if (placed.has(m.id)) continue;
-        out.push({ id: `m:${m.id}`, kind: 'owner', text: m.text, time: m.created_at, messageId: m.id });
+        out.push(ownerEntry(m));
         continue;
       }
-      out.push({ id: `m:${m.id}`, kind: 'owner', text: m.text, time: m.created_at, messageId: m.id });
+      out.push(ownerEntry(m));
       if (m.run_id && hasLogs) {
         shown.add(m.run_id);
         // Messages that rode this same turn's prompt came before the agent spoke, so they sit
@@ -212,7 +225,7 @@ export function orchestratorEntries(
           if (r === m || r.queued || r.role !== 'user' || r.run_id !== m.run_id) continue;
           if (logs.some((l) => l.kind === 'owner' && l.text === r.text)) continue;
           placed.add(r.id);
-          out.push({ id: `m:${r.id}`, kind: 'owner', text: r.text, time: r.created_at, messageId: r.id });
+          out.push(ownerEntry(r));
         }
         const run = linesToEntries(logs, true);
         out.push(...run, ...endedEntries(m.run_id, lastTime(run, m.created_at), runs[m.run_id]));
