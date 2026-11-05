@@ -126,16 +126,16 @@ highlighted lazily: it shows plain first, and colours arrive once the highlighte
 (unknown languages stay plain). Token colours are the `--chat-syntax-*` tokens below, each measured
 against `--chat-code-bg`. Inline code uses `--chat-code-bg` with no border and a `--chat-radius-sm` corner.
 
-## Diff cards
+## Diff counts
 
-Orca (`NativeChatDiffCard.tsx`): a bordered code surface, `max-h-72`, mono, line numbers in a
-tabular faint gutter, added and removed lines tinted by `--diff-added-background` /
-`--diff-removed-background` with text mixed toward the foreground so it passes contrast, and a
-centred "…" separator between hunks.
+Onett has no inline diff cards. Orca (`NativeChatDiffCard.tsx`) shows a bordered code surface with
+line numbers and tinted added and removed lines; that needs each edit's old and new text, which the
+run log does not carry. Onett shows only the `+n −m` counts, on a tool call and per changed file in a
+run's summary (`.tl-diff` in `ToolRun.css`). If a diff body is added later, this is where it is specified.
 
-**Adaptation.** Added lines use `--chat-diff-add-bg` with `--chat-diff-add-fg` for the `+`
-marker and gutter; removed lines use the `del` pair. Body text stays `--chat-fg` on the tint
-(10:1 or better). The `+` and `−` characters stay, so colour is never the only cue.
+**Adaptation.** The added count uses `--chat-diff-add-fg` and the removed count `--chat-diff-del-fg`.
+The `+` and `−` characters stay, so colour is never the only cue. The `-bg` tokens are reserved for a
+future diff body and nothing reads them yet.
 
 ## Composer
 
@@ -239,7 +239,7 @@ Names marked * are additions to the frozen list from the brief.
 | Messages, tool rows, status line, timestamps | `web/src/components/Transcript.css` (+ `Transcript.tsx`) |
 | Page layout, conversation list, composer, empty state | `web/src/pages/Chat.css` |
 | Code blocks, inline code, Markdown headings | `web/src/components/Markdown.tsx` and its styles |
-| Diff cards | the edit rows in `Transcript.tsx` |
+| Diff counts (`+n −m`) | `web/src/components/ToolRun.css` (`.tl-diff`) |
 | Not covered | The Terminal view (`TerminalView`, `TermLine`, `TerminalTool` rules in `Transcript.css`) is exempt by design: it keeps its andon-board look on the app's `--board-*` tokens. |
 | Dark mode | the dark block of `Chat.css` folds into `chat-tokens.css` as each rule moves |
 
