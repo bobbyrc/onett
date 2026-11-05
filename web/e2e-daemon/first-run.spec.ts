@@ -63,9 +63,11 @@ test('create the owner account and see the unfinished checklist', async () => {
   await expect(step('Add a project')).toContainText('To do');
   await expect(step('Choose a policy')).toContainText('To do');
   await expect(step('Reach me')).toContainText('To do');
-  // Done on a fresh install, and why: onett ships six default agents, and no config refers to a
-  // secret yet, so none can be missing.
-  await expect(step('Agents ready')).toContainText('Done');
+  // "Agents ready" depends on the host: the default agents need the claude or codex CLI on PATH,
+  // which a dev machine has and a clean CI runner does not. So it is not asserted here; the
+  // agent step below adds a fake agent that needs no CLI, which makes it done on any host.
+  await expect(step('Agents ready')).toBeVisible();
+  // No config refers to a secret yet, so none can be missing.
   await expect(step('Secrets set')).toContainText('Done');
   await page.screenshot({ path: `${SCREENSHOTS}/overview-before.png`, fullPage: true });
 });
