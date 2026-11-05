@@ -319,5 +319,32 @@ for (const vp of VIEWPORTS) {
       await expect.poll(distanceFromEnd).toBeLessThan(2);
       await expect(pill).toHaveCount(0);
     });
+
+    // A long draft stops growing at 40% of the screen and scrolls inside the field, so the
+    // composer stays on screen; Send and Attach stay 44px tappable.
+    test('chat composer caps a 30-line draft and keeps Send tappable', async ({ page }) => {
+      await open(page, `/chat/${CONV_ID}`);
+      await page.addStyleTag({ content: ':root { --composer-inset: 34px !important; }' });
+      const field = page.getByLabel('Message the orchestrator');
+      await field.fill(Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join('\n'));
+      const vh = page.viewportSize()!.height;
+      const vw = page.viewportSize()!.width;
+      const fieldBox = (await field.boundingBox())!;
+      expect(fieldBox.height).toBeLessThanOrEqual(vh * 0.4 + 1);
+      expect(fieldBox.height, 'grows to the cap, not one line').toBeGreaterThanOrEqual(vh * 0.4 - 2);
+      expect(await field.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+      const box = (await page.locator('.chat-page .composer').boundingBox())!;
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(vh - (box.y + box.height)).toBeGreaterThanOrEqual(33.5);
+      for (const name of ['Send', 'Attach files']) {
+        const b = (await page.getByRole('button', { name, exact: true }).boundingBox())!;
+        expect(b.width, name).toBeGreaterThanOrEqual(44);
+        expect(b.height, name).toBeGreaterThanOrEqual(44);
+        expect(b.x + b.width, name).toBeLessThanOrEqual(vw);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
+      await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-composer-long-draft.png` });
+    });
   });
 }

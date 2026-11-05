@@ -231,6 +231,16 @@ wide sits 8vh from the top: the heading "Talk to the orchestrator", a muted line
 cannot do, the composer, and three example prompts as chips. Sending creates a conversation and
 opens it with the message already sent.
 
+**Composer.** The field grows with what you type up to 40% of the screen height (`40dvh`, so the
+phone keyboard is counted), then scrolls inside itself, and shrinks again after a send. Below it,
+a 44px button reads **Send**; while a turn is running and the field is empty it reads **Stop**
+instead (the same action as the status-bar button and Esc), and after a click it reads "Stopping…",
+disabled and `aria-busy`, until the run ends. Typing turns it back into Send, which sends or queues
+the message as before. The draft text is kept per conversation in the browser (`localStorage`, key
+`onett.chat.draft.<conversation id>` or `onett.chat.draft.task:<task id>`, saved about 300ms after
+typing stops), restored when you come back and cleared when a send succeeds; a failed send keeps it.
+Attachments are not kept. If the browser refuses storage, the draft lives in memory only.
+
 **Attachments.** The composer of an open orchestrator conversation takes files three ways: the
 paperclip button ("Attach files", a file picker that allows several), pasting files from the
 clipboard into the field (a pasted screenshot, for one; pasted text is left alone), and dragging

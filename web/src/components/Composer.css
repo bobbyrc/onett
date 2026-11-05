@@ -1,0 +1,186 @@
+/* The chat composer (docs/design/chat-visual.md, "Composer"). Rules sit under .chat-page so they
+   outrank the older .composer rules in styles.css. */
+
+/* The dock pins the composer to the bottom of the screen and carries the Jump to latest pill, which
+   floats just above it whatever height the composer has. */
+.chat-page .composer-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  /* The thread is a flex column: never let a long transcript squeeze the composer. */
+  flex: none;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--chat-max-width);
+  margin: 0 auto;
+  padding-bottom: var(--chat-space-2);
+  background: var(--chat-bg);
+  box-shadow: var(--chat-shadow-composer);
+}
+
+/* The field and its action row share one sheet: chips above, actions below. */
+.chat-page .composer {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  margin-top: var(--chat-space-3);
+  padding: 0;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-field-border);
+  border-radius: var(--chat-radius-md);
+}
+
+.chat-page .composer:focus-within {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: 0;
+}
+
+.chat-page .composer textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  flex: none;
+  min-height: 0;
+  /* Grows with the text, then scrolls inside itself; dvh follows the iPhone keyboard. */
+  max-height: 40vh;
+  max-height: 40dvh;
+  margin: 0;
+  padding: var(--chat-space-3) var(--chat-space-4) var(--chat-space-1);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--chat-fg-strong);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
+  overflow-y: auto;
+  outline: none;
+}
+
+.chat-page .composer textarea::placeholder {
+  color: var(--chat-fg-faint);
+}
+
+.chat-page .composer-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-space-3);
+  padding: var(--chat-space-1) var(--chat-space-2) var(--chat-space-2) var(--chat-space-4);
+}
+
+.chat-page .composer-hint {
+  flex: 1;
+  min-width: 0;
+  color: var(--chat-fg-faint);
+  font-size: var(--chat-text-sm);
+}
+
+/* Send and Stop: one 44px square-cornered button; the label is text, not only an icon or colour. */
+.chat-page .composer-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--chat-space-2);
+  flex: none;
+  margin-left: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--chat-space-4);
+  border: 1px solid var(--chat-fg-strong);
+  border-radius: var(--chat-radius-sm);
+  background: var(--chat-fg-strong);
+  color: var(--chat-surface);
+  font: inherit;
+  font-size: var(--chat-text-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-page .composer-send.is-stop {
+  background: transparent;
+  color: var(--chat-fg-strong);
+}
+
+.chat-page .composer-send:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.chat-page .composer-send[aria-busy='true'] {
+  cursor: progress;
+}
+
+.chat-page .composer-send:focus-visible,
+.chat-page .composer .icon-btn:focus-visible {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Attachments: the attach buttons in the foot, and the drop state. */
+.chat-page .composer-attach {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+
+.chat-page .icon-btn {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--chat-fg-strong);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.chat-page .icon-btn:hover {
+  background: var(--chat-code-bg);
+}
+
+.chat-page .composer.is-dragging {
+  border-style: dashed;
+}
+
+.chat-page .composer-drop {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--chat-surface);
+  opacity: 0.94;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+@media (max-width: 759px) {
+  /* The page draws under the iPhone home indicator (viewport-fit=cover), and a sticky box pins to
+     the screen edge, so lift the composer by the inset. --composer-inset is a test hook:
+     Chromium reports the inset as 0, so the mobile e2e check sets it to 34px. */
+  .chat-page .composer-dock {
+    bottom: var(--composer-inset, env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The hint costs a line on a phone and the keyboard hint means little without a keyboard. */
+  .chat-page .composer-hint {
+    display: none;
+  }
+
+  .chat-page .composer-foot {
+    justify-content: space-between;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-page .composer-send {
+    transition: none;
+  }
+}
