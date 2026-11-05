@@ -73,7 +73,11 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   own gates and agent instructions (`high`). Add rules with a policy's `extra_rules`. Setting
   `rules` instead **replaces** all the built-in rules, so copy back any you want to keep.
 - **Daily budget.** `limits.daily_budget_usd` stops new task runs once today's reported cost
-  reaches it. A run's cost is recorded when it ends, so runs in flight count only after they finish
+  of pay-per-token runs reaches it. Runs on a flat-rate subscription (Claude Code signed in with
+  claude.ai, Codex signed in with ChatGPT) report only an API-price estimate that nobody is billed
+  for, so they are left out and `onett status` shows them separately. Onett detects the mode per
+  run; a harness's `billing` (`auto`, `metered` or `subscription`) overrides detection, and a run
+  whose mode is unknown counts. A run's cost is recorded when it ends, so runs in flight count only after they finish
   and the total can overshoot. Codex reports no cost, so it counts only if its
   harness has a `price` (per-million-token rates), which gives an estimate shown as `~$0.42`.
 - **Risk only goes up.** Final risk is the highest of the rules the diff matches and the agent's own

@@ -22,6 +22,7 @@ type streamLine struct {
 	Subtype           string          `json:"subtype"`
 	SessionID         string          `json:"session_id"`
 	Model             string          `json:"model"`
+	APIKeySource      string          `json:"apiKeySource"`
 	Message           json.RawMessage `json:"message"`
 	Result            string          `json:"result"`
 	IsError           bool            `json:"is_error"`
@@ -65,6 +66,7 @@ type parser struct {
 	sessionID string // latest session ID seen on any line
 	announced bool   // whether sessionID has been attached to an emitted event
 	lastText  string // last assistant text block
+	billing   string // from the init line's apiKeySource; "" until seen
 	denials   []string
 	final     *streamLine // the last result line seen
 	// inputTokens and outputTokens sum the per-turn usage of every result line: with stream-json
@@ -96,6 +98,7 @@ func (p *parser) parseLine(line string) []harness.Event {
 	case "system":
 		// Only init is kept. Hook and informational lines are environment noise.
 		if sl.Subtype == "init" {
+			p.billing = billingFor(sl.APIKeySource)
 			model := sl.Model
 			if model == "" {
 				model = p.model
@@ -208,6 +211,7 @@ func (p *parser) result(exitCode int, stderrTail []string) harness.Result {
 		ExitCode:  exitCode,
 		Denials:   p.denials,
 		FinalText: p.lastText,
+		Billing:   p.billing,
 	}
 	if f := p.final; f != nil {
 		res.IsError = f.IsError
@@ -224,6 +228,19 @@ func (p *parser) result(exitCode int, stderrTail []string) harness.Result {
 		res.IsError = true
 	}
 	return res
+}
+
+// billingFor maps the init line's apiKeySource to a billing mode. "none" means Claude Code is
+// signed in with a subscription; any other source is an API key, which is billed per token.
+func billingFor(apiKeySource string) string {
+	switch apiKeySource {
+	case "":
+		return ""
+	case "none":
+		return harness.BillingSubscription
+	default:
+		return harness.BillingMetered
+	}
 }
 
 func event(kind domain.LogKind, text string) harness.Event {

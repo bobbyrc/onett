@@ -54,7 +54,17 @@ type Result struct {
 	CachedInputTokens int64
 	OutputTokens      int64
 	IsError           bool
+	// Billing says how the run was paid for: BillingMetered, BillingSubscription, or "" when
+	// the adapter cannot tell.
+	Billing string
 }
+
+// Billing values for Result.Billing. A subscription run's cost is an estimate at API prices that
+// nobody is billed for; a metered run is pay-per-token.
+const (
+	BillingMetered      = "metered"
+	BillingSubscription = "subscription"
+)
 
 // Session is a running agent process.
 type Session interface {
@@ -95,6 +105,9 @@ type Config struct {
 	// InheritEnv names variables passed through from onett's environment on top of the
 	// base allowlist (see proc.go). Everything else in onett's environment is withheld.
 	InheritEnv []string
+	// Billing is the config override ("metered" or "subscription"); empty or "auto" means the
+	// adapter detects it.
+	Billing string
 }
 
 var (

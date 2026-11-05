@@ -70,13 +70,15 @@ type ControlState struct {
 
 // Stats is the answer of GET /stats.
 type Stats struct {
-	TasksByStatus    map[string]int     `json:"tasks_by_status"`
-	ActiveRuns       int                `json:"active_runs"`
-	ApprovalsPending int                `json:"approvals_pending"`
-	CostTodayUSD     float64            `json:"cost_today_usd"`
-	DailyBudgetUSD   float64            `json:"daily_budget_usd"`
-	Paused           bool               `json:"paused"`
-	Preflight        []domain.Preflight `json:"preflight"`
+	TasksByStatus    map[string]int `json:"tasks_by_status"`
+	ActiveRuns       int            `json:"active_runs"`
+	ApprovalsPending int            `json:"approvals_pending"`
+	CostTodayUSD     float64        `json:"cost_today_usd"`
+	// SubscriptionCostTodayUSD is the estimate for subscription runs, which are not billed.
+	SubscriptionCostTodayUSD float64            `json:"subscription_cost_today_usd"`
+	DailyBudgetUSD           float64            `json:"daily_budget_usd"`
+	Paused                   bool               `json:"paused"`
+	Preflight                []domain.Preflight `json:"preflight"`
 }
 
 // ProjectView is one entry of GET /projects: the project's settings plus its task counts.
