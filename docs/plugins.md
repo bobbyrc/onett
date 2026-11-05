@@ -405,6 +405,20 @@ notify:
     min_priority: high
 ```
 
+### `telegram`
+
+Sends a plain-text message to a Telegram chat through the [Bot API](https://core.telegram.org/bots/api). Outbound only: onett does not read replies. Create a bot with @BotFather to get its token, send the bot a message, then read your chat ID from `https://api.telegram.org/bot<token>/getUpdates`.
+
+| Option          | Required | Default                    | Meaning                                                                 |
+|-----------------|----------|----------------------------|-------------------------------------------------------------------------|
+| `bot_token_env` | yes      |                            | Name of an environment variable holding the bot token. The token itself never goes in the config. |
+| `chat_id`       | yes      |                            | The chat to send to: a numeric ID or `@channelname`.                    |
+| `api_url`       | no       | `https://api.telegram.org` | Use for a self-hosted Bot API server.                                   |
+
+The message is the title, then the body and the link into the web UI, each after a blank line, cut
+to Telegram's 4096-character limit. Low-priority messages are delivered without a sound. Errors never
+include the token, which Telegram puts in the request URL.
+
 ## Intake sources
 
 An intake source turns any external queue of work into onett tasks: a phone app's inbox, a ticket

@@ -260,5 +260,13 @@ notify:
   #     command: herdr gram send --from onett "$ONETT_NOTIFY_TITLE — $ONETT_NOTIFY_BODY $ONETT_NOTIFY_URL"
   #   min_priority: high
 
+  # A telegram notifier sends to a chat through the Telegram Bot API. Uncomment to use it.
+  # bot_token_env names an environment variable that holds the bot token (from @BotFather).
+  # - type: telegram
+  #   options:
+  #     bot_token_env: TELEGRAM_BOT_TOKEN
+  #     chat_id: "123456789"           # numeric ID or @channelname
+  #   min_priority: normal
+
 # self_project: the project that is onett itself. Friction reports are filed there.
 self_project: onett
