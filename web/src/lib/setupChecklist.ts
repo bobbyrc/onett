@@ -66,7 +66,7 @@ export function setupSteps(in_: SetupInputs): SetupStep[] {
     steps.push({
       id: 'reach',
       label: 'Reach me',
-      detail: stats.owner_unreachable ? 'Only the log notifier is set up: onett cannot tell you when it needs you.' : 'A notifier or channel can reach you',
+      detail: stats.owner_unreachable ? 'Set up a notifier or channel (see the warning on this page).' : 'A notifier or channel can reach you',
       done: !stats.owner_unreachable,
       to: '/config?mode=setup',
     });

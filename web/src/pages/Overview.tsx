@@ -30,7 +30,7 @@ const ACTIVITY_SHOWN = 10;
 
 export function Overview() {
   return (
-    <>
+    <div className="overview">
       <h1 className="sr-only">Overview</h1>
       <SetupChecklist />
       <OwnerUnreachableBanner />
@@ -43,7 +43,7 @@ export function Overview() {
           <Activity />
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -61,7 +61,7 @@ function NeedsYou() {
   const now = useNow();
 
   return (
-    <section className="section" aria-labelledby="needs-you">
+    <section className={`section needs-you${count > 0 ? ' has-items' : ''}`} aria-labelledby="needs-you">
       <h2 id="needs-you">
         Needs you
         {loaded && count > 0 ? (

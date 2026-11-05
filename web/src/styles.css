@@ -2631,3 +2631,115 @@ a.board-window:hover .board-name {
 .setup-steps .is-done a {
   color: var(--muted, inherit);
 }
+
+/* ---- Overview on phones ---- */
+
+/* The collapsed summary exists only on narrow screens; desktop always lists every step. */
+.setup-summary {
+  display: none;
+}
+.setup-steps a {
+  text-decoration: none;
+  font-weight: 600;
+}
+.setup-steps a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 760px) {
+  .overview {
+    display: flex;
+    flex-direction: column;
+  }
+  /* Flatten the two-column grid so Needs you can move above the setup card when it has items. */
+  .overview-grid {
+    display: contents;
+  }
+  .needs-you.has-items {
+    order: -1;
+    margin-top: 0;
+    margin-bottom: 20px;
+  }
+  .overview-side {
+    margin-top: 28px;
+  }
+
+  .setup-checklist {
+    padding: 12px 14px;
+  }
+  .setup-checklist h2 {
+    font-size: 15px;
+  }
+  .setup-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    margin-top: 4px;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .setup-checklist:not(.is-open) .setup-steps {
+    display: none;
+  }
+
+  /* One full-width row per project, lamp as a side bar, instead of a half-width block. */
+  .board {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 8px;
+    margin-bottom: 20px;
+  }
+  .board-windows {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .board-window {
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+    align-items: baseline;
+    column-gap: 12px;
+    padding: 0 12px 0 0;
+  }
+  .board-lamp {
+    grid-row: 1 / span 2;
+    grid-column: 1;
+    height: auto;
+    align-self: stretch;
+  }
+  .board-name {
+    grid-column: 2;
+    padding: 10px 0 0;
+    font-family: var(--font);
+    font-size: 16px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .board-count {
+    grid-column: 3;
+    grid-row: 1;
+    padding: 10px 0 0;
+  }
+  .board-detail {
+    grid-column: 2 / span 2;
+    padding: 0 0 10px;
+  }
+  .board-line-state {
+    font-family: var(--font);
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+  .board-line {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 8px 12px;
+    border: 0;
+    border-top: 1px solid var(--board-rule);
+  }
+}
