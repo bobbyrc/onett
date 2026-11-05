@@ -58,7 +58,10 @@ func (e *Engine) inheritFromParent(ctx context.Context, t *domain.Task) {
 func (e *Engine) releaseWaiting(ctx context.Context) {
 	queued, err := e.d.Store.ListTasks(ctx, store.TaskFilter{Statuses: []domain.TaskStatus{domain.TaskQueued}, Limit: 500})
 	if err != nil {
-		e.d.Logger.Error("list waiting tasks", "err", err)
+		// A shutdown that cancels the query is not an error worth logging.
+		if ctx.Err() == nil {
+			e.d.Logger.Error("list waiting tasks", "err", err)
+		}
 		return
 	}
 	for _, t := range queued {

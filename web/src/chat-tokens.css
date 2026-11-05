@@ -1,6 +1,7 @@
-/* Chat design tokens (docs/design/chat-visual.md). Nothing reads them yet: later chat PRs restyle
-   each component with these names, so do not rename one. Light by default; dark follows the
-   system, like styles.css. Contrast ratios for every pair are listed in the design doc. */
+/* Chat design tokens (docs/design/chat-visual.md). The chat components read them (guarded by
+   src/lib/chatCss.test.ts), so do not rename one. Light by default; dark follows the system, like
+   styles.css. Contrast ratios for every pair are listed in the design doc and checked by
+   src/lib/chatContrast.test.ts. */
 
 :root {
   /* colour: canvas, cards, messages */
