@@ -417,7 +417,7 @@ func (e *Engine) SendChat(ctx context.Context, conversationID, text string) (dom
 
 // SendChatWith is SendChat for a message that also carries attachments (ids from the attach
 // package). The text may be empty when there are attachments. The attachments are stored with the
-// message and returned on it; they do not reach the agent's prompt yet.
+// message and returned on it, and the agent's prompt lists their file paths.
 func (e *Engine) SendChatWith(ctx context.Context, conversationID, text string, attachmentIDs []string) (domain.ChatMessage, error) {
 	text = strings.TrimSpace(text)
 	if text == "" && len(attachmentIDs) == 0 {
@@ -441,7 +441,7 @@ func (e *Engine) SendChatWith(ctx context.Context, conversationID, text string, 
 		}
 	}
 	if cur.Busy && cur.ActiveRunID != "" {
-		switch err := e.deliverToRun(ctx, cur.ActiveRunID, text); {
+		switch err := e.deliverToRun(ctx, cur.ActiveRunID, withAttachmentNote(text, atts)); {
 		case err == nil:
 			return e.storeOwnerMessage(ctx, cur, domain.ChatMessage{
 				ConversationID: cur.ID, Role: "user", Text: text, RunID: cur.ActiveRunID, Attachments: atts,
@@ -500,8 +500,8 @@ func (e *Engine) SendChatWith(ctx context.Context, conversationID, text string, 
 		e.releaseConversation(ctx, conv.ID)
 		return domain.ChatMessage{}, err
 	}
-	texts, ids := messageTexts(queued)
-	texts, ids = append(texts, text), append(ids, msg.ID)
+	texts, ids := chatTexts(queued)
+	texts, ids = append(texts, withAttachmentNote(text, atts)), append(ids, msg.ID)
 	if err := e.startTurn(ctx, conv, texts, ids); err != nil {
 		e.restoreQueued(ctx, queuedIDs)
 		return domain.ChatMessage{}, err
@@ -638,7 +638,7 @@ func (e *Engine) FlushChat(ctx context.Context, conversationID string) error {
 		e.releaseConversation(ctx, conv.ID)
 		return nil
 	}
-	texts, ids := messageTexts(queued)
+	texts, ids := chatTexts(queued)
 	if err := e.startTurn(ctx, conv, texts, ids); err != nil {
 		e.restoreQueued(ctx, ids)
 		return err
