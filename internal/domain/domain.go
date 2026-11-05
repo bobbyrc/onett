@@ -448,6 +448,9 @@ type Goal struct {
 	// Turns counts the orchestrator turns the loop has started; LastTurnAt is when the last began.
 	Turns      int        `json:"turns"`
 	LastTurnAt *time.Time `json:"last_turn_at,omitempty"`
+	// StalledTurns counts consecutive turns that made no progress. One earns a second chance; the
+	// next blocks the goal. A turn with progress resets it.
+	StalledTurns int `json:"stalled_turns,omitempty"`
 	// Summary is why the goal is done or blocked.
 	Summary   string    `json:"summary,omitempty"`
 	CreatedAt time.Time `json:"created_at"`

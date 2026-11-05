@@ -59,7 +59,8 @@ func (e *Engine) goalStep(ctx context.Context, p *config.Project, g domain.Goal)
 			return nil // queued, running, in review, awaiting approval, merged or deploying
 		}
 	}
-	if g.Turns > 0 && g.LastTurnAt != nil {
+	// A stalled turn changed nothing, so the second chance is due without waiting for a change.
+	if g.Turns > 0 && g.LastTurnAt != nil && g.StalledTurns == 0 {
 		due, err := e.goalChanged(ctx, g, tasks)
 		if err != nil || !due {
 			return err
@@ -154,8 +155,10 @@ func (e *Engine) goalChanged(ctx context.Context, g domain.Goal, tasks []domain.
 }
 
 // goalGuard runs after a goal turn. A goal still active whose turn queued no task, retried none
-// and did not finish or block it is stuck, so it is blocked for the owner; so is a goal that has
-// used up its turns. before holds each goal task's UpdatedAt from before the turn.
+// and did not finish or block it made no progress: the first such turn earns a second chance (the
+// next check-in says so and the loop wakes at once), the second in a row blocks the goal for the
+// owner. A goal that has used up its turns is blocked too. before holds each goal task's
+// UpdatedAt from before the turn.
 func (e *Engine) goalGuard(ctx context.Context, id string, before map[string]time.Time) {
 	g, err := e.d.Store.GetGoal(ctx, id)
 	if err != nil || g.Status != domain.GoalActive {
@@ -176,11 +179,32 @@ func (e *Engine) goalGuard(ctx context.Context, id string, before map[string]tim
 	}
 	reason := ""
 	switch {
-	case !progress:
+	case !progress && g.StalledTurns > 0:
 		reason = "the orchestrator made no progress on its last turn"
 	case g.Turns >= e.Config().Limits.MaxGoalTurns:
 		reason = goalTurnsReason(e.Config().Limits.MaxGoalTurns)
 	default:
+		stalled := 0
+		if !progress {
+			stalled = 1
+		}
+		if stalled == g.StalledTurns {
+			return
+		}
+		_, err := e.d.Store.UpdateGoal(ctx, id, func(g *domain.Goal) error {
+			if g.Status != domain.GoalActive {
+				return errSkip
+			}
+			g.StalledTurns = stalled
+			return nil
+		})
+		if err = ignoreSkip(err); err != nil {
+			e.d.Logger.Error("goal guard: record stall", "goal", id, "err", err)
+			return
+		}
+		if stalled > 0 {
+			e.kickLoop(loopGoals, g.Project)
+		}
 		return
 	}
 	if _, err := e.moveGoal(ctx, id, domain.GoalBlocked, reason, domain.GoalActive); ignoreConflict(err) != nil {
@@ -213,6 +237,11 @@ func ignoreSkip(err error) error {
 func goalCheckIn(g domain.Goal, tasks []domain.Task, env []string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Goal check-in (turn %d). Goal %s: %s\n\n%s\n\n", g.Turns, g.ID, g.Title, g.Body)
+	if g.StalledTurns > 0 {
+		b.WriteString("Your last turn made no progress: it queued no task, retried none and did not finish or block the " +
+			"goal. Change approach now: queue or retry a task, split a blocked one, or call `onett goal done` / " +
+			"`onett goal block` with a reason. Another turn without progress blocks the goal.\n\n")
+	}
 	if len(tasks) == 0 {
 		b.WriteString("No task has been queued for this goal yet.\n")
 	} else {
