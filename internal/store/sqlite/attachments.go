@@ -100,7 +100,8 @@ func linkAttachments(ctx context.Context, tx *sql.Tx, messageID, conversationID 
 }
 
 // hydrateAttachments fills Attachments on msgs from the links table. where selects the link rows
-// (a condition on l.message_id). A message whose attachment was deleted simply has fewer.
+// (a condition on l.message_id). Path is loaded too (it is never serialised) so a queued message
+// can be turned into a prompt later. A message whose attachment was deleted simply has fewer.
 func hydrateAttachments(ctx context.Context, ex execer, msgs []domain.ChatMessage, where string, args ...any) error {
 	if len(msgs) == 0 {
 		return nil
@@ -112,10 +113,10 @@ func hydrateAttachments(ctx context.Context, ex execer, msgs []domain.ChatMessag
 	links, err := queryRows(ctx, ex, func(r rowScanner) (link, error) {
 		var l link
 		var created int64
-		err := r.Scan(&l.message, &l.att.ID, &l.att.ConversationID, &l.att.Name, &l.att.MIME, &l.att.Size, &created)
+		err := r.Scan(&l.message, &l.att.ID, &l.att.ConversationID, &l.att.Name, &l.att.MIME, &l.att.Size, &l.att.Path, &created)
 		l.att.CreatedAt = fromNanos(created)
 		return l, err
-	}, `SELECT l.message_id, a.id, a.conversation_id, a.name, a.mime, a.size, a.created_at
+	}, `SELECT l.message_id, a.id, a.conversation_id, a.name, a.mime, a.size, a.path, a.created_at
 		FROM chat_message_attachments l JOIN attachments a ON a.id = l.attachment_id
 		WHERE `+where+` ORDER BY l.position ASC`, args...)
 	if err != nil {
