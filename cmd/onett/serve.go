@@ -111,19 +111,26 @@ func cmdServe(e *env, args []string) error {
 		return fmt.Errorf("find onett binary: %w", err)
 	}
 
+	inferSelfUpdate(cfg, path, exe)
 	agentEnv, orchestratorEnv := serveEnvs(exe, cfg.Server.Addr, token)
 	eng, err := engine.New(engine.Deps{
-		Config:          cfg,
-		Store:           st,
-		Bus:             bus,
-		Notifier:        notifier,
-		Workspaces:      workspace.New(filepath.Join(cfg.Server.DataDir, "worktrees")),
-		Logger:          logger,
-		SCMFor:          scmFor,
-		HarnessFor:      harnessFor,
-		DeployerFor:     deployerFor,
-		ObserversFor:    observersFor,
-		ReloadConfig:    func(p string) (*config.Config, error) { return config.Load(p) },
+		Config:       cfg,
+		Store:        st,
+		Bus:          bus,
+		Notifier:     notifier,
+		Workspaces:   workspace.New(filepath.Join(cfg.Server.DataDir, "worktrees")),
+		Logger:       logger,
+		SCMFor:       scmFor,
+		HarnessFor:   harnessFor,
+		DeployerFor:  deployerFor,
+		ObserversFor: observersFor,
+		ReloadConfig: func(p string) (*config.Config, error) {
+			c, err := config.Load(p)
+			if err == nil {
+				inferSelfUpdate(c, p, exe)
+			}
+			return c, err
+		},
 		Version:         version,
 		AgentEnv:        agentEnv,
 		OrchestratorEnv: orchestratorEnv,

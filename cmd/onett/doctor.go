@@ -70,6 +70,8 @@ func cmdDoctor(e *env, args []string) error {
 	if cfg != nil {
 		d.checkHarnesses(cfg)
 		d.checkProjects(cfg)
+		inferSelfUpdate(cfg, path, "")
+		d.checkSelfUpdate(cfg)
 	}
 	d.checkDaemon(apiBaseURL(cfg))
 	d.checkPreflight()
@@ -234,6 +236,23 @@ func (d *doctor) checkProjects(cfg *config.Config) {
 			d.ok(fmt.Sprintf("project %s: not paused", name))
 		}
 	}
+}
+
+// checkSelfUpdate says whether the daemon will keep itself current. It is silent when there is
+// no self_project or self-update is switched off on purpose.
+func (d *doctor) checkSelfUpdate(cfg *config.Config) {
+	if cfg.SelfProject == "" {
+		return
+	}
+	su := cfg.LoopsFor(cfg.SelfProject).SelfUpdate
+	if su.Enabled != nil && !*su.Enabled {
+		return
+	}
+	if strings.TrimSpace(su.Command) == "" {
+		d.warn("self-update is off: no command", "set loops.self_update.command")
+		return
+	}
+	d.ok("self-update is on for " + cfg.SelfProject)
 }
 
 // checkDaemon asks the daemon's health route whether it is up.

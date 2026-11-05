@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/bobbyrc/onett/internal/domain"
@@ -187,10 +188,14 @@ func (l Loops) RetroOn(project, selfProject string) bool {
 	return selfProject != "" && project == selfProject
 }
 
-// SelfUpdateOn reports whether the self_update loop runs for project: only when it is explicitly
-// enabled, and only for selfProject, because the loop replaces the running daemon.
+// SelfUpdateOn reports whether the self_update loop runs for project: only for selfProject (the
+// loop replaces the running daemon), unless enabled is false, and only when a command is known
+// (set, or inferred by ApplySelfUpdateInference). An unset enabled means on.
 func (l Loops) SelfUpdateOn(project, selfProject string) bool {
-	return l.SelfUpdate.Enabled != nil && *l.SelfUpdate.Enabled && selfProject != "" && project == selfProject
+	if selfProject == "" || project != selfProject || strings.TrimSpace(l.SelfUpdate.Command) == "" {
+		return false
+	}
+	return l.SelfUpdate.Enabled == nil || *l.SelfUpdate.Enabled
 }
 
 // LoopsFor returns the loop settings that apply to project: the global Loops with each
