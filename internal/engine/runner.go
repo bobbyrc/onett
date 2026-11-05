@@ -306,6 +306,16 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 			". Onett never retries a denial: adjust the agent's permissions or the task, then Retry.")
 		return
 	case domain.RunStalled, domain.RunTimedOut:
+		// The session may have been killed after the agent had already reported (a background
+		// command can keep it alive). The run still counts as killed, but the owner sees the report.
+		if full := withReport(ws.Dir, reason); full != reason {
+			reason = full
+			e.updateRun(bg, run.ID, func(r *domain.Run) error {
+				r.Error = reason
+				return nil
+			})
+			e.appendRunLog(bg, run.ID, domain.LogSystem, reason)
+		}
 		e.blockTask(bg, t.ID, reason)
 		return
 	case domain.RunCancelled:
