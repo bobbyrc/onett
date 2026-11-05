@@ -8,9 +8,10 @@ identity (`docs/ui.md`, "Tokens"): Barlow, square corners, the green/grey palett
 the andon-board lamps for status. Every place where chat departs from Orca to stay onett is marked
 **Adaptation**.
 
-The tokens in `web/src/chat-tokens.css` are the contract. Later PRs restyle one component each
-with `var(--chat-*)`; they must not invent colours or sizes, and must not rename a token. This PR
-changes no visuals: nothing reads the tokens yet.
+The tokens in `web/src/chat-tokens.css` are the contract. The chat components read them through
+`var(--chat-*)`; new chat styles must not invent colours or sizes, and must not rename a token.
+`web/src/lib/chatCss.test.ts` fails on a hex colour or a non-chat variable in a chat stylesheet,
+and `web/src/lib/chatContrast.test.ts` recomputes the contrast table under "Accessibility".
 
 How each item compares with Orca once built, with before/after screenshots: [chat-orca-comparison.md](chat-orca-comparison.md).
 

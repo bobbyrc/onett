@@ -6,7 +6,13 @@ interface Props {
 
 export function JumpToLatest({ unread, onClick }: Props) {
   return (
-    <button type="button" className="jump-latest" onClick={onClick}>
+    <button
+      type="button"
+      className="jump-latest"
+      onClick={onClick}
+      // Keep focus where it is (usually the composer) on a pointer press; keyboard activation still works.
+      onMouseDown={(e) => e.preventDefault()}
+    >
       <span aria-hidden="true">↓</span> Jump to latest
       {unread > 0 ? <span className="jump-count">{unread} new</span> : null}
     </button>
