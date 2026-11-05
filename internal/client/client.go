@@ -565,6 +565,17 @@ func (c *Client) SendMessage(ctx context.Context, conversationID, text string) (
 	return out, err
 }
 
+// SendTaskMessage calls POST /tasks/{id}/messages. It returns APIError with status 409 when the
+// task's agent cannot be messaged.
+func (c *Client) SendTaskMessage(ctx context.Context, taskID, text string) (domain.ChatMessage, error) {
+	body := struct {
+		Text string `json:"text"`
+	}{text}
+	var out domain.ChatMessage
+	err := c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(taskID)+"/messages", nil, body, &out)
+	return out, err
+}
+
 // do sends one JSON request under /api/v1. A nil in sends no body; a nil out discards the
 // response body (used for 204 responses).
 func (c *Client) do(ctx context.Context, method, path string, q url.Values, in, out any) error {

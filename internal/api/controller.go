@@ -33,10 +33,11 @@ type Controller interface {
 	TaskConversation(ctx context.Context, taskID string) (domain.TaskConversation, error)
 	// AgentConversations lists the task agents the owner can talk to, open ones first.
 	AgentConversations(ctx context.Context) ([]domain.AgentConversation, error)
-	// SendTaskMessage sends the owner's text to the agent that works on taskID. A live agent that
-	// takes input gets it at once; otherwise it is queued and the agent resumes its session with
-	// it. ErrConflict, with the reason, when the agent cannot be messaged.
-	SendTaskMessage(ctx context.Context, taskID, text string) (domain.ChatMessage, error)
+	// SendTaskMessage sends text to the agent that works on taskID. A live agent that takes input
+	// gets it at once; otherwise it is queued and the agent resumes its session with it. author is
+	// stored on the message: "" for the owner, domain.AuthorOrchestrator for the API token.
+	// ErrConflict, with the reason, when the agent cannot be messaged.
+	SendTaskMessage(ctx context.Context, taskID, text, author string) (domain.ChatMessage, error)
 	// FlushTaskMessages starts the follow-up for queued messages now, instead of waiting for the
 	// agent's run to succeed. It does nothing when no message is queued.
 	FlushTaskMessages(ctx context.Context, taskID string) error

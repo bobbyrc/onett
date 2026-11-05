@@ -292,7 +292,7 @@ func cmdVersion(e *env, args []string) error {
 
 func cmdTask(e *env, args []string) error {
 	if len(args) == 0 {
-		return usagef("usage: onett task create|list|show|cancel|retry|close-conversation ...")
+		return usagef("usage: onett task create|list|show|cancel|retry|message|close-conversation ...")
 	}
 	sub, rest := args[0], args[1:]
 	if isHelpFlag(sub) || sub == "help" {
@@ -310,10 +310,12 @@ func cmdTask(e *env, args []string) error {
 		return taskCancel(e, rest)
 	case "retry":
 		return taskRetry(e, rest)
+	case "message":
+		return taskMessage(e, rest)
 	case "close-conversation":
 		return taskCloseConversation(e, rest)
 	}
-	return usagef("unknown task command %q (want create, list, show, cancel, retry or close-conversation)", sub)
+	return usagef("unknown task command %q (want create, list, show, cancel, retry, message or close-conversation)", sub)
 }
 
 // taskSource is the source of a task made with the CLI: an explicit --source wins; otherwise
@@ -622,6 +624,35 @@ func taskRetry(e *env, args []string) error {
 		return err
 	}
 	fmt.Fprintf(e.out, "retried task %s\n", positional[0])
+	return nil
+}
+
+func taskMessage(e *env, args []string) error {
+	fs := newFlagSet("task message", e)
+	text := fs.String("text", "", "the message for the task's agent (required)")
+	positional, err := parseArgs(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := requireArgs(positional, 1, "task message ID --text T"); err != nil {
+		return err
+	}
+	if strings.TrimSpace(*text) == "" {
+		return usagef("task message needs --text")
+	}
+	c, err := apiClient()
+	if err != nil {
+		return err
+	}
+	m, err := c.SendTaskMessage(context.Background(), positional[0], *text)
+	if err != nil {
+		return err
+	}
+	if m.Queued {
+		fmt.Fprintf(e.out, "queued a message for the agent of task %s\n", positional[0])
+	} else {
+		fmt.Fprintf(e.out, "sent a message to the agent of task %s\n", positional[0])
+	}
 	return nil
 }
 

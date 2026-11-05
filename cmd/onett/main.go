@@ -144,7 +144,7 @@ func usage(w io.Writer) {
 // Usage text for the commands whose first argument is a verb. They print it for -h, -help, --help
 // and help, and exit 0, as service does.
 const (
-	taskHelp = "usage: onett task create|list|show|cancel|retry|close-conversation [flags] [arguments]\n" +
+	taskHelp = "usage: onett task create|list|show|cancel|retry|message|close-conversation [flags] [arguments]\n" +
 		"Run \"onett task <verb> -h\" for a verb's flags."
 	goalHelp = "usage: onett goal create|list|show|pause|resume|done|block [flags] [arguments]\n" +
 		"Run \"onett goal <verb> -h\" for a verb's flags."

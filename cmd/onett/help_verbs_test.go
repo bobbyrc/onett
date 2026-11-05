@@ -11,7 +11,7 @@ import (
 
 func TestVerbCommandsPrintUsageForHelp(t *testing.T) {
 	verbs := map[string][]string{
-		"task":    {"create", "list", "show", "cancel", "retry"},
+		"task":    {"create", "list", "show", "cancel", "retry", "message"},
 		"run":     {"list", "show", "cancel", "logs"},
 		"project": {"add", "pause", "resume"},
 	}

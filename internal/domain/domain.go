@@ -422,7 +422,13 @@ type ChatMessage struct {
 	// tasks settle, a goal check-in). Clients hide these from the owner and never forward them to a
 	// chat app. Empty for every ordinary message.
 	Kind string `json:"kind,omitempty"`
+	// Author names a sender other than the owner: "orchestrator" for a message the API token sent
+	// to a task agent. Empty for the owner's own words and for every other message.
+	Author string `json:"author,omitempty"`
 }
+
+// AuthorOrchestrator is the ChatMessage.Author of a message the orchestrator (the API token) sent.
+const AuthorOrchestrator = "orchestrator"
 
 // Attachment is a file the owner sent in chat. The bytes live on disk under the data directory;
 // Path is that location and is never shown through the API.

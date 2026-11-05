@@ -24,14 +24,13 @@ func TestOrchestratorRoutesRejectTaskConversation(t *testing.T) {
 	assert.Empty(t, x.ctl.chatText, "the controller was never reached")
 }
 
-func TestTaskMessagingIsPersonOnly(t *testing.T) {
+func TestFlushEditAndCancelMessagesArePersonOnly(t *testing.T) {
 	x := newHarness(t)
 	cookie := x.newUserSession(t, "alice", domain.RoleOperator)
 	for _, tc := range []struct {
 		method, path, body string
 		ok                 int
 	}{
-		{http.MethodPost, "/api/v1/tasks/t1/messages", `{"text":"x"}`, http.StatusAccepted},
 		{http.MethodPost, "/api/v1/tasks/t1/conversation/flush", "", http.StatusAccepted},
 		{http.MethodPatch, "/api/v1/messages/m1", `{"text":"x"}`, http.StatusOK},
 		{http.MethodDelete, "/api/v1/messages/m1", "", http.StatusNoContent},

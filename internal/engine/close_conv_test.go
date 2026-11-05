@@ -49,7 +49,7 @@ func TestCancelTaskClosesConversationAndKeepsQueue(t *testing.T) {
 	env, rec, entered, release := fuEnv(t)
 	task := env.create(domain.Task{Body: "HOLD"})
 	<-entered
-	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "later")
+	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "later", "")
 	require.NoError(t, err)
 
 	require.NoError(t, env.e.CancelTask(env.ctx, task.ID, "owner:alice"))

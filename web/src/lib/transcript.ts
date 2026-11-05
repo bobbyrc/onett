@@ -21,7 +21,7 @@ interface EntryBase {
 
 export type Entry = EntryBase &
   (
-    | { kind: 'owner'; text: string; queued?: boolean; messageId?: string; attachments?: Attachment[] }
+    | { kind: 'owner'; text: string; queued?: boolean; messageId?: string; attachments?: Attachment[]; author?: string }
     | { kind: 'prompt'; text: string; label: string }
     | { kind: 'text'; text: string }
     | { kind: 'tool'; tool: ToolSummary; input: string; result?: string; resultError?: boolean }
@@ -144,6 +144,7 @@ type OwnerEntry = Extract<Entry, { kind: 'owner' }>;
 function ownerEntry(m: ChatMessage): OwnerEntry {
   const e: OwnerEntry = { id: `m:${m.id}`, kind: 'owner', text: m.text, time: m.created_at, messageId: m.id };
   if (m.attachments?.length) e.attachments = m.attachments;
+  if (m.author) e.author = m.author;
   return e;
 }
 

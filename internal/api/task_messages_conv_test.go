@@ -12,14 +12,14 @@ import (
 	"github.com/bobbyrc/onett/internal/domain"
 )
 
-func (f *fakeCtl) SendTaskMessage(_ context.Context, taskID, text string) (domain.ChatMessage, error) {
+func (f *fakeCtl) SendTaskMessage(_ context.Context, taskID, text, author string) (domain.ChatMessage, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.chatConvID, f.chatText = taskID, text
+	f.chatConvID, f.chatText, f.taskMsgAuthor = taskID, text, author
 	if err := f.note("SendTaskMessage"); err != nil {
 		return domain.ChatMessage{}, err
 	}
-	return domain.ChatMessage{ID: "m1", Role: "user", Text: text, Queued: true}, nil
+	return domain.ChatMessage{ID: "m1", Role: "user", Text: text, Queued: true, Author: author}, nil
 }
 
 func (f *fakeCtl) FlushTaskMessages(_ context.Context, taskID string) error {

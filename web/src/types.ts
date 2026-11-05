@@ -267,6 +267,8 @@ export interface ChatMessage {
   attachments?: Attachment[];
   /** "internal" marks onett's own prompt to the orchestrator; the UI hides it. */
   kind?: string;
+  /** "orchestrator" on a message the API token sent to a task agent; absent on the owner's own. */
+  author?: string;
 }
 
 /** A file attached to a chat message (internal/domain). Download it from
