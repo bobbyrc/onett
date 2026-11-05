@@ -43,6 +43,10 @@ type Deps struct {
 	ObserversFor func(p *config.Project) (map[string]observe.Observer, error)
 	// ReloadConfig re-reads the config file (config.Load on the current path by default).
 	ReloadConfig func(path string) (*config.Config, error)
+	// AfterReload applies the parts of a new config that live outside the engine (notifiers,
+	// chat channels). It runs after the new config is in place, so an error means the config
+	// was saved and swapped in but part of it is not running; ReloadConfig returns it.
+	AfterReload func(ctx context.Context, cfg *config.Config) error
 
 	// AgentEnv is added to every agent session (e.g. PATH). It must not hold the API token:
 	// worker agents may not act on onett, or one could approve its own work.

@@ -182,7 +182,7 @@ func TestRestartRequired(t *testing.T) {
 
 	changed, err := Parse([]byte("server:\n  addr: 127.0.0.1:8888\n  data_dir: /tmp/x\n  allowed_hosts: [box.local]\nnotify:\n  - type: ntfy\n"), "")
 	require.NoError(t, err)
-	assert.Equal(t, []string{"server.addr", "server.data_dir", "server.allowed_hosts", "notify"}, RestartRequired(base, changed))
+	assert.Equal(t, []string{"server.addr", "server.data_dir"}, RestartRequired(base, changed))
 }
 
 // aliasBomb builds YAML with levels+1 lists (l0 to l<levels>), where each list after l0 is ten aliases

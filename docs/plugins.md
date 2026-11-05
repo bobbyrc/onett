@@ -439,7 +439,7 @@ include the token, which Telegram puts in the request URL.
 
 A channel is a two-way link between you and onett: it carries messages to the orchestrator chat and
 brings its replies and approval requests back. A notifier only sends. Channels are listed under
-`channels` in `onett.yaml` and start and stop with `onett serve`. Changing the list needs a restart.
+`channels` in `onett.yaml` and start and stop with `onett serve`. Changing the list takes effect on the next config reload: changed bots restart, others keep running.
 
 ```yaml
 channels:

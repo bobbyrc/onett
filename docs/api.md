@@ -128,9 +128,11 @@ Which role may call each route: every `GET` needs `viewer` or better (the token 
 
 `User` is `{"username","role","created_at","updated_at"}`. `ConfigSaved` is
 `{"version","restart_required":[...]}`: `restart_required` lists settings read only at start-up
-that changed (`server.addr`, `server.data_dir`, `server.allowed_hosts`, `notify`, `channels`); they take effect
-after a restart. A save writes the file atomically and then reloads the daemon, so a 500 from a save
-means the file was written but the reload failed.
+that changed (`server.addr` and `server.data_dir`); they take effect after a restart. Notifiers,
+channels and `server.allowed_hosts` apply on reload. A save writes the file atomically and then
+reloads the daemon, so a 500 from a save means the file was written but the reload failed or only
+partly applied (for example the new notifiers could not be built and the old ones keep running);
+the message says which.
 
 `status` filters on task and run lists take a comma-separated list; `GET /approvals` takes one
 value. `limit` is a non-negative integer, where 0 or absent means the route's default; a negative

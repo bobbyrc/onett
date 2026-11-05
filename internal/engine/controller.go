@@ -306,6 +306,11 @@ func (e *Engine) ReloadConfig(ctx context.Context) error {
 	e.resetPreflight()
 	e.d.Bus.Emit(ctx, domain.EvSystem, "", "", "", "config reloaded from "+path, nil)
 	e.wakeScheduler()
+	if e.d.AfterReload != nil {
+		if err := e.d.AfterReload(ctx, cfg); err != nil {
+			return fmt.Errorf("config applied, but: %w", err)
+		}
+	}
 	return nil
 }
 

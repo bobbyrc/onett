@@ -36,6 +36,9 @@ type Options struct {
 	// Host gets 421. When the server listens on 0.0.0.0 or ::, no name is added for the bind
 	// address, so remote access needs the name listed in server.allowed_hosts.
 	AllowedHosts []string
+	// AllowedHostsFunc, when set, is asked on every request instead of using AllowedHosts, so
+	// a config reload changes the guard without a restart.
+	AllowedHostsFunc func() []string
 	// SecretsPath is the secrets.env file the owner edits from the UI. Empty turns the secrets
 	// routes off (they answer 404).
 	SecretsPath string
@@ -77,7 +80,12 @@ func NewServer(o Options) http.Handler {
 	r.Use(securityHeaders)
 	r.Use(middleware.Recoverer)
 	r.Use(s.requestLog)
-	r.Use(hostGuard(allowedHostSet(o.AllowedHosts)))
+	static := allowedHostSet(o.AllowedHosts)
+	hosts := func() map[string]bool { return static }
+	if o.AllowedHostsFunc != nil {
+		hosts = func() map[string]bool { return allowedHostSet(o.AllowedHostsFunc()) }
+	}
+	r.Use(hostGuard(hosts))
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(noStore)
 		r.NotFound(notFound)

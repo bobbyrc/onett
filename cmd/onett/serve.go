@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -93,17 +93,20 @@ func cmdServe(e *env, args []string) error {
 	bus := events.NewBus(st, logger)
 
 	// Resolve the channels before anything starts, so a missing token stops startup.
-	starters, skipApprovals, err := resolveChannels(cfg, logger)
+	chanEnv := channel.Env{DataDir: cfg.Server.DataDir, Getenv: os.Getenv, Logger: logger}
+	skipApprovals, err := channel.Resolve(cfg.Channels, chanEnv)
 	if err != nil {
 		_ = st.Close()
 		return err
 	}
-	notifCfgs := notifyConfigs(cfg.Notify, skipApprovals)
-	notifier, err := notify.NewFanout(notifCfgs, logger)
+	fanout, err := notify.NewFanout(notifyConfigs(cfg.Notify, skipApprovals), logger)
 	if err != nil {
 		_ = st.Close()
 		return err
 	}
+	// The engine sends through notifier; a reload swaps the fanout behind it.
+	notifier := notify.NewSwappable(fanout)
+	var sup atomic.Pointer[channel.Supervisor]
 
 	exe, err := os.Executable()
 	if err != nil {
@@ -135,6 +138,13 @@ func cmdServe(e *env, args []string) error {
 			}
 			return c, err
 		},
+		AfterReload: func(_ context.Context, c *config.Config) error {
+			s := sup.Load()
+			if s == nil {
+				return nil // still starting; the first start reads the current config
+			}
+			return applyReload(c, s, chanEnv, notifier, logger)
+		},
 		Version:         version,
 		AgentEnv:        agentEnv,
 		OrchestratorEnv: orchestratorEnv,
@@ -145,15 +155,15 @@ func cmdServe(e *env, args []string) error {
 	}
 
 	handler := api.NewServer(api.Options{
-		Store:         st,
-		Bus:           bus,
-		Controller:    eng,
-		Token:         token,
-		Version:       version,
-		SecureCookies: strings.HasPrefix(cfg.Server.PublicURL, "https://"),
-		AllowedHosts:  serveAllowedHosts(cfg.Server),
-		Secrets:       secretStore,
-		Logger:        logger,
+		Store:            st,
+		Bus:              bus,
+		Controller:       eng,
+		Token:            token,
+		Version:          version,
+		SecureCookies:    strings.HasPrefix(cfg.Server.PublicURL, "https://"),
+		AllowedHostsFunc: func() []string { return serveAllowedHosts(eng.Config().Server) },
+		Secrets:          secretStore,
+		Logger:           logger,
 	})
 	// Every request context derives from baseCtx. Streaming (SSE) handlers run until their
 	// context ends, and http.Server.Shutdown does not end it, so shutdown cancels baseCtx first.
@@ -175,9 +185,12 @@ func cmdServe(e *env, args []string) error {
 
 	engineDone := make(chan error, 1)
 	go func() { engineDone <- eng.Run(ctx) }()
-	var bots sync.WaitGroup
 	host := &channel.EngineHost{Controller: eng, Store: st, Bus: bus}
-	startBots(ctx, &bots, host, starters, logger)
+	supervisor := channel.NewSupervisor(ctx, host, logger)
+	if err := supervisor.Reconcile(eng.Config().Channels, chanEnv); err != nil {
+		logger.Error("channels not started", "err", err)
+	}
+	sup.Store(supervisor)
 	serverDone := make(chan error, 1)
 	go func() { serverDone <- srv.ListenAndServe() }()
 
@@ -199,7 +212,7 @@ func cmdServe(e *env, args []string) error {
 		_ = srv.Close()
 	}
 	engErr := <-engineDone
-	bots.Wait()
+	supervisor.Wait()
 	closeErr := st.Close()
 
 	switch {
@@ -212,58 +225,23 @@ func cmdServe(e *env, args []string) error {
 	}
 }
 
-// startBots builds and runs each channel's bot. A bot failure must not take the daemon down, so
-// it is logged and the others carry on. bots counts the running bots so shutdown can wait.
-func startBots(ctx context.Context, bots *sync.WaitGroup, host channel.Host, starters []namedStarter, logger *slog.Logger) {
-	for _, s := range starters {
-		bot, err := s.start(host)
-		if err != nil {
-			logger.Error(s.name+" channel not started", "err", err)
-			continue
-		}
-		bots.Add(1)
-		go func() {
-			defer bots.Done()
-			if err := bot.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				logger.Error(s.name+" channel stopped", "err", err)
-			}
-		}()
+// applyReload brings the chat bots and the notifiers in line with a freshly loaded config. A
+// bot or notifier set that cannot be built (an unset token variable, a bad option) is reported
+// and the old one keeps running; the error text carries no secret values.
+func applyReload(cfg *config.Config, sup *channel.Supervisor, env channel.Env, notifier *notify.Swappable, logger *slog.Logger) error {
+	var errs []error
+	if err := sup.Reconcile(cfg.Channels, env); err != nil {
+		logger.Error("reload: channels unchanged", "err", err)
+		errs = append(errs, fmt.Errorf("channels not reloaded: %w", err))
 	}
-}
-
-// namedStarter is a channel's Starter with the type it came from, for log messages.
-type namedStarter struct {
-	name  string
-	start channel.Starter
-}
-
-// resolveChannels validates every configured channel and resolves its token, so a bad config or
-// an empty token variable stops startup. Only the first channel of each type is used. It also
-// returns the notifier types that must not send approval requests while a channel runs.
-func resolveChannels(cfg *config.Config, logger *slog.Logger) ([]namedStarter, map[string]bool, error) {
-	env := channel.Env{DataDir: cfg.Server.DataDir, Getenv: os.Getenv, Logger: logger}
-	var starters []namedStarter
-	skip := map[string]bool{}
-	seen := map[string]bool{}
-	for _, ch := range cfg.Channels {
-		if seen[ch.Type] {
-			continue
-		}
-		seen[ch.Type] = true
-		reg, ok := channel.Lookup(ch.Type)
-		if !ok {
-			return nil, nil, fmt.Errorf("channel %q: unknown type (known: %s)", ch.Type, strings.Join(channel.Types(), ", "))
-		}
-		start, err := reg.Factory(ch, env)
-		if err != nil {
-			return nil, nil, err
-		}
-		starters = append(starters, namedStarter{name: ch.Type, start: start})
-		if reg.SkipApprovalsForNotifier != "" {
-			skip[reg.SkipApprovalsForNotifier] = true
-		}
+	fanout, err := notify.NewFanout(notifyConfigs(cfg.Notify, sup.SkipApprovals()), logger)
+	if err != nil {
+		logger.Error("reload: notifiers unchanged", "err", err)
+		errs = append(errs, fmt.Errorf("notifiers not reloaded: %w", err))
+	} else {
+		notifier.Swap(fanout)
 	}
-	return starters, skip, nil
+	return errors.Join(errs...)
 }
 
 // notifyConfigs converts the notify list. A notifier whose type is in skipApprovals (a channel

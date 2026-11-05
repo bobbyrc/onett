@@ -353,9 +353,9 @@ code ~/.config/onett/secrets.env    # add lines like SENTRY_AUTH_TOKEN=...
 - In the config, `${NAME}` is replaced with the value of `NAME`. If `NAME` is not set, `onett serve`
   refuses to start and names the variable. A bare `$NAME` is left alone, so it can be used in shell
   commands such as the rollback above.
-- Restart `onett serve` after you edit `secrets.env` by hand. It is read at startup. An owner can
-  also add, replace and remove secrets on the **Secrets** page; a saved value applies to the next
-  config reload and agent run without a restart.
+- After you edit `secrets.env` by hand, run `./onett config --reload` (or restart `onett serve`).
+  An owner can also add, replace and remove secrets on the **Secrets** page; a saved value
+  applies at once, including to chat bots and notifiers, without a restart.
 
 ## 13. Pause and resume
 
@@ -431,7 +431,7 @@ never enable it themselves; if a task cannot be verified without it, report it a
   the token. Run the command on the machine that runs the daemon, or set `ONETT_API` and
   `ONETT_TOKEN`.
 - **`undefined environment variable ${NAME}`**: the config refers to a variable that is not set.
-  Add it to `secrets.env` and restart `onett serve`.
+  Add it to `secrets.env` and reload the config.
 - **A task is `blocked` with a denial**: read the run log with `./onett run logs RUN_ID`. The agent's
   tool call was refused. Fix the cause (for example, a missing permission or a path outside the
   checkout) and retry with a note.
