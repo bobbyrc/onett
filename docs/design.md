@@ -289,8 +289,9 @@ owner. The turn is a `system` message holding a check-in (the goal, each task's 
 reason and summary, and what to decide), run through the normal chat path with `ONETT_GOAL` in the
 orchestrator's environment, which the CLI uses to link every `onett task create` to the goal; no
 fake owner message is written. Two guards keep an unattended loop from spinning: a turn that leaves
-the goal active but queued no task, retried none and did not finish or block the goal blocks it, and
-so does reaching `limits.max_goal_turns` (default 40). Blocking, and `onett goal done`, notify the
+the goal active but queued no task, retried none and did not finish or block the goal gets one
+second chance (the next check-in opens by saying so and the loop wakes at once), and a second such
+turn in a row blocks it; so does reaching `limits.max_goal_turns` (default 40). Blocking, and `onett goal done`, notify the
 owner. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
 Goals add no new way to act: the orchestrator still only queues tasks, and merges still wait for
 the project's policy (the owner only under `supervised`). `loops.goals.enabled: false` turns the

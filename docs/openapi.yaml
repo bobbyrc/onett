@@ -2769,6 +2769,9 @@ components:
         turns:
           type: integer
           description: Orchestrator turns started so far; capped by `limits.max_goal_turns`.
+        stalled_turns:
+          type: integer
+          description: Consecutive turns without progress (0 or 1). One gets a second chance; the next blocks the goal.
         last_turn_at:
           type: string
           format: date-time

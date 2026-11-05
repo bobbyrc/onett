@@ -84,6 +84,7 @@ export interface Goal {
   status: GoalStatus;
   conversation_id: string;
   turns: number;
+  stalled_turns?: number;
   last_turn_at?: string;
   summary?: string;
   created_at: string;
