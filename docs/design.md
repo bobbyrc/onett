@@ -51,7 +51,7 @@ paths or accounts, nothing that assumes one machine and one person) when it cost
    built-in `default` policy therefore merges every risk level once the reviewer approves and CI
    is green, and the orchestrator turns multi-task requests into goals and acts without asking.
    Supervision is opt-in and never the default: the `supervised` policy, `limits`, project
-   pauses, `loops.goals.enabled: false`, and leaving self-update off. What stays on regardless are
+   pauses, `loops.goals.enabled: false`, and `loops.self_update.enabled: false`. What stays on regardless are
    the hard limits below (principles 1 and 2, secrets never leaving the machine, the daily budget
    for pay-per-token runs, and preflight holds for runs that would hang) and a real need for the
    owner, who is reached through a configured notifier or channel. When a decision trades
@@ -302,7 +302,8 @@ fake owner message is written. Two guards keep an unattended loop from spinning:
 the goal active but queued no task, retried none and did not finish or block the goal gets one
 second chance (the next check-in opens by saying so and the loop wakes at once), and a second such
 turn in a row blocks it; so does reaching `limits.max_goal_turns` (default 40). Blocking, and `onett goal done`, notify the
-owner. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
+owner. A task that blocks inside an active goal does not notify: the goal's orchestrator handles it
+first, and the owner hears only if the goal blocks. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
 Goals add no new way to act: the orchestrator still only queues tasks, and merges still wait for
 the project's policy (the owner only under `supervised`). `loops.goals.enabled: false` turns the
 loop off.
