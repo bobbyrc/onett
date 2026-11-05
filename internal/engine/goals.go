@@ -81,6 +81,11 @@ func (e *Engine) moveGoal(ctx context.Context, id string, to domain.GoalStatus, 
 		if !slices.Contains(from, g.Status) {
 			return fmt.Errorf("%w: goal is %s", api.ErrConflict, g.Status)
 		}
+		if to == domain.GoalActive && g.Status == domain.GoalBlocked {
+			// Resuming a blocked goal is the owner's call for a fresh turn budget; otherwise a
+			// goal blocked by max_goal_turns would be blocked again on its next tick.
+			g.Turns = 0
+		}
 		g.Status = to
 		if to == domain.GoalDone || to == domain.GoalBlocked {
 			g.Summary = text

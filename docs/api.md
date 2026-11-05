@@ -92,7 +92,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /goals` | `?project=&status=active,blocked&limit=` | `[]Goal` |
 | `POST /goals` | `{"project","title","body"}` | `Goal` (201): active, with its own orchestrator conversation (`conversation_id`) |
 | `GET /goals/{id}` | | `{"goal":Goal,"tasks":[]Task}`: the tasks created with this `goal_id`, newest first |
-| `POST /goals/{id}/pause`, `POST /goals/{id}/resume` | | `Goal`; 409 unless the goal is active (pause) or paused or blocked (resume) |
+| `POST /goals/{id}/pause`, `POST /goals/{id}/resume` | | `Goal`; 409 unless the goal is active (pause) or paused or blocked (resume); resuming a blocked goal resets its turn count so a goal that hit `max_goal_turns` gets a fresh budget |
 | `POST /goals/{id}/done` | `{"summary":"…"}` (required) | `Goal`; notifies the owner (normal priority); 409 when already done |
 | `POST /goals/{id}/block` | `{"reason":"…"}` (required) | `Goal`; notifies the owner (high priority); 409 unless active or paused |
 | `GET /runs` | `?task_id=&project=&status=&limit=` | `[]Run` |
