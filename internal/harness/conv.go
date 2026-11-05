@@ -396,7 +396,17 @@ func StopConversations() {
 	for _, c := range all {
 		if !c.proc.Detach() {
 			c.stop()
+			continue
 		}
+		// Forget it now: route notices the closed stream only a moment later, and a turn
+		// started in between would write to a process nobody listens to.
+		c.mu.Lock()
+		c.stopping = true
+		if c.idle != nil {
+			c.idle.Stop()
+		}
+		c.mu.Unlock()
+		convs.remove(c.key, c)
 	}
 }
 
