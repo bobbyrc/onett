@@ -227,6 +227,12 @@ crashes. It uses launchd, the macOS service manager, which reads a plist file (a
 from `~/Library/LaunchAgents`. The daemon's log is `onett.log` in the config's data directory
 (`server.data_dir`, `~/.local/share/onett` by default).
 
+The Config page's **Restart now** button (owner only, `POST /restart`) restarts the daemon after a
+change to `server.addr` or `server.data_dir`. It shuts down the way SIGTERM does, then: under this
+service the process exits and launchd starts it again; run any other way (a terminal, the dogfood
+script) it re-executes its own binary with the same arguments and environment, so it keeps the same
+process ID.
+
 ```sh
 ./onett service install     # write the plist, start the daemon, keep it alive
 ./onett service status      # running (with pid) or installed/not installed, and the log path

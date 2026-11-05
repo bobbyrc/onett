@@ -1343,6 +1343,23 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /restart:
+    post:
+      operationId: restartDaemon
+      tags: [config]
+      summary: Restart the daemon.
+      description: >-
+        Owner only (the API token gets 403). Answers 202, then shuts down as a SIGTERM would (running agent runs are stopped the same way) and starts again on the current config file. Under the launchd service the process exits and launchd restarts it; otherwise it re-executes itself with the same arguments and environment. Poll `GET /health` for it to come back. 501 when the daemon cannot restart itself.
+      responses:
+        '202':
+          description: The restart has begun.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '501':
+          description: This daemon cannot restart itself.
+
   /conversations:
     get:
       operationId: listConversations
@@ -2490,12 +2507,16 @@ components:
 
     Health:
       type: object
-      required: [ok, version]
+      required: [ok, version, started_at]
       properties:
         ok:
           type: boolean
         version:
           type: string
+        started_at:
+          type: string
+          format: date-time
+          description: When this process started serving. It changes across a restart.
 
     Control:
       type: object

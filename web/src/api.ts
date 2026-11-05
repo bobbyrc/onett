@@ -140,7 +140,10 @@ export const deleteSecret = (name: string) => request<void>('DELETE', `/secrets/
 
 // ---- health and events ----
 
-export const getHealth = () => request<{ ok: boolean; version: string }>('GET', '/health', { auth: false });
+export const getHealth = () => request<{ ok: boolean; version: string; started_at?: string }>('GET', '/health', { auth: false });
+
+/** Owner only. The daemon answers 202, shuts down, and starts again. */
+export const restartDaemon = () => request<{ ok: boolean }>('POST', '/restart');
 
 export const getEventsHistory = (q: { after?: number; project?: string; task_id?: string; limit?: number } = {}) =>
   request<OnettEvent[]>('GET', withQuery('/events/history', q));

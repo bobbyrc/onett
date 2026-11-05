@@ -55,7 +55,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 
 | Method & path | Body / query | Response |
 |---|---|---|
-| `GET /health` | | `{"ok":true,"version":"…"}` |
+| `GET /health` | | `{"ok":true,"version":"…","started_at":"…"}`; `started_at` changes when the daemon restarts |
 | `GET /auth/state` | | `{"setup_required":bool,"user":User\|null}` (never 401) |
 | `POST /auth/setup` | `{"username","password"}`; only while no user exists | `User` and sets the cookie (200); 409 once a user exists; 503 busy |
 | `POST /auth/login` | `{"username","password"}` | `User` and sets the cookie (200); 401 wrong credentials; 429 locked; 503 busy |
@@ -65,6 +65,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `PUT /secrets/{name}` | `{"value"}` | `{"name","set","shadowed"}` (owner); 400 bad name or empty value; writes `secrets.env` (0600) and reloads |
 | `DELETE /secrets/{name}` | | 204 (owner); 404 when the file lacks it |
 | `POST /notify/test` | `{"index"}` | `{"ok":true}` (owner); builds notifier N of the current config and sends one labelled test notification. 404 bad index; 422 `{"ok":false,"error"}` it cannot be built; 502 delivery failed. The error never holds a secret value |
+| `POST /restart` | | 202 `{"ok":true}` (owner); the daemon then shuts down as on SIGTERM and starts again on the current config. Under the launchd service it exits and launchd restarts it; otherwise it re-executes itself with the same arguments and environment. Poll `GET /health`. 501 if not supported |
 | `POST /channels/test` | `{"index"}` | `{"ok":true}` (owner); sends one labelled message through the running bot of channel N to its allowed users. 404 bad index; 409 the bot is not running (the error says why); 501 this channel type cannot send a test; 502 delivery failed |
 | `GET /users` | | `[]User` (owner) |
 | `POST /users` | `{"username","password","role"}` | `User` (201, owner); 409 taken |
@@ -127,12 +128,12 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 
 Which role may call each route: every `GET` needs `viewer` or better (the token included). Every
 `POST` that acts on work (tasks, approvals, pause, loops, chat, `config/reload`, projects) needs
-`operator` or better (the token included). Everything under `/users`, `/secrets`, `/notify/test`, `/channels/test` and `/config/file` and
+`operator` or better (the token included). Everything under `/users`, `/secrets`, `/notify/test`, `/channels/test`, `/restart` and `/config/file` and
 `/config/document` needs `owner` (the token gets 403).
 
 `User` is `{"username","role","created_at","updated_at"}`. `ConfigSaved` is
 `{"version","restart_required":[...]}`: `restart_required` lists settings read only at start-up
-that changed (`server.addr` and `server.data_dir`); they take effect after a restart. Notifiers,
+that changed (`server.addr` and `server.data_dir`); they take effect after a restart (`POST /restart`). Notifiers,
 channels and `server.allowed_hosts` apply on reload. A save writes the file atomically and then
 reloads the daemon, so a 500 from a save means the file was written but the reload failed or only
 partly applied (for example the new notifiers could not be built and the old ones keep running);

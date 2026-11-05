@@ -396,7 +396,7 @@ page until saved: a bar at the bottom says how many there are, with Save and Dis
 nothing when the file changed on disk since the page opened (a notice offers to load the latest,
 which discards your edits) or when the result would be invalid (the problems are listed above the
 editor, and each is also shown under its field). Settings that take effect only after a restart are
-named in a note until dismissed. A link can open one map entry: `/config?section=projects&entry=onett` (`section` is a group id; an older top-level key such as `routing` still opens its group)
+named in a note until dismissed; the note has a **Restart now** button that asks first, restarts the daemon (`POST /restart`) and waits for it, at the new address when `server.addr` changed, then reloads the page there (it says so if the daemon is not back within a minute). A link can open one map entry: `/config?section=projects&entry=onett` (`section` is a group id; an older top-level key such as `routing` still opens its group)
 opens that group and scrolls to the `onett` card, which gets an `--info` outline (Projects'
 Edit settings uses it). **Send test** sends one clearly labelled test notification (a notifier) or message (a chat
 channel) through the saved entry and shows the result beside the button; a failure shows the reason
