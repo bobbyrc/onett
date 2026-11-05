@@ -1,0 +1,87 @@
+/* The activity line (docs/design/chat-visual.md, "Status and activity line"). */
+
+.chat-page .activity-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: 24px;
+  margin: 0;
+  font-size: var(--chat-text-md);
+  color: var(--chat-fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-page .activity-lamp {
+  margin-right: var(--chat-space-2);
+}
+
+.chat-page .activity-lamp {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  background: var(--chat-accent);
+  /* Two steps, on and off, like every onett lamp. */
+  animation: activity-blink 1.6s steps(1, end) infinite;
+}
+
+@keyframes activity-blink {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  60.01%,
+  100% {
+    opacity: 0.25;
+  }
+}
+
+.chat-page .activity-working {
+  color: var(--chat-fg);
+}
+
+.chat-page .activity-working .activity-link,
+.chat-page .activity-working [aria-hidden='true'] {
+  color: var(--chat-fg-faint);
+}
+
+.chat-page .activity-working .activity-quiet {
+  color: var(--chat-warning);
+}
+
+.chat-page .activity-stopped,
+.chat-page .activity-failed {
+  color: var(--chat-danger);
+}
+
+.chat-page .activity-link a {
+  color: inherit;
+  text-decoration: underline;
+  /* A tappable target on a phone: 44px tall without growing the line. */
+  display: inline-block;
+  padding: 10px 4px;
+  margin: -10px -4px;
+}
+
+.chat-page .activity-link a:focus-visible {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Read by screen readers only: the coarse text for the live region. */
+.chat-page .activity-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-page .activity-lamp {
+    animation: none;
+  }
+}
