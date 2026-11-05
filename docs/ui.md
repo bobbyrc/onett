@@ -231,6 +231,22 @@ wide sits 8vh from the top: the heading "Talk to the orchestrator", a muted line
 cannot do, the composer, and three example prompts as chips. Sending creates a conversation and
 opens it with the message already sent.
 
+**Attachments.** The composer of an open orchestrator conversation takes files three ways: the
+paperclip button ("Attach files", a file picker that allows several), pasting files from the
+clipboard into the field (a pasted screenshot, for one; pasted text is left alone), and dragging
+files over the composer, which shows a "Drop files to attach" overlay. A file starts uploading the
+moment it is chosen (`POST /conversations/{id}/attachments`) and shows as a chip above the field: a
+thumbnail for an image or a document icon otherwise, the name, a progress bar while it uploads and
+then its size, and a × to remove it (which cancels a running upload). A file that fails shows its
+error in red on the chip instead, for example "Too large" with the server's limit (413), and is not
+sent. Only `chat.attachments.max_per_message` files (10 until the config says otherwise) count; the
+extra ones are added as red chips reading "Only N files fit in one message". Send waits while any
+upload is running, and a message may be only attachments with no text. Task-agent conversations and
+the start page (no conversation yet) have no attach controls: the first message there is text only.
+A sent message shows its files under the text: an image as a thumbnail, anything else as a chip with
+the name and size, each opening the file in a new tab. If the file is gone (retention deleted it),
+the thumbnail falls back to the plain chip.
+
 The 260px sidebar has a "+ New conversation" button (always the orchestrator; operators only), an
 **Orchestrator** section of conversations (title, RelTime), then a quieter **Agents** section from
 `GET /agent-conversations`. Each task with an agent shows its title, and under it a row with a lamp,

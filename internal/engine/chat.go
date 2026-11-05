@@ -164,6 +164,10 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 		ResumeSessionID: conv.SessionID,
 		Env:             e.chatEnv(conv, run.ID),
 		Args:            agent.Args,
+		// Turns of one conversation share a long-lived agent process, so the prompt cache and
+		// MCP connections carry over; a harness that cannot do that starts one per turn.
+		ConversationID: conv.ID,
+		KeepAlive:      max(cfg.Chat.SessionIdleTimeout.Duration, 0),
 	})
 	if err != nil {
 		e.failChatRun(ctx, run, err)

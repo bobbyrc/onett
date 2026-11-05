@@ -62,6 +62,12 @@ type Server struct {
 // Chat holds the settings of the owner's chat with the orchestrator.
 type Chat struct {
 	Attachments ChatAttachments `yaml:"attachments" json:"attachments"`
+	// SessionIdleTimeout is how long the agent process of an orchestrator or goal conversation
+	// stays alive after its last turn (default 30m). While it lives, each message goes to the
+	// same process, so the prompt cache keeps hitting and MCP servers connect once; after it,
+	// the next message resumes the session in a new process. A negative value turns the
+	// long-lived process off: every turn then starts its own process.
+	SessionIdleTimeout Duration `yaml:"session_idle_timeout" json:"session_idle_timeout"`
 }
 
 // ChatAttachments bounds the photos and files the owner attaches to a chat message. They are
@@ -122,15 +128,15 @@ type Harness struct {
 	// limits.daily_budget_usd.
 	Billing string `yaml:"billing" json:"billing,omitempty"`
 	// Isolate runs the agent without the owner's personal Claude Code setup (their MCP
-	// connectors, plugins, hooks and user-level settings). Default true. Their tools come and
-	// go between turns, which breaks the prompt cache, and they are not what onett's agents
-	// need. Set false to give agents your MCP servers and plugins. Only claude-code has such a
-	// setup; other harness types ignore it. Read it with IsolateOn.
-	Isolate *bool `yaml:"isolate" json:"isolate,omitempty" default:"true"`
+	// connectors, plugins, hooks and user-level settings). Default false: agents use the
+	// owner's setup. Set true to drop it, for example when connectors that come and go
+	// between turns keep breaking the prompt cache. Only claude-code has such a setup; other
+	// harness types ignore it. Read it with IsolateOn.
+	Isolate *bool `yaml:"isolate" json:"isolate,omitempty" default:"false"`
 }
 
-// IsolateOn reports whether the harness's agents run isolated: true unless isolate is false.
-func (h Harness) IsolateOn() bool { return h.Isolate == nil || *h.Isolate }
+// IsolateOn reports whether the harness's agents run isolated: false unless isolate is true.
+func (h Harness) IsolateOn() bool { return h.Isolate != nil && *h.Isolate }
 
 // Price is USD per million tokens. Every field is optional; 0 means unknown. Cached input
 // tokens are billed at CachedInputPerMTok, falling back to InputPerMTok when that is 0.

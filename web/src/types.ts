@@ -77,6 +77,8 @@ export interface Task {
   queue_position?: number;
   /** Only in the task list: its place among its own project's queued tasks. */
   project_queue_position?: number;
+  /** Files handed to the task's agent. */
+  attachments?: Attachment[];
 }
 
 export type GoalStatus = 'active' | 'paused' | 'blocked' | 'done';
@@ -276,6 +278,8 @@ export interface Attachment {
   mime: string;
   size: number;
   created_at: string;
+  /** Only on a task's attachment: retention deleted the file. */
+  expired?: boolean;
 }
 
 /** What the upload endpoint answers with. */

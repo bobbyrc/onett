@@ -183,22 +183,46 @@ role that uses it until the reset time plus a minute. With no reset time the hol
 resumes by itself when the hold ends. Holds are saved as loop state, so a restart keeps them. `onett status` lists each hold. An orchestrator chat turn on a held harness is
 not queued: the chat is told the limit and when it lifts.
 
-#### Agent isolation and the prompt cache (`harnesses.<name>.isolate`, on by default)
+#### The owner's Claude setup and the prompt cache (`harnesses.<name>.isolate`, off by default)
 
 Claude Code's prompt cache works on a prefix: the tool list, the system prompt, then the
 conversation so far. If anything at the front changes, the whole history after it is read again
-at full price. A claude agent that inherits the owner's own setup (claude.ai MCP connectors,
-plugins, hooks) loads hundreds of tool definitions, and connectors that connect or drop between
-turns change that list. Measured on one machine, a two-message `--resume` conversation read about
-65k input tokens per turn at a 18-34% cache hit rate; isolated, about 18k at 78-80%. So unless
-`isolate: false`, the claude harness adds `--strict-mcp-config` (no MCP servers, since onett gives
-none) and `--setting-sources project,local` (no user-level hooks, plugins or permissions; the
+at full price. The owner wants their own Claude Code setup (claude.ai MCP connectors, plugins,
+hooks, context) available to onett's agents, so by default a claude agent inherits it. The cost
+is that it loads hundreds of tool definitions, and connectors that connect or drop between turns
+change that list. Measured on one machine, a two-message `--resume` conversation, with a new
+process per message, read about 65k input tokens per turn at a 18-34% cache hit rate; isolated,
+about 18k at 78-80%. With `isolate: true` the claude harness adds `--strict-mcp-config` (no MCP
+servers) and `--setting-sources project,local` (no user-level hooks, plugins or permissions; the
 repository's own settings and CLAUDE.md still load, and the login is untouched). The owner's
-`args` come after these and can override them. For the same reason the orchestrator's system
-prompt is identical on every turn of a conversation, and the changing list of projects and agents
-rides in the user message instead. Each run records the cached and cache-written parts of its
-input (`cached_input_tokens`, `cache_write_tokens`); `onett run show` and the run page show the hit
+`args` come after these and can override them. The orchestrator's system prompt is identical on
+every turn of a conversation, and the changing list of projects and agents rides in the user
+message instead. Each run records the cached and cache-written parts of its input
+(`cached_input_tokens`, `cache_write_tokens`); `onett run show` and the run page show the hit
 rate.
+
+#### One agent process per conversation (`chat.session_idle_timeout`, 30m by default)
+
+The better fix for the same problem is to stop starting a new process for each message, as an
+interactive Claude Code session does not. For the owner's orchestrator chats and goal
+conversations the claude harness keeps one `claude -p --input-format stream-json` process alive
+per conversation. Each owner message, chat follow-up and goal check-in is written to its stdin;
+MCP servers connect once, the tool list stays fixed inside the process, and the prompt cache keeps
+hitting. The harness interface stays the same: the engine sets `Spec.ConversationID` and
+`Spec.KeepAlive`, and `Start` returns a session for one turn. Its events end, and `Wait` returns,
+when the turn's `result` line arrives, so each turn is still its own run with its own stall
+watchdog, denial handling and token counts (`internal/harness/conv.go`).
+
+The process stops when the conversation has been idle for `chat.session_idle_timeout`; the next
+message then starts a new process with `--resume <session>`, which is what every message did
+before. A denial, a stall or a timeout kills the process (a denial is terminal), and so does a
+process that dies mid-turn, which fails that turn as a failed run does; the next message resumes
+in a new one. A negative `session_idle_timeout` turns the feature off. Two things to know:
+these processes are direct children of onett, not behind the run shim, so a restart of onett ends
+them (an interrupted turn is re-run by resuming its session, as when a shim is gone; making them
+survive a restart belongs with the run shim work); and the environment is fixed when a process
+starts, so `ONETT_RUN_ID` names the run of the turn that started it, and a task created in a
+later turn is attributed to that earlier run. `ONETT_CONVERSATION_ID` does not change.
 
 #### Run shim (`limits.run_shim`, on by default)
 
@@ -367,10 +391,19 @@ attachments by id. The API and, later, the chat channels both save through `atta
   file keeps rendering and simply lists one attachment fewer (**decision:** the reference is dropped
   rather than shown as "expired", so clients need no extra state).
 
-The orchestrator's prompt for a message ends with a list of its attachments (name, type, size and
-absolute path), labelled as data. The stored message keeps only the owner's text. Task agents run
-in other worktrees, so the note tells the orchestrator to copy what a task needs into the task
-body rather than pass a path.
+The orchestrator's prompt for a message ends with a list of its attachments (name, type, size, ID
+and absolute path), labelled as data. The stored message keeps only the owner's text. Task agents
+run in other worktrees and cannot see those paths, so the note tells the orchestrator to pass an
+ID with `onett task create --attach <id>` (repeatable; `POST /tasks` `attachments`).
+
+A task keeps its attachment references in `task_attachments`, with the name, type and size copied
+in. At the start of every run (so retries and follow-ups get them too) the workspace copies each
+file into the fresh worktree at `.onett-run/attachments/<name>` (mode 0600; a repeated name gets the
+attachment ID as a prefix). That directory is inside `.onett-run/`, which git already ignores, so
+the files never reach a commit. The task agent's prompt lists them by worktree-relative and
+absolute path, and says to open them with Read. **Decision:** unlike a chat message, a task keeps
+the reference when retention deletes the file: the agent is told the file has expired and the run
+goes ahead, because a task's body may depend on it and silently dropping it would hide that.
 
 ### Goals
 

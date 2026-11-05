@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"sort"
 	"sync"
@@ -17,6 +18,14 @@ import (
 type Host interface {
 	CreateConversation(ctx context.Context, title string) (domain.Conversation, error)
 	SendChat(ctx context.Context, conversationID, text string) (domain.ChatMessage, error)
+	// SendChatWith sends a message with attachments saved through SaveAttachment.
+	SendChatWith(ctx context.Context, conversationID, text string, attachmentIDs []string) (domain.ChatMessage, error)
+	// SaveAttachment stores a file for a conversation; it returns attach.ErrTooLarge over the limit.
+	SaveAttachment(ctx context.Context, conversationID, name string, r io.Reader) (domain.Attachment, error)
+	// MaxAttachmentSize is the per-file limit in bytes; 0 means attachments are off.
+	MaxAttachmentSize() int64
+	// MaxAttachmentsPerMessage is how many files one chat message may carry.
+	MaxAttachmentsPerMessage() int
 	DecideApproval(ctx context.Context, id string, approve bool, note string) (domain.Approval, error)
 	Subscribe() (<-chan domain.Event, func())
 }

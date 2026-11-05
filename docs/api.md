@@ -164,6 +164,12 @@ run, so a task an agent creates names the run that created it.
 belongs to another project). The `goal.updated` event carries the `Goal` whenever one is created,
 takes a turn or changes status.
 
+`POST /tasks` accepts `attachments`, a list of chat attachment IDs (any conversation's, at most
+`chat.attachments.max_per_message`; 400 for an unknown or repeated ID). Onett copies each file into
+the task agent's worktree under `.onett-run/attachments/` at the start of every run, and the task
+returns them as `attachments`. A file that retention has deleted stays listed with `expired: true`
+and the agent is told it is gone.
+
 `POST /tasks` rejects `"kind":"review"` with 400, since onett creates review tasks itself. An
 empty `kind` is stored as `feature`. A `risk` field is not part of `NewTask`, so it is rejected
 with 400 like any unknown field.

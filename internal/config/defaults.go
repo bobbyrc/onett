@@ -150,6 +150,9 @@ func applyServerDefaults(c *Config) {
 }
 
 func applyChatDefaults(c *Config) {
+	if c.Chat.SessionIdleTimeout.Duration == 0 {
+		c.Chat.SessionIdleTimeout.Duration = 30 * time.Minute
+	}
 	a := &c.Chat.Attachments
 	if a.MaxSize == 0 {
 		a.MaxSize = 25 << 20

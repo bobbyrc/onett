@@ -170,6 +170,20 @@ var migrations = []string{
 		PRIMARY KEY (message_id, attachment_id)
 	);
 	CREATE INDEX chat_message_attachments_attachment ON chat_message_attachments (attachment_id);`,
+
+	// Files handed to a task's agent. Unlike a chat message's links these outlive the attachment
+	// record: retention deletes the file, and the task still lists it as expired. The name, type
+	// and size are copied so the list stays readable after that.
+	`CREATE TABLE task_attachments (
+		task_id TEXT NOT NULL,
+		attachment_id TEXT NOT NULL,
+		position INTEGER NOT NULL,
+		conversation_id TEXT NOT NULL,
+		name TEXT NOT NULL,
+		mime TEXT NOT NULL,
+		size INTEGER NOT NULL,
+		PRIMARY KEY (task_id, attachment_id)
+	);`,
 }
 
 // migrate applies every migration whose version is not yet recorded, each in its own transaction.
