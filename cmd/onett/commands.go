@@ -283,6 +283,19 @@ func cmdTask(e *env, args []string) error {
 	return usagef("unknown task command %q (want create, list, show, cancel, retry or close-conversation)", sub)
 }
 
+// taskSource is the source of a task made with the CLI: an explicit --source wins; otherwise
+// "chat:<id>" when it runs inside an orchestrator chat turn (convID is that conversation), so the
+// orchestrator hears when the task settles; otherwise "api".
+func taskSource(explicit, convID string) string {
+	if explicit != "" {
+		return explicit
+	}
+	if convID != "" {
+		return domain.SourceChatPrefix + convID
+	}
+	return "api"
+}
+
 func taskCreate(e *env, args []string) error {
 	fs := newFlagSet("task create", e)
 	project := fs.String("project", "", "project name (required)")
@@ -293,6 +306,7 @@ func taskCreate(e *env, args []string) error {
 	role := fs.String("role", "", "agent role (default: routed by kind)")
 	priority := fs.Int("priority", 0, "higher runs first")
 	parent := fs.String("parent", "", "parent task ID")
+	source := fs.String("source", "", "task source (default: chat:<id> inside an orchestrator chat turn, else api)")
 	jsonOut := fs.Bool("json", false, "print the created task as JSON")
 	positional, err := parseArgs(fs, args)
 	if err != nil {
@@ -321,7 +335,7 @@ func taskCreate(e *env, args []string) error {
 	}
 	task, err := c.CreateTask(context.Background(), client.NewTask{
 		Project: *project, Kind: *kind, Title: *title, Body: text, Role: *role,
-		Priority: *priority, ParentID: *parent, Source: "api",
+		Priority: *priority, ParentID: *parent, Source: taskSource(*source, os.Getenv("ONETT_CONVERSATION_ID")),
 	})
 	if err != nil {
 		return err

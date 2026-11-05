@@ -316,6 +316,11 @@ type Friction struct {
 // after the task has merged.
 const SourceConversation = "conversation"
 
+// SourceChatPrefix starts Task.Source for a task the orchestrator created from a chat
+// conversation; the rest is the conversation ID ("chat:<id>"). Policy rules that match sources
+// ("followup", "retro") compare whole strings, so they are unaffected.
+const SourceChatPrefix = "chat:"
+
 // Conversation is one chat thread: with the orchestrator agent, or (when TaskID is set) with
 // the agent of one task.
 type Conversation struct {
