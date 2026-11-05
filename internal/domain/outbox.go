@@ -33,7 +33,10 @@ type RunResult struct {
 	PRTitle     string   `json:"pr_title,omitempty"`
 	PRBody      string   `json:"pr_body,omitempty"`
 	// Review is set only by reviewer runs.
-	Review    *ReviewVerdict   `json:"review,omitempty"`
+	Review *ReviewVerdict `json:"review,omitempty"`
+	// DependsOn names tasks whose unmerged work this run needs. A blocked run that sets it is
+	// re-queued to wait for them instead of blocking the task.
+	DependsOn []string         `json:"depends_on,omitempty"`
 	Followups []FollowupTask   `json:"followups,omitempty"`
 	Friction  []FrictionReport `json:"friction,omitempty"`
 	// Finished: the agent says nothing more can come of its conversation. It closes the

@@ -23,4 +23,6 @@ findings that sent work back, all from the recent window. Judge the evidence bef
 - When several friction issues describe the same problem, name the pair (the one to keep and
   the duplicate) in your summary. Do not call the GitHub API; onett closes nothing itself,
   so the owner acts on it.
+- Before you report `blocked` for something missing, check whether it is another task's unmerged
+  pull request; if so, report `blocked` with `depends_on` naming that task instead.
 - If the evidence shows nothing worth changing, report `no_changes` and say why.

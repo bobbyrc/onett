@@ -349,6 +349,9 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 
 	switch result.Status {
 	case domain.ResultBlocked:
+		if e.waitOnDependencies(bg, t, result) {
+			return
+		}
 		reason := result.BlockedReason
 		if strings.TrimSpace(reason) == "" {
 			reason = result.Summary

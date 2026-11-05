@@ -2325,6 +2325,11 @@ components:
         goal_id:
           type: string
           description: The goal this task works toward, when it was queued for one.
+        waiting_on:
+          type: array
+          items:
+            type: string
+          description: Tasks that must merge (or finish without a pull request) before this queued task may start. Onett clears an entry when its task lands and cancels this task when one ends blocked, failed or cancelled.
         created_by_run:
           type: string
           description: The run that created this task, when an agent created it through the CLI with the API token. Set from the `X-Onett-Run-ID` request header; ignored for a signed-in user.

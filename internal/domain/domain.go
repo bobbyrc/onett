@@ -116,6 +116,10 @@ type Task struct {
 	CreatedByRun string `json:"created_by_run,omitempty"`
 	// GoalID is the goal this task works toward, when it was queued for one.
 	GoalID string `json:"goal_id,omitempty"`
+	// WaitingOn lists the tasks that must land (merge, or finish without a pull request) before
+	// the scheduler may claim this queued task. Onett clears an entry when that task lands, and
+	// cancels this task when one of them ends without landing.
+	WaitingOn []string `json:"waiting_on,omitempty"`
 }
 
 type RunStatus string
