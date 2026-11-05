@@ -227,6 +227,7 @@ func (e *Engine) Run(ctx context.Context) error {
 	e.lifeMu.Unlock()
 	e.cancelAllRuns("onett is shutting down")
 	e.wg.Wait()
+	harness.StopConversations() // idle long-lived chat agents; a busy one was cancelled above
 	return nil
 }
 

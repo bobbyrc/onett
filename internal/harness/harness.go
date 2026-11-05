@@ -28,6 +28,15 @@ type Spec struct {
 	Env map[string]string
 	// Args are extra adapter-specific CLI arguments from the agent profile.
 	Args []string
+	// ConversationID and KeepAlive ask for a long-lived agent process shared by the turns of
+	// one conversation. With both set, an adapter that supports it (claude-code) writes Prompt
+	// to the conversation's live process instead of starting a new one, and starts one, resuming
+	// ResumeSessionID, when there is none. The process is stopped KeepAlive after a turn ends
+	// unless another turn starts. The returned Session is one turn: Events closes and Wait
+	// returns when the turn's result arrives, not when the process exits. Other adapters ignore
+	// both fields and run each Start as its own process.
+	ConversationID string
+	KeepAlive      time.Duration
 }
 
 // Event is one item of a session's output stream.
@@ -43,6 +52,9 @@ type Event struct {
 	// the shim's stream offset just after that line. A caller that has stored every event up to
 	// this one can persist it and give it back to Reattacher.Reattach.
 	Offset int64
+	// TurnResult marks the end of one turn of a long-lived process (see Spec.ConversationID):
+	// it is set on a final event that carries no log line, and holds that turn's result.
+	TurnResult *Result
 }
 
 // Result is how a session ended.
