@@ -427,7 +427,11 @@ func taskList(e *env, args []string) error {
 		if t.PRNumber > 0 {
 			pr = fmt.Sprintf("#%d", t.PRNumber)
 		}
-		rows = append(rows, []string{t.ID, string(t.Status), string(t.Kind), t.Project, pr, orDash(string(t.Risk)), truncate(t.Title, titleWidth)})
+		status := string(t.Status)
+		if t.Status == domain.TaskQueued && len(t.WaitingOn) > 0 {
+			status = "waiting" // queued, but held back until the tasks it waits on merge
+		}
+		rows = append(rows, []string{t.ID, status, string(t.Kind), t.Project, pr, orDash(string(t.Risk)), truncate(t.Title, titleWidth)})
 	}
 	table(e.out, []string{"ID", "STATUS", "KIND", "PROJECT", "PR", "RISK", "TITLE"}, rows)
 	return nil
@@ -480,6 +484,9 @@ func writeTaskDetail(w io.Writer, d client.TaskDetail) {
 	}
 	if t.BlockedReason != "" {
 		fmt.Fprintf(w, "Blocked:   %s\n", oneLine(t.BlockedReason))
+	}
+	if t.Status == domain.TaskQueued && len(t.WaitingOn) > 0 {
+		fmt.Fprintf(w, "Waiting:   waiting for %s to merge\n", oneLine(strings.Join(t.WaitingOn, ", ")))
 	}
 	if t.Summary != "" {
 		fmt.Fprintf(w, "Summary:   %s\n", oneLine(t.Summary))

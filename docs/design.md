@@ -107,6 +107,13 @@ paths or accounts, nothing that assumes one machine and one person) when it cost
 - **Outbox** — files an agent writes in `<worktree>/.onett-run/` to report back:
   `result.json` (status, summary, self-assessed risk, PR title/body, follow-up tasks, friction).
   Files, not network calls, so it works inside sandboxed harnesses such as Codex's.
+- **Waiting** — a queued task can wait on other tasks (`waiting_on`); the scheduler does not
+  claim it until each has merged or finished without a pull request, and it is cancelled, with
+  the reason, if one ends blocked, failed or cancelled. A follow-up waits for the task that filed
+  it (its worktree is cut from the default branch, which lacks that task's code until the merge)
+  and inherits that task's goal. An agent blocked by another task's unmerged pull request reports
+  `depends_on` in `result.json`; onett then re-queues it as waiting, without using an attempt,
+  instead of blocking it. Review tasks never wait for the task they review.
 - **Policy** — deterministic rules mapping a diff (paths, size, labels, task kind) to a risk
   level, and the gates per risk level (auto-merge, review required, human approval required).
 - **Loop** — a recurring job: issue intake, PR shepherd, deploy watch, prod watch, friction

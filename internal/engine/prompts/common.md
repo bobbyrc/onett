@@ -33,6 +33,7 @@ git-ignored). Onett reads only this file to learn what happened:
   "risk_reasons": ["Why, in a few words each."],
   "pr_title": "Imperative, under 70 characters.",
   "pr_body": "What changed, why, and how it was verified. Markdown.",
+  "depends_on": ["task id", "…"],
   "followups": [{"title": "…", "body": "…", "kind": "bugfix | feature | chore | improve"}],
   "friction": [{"title": "…", "body": "…", "target": "project | onett"}],
   "finished": false
@@ -50,6 +51,9 @@ the task.
   data/auth/infra impact. `medium`: user-visible behaviour change, moderate size, or thin
   test coverage. `high`: data migrations, auth, security, payments, infra, deletions, or
   anything hard to revert. Onett may rate it higher; it never rates it lower.
+- `depends_on`: only with `blocked`, when the missing piece is another task's pull request that
+  is not merged yet. Name those task ids; onett queues you again once they merge, with a note,
+  instead of asking the owner.
 - `followups`: real work you noticed but did not do because it is out of scope. At most 3.
   Do not pad.
 - `friction`: anything that slowed you down — missing or wrong docs, a flaky test, a broken

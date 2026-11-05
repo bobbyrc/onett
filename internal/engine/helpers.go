@@ -81,6 +81,7 @@ func (e *Engine) createTask(ctx context.Context, t domain.Task) (domain.Task, er
 		t.Source = "api"
 	}
 	t.Status = domain.TaskQueued
+	e.inheritFromParent(ctx, &t)
 	t, err = e.d.Store.CreateTask(ctx, t)
 	if err != nil {
 		return domain.Task{}, err

@@ -71,6 +71,7 @@ export interface Task {
   updated_at: string;
   created_by_run?: string;
   goal_id?: string;
+  waiting_on?: string[];
 }
 
 export type GoalStatus = 'active' | 'paused' | 'blocked' | 'done';

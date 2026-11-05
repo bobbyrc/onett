@@ -61,6 +61,18 @@ export function TaskDetail() {
         {runs.length > 0 ? <Link to={`/chat/task/${task.id}`}>Open conversation</Link> : null}
       </p>
       <TaskLine status={task.status} hasPR={Boolean(task.pr_number)} approvalCount={approvals.length} />
+      {task.status === 'queued' && task.waiting_on?.length ? (
+        <p className="muted">
+          Waiting for{' '}
+          {task.waiting_on.map((id, i) => (
+            <span key={id}>
+              {i > 0 ? ', ' : ''}
+              <Link to={`/tasks/${id}`}>{id}</Link>
+            </span>
+          ))}{' '}
+          to merge.
+        </p>
+      ) : null}
 
       <div className="task-body">
         <div className="task-main">
