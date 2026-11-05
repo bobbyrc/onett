@@ -110,3 +110,61 @@ jobs:
           name: mobile-screenshots
           path: web/e2e-results/screenshots
           if-no-files-found: warn
+
+  # Starts a real `onett serve` (throwaway HOME, free port, stub ntfy server) and drives the
+  # built UI through first-run setup in Chromium: owner account, project, agent, policy, ntfy with
+  # a secret token, then checks the files on disk. No external network. See
+  # web/e2e-daemon/first-run.spec.ts.
+  web-daemon:
+    name: Web first-run journey (real daemon)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installs the toolchains pinned in mise.toml (Go 1.27).
+      - uses: jdx/mise-action@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      # The binary embeds the built UI, so build the UI first.
+      - name: Build onett
+        run: |
+          (cd web && npm run build)
+          mise exec -- go build -o "$RUNNER_TEMP/onett" ./cmd/onett
+
+      - name: First-run journey
+        working-directory: web
+        env:
+          ONETT_E2E_BINARY: ${{ runner.temp }}/onett
+        run: npx playwright test -c playwright.daemon.config.ts
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daemon-journey-screenshots
+          path: web/e2e-results/daemon-screenshots
+          if-no-files-found: warn
+
+      - name: Upload report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daemon-journey-report
+          path: |
+            web/e2e-results/daemon-report
+            web/e2e-results/daemon-traces
+          if-no-files-found: warn

@@ -101,6 +101,10 @@ func (c *Config) Validate() error {
 		// Roles are checked as merged, so a project sees the same roles the engine will run.
 		agents := c.AgentsFor(name)
 		for role, a := range agents {
+			// A role the project does not override is the global one, reported above at agents.<role>.
+			if _, overridden := p.Agents[role]; !overridden {
+				continue
+			}
 			if _, ok := c.Harness[a.Harness]; !ok {
 				add("%s.agents.%s.harness: unknown harness %q", prefix, role, a.Harness)
 			}
