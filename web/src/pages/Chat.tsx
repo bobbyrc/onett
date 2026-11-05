@@ -32,7 +32,7 @@ import {
 } from '../queries';
 import { ActivityLine } from '../components/ActivityLine';
 import { Button } from '../components/Button';
-import { Empty } from '../components/Empty';
+import { ChatSkeleton, ChatState } from '../components/ChatState';
 import { ErrorLine } from '../components/ErrorLine';
 import { Modal } from '../components/Modal';
 import { PageHeader } from '../components/PageHeader';
@@ -82,9 +82,17 @@ export function Chat() {
   if (canOperate) {
     noneOpen = <StartChat starting={create.isPending} onStart={startFromComposer} />;
   } else if (hasConversations) {
-    noneOpen = <Empty>Pick a conversation to read it.</Empty>;
+    noneOpen = (
+      <ChatState icon="select" title="Pick a conversation">
+        Choose one from the list to read it.
+      </ChatState>
+    );
   } else if (conversations.isSuccess) {
-    noneOpen = <Empty>No conversations yet.</Empty>;
+    noneOpen = (
+      <ChatState icon="chat" title="No conversations yet">
+        Conversations appear here once someone starts one.
+      </ChatState>
+    );
   }
 
   let thread: ReactNode = noneOpen;
@@ -105,6 +113,7 @@ export function Chat() {
             activeTaskId={taskId}
             orchestrator={(conversations.data ?? []).filter((c) => !c.task_id)}
             agents={agents.data ?? []}
+            loading={conversations.isPending}
           />
         ) : null}
         <section className="thread">{thread}</section>
@@ -124,6 +133,7 @@ function Sidebar({
   activeTaskId,
   orchestrator,
   agents,
+  loading,
 }: {
   compact: boolean;
   canOperate: boolean;
@@ -131,6 +141,7 @@ function Sidebar({
   activeTaskId?: string;
   orchestrator: { id: string; title: string; busy: boolean; updated_at: string }[];
   agents: AgentConversation[];
+  loading: boolean;
 }) {
   return (
     <aside className={cx('conv-list', compact && 'compact')} aria-label="Conversations">
@@ -140,6 +151,7 @@ function Sidebar({
         </Link>
       ) : null}
       <h2 className="conv-heading">Orchestrator</h2>
+      {loading ? <ChatSkeleton variant="list" label="Loading conversations" /> : null}
       <ul className="conv-group">
         {orchestrator.map((conversation) => (
           <li key={conversation.id}>
@@ -207,11 +219,10 @@ function StartChat({ starting, onStart }: { starting: boolean; onStart: (text: s
 
   return (
     <div className="chat-start">
-      <h2 className="chat-start-title">Talk to the orchestrator</h2>
-      <p className="muted">
+      <ChatState icon="chat" title="Talk to the orchestrator">
         It can create tasks, check on work in flight and answer questions about your projects. It acts through the
         same API as you, so it can never change settings or users.
-      </p>
+      </ChatState>
       <Composer
         textareaRef={textareaRef}
         draft={draft}
@@ -243,6 +254,22 @@ function StartChat({ starting, onStart }: { starting: boolean; onStart: (text: s
 }
 
 // ---- pieces shared by both kinds of thread ----
+
+function LoadFailed({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  return (
+    <ChatState
+      icon="error"
+      title="Couldn't load this conversation"
+      action={
+        <Button variant="secondary" onClick={onRetry}>
+          Retry
+        </Button>
+      }
+    >
+      {errorMessage(error)}
+    </ChatState>
+  );
+}
 
 function ThreadHead({
   who,
@@ -457,17 +484,22 @@ function OrchestratorThread({
     // The API answers 404 for an id that was deleted or never existed: say so, and offer a fresh start.
     if (conversation.error instanceof ApiError && conversation.error.status === 404) {
       return (
-        <Empty>
-          <p>This conversation no longer exists.</p>
-          <Link to="/chat" className="btn btn-secondary">
-            Start a new conversation
-          </Link>
-        </Empty>
+        <ChatState
+          icon="missing"
+          title="This conversation no longer exists"
+          action={
+            <Link to="/chat" className="btn btn-secondary">
+              Start a new conversation
+            </Link>
+          }
+        >
+          It was deleted, or the link is wrong.
+        </ChatState>
       );
     }
-    return <ErrorLine error={conversation.error} />;
+    return <LoadFailed error={conversation.error} onRetry={() => void conversation.refetch()} />;
   }
-  if (!conv) return <p className="muted">Loading conversation…</p>;
+  if (!conv) return <ChatSkeleton />;
 
   const state = composerState({ canSend: true, viewer: !canOperate, working, queued });
   const run = lastRun.data;
@@ -590,17 +622,22 @@ function TaskThread({
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.status === 404) {
       return (
-        <Empty>
-          <p>This task has no conversation.</p>
-          <Link to="/chat" className="btn btn-secondary">
-            Back to chat
-          </Link>
-        </Empty>
+        <ChatState
+          icon="missing"
+          title="This task has no conversation"
+          action={
+            <Link to="/chat" className="btn btn-secondary">
+              Back to chat
+            </Link>
+          }
+        >
+          The agent has not said anything yet, or the task is gone.
+        </ChatState>
       );
     }
-    return <ErrorLine error={query.error} />;
+    return <LoadFailed error={query.error} onRetry={() => void query.refetch()} />;
   }
-  if (!conv) return <p className="muted">Loading conversation…</p>;
+  if (!conv) return <ChatSkeleton />;
 
   const { task } = conv;
   const role = task.role || 'agent';

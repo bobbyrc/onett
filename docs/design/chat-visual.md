@@ -177,7 +177,9 @@ in the strong tone and a `max-w-sm` 12px faint explanation.
 
 **Adaptation.** Centred under the top of the thread (as the current new-chat page is), a title in
 `--chat-fg-strong` at `--chat-text-md` weight 600, one `--chat-fg-faint` line of explanation and
-the example prompts as quiet square-cornered chips. No icon in a circle, no illustration.
+the example prompts as quiet square-cornered chips. A small line icon (22px, `currentColor`), no
+circle, no illustration. Loading shows a skeleton (a right-aligned user sheet and full-width
+assistant lines) only after 150ms, static under `prefers-reduced-motion`.
 
 ## Phone
 

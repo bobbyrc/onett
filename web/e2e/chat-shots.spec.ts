@@ -141,6 +141,27 @@ const SCENES: Scene[] = [
       await json(page, '**/api/v1/conversations', []);
     },
   },
+  {
+    name: 'chat-error',
+    path: `/chat/${CONV_ID}`,
+    ready: '.chat-state',
+    setup: async (page) => {
+      await page.route('**/api/v1/conversations/*', (route) =>
+        route.request().method() === 'GET'
+          ? route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ error: 'The daemon could not read this conversation.' }) })
+          : route.fallback(),
+      );
+    },
+  },
+  {
+    // The request never answers, so the skeleton stays up (the shot waits past its 150ms delay).
+    name: 'chat-loading',
+    path: `/chat/${CONV_ID}`,
+    ready: '.chat-skel',
+    setup: async (page) => {
+      await page.route('**/api/v1/conversations/*', () => new Promise(() => {}));
+    },
+  },
 ];
 
 test.describe.configure({ mode: 'parallel' });
@@ -164,7 +185,7 @@ for (const v of VARIANTS) {
         await page.goto(scene.path);
         await page.locator('main.main').waitFor();
         await page.locator(scene.ready).first().waitFor();
-        await page.waitForLoadState('networkidle');
+        if (scene.name !== 'chat-loading') await page.waitForLoadState('networkidle');
         await expect(page.getByText('Loading…')).toHaveCount(0);
         // No animations, transitions or blinking caret.
         await page.addStyleTag({

@@ -1,0 +1,122 @@
+/* Chat empty, error and loading states (docs/design/chat-visual.md, "Empty state"). */
+
+.chat-page .chat-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: var(--chat-max-width);
+  margin: 8vh auto 0;
+  padding: 0 var(--chat-space-4);
+  text-align: center;
+  color: var(--chat-fg-faint);
+}
+
+.chat-page .chat-state-icon {
+  flex: none;
+  margin-bottom: var(--chat-space-3);
+}
+
+.chat-page .chat-state-title {
+  margin: 0;
+  font-family: var(--chat-font);
+  font-size: var(--chat-text-md);
+  font-weight: 600;
+  line-height: var(--chat-leading);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--chat-fg-strong);
+}
+
+.chat-page .chat-state-copy {
+  max-width: 24rem;
+  margin: var(--chat-space-1) 0 0;
+  font-size: var(--chat-text-sm);
+  line-height: var(--chat-leading);
+  color: var(--chat-fg-faint);
+  overflow-wrap: anywhere;
+}
+
+.chat-page .chat-state-action {
+  margin-top: var(--chat-space-4);
+}
+
+/* Skeleton: a user sheet on the right, assistant lines at full width. */
+.chat-page .chat-skeleton {
+  width: 100%;
+  max-width: var(--chat-max-width);
+  margin: 0 auto;
+}
+
+.chat-page .chat-skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-space-3);
+}
+
+.chat-page .chat-skel {
+  display: block;
+  height: 14px;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius-sm);
+  background-image: linear-gradient(90deg, transparent, var(--chat-border), transparent);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: chat-skel-shimmer 1.4s linear infinite;
+}
+
+.chat-page .chat-skel-user {
+  align-self: flex-end;
+  width: 60%;
+  height: 40px;
+  margin-top: var(--chat-space-2);
+}
+
+.chat-page .chat-skel-user.narrow {
+  width: 40%;
+  height: 28px;
+}
+
+.chat-page .chat-skel-line {
+  width: 100%;
+}
+
+.chat-page .chat-skel-line.short {
+  width: 70%;
+}
+
+.chat-page .chat-skel-item {
+  height: 40px;
+}
+
+@keyframes chat-skel-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Static placeholders when motion is reduced. */
+@media (prefers-reduced-motion: reduce) {
+  .chat-page .chat-skel {
+    animation: none;
+    background-image: none;
+  }
+}
+
+@media (max-width: 759px) {
+  .chat-page .chat-state {
+    margin-top: 4vh;
+  }
+}
+
+/* Tap targets: the action is at least 44px tall. */
+.chat-page .chat-state-action .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
