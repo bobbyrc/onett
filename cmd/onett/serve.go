@@ -133,10 +133,11 @@ func cmdServe(e *env, args []string) error {
 				return nil, err
 			}
 			c, err := config.Load(p)
-			if err == nil {
-				inferSelfUpdate(c, p, exe)
+			if err != nil {
+				return nil, err
 			}
-			return c, err
+			inferSelfUpdate(c, p, exe)
+			return c, nil
 		},
 		AfterReload: func(_ context.Context, c *config.Config) error {
 			s := sup.Load()

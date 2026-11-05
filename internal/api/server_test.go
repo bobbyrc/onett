@@ -658,6 +658,29 @@ func TestStats(t *testing.T) {
 	assert.True(t, s.Paused)
 }
 
+func TestStatsOwnerUnreachable(t *testing.T) {
+	x := newHarness(t)
+	ctx := context.Background()
+	g, err := x.st.CreateGoal(ctx, domain.Goal{Project: "onett", Title: "g", Status: domain.GoalBlocked, Summary: "stuck"})
+	require.NoError(t, err)
+
+	get := func() Stats {
+		rec := x.call(t, http.MethodGet, "/api/v1/stats", "")
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		var s Stats
+		decode(t, rec, &s)
+		return s
+	}
+	x.ctl.cfg.Notify = []config.Notifier{{Type: "log"}}
+	s := get()
+	assert.True(t, s.OwnerUnreachable)
+	assert.Equal(t, []BlockedGoal{{ID: g.ID, Project: "onett", Title: "g", Reason: "stuck"}}, s.BlockedGoals)
+	assert.Equal(t, 1, s.AwaitingOwner)
+
+	x.ctl.cfg.Notify = []config.Notifier{{Type: "ntfy"}}
+	assert.False(t, get().OwnerUnreachable)
+}
+
 func TestAgentsKinds(t *testing.T) {
 	x := newHarness(t)
 	rec := x.call(t, http.MethodGet, "/api/v1/agents", "")

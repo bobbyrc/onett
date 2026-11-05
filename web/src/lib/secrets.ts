@@ -33,3 +33,16 @@ export function sortSecrets(list: SecretView[]): SecretView[] {
   const rank = (s: SecretView) => (!s.set && s.referenced_by.length > 0 ? 0 : s.set ? 1 : 2);
   return [...list].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
+
+/** A secret name: capital letters, digits and underscores, as the server requires. */
+export const SECRET_NAME_RE = /^[A-Z_][A-Z0-9_]*$/;
+
+/**
+ * The names a `*_env` field can pick: every known secret, plus the field's current value when it
+ * is not one of them (a typo, or a variable only the daemon's environment has), so the dropdown
+ * never shows something other than what the file holds.
+ */
+export function pickerNames(list: SecretView[], current: string): string[] {
+  const names = list.map((s) => s.name).sort((a, b) => a.localeCompare(b));
+  return current !== '' && !names.includes(current) ? [...names, current] : names;
+}

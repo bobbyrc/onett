@@ -83,6 +83,10 @@ func TestRateLimitedRunHoldsHarnessAndResumes(t *testing.T) {
 	rtWait(t, 10*time.Second, "the harness to be held", func() bool { return len(env.e.Holds()) == 1 })
 
 	assert.Equal(t, "fake", env.e.Holds()[0].Harness)
+	// The hold is recorded before the run ends and the task is requeued, so wait for that too.
+	rtWait(t, 10*time.Second, "the task to be requeued", func() bool {
+		return env.task(held.ID).Status == domain.TaskQueued
+	})
 	got := env.task(held.ID)
 	assert.Equal(t, domain.TaskQueued, got.Status, "the task waits instead of failing or blocking")
 	assert.Equal(t, 0, got.Attempts, "the hit does not use an attempt")
