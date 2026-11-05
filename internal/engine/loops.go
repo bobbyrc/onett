@@ -284,7 +284,7 @@ func (e *Engine) Loops(ctx context.Context) []api.LoopView {
 		for _, project := range cfg.ProjectNames() {
 			l := loopSettingsFor(cfg.LoopsFor(project), name)
 			st := states[name+"/"+project]
-			out = append(out, api.LoopView{
+			v := api.LoopView{
 				Name:      name,
 				Project:   project,
 				Enabled:   loopOn(cfg, name, project),
@@ -293,7 +293,11 @@ func (e *Engine) Loops(ctx context.Context) []api.LoopView {
 				LastError: st.LastError,
 				NextRunAt: st.NextRunAt,
 				ItemCount: st.ItemCount,
-			})
+			}
+			if name == loopHeartbeat {
+				e.fillHeartbeatView(ctx, &v, st, cfg.LoopsFor(project).Heartbeat.QuietHours)
+			}
+			out = append(out, v)
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {

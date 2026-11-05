@@ -196,7 +196,10 @@ as a fallback.
   whichever fits the longest run). Each run: task title (links to the run), Cancel, "role ·
   project", elapsed time and "output 12s ago", then a bar whose length is the elapsed time:
   green up to the last output, yellow after it once the run has been quiet for 5 minutes ("quiet
-  for 7m" in the text). Then **Activity**: the event feed, newest first, in fixed columns:
+  for 7m" in the text). Then the **Heartbeat** card (hidden when `/loops` has no heartbeat entry):
+  on, disabled or quiet hours; last and next run; items needing attention; actions and
+  escalations in 24h (added up over projects); the last error; and "Open Operations" once the
+  Operations conversation exists (`src/components/HeartbeatCard.tsx`). Then **Activity**: the event feed, newest first, in fixed columns:
   clock time, event type in words, message with one "task" (or "run") link. Ten rows show, with
   "Show all N" to expand in place. Live events prepend.
 - Not built yet: a compact lamp row on pages other than Overview, and fuller window details on

@@ -328,9 +328,14 @@ export interface LoopView {
   every: string;
   last_run_at: string;
   last_error?: string;
-  /** Only loops that report it (heartbeat) set these two. */
+  /** Only loops that report it (heartbeat) set these. */
   next_run_at?: string;
   item_count?: number;
+  actions_24h?: number;
+  escalations_24h?: number;
+  /** Empty or absent until the Operations conversation exists. */
+  operations_conversation_id?: string;
+  quiet_now?: boolean;
 }
 
 /** Where an agent's settings come from: the built-in definition, a built-in with changes, or a custom agent. */
