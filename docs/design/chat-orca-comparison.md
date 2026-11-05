@@ -49,7 +49,7 @@ test computes them (see Accessibility).
 - **Why different.** Orca's list is windowed (virtualised rows) and its pill is always mounted and
   fades (`inert` + `aria-hidden` while hidden); onett's list is plain DOM and the pill is mounted
   only when needed. The "N new" count is onett's addition. Orca's pill also swallows `mousedown` so
-  focus stays in the composer; onett's does not (see Known gaps).
+  focus stays in the composer, and onett's does too (`onMouseDown` calls `preventDefault`).
 
 ### P0-2 Code blocks: Adapted
 
@@ -247,25 +247,24 @@ mermaid, selection quote, and text-attachment previews.
 
 ## Known gaps found while verifying
 
-Nothing was changed for these; each is for a follow-up.
+Gaps 1, 3, 4, 5 and 6 are fixed (#240, #243 and, for the activity line, #242); gaps 2 and 7 stay
+open and are accepted for this goal.
 
 1. ~~`chat-visual.md` describes diff cards that do not exist.~~ Fixed: it now documents the `+n −m` counts and says there are no diff cards.
 2. **`chat-visual.md` promises "Waiting for you" and "Blocked" activity labels** (warning and danger
-   lamps). Fixed for task threads: `ActivityLine` takes an `attention` prop, set from the task status
-   (`awaiting_approval`, `blocked`). The orchestrator thread has no such status, so it never shows them.
-3. **Stale wording in two places.** `web/src/chat-tokens.css` says "Nothing reads them yet" and
-   `chat-visual.md` says "This PR changes no visuals: nothing reads the tokens yet"; both predate
-   the restyle PRs.
-4. **The token guard does not cover `Composer.css`** (nor `ComposerAttachments`/`MessageAttachments`
-   styles), so hard-coded colours there would pass `chatCss.test.ts`. A scan of `Composer.css` at this
-   commit found none.
-5. **Contrast is not tested.** The ratios in `chat-visual.md` are a one-time hand measurement; changing
-   a token value is not caught by any test.
-6. **Jump to latest takes focus on a pointer press.** Orca prevents `mousedown` on its pill so focus
-   stays in the composer; onett's `JumpToLatest` has no such handler. (Read from the code; not
-   reproduced in a browser.)
+   lamps). Fixed for task threads in #242: `ActivityLine` takes an `attention` prop, set from the task
+   status (`awaiting_approval`, `blocked`). The orchestrator thread has no such status, so it never
+   shows them. Open; accepted for this goal.
+3. ~~Stale wording in two places (`chat-tokens.css` and `chat-visual.md` said nothing reads the tokens).~~
+   Fixed in #243: `web/src/chat-tokens.css` is corrected, and `chat-visual.md` now says only that the
+   unused `-bg` diff tokens are reserved for a future diff body.
+4. ~~The token guard does not cover `Composer.css`.~~ Fixed in #243: `web/src/lib/chatCss.test.ts` now
+   scans `Composer.css`.
+5. ~~Contrast is not tested.~~ Fixed in #243: `web/src/lib/chatContrast.test.ts` checks the ratios.
+6. ~~Jump to latest takes focus on a pointer press.~~ Fixed: `web/src/components/JumpToLatest.tsx`
+   prevents `mousedown` (`onMouseDown={(e) => e.preventDefault()}`), so focus stays in the composer.
 7. **Fold decides by counts only**, so a 13-line message of short lines folds with almost nothing
-   hidden (Orca measures first). Minor.
+   hidden (Orca measures first). Minor. Open; accepted for this goal.
 
 ## Gallery
 
