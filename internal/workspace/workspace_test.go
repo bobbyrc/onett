@@ -318,6 +318,25 @@ func TestPrepareSameBranchTwiceWithoutRemove(t *testing.T) {
 	assert.Equal(t, "onett/retry", runGit(t, ws2.Dir, "rev-parse", "--abbrev-ref", "HEAD"))
 }
 
+func TestPrepareKeepsUnpublishedWorkOfEarlierAttempt(t *testing.T) {
+	repo, m, _ := setup(t)
+	ctx := context.Background()
+
+	// Attempt 1 commits one file and leaves another uncommitted, as when its checks failed.
+	ws1, err := m.Prepare(ctx, repo, "onett/keep", "run1")
+	require.NoError(t, err)
+	writeFile(t, filepath.Join(ws1.Dir, "a.txt"), "committed\n")
+	_, err = m.Commit(ctx, ws1, "first")
+	require.NoError(t, err)
+	writeFile(t, filepath.Join(ws1.Dir, "b.txt"), "uncommitted\n")
+
+	ws2, err := m.Prepare(ctx, repo, "onett/keep", "run2")
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(ws2.Dir, "a.txt"))
+	assert.FileExists(t, filepath.Join(ws2.Dir, "b.txt"))
+	assert.Empty(t, runGit(t, ws2.Dir, "status", "--porcelain"))
+}
+
 // conflictingWorkspace returns a worktree on onett/m whose README.md conflicts with origin/main.
 func conflictingWorkspace(t *testing.T) (Repo, *Manager, Workspace) {
 	t.Helper()
