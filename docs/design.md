@@ -180,8 +180,7 @@ provider 429), the run ends as `cancelled` with the limit's message, the task go
 `queued` without using an attempt, and the harness is held: the scheduler starts no run for any
 role that uses it until the reset time plus a minute. With no reset time the hold backs off from
 5 minutes, doubling per consecutive hit up to 1 hour. Other harnesses keep running, and dispatch
-resumes by itself when the hold ends. Holds live in memory, so after a restart the next run finds
-the limit again. `onett status` lists each hold. An orchestrator chat turn on a held harness is
+resumes by itself when the hold ends. Holds are saved as loop state, so a restart keeps them. `onett status` lists each hold. An orchestrator chat turn on a held harness is
 not queued: the chat is told the limit and when it lifts.
 
 ### Risk and auto-merge **(review)**

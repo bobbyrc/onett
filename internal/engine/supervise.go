@@ -144,7 +144,7 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 		status = domain.RunFailed
 	}
 	if res.RateLimit == nil && status == domain.RunSucceeded {
-		e.holds.clear(run.Harness)
+		e.clearHold(ctx, run.Harness)
 	}
 
 	var errMsg string

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -16,11 +17,16 @@ import (
 
 // A harness that hits its subscription or provider limit is held: no new run starts on it until
 // the reset time, so the factory waits the limit out instead of failing tasks against it.
-// Holds live in memory. After a restart the next run on the harness finds the limit again.
+// Holds live in memory and are saved as LoopState (holdLoop, one row per harness), so a restart
+// does not make the next run find the limit again.
 const (
 	holdBackoffStart = 5 * time.Minute // hold when the harness gave no reset time, first hit
 	holdBackoffMax   = time.Hour
 )
+
+// holdLoop is the LoopState name that persists holds: Project is the harness name and Cursor the
+// domain.HarnessHold as JSON. A cleared hold is saved with an empty Cursor.
+const holdLoop = "harness_hold"
 
 // holdMargin is added to a reported reset time, so the first run after the hold does not race
 // the harness's own clock. A variable so tests can shrink it.
@@ -60,11 +66,23 @@ func (t *holdTable) hit(name string, rl harness.RateLimit, now time.Time) domain
 }
 
 // clear forgets name's hits after a run on it ended without a limit, so the next limit backs off
-// from the start again.
-func (t *holdTable) clear(name string) {
+// from the start again. It reports whether there was anything to forget.
+func (t *holdTable) clear(name string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	_, ok := t.m[name]
 	delete(t.m, name)
+	return ok
+}
+
+// restore puts back a hold loaded from the store.
+func (t *holdTable) restore(h domain.HarnessHold) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.m == nil {
+		t.m = map[string]domain.HarnessHold{}
+	}
+	t.m[h.Harness] = h
 }
 
 // active lists the holds still in force at now, by harness name.
@@ -97,6 +115,7 @@ func (e *Engine) noteRateLimit(ctx context.Context, name string, rl harness.Rate
 	now := e.d.Now()
 	_, already := e.holds.held(name, now)
 	h := e.holds.hit(name, rl, now)
+	e.saveHold(ctx, name, &h)
 	if !already {
 		msg := holdSummary(h, now)
 		e.d.Bus.Emit(ctx, domain.EvSystem, "", "", "", msg, nil)
@@ -144,4 +163,42 @@ func (e *Engine) heldRoles() []store.ProjectRole {
 		}
 	}
 	return out
+}
+
+// saveHold persists name's hold, or forgets it when h is nil. A failure is logged only: the
+// in-memory hold still protects this process.
+func (e *Engine) saveHold(ctx context.Context, name string, h *domain.HarnessHold) {
+	st := domain.LoopState{Name: holdLoop, Project: name, LastRunAt: e.d.Now()}
+	if h != nil {
+		b, err := json.Marshal(h)
+		if err != nil {
+			e.d.Logger.Error("save hold", "harness", name, "err", err)
+			return
+		}
+		st.Cursor = string(b)
+	}
+	if err := e.d.Store.SaveLoopState(context.WithoutCancel(ctx), st); err != nil {
+		e.d.Logger.Error("save hold", "harness", name, "err", err)
+	}
+}
+
+// clearHold forgets name's hold in memory and in the store. It writes only when a hold was there.
+func (e *Engine) clearHold(ctx context.Context, name string) {
+	if e.holds.clear(name) {
+		e.saveHold(ctx, name, nil)
+	}
+}
+
+// restoreHolds loads saved holds at startup. Expired ones are skipped; they lift by themselves.
+func (e *Engine) restoreHolds(states []domain.LoopState) {
+	for _, s := range states {
+		if s.Name != holdLoop || s.Cursor == "" {
+			continue
+		}
+		var h domain.HarnessHold
+		if json.Unmarshal([]byte(s.Cursor), &h) != nil || h.Harness != s.Project {
+			continue
+		}
+		e.holds.restore(h)
+	}
 }
