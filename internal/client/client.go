@@ -163,6 +163,9 @@ type LoopView struct {
 	Every     string    `json:"every"`
 	LastRunAt time.Time `json:"last_run_at"`
 	LastError string    `json:"last_error"`
+	// NextRunAt and ItemCount are set only by loops that report them (heartbeat).
+	NextRunAt *time.Time `json:"next_run_at,omitempty"`
+	ItemCount int        `json:"item_count,omitempty"`
 }
 
 // NewTask is the body of POST /tasks.

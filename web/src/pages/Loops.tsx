@@ -38,7 +38,29 @@ function LastRun({ loop }: { loop: LoopView }) {
   return (
     <span className="muted">
       ran <RelTime value={loop.last_run_at} />
+      <Upcoming loop={loop} />
     </span>
+  );
+}
+
+/** What a loop that reports it adds to its status: its next scheduled run and how many items the last run found. */
+function Upcoming({ loop }: { loop: LoopView }) {
+  const next = parseTime(loop.next_run_at);
+  return (
+    <>
+      {loop.item_count ? (
+        <>
+          {' · '}
+          {loop.item_count} {loop.item_count === 1 ? 'item' : 'items'}
+        </>
+      ) : null}
+      {next && loop.enabled ? (
+        <>
+          {' · next '}
+          <RelTime value={loop.next_run_at!} />
+        </>
+      ) : null}
+    </>
   );
 }
 

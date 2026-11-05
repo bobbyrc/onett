@@ -383,7 +383,7 @@ across all projects get an "all projects" column, placed first. Each cell has a 
 loop reads "off · every 30s" in muted text, so it differs from a healthy loop by words as well as by
 its grey lamp. The lamp is green when the last run worked, red when it failed, and grey when the
 loop is disabled or has not run yet; the words are screen-reader text. A failed loop shows its error
-in red on that second line, cut to one line, with the full text on hover. Operators see a "Run"
+in red on that second line, cut to one line, with the full text on hover. A loop that reports them (heartbeat) adds " · 3 items" and " · next in 12m" to that line. Operators see a "Run"
 button in each cell; viewers do not. Above the grid, one muted line counts loops on, off and failing
 (failing in red when any). Under 760px the grid becomes one sheet per loop name, with a row for each
 project it runs in.
