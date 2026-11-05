@@ -365,7 +365,12 @@ active section's settings are on the right. A number, text or duration setting i
 checkbox is "On"; clearing an input removes the key. A value written as `${NAME}` shows as text with
 a note that onett reads that environment variable. A map is one card per entry, with Rename and
 Remove (Remove asks first), and a form at the end to add one. A list has a row or a card per item,
-with Remove, and an Add button. A value with no simple form is edited as JSON. Edits stay on the
+with Remove, and an Add button. A setting with fixed choices, such as a notifier's `type`, is a
+dropdown. The `options` of a notifier, channel, deploy block or observer show the fields of the
+selected `type` (a setting that names an environment variable says so; the secret itself is never
+entered). Changing `type` keeps the options the new type also has and asks before dropping the rest;
+with no `type`, or one this onett does not know, `options` is edited as JSON. Any other value with no
+simple form is edited as JSON. Edits stay on the
 page until saved: a bar at the bottom says how many there are, with Save and Discard. A save writes
 nothing when the file changed on disk since the page opened (a notice offers to load the latest,
 which discards your edits) or when the result would be invalid (the problems are listed above the

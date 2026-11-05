@@ -551,7 +551,7 @@ export interface AuthStateResponse {
 // ---- Config editing (owner only; GET/PATCH /config/document and GET/PUT /config/file) ----
 
 /** The kinds of node in the config schema. "section" has fields; "map" and "list" have an item. */
-export type SchemaType = 'section' | 'map' | 'list' | 'string' | 'int' | 'float' | 'bool' | 'duration' | 'any';
+export type SchemaType = 'section' | 'map' | 'list' | 'string' | 'int' | 'float' | 'bool' | 'duration' | 'any' | 'variant';
 
 /** One node of the schema the server sends with the document. The root is a section with key "". */
 export interface SchemaNode {
@@ -562,6 +562,14 @@ export interface SchemaNode {
   fields?: SchemaNode[];
   /** Maps: the schema of each value. Lists: the schema of each element. */
   item?: SchemaNode;
+  /** Strings: the allowed values, shown as a dropdown. */
+  enum?: string[];
+  /** Strings: the value is the NAME of an environment variable that holds a secret. */
+  secret_env?: boolean;
+  /** Variants: the sibling key whose value picks the variant ("type"). */
+  discriminator?: string;
+  /** Variants: the options section for each value of the discriminator. */
+  variants?: Record<string, SchemaNode>;
 }
 
 /** One edit to the file. `path` is the mapping keys; decimal strings index lists. */

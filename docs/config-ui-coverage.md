@@ -5,9 +5,10 @@
 
 The web UI's Config page is built from the config schema (`internal/config/schema.go`). A setting
 is **covered** when the page gives it a typed input (text, number, switch, duration, or a
-section/list/map of those). A setting of type `any` is a free-form value that the page edits as a
-raw YAML text box, so it is **not covered**. `*` in a path stands for a map key (a project name)
-or a list element.
+section/list/map of those). A `variant` is an `options` map whose fields depend on the sibling
+`type`: the page shows the fields of the selected type, so each is listed as `path[type].key`.
+A setting of type `any` is a free-form value that the page edits as a raw YAML text box, so it
+is **not covered**. `*` in a path stands for a map key (a project name) or a list element.
 
 The frontend renders every node of the schema: `NodeEditor` in
 `web/src/components/config/ConfigSection.tsx` handles each type and nothing is skipped, so the
@@ -134,7 +135,11 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `projects.*.intake.*.timeout` | duration | yes |  |
 | `projects.*.deploy` | section | yes |  |
 | `projects.*.deploy.type` | string | yes |  |
-| `projects.*.deploy.options` | any | no | Gap: per-type options schema for each deployer (command: deploy/status/rollback commands; others as added) |
+| `projects.*.deploy.options` | variant | yes |  |
+| `projects.*.deploy.options[command].deploy` | string | yes |  |
+| `projects.*.deploy.options[command].status` | string | yes |  |
+| `projects.*.deploy.options[command].rollback` | string | yes |  |
+| `projects.*.deploy.options[command].timeout` | duration | yes |  |
 | `projects.*.deploy.health_url` | string | yes |  |
 | `projects.*.deploy.logs` | string | yes |  |
 | `projects.*.deploy.verify_for` | duration | yes |  |
@@ -144,7 +149,14 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `projects.*.observe.*` | section | yes |  |
 | `projects.*.observe.*.name` | string | yes |  |
 | `projects.*.observe.*.type` | string | yes |  |
-| `projects.*.observe.*.options` | any | no | Gap: per-type options schema for each observer (exec: command; sentry: org, project, token_env, base_url, query) |
+| `projects.*.observe.*.options` | variant | yes |  |
+| `projects.*.observe.*.options[exec].command` | string | yes |  |
+| `projects.*.observe.*.options[exec].timeout` | duration | yes |  |
+| `projects.*.observe.*.options[sentry].org` | string | yes |  |
+| `projects.*.observe.*.options[sentry].project` | string | yes |  |
+| `projects.*.observe.*.options[sentry].base_url` | string | yes |  |
+| `projects.*.observe.*.options[sentry].token_env` | string | yes |  |
+| `projects.*.observe.*.options[sentry].query` | string | yes |  |
 | `projects.*.loops` | section | yes |  |
 | `projects.*.loops.issue_intake` | section | yes |  |
 | `projects.*.loops.issue_intake.enabled` | bool | yes |  |
@@ -227,12 +239,30 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `notify` | list | yes |  |
 | `notify.*` | section | yes |  |
 | `notify.*.type` | string | yes |  |
-| `notify.*.options` | any | no | Gap: per-type options schema for each notifier (ntfy, telegram, discord, exec) |
+| `notify.*.options` | variant | yes |  |
+| `notify.*.options[discord].webhook_url_env` | string | yes |  |
+| `notify.*.options[discord].username` | string | yes |  |
+| `notify.*.options[exec].command` | string | yes |  |
+| `notify.*.options[ntfy].server` | string | yes |  |
+| `notify.*.options[ntfy].topic` | string | yes |  |
+| `notify.*.options[ntfy].token_env` | string | yes |  |
+| `notify.*.options[telegram].bot_token_env` | string | yes |  |
+| `notify.*.options[telegram].chat_id` | string | yes |  |
+| `notify.*.options[telegram].api_url` | string | yes |  |
+| `notify.*.options[telegram].skip_approvals` | bool | yes |  |
 | `notify.*.min_priority` | string | yes |  |
 | `channels` | list | yes |  |
 | `channels.*` | section | yes |  |
 | `channels.*.type` | string | yes |  |
-| `channels.*.options` | any | no | Gap: per-type options schema for channels (telegram/discord: bot_token_env, allowed_user_ids, state_file) |
+| `channels.*.options` | variant | yes |  |
+| `channels.*.options[discord].bot_token_env` | string | yes |  |
+| `channels.*.options[discord].allowed_user_ids` | list | yes |  |
+| `channels.*.options[discord].allowed_user_ids.*` | string | yes |  |
+| `channels.*.options[discord].state_file` | string | yes |  |
+| `channels.*.options[telegram].bot_token_env` | string | yes |  |
+| `channels.*.options[telegram].allowed_user_ids` | list | yes |  |
+| `channels.*.options[telegram].allowed_user_ids.*` | int | yes |  |
+| `channels.*.options[telegram].state_file` | string | yes |  |
 | `self_project` | string | yes |  |
 
 ## Settings outside onett.yaml
@@ -273,6 +303,7 @@ environment too.
 | `<data_dir>/token` | the API bearer token | `cmd/onett/main.go` (`tokenPath`) |
 | the launchd plist | `onett service install` copies each variable referenced as `${NAME}` in the config, plus `PATH`, from the installing shell into the plist | `cmd/onett/service.go` |
 
-Telegram and Discord channel and notifier options that are not secrets (`allowed_user_ids`,
-`state_file`, `chat_id`, `topic`, `server`, `api_url`, `username`) live in the `any` `options` maps listed
-above, so they are gaps too.
+The options that are not secrets (`allowed_user_ids`, `state_file`, `chat_id`, `topic`,
+`server`, `api_url`, `username`, ...) and the names of the variables that hold the secrets (the
+`*_env` options) can be set from the Config page: the `options` of a notifier, channel, deploy block or
+observer has typed fields for each type. Only the secret values themselves cannot be set there.
