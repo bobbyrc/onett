@@ -543,6 +543,7 @@ function OrchestratorThread({
           agentLabel="Orchestrator"
           afterRun={createdBy}
           queuedActions={canOperate ? (mid) => <QueuedActions message={byId[mid]} /> : undefined}
+          liveRunId={liveRunId}
         />
         {working ? (
           <WorkingLine
@@ -694,6 +695,7 @@ function TaskThread({
           view={view}
           agentLabel={capitalise(role)}
           queuedActions={canOperate ? (mid) => <QueuedActions message={byId[mid]} /> : undefined}
+          liveRunId={liveRunId}
         />
         {liveRunId ? (
           <WorkingLine
