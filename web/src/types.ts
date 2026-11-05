@@ -253,6 +253,8 @@ export interface Conversation {
   closed_at?: string;
   closed_by?: string;
   closed_reason?: string;
+  /** "operations" for the conversation the heartbeat wakes; empty for an ordinary chat. */
+  kind?: string;
 }
 
 export interface ChatMessage {

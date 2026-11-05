@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -67,14 +66,6 @@ type HeartbeatDigest struct {
 // digest holds an item it has not shown before, so an implementation may start a model turn.
 type HeartbeatWaker interface {
 	WakeHeartbeat(ctx context.Context, d HeartbeatDigest) error
-}
-
-// logHeartbeatWaker is the default waker: it only logs.
-type logHeartbeatWaker struct{ log *slog.Logger }
-
-func (w logHeartbeatWaker) WakeHeartbeat(_ context.Context, d HeartbeatDigest) error {
-	w.log.Info("heartbeat", "project", d.Project, "items", len(d.Items), "new", len(d.NewKeys))
-	return nil
 }
 
 // heartbeatState is the loop's memory, kept in LoopState.Cursor: when each reported item was

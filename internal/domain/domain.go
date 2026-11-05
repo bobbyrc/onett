@@ -404,7 +404,13 @@ type Conversation struct {
 	ClosedReason string `json:"closed_reason,omitempty"`
 	// GoalID is set on the conversation a goal runs in; its orchestrator turns get ONETT_GOAL.
 	GoalID string `json:"goal_id,omitempty"`
+	// Kind marks a conversation onett itself opened for a purpose; "" is an ordinary chat. The
+	// owner may rename the title, so code finds such a conversation by Kind, never by title.
+	Kind string `json:"kind,omitempty"`
 }
+
+// ConversationOperations is the Kind of the conversation the heartbeat wakes the orchestrator in.
+const ConversationOperations = "operations"
 
 type ChatMessage struct {
 	ID             string    `json:"id"`
