@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -373,6 +374,22 @@ func TestGoalInstructionsOnlyInGoalConversations(t *testing.T) {
 	assert.Contains(t, goal, "BASE")
 	assert.Contains(t, goal, "onett goal done g1 --summary")
 	assert.Contains(t, goal, "onett goal block g1 --reason")
+}
+
+func TestGoalInstructionsHandleBlockedTasksBeforeBlocking(t *testing.T) {
+	got := goalInstructions("g1")
+	handle := strings.Index(got, "yours to handle first")
+	block := strings.Index(got, "onett goal block g1")
+	require.NotEqual(t, -1, handle)
+	require.NotEqual(t, -1, block)
+	assert.Less(t, handle, block, "handling blocked tasks comes before blocking the goal")
+	assert.NotContains(t, got, "the goal waits for it")
+}
+
+func TestOrchestratorPromptCreatesGoals(t *testing.T) {
+	prompt, err := newGoalRig(t).e.BuiltinPrompt("orchestrator")
+	require.NoError(t, err)
+	assert.Contains(t, prompt, "onett goal create")
 }
 
 func storeGoalFilter(id string) store.TaskFilter { return store.TaskFilter{GoalID: id} }
