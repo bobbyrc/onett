@@ -341,12 +341,6 @@ asks for confirmation. "Add user" opens a sheet above the table with username, p
 role (default operator) and "Create user" or "Cancel". The server's message is shown under the
 table when it refuses a change, such as demoting or removing the last owner.
 
-**Secrets** (`/secrets`, owners only; anyone else is sent to Overview) — the names kept in
-`secrets.env` (bot tokens, API keys), never their values. A form above the list takes a name and a
-value (a password field) and "Save secret"; "Replace" on a row fills the name so a new value can be
-typed. "Remove" asks for confirmation. A saved value applies to the next config reload and agent
-run; a removal needs a restart.
-
 **Agents** (`/agents`) — card grid of the configured roles. Each card shows the name, a badge
 (`built-in`, `edited`, `custom` or `removed`: where its settings come from, or that it is switched
 off), the description, the harness and its type, the model (or "harness default"), and **Used for**:
@@ -384,5 +378,9 @@ nothing when the file changed on disk since the page opened (a notice offers to 
 which discards your edits) or when the result would be invalid (the problems are listed above the
 editor, and each is also shown under its field). Settings that take effect only after a restart are
 named in a note until dismissed. The **YAML** tab edits the raw text of the file, with the same bar
-and checks, and switching tabs with unsaved edits asks first. "Reload from file" makes the daemon
-read the file again.
+and checks, and switching tabs with unsaved edits asks first. The **Secrets** tab manages
+`secrets.env` and is write-only: each name shows set or not set, where the value comes from
+(`secrets.env` or the daemon's own environment, which wins and is marked "shadowed") and which
+config paths use it. Set and Replace take the value in a password field that is cleared after
+saving; Delete asks to confirm; no value is ever shown. Channel and notifier secrets still need a
+restart to take effect. "Reload from file" makes the daemon read the file again.

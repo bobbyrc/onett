@@ -432,10 +432,10 @@ export function useSecrets() {
   return useQuery({ queryKey: keys.secrets, queryFn: () => api.listSecrets() });
 }
 
-export function useSetSecret() {
+export function usePutSecret() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { name: string; value: string }) => api.setSecret(vars.name, vars.value),
+    mutationFn: (vars: { name: string; value: string }) => api.putSecret(vars.name, vars.value),
     onSuccess: () => invalidate(qc, keys.secrets),
   });
 }
