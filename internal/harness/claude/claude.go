@@ -72,6 +72,9 @@ func userLine(text string) ([]byte, error) {
 // Start runs one Claude Code session. The prompt goes to stdin as the first stream-json input
 // line, and stdin stays open until the first result line so Send can add messages.
 func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session, error) {
+	if spec.ConversationID != "" && spec.KeepAlive > 0 {
+		return r.startTurn(ctx, spec)
+	}
 	ps, err := r.procSpec(spec)
 	if err != nil {
 		return nil, err
@@ -81,6 +84,53 @@ func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session,
 		return nil, err
 	}
 	return ps.attach(p), nil
+}
+
+// startTurn runs spec as one turn of its conversation's long-lived process; see
+// harness.StartConvTurn. The process is a direct child of onett, not behind the run shim, and
+// outlives ctx, which ends only the turn.
+func (r *runner) startTurn(ctx context.Context, spec harness.Spec) (harness.Session, error) {
+	return harness.StartConvTurn(ctx, spec, harness.ConvStart{
+		Fingerprint: r.fingerprint(spec),
+		Encode:      userLine,
+		Start: func(first []byte) (*harness.Proc, error) {
+			ps := newParser(spec.Model)
+			ps.perTurn = true
+			var proc *harness.Proc
+			p, err := harness.StartProcess(context.Background(), harness.ProcSpec{
+				Command:       buildArgs(r.cfg, spec),
+				Dir:           spec.Workdir,
+				Env:           mergeEnv(r.cfg.Env, spec.Env),
+				InheritEnv:    r.cfg.InheritEnv,
+				RunID:         spec.RunID,
+				Stdin:         string(first),
+				KeepStdinOpen: true,
+				ParseLine:     ps.parseLine,
+				// OnExit only runs from Wait, after the process has started.
+				OnExit: func(exitCode int, _ error) (harness.Result, error) {
+					return ps.result(exitCode, proc.StderrTail()), nil
+				},
+			})
+			proc = p
+			return p, err
+		},
+	})
+}
+
+// fingerprint is what a long-lived process is fixed to when it starts: its command line without
+// the session to resume (which moves on every turn) and its environment without ONETT_RUN_ID
+// (a new run each turn, which a running process cannot be told about).
+func (r *runner) fingerprint(spec harness.Spec) string {
+	resumeless := spec
+	resumeless.ResumeSessionID = ""
+	env := mergeEnv(r.cfg.Env, spec.Env)
+	delete(env, "ONETT_RUN_ID")
+	b, _ := json.Marshal(struct {
+		Args []string
+		Dir  string
+		Env  map[string]string // encoding/json sorts map keys
+	}{buildArgs(r.cfg, resumeless), spec.Workdir, env})
+	return string(b)
 }
 
 // Reattach resumes the session that Start began for spec, if its shim is still running.

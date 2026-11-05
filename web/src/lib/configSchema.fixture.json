@@ -73,6 +73,12 @@
               "default": "720h"
             }
           ]
+        },
+        {
+          "key": "session_idle_timeout",
+          "type": "duration",
+          "help": "Session idle timeout is how long the agent process of an orchestrator or goal conversation stays alive after its last turn (default 30m). While it lives, each message goes to the same process, so the prompt cache keeps hitting and MCP servers connect once; after it, the next message resumes the session in a new process. A negative value turns the long-lived process off: every turn then starts its own process.",
+          "default": "30m"
         }
       ]
     },
@@ -206,8 +212,8 @@
           {
             "key": "isolate",
             "type": "bool",
-            "help": "Isolate runs the agent without the owner's personal Claude Code setup (their MCP connectors, plugins, hooks and user-level settings). Default true. Their tools come and go between turns, which breaks the prompt cache, and they are not what onett's agents need. Set false to give agents your MCP servers and plugins. Only claude-code has such a setup; other harness types ignore it. Read it with IsolateOn.",
-            "default": true
+            "help": "Isolate runs the agent without the owner's personal Claude Code setup (their MCP connectors, plugins, hooks and user-level settings). Default false: agents use the owner's setup. Set true to drop it, for example when connectors that come and go between turns keep breaking the prompt cache. Only claude-code has such a setup; other harness types ignore it. Read it with IsolateOn.",
+            "default": false
           }
         ]
       }

@@ -92,6 +92,13 @@ type parser struct {
 	cacheWrite int64
 	// onResult, if set, runs after each result line is parsed.
 	onResult func()
+	// perTurn is set for a long-lived process that answers many turns (see harness.StartConvTurn):
+	// each result line then ends a turn. The parser emits that turn's Result as an event and
+	// starts the next turn's state afresh, so result() describes only the turn in progress.
+	perTurn bool
+	// costBase is total_cost_usd as of the end of the previous turn, which a long-lived process
+	// reports cumulatively; a turn's cost is the difference.
+	costBase float64
 }
 
 func newParser(model string) *parser {
@@ -223,7 +230,24 @@ func (p *parser) resultEvents(sl streamLine) []harness.Event {
 	if sl.IsError {
 		events = append(events, event(domain.LogError, harness.Truncate(sl.Result, maxResultChars)))
 	}
+	if p.perTurn {
+		res := p.result(0, nil)
+		events = append(events, harness.Event{TurnResult: &res})
+		p.endTurn()
+	}
 	return events
+}
+
+// endTurn forgets the state of the turn that just ended. What spans turns stays: the session ID,
+// the billing mode and the process-wide cost total.
+func (p *parser) endTurn() {
+	p.costBase = p.final.TotalCostUSD
+	p.final = nil
+	p.lastText = ""
+	p.denials = nil
+	p.rejected = nil
+	p.inputTokens, p.outputTokens, p.cacheRead, p.cacheWrite = 0, 0, 0, 0
+	p.announced = false // the next turn's first event names the session again
 }
 
 // result builds the Result once the process has exited. It needs the exit code and the last
@@ -239,6 +263,9 @@ func (p *parser) result(exitCode int, stderrTail []string) harness.Result {
 	if f := p.final; f != nil {
 		res.IsError = f.IsError
 		res.CostUSD = f.TotalCostUSD
+		if f.TotalCostUSD >= p.costBase {
+			res.CostUSD -= p.costBase
+		}
 		res.InputTokens = p.inputTokens
 		res.CachedInputTokens = p.cacheRead
 		res.CacheWriteTokens = p.cacheWrite

@@ -22,6 +22,7 @@ chat:
     max_size: 25MB                     # largest single file; a bigger upload is refused (default 25MB)
     max_per_message: 10                # files one message may carry (default 10)
     retention: 720h                    # files older than this are deleted daily; the message shows without them (default 720h = 30 days)
+  # session_idle_timeout: 30m          # an orchestrator or goal conversation keeps one claude process alive between messages (so the prompt cache keeps hitting) until it has been idle this long; the next message then resumes the session in a new process. Negative = one process per message (default 30m)
 
 # Limits: caps on how much runs at once and how long a run may go.
 limits:
@@ -44,9 +45,9 @@ harnesses:
     # metered and unknown runs count toward limits.daily_budget_usd; a subscription run's cost is
     # an API-price estimate nobody is billed for.
     billing: auto
-    # Run agents without your personal Claude Code setup (MCP connectors, plugins, hooks, user
-    # settings). Default true: those tools change between turns, which breaks the prompt cache,
-    # and onett's agents do not need them. Set false to give agents your MCP servers and plugins.
+    # Agents use your personal Claude Code setup (MCP connectors, plugins, hooks, user settings)
+    # by default. Set true to run them without it, for example if connectors that come and go
+    # between turns keep breaking the prompt cache (default false).
     # isolate: true
   codex:
     type: codex                        # built-in harness type; default for "codex"
