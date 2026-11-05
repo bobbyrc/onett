@@ -38,6 +38,7 @@ let messages: ChatMessage[];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.localStorage.clear(); // drafts persist per conversation
   uploads = [];
   messages = [];
   api.listConversations.mockResolvedValue([CONV]);

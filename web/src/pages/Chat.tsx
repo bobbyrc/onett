@@ -1,14 +1,5 @@
 import './Chat.css';
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type DragEvent,
-  type ReactNode,
-  type RefObject,
-} from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../api';
 import { useCan } from '../auth';
@@ -45,10 +36,11 @@ import { ErrorLine } from '../components/ErrorLine';
 import { Modal } from '../components/Modal';
 import { PageHeader } from '../components/PageHeader';
 import { Transcript, ViewToggle } from '../components/Transcript';
-import { PendingChips, useAttachmentUploads, type AttachmentUploads } from '../components/ComposerAttachments';
+import { Composer, ComposerArea } from '../components/Composer';
+import { useAttachmentUploads } from '../components/ComposerAttachments';
 import { DEFAULT_MAX_PER_MESSAGE } from '../lib/attachments';
-import { useStickToBottom, type StickToBottom } from '../lib/useStickToBottom';
-import { JumpToLatest } from '../components/JumpToLatest';
+import { useStickToBottom } from '../lib/useStickToBottom';
+import { useDraft } from '../lib/useDraft';
 
 const EXAMPLES = ["What's running right now?", 'Fix the flaky test in …', 'Triage open issues in …'];
 
@@ -198,7 +190,7 @@ function ConvTime({ value }: { value: string }) {
 
 /** The start of a new chat: the heading, the composer and the example prompts. */
 function StartChat({ starting, onStart }: { starting: boolean; onStart: (text: string) => Promise<void> }) {
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft, clearDraft] = useDraft('new');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const submit = async () => {
@@ -206,6 +198,7 @@ function StartChat({ starting, onStart }: { starting: boolean; onStart: (text: s
     if (!text || starting) return;
     try {
       await onStart(text);
+      clearDraft();
     } catch {
       // The error is shown in the line above the page; the draft stays for another try.
     }
@@ -407,200 +400,6 @@ function TaskChip({ task }: { task: Task }) {
   );
 }
 
-interface ComposerProps {
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
-  draft: string;
-  onDraft: (value: string) => void;
-  onSend: () => void;
-  disabled: boolean;
-  sendDisabled: boolean;
-  placeholder: string;
-  label: string;
-  /** Esc in the field; set while a run is live so it can be stopped. */
-  onEscape?: () => void;
-  hint?: string;
-  autoFocus?: boolean;
-  /** Files for this message; without it the composer takes text only. */
-  attach?: AttachmentUploads;
-}
-
-/** The message sheet: an auto-growing field, with the hint and Send inside the same sheet. */
-function Composer({
-  textareaRef,
-  draft,
-  onDraft,
-  onSend,
-  disabled,
-  sendDisabled,
-  placeholder,
-  label,
-  onEscape,
-  hint = 'Enter to send · Shift+Enter for a new line',
-  autoFocus = false,
-  attach,
-}: ComposerProps) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const photoRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
-  const dragDepth = useRef(0);
-  // Phones get a second button that opens the camera and photo library directly.
-  const touch = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
-  const pick = (event: ChangeEvent<HTMLInputElement>) => {
-    attach?.add(Array.from(event.target.files ?? []));
-    event.target.value = ''; // so picking the same file again fires a change
-  };
-  const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes('Files');
-  // Grow the field with its content.
-  useLayoutEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [draft, textareaRef]);
-
-  return (
-    <form
-      className={cx('composer', dragging && 'is-dragging')}
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSend();
-      }}
-      onDragEnter={
-        attach
-          ? (event) => {
-              if (!hasFiles(event)) return;
-              dragDepth.current++;
-              setDragging(true);
-            }
-          : undefined
-      }
-      onDragOver={attach ? (event) => hasFiles(event) && event.preventDefault() : undefined}
-      onDragLeave={
-        attach
-          ? (event) => {
-              if (!hasFiles(event)) return;
-              dragDepth.current = Math.max(0, dragDepth.current - 1);
-              if (dragDepth.current === 0) setDragging(false);
-            }
-          : undefined
-      }
-      onDrop={
-        attach
-          ? (event) => {
-              if (!hasFiles(event)) return;
-              event.preventDefault();
-              dragDepth.current = 0;
-              setDragging(false);
-              attach.add(Array.from(event.dataTransfer.files));
-            }
-          : undefined
-      }
-    >
-      {dragging ? <div className="composer-drop" aria-hidden="true">Drop files to attach</div> : null}
-      {attach ? <PendingChips uploads={attach} /> : null}
-      <label className="sr-only" htmlFor="composer">
-        {label}
-      </label>
-      <textarea
-        id="composer"
-        ref={textareaRef}
-        rows={1}
-        autoFocus={autoFocus}
-        value={draft}
-        disabled={disabled}
-        placeholder={placeholder}
-        onChange={(event) => onDraft(event.target.value)}
-        onPaste={
-          attach
-            ? (event) => {
-                const files = Array.from(event.clipboardData.files);
-                if (files.length === 0) return;
-                event.preventDefault();
-                attach.add(files);
-              }
-            : undefined
-        }
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-            event.preventDefault();
-            onSend();
-          } else if (event.key === 'Escape' && onEscape) {
-            event.preventDefault();
-            onEscape();
-          }
-        }}
-      />
-      <div className="composer-foot">
-        {attach ? (
-          <span className="composer-attach">
-            <input ref={fileRef} type="file" multiple hidden data-testid="attach-input" onChange={pick} />
-            <button type="button" className="icon-btn" aria-label="Attach files" onClick={() => fileRef.current?.click()}>
-              <span aria-hidden="true">📎</span>
-            </button>
-            {touch ? (
-              <>
-                <input ref={photoRef} type="file" accept="image/*" multiple hidden data-testid="photo-input" onChange={pick} />
-                <button type="button" className="icon-btn" aria-label="Add a photo" onClick={() => photoRef.current?.click()}>
-                  <span aria-hidden="true">📷</span>
-                </button>
-              </>
-            ) : null}
-          </span>
-        ) : null}
-        <span className="composer-hint muted small">{hint}</span>
-        <Button type="submit" variant="primary" disabled={sendDisabled}>
-          Send
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-/** What sits under the transcript: the composer, or why there is none. */
-function ComposerArea(props: {
-  state: ReturnType<typeof composerState>;
-  working: boolean;
-  draft: string;
-  onDraft: (v: string) => void;
-  onSend: () => void;
-  sending: boolean;
-  onEscape: () => void;
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
-  label: string;
-  attach?: AttachmentUploads;
-  /** The reader's position in the transcript, for the Jump to latest pill. */
-  stick?: StickToBottom;
-}) {
-  const { state } = props;
-  if (!state.enabled) return state.note ? <p className="muted small">{state.note}</p> : null;
-  return (
-    <div className="composer-dock">
-      {props.stick && !props.stick.atBottom ? (
-        <JumpToLatest unread={props.stick.unread} onClick={props.stick.jumpToLatest} />
-      ) : null}
-      <Composer
-        textareaRef={props.textareaRef}
-        draft={props.draft}
-        onDraft={props.onDraft}
-        onSend={props.onSend}
-        disabled={false}
-        sendDisabled={
-          props.sending || !!props.attach?.uploading || (props.draft.trim() === '' && !props.attach?.ids.length)
-        }
-        attach={props.attach}
-        placeholder={state.placeholder}
-        label={props.label}
-        onEscape={props.working ? props.onEscape : undefined}
-        hint={
-          props.working
-            ? 'Enter to send · Shift+Enter for a new line · Esc stops the current turn'
-            : 'Enter to send · Shift+Enter for a new line'
-        }
-      />
-    </div>
-  );
-}
-
 function SendNow({ onClick, pending }: { onClick: () => void; pending: boolean }) {
   return (
     <div className="send-now">
@@ -632,8 +431,9 @@ function OrchestratorThread({
   const tasks = useTasks({ limit: 200 });
   const navigate = useNavigate();
   const location = useLocation();
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft, clearDraft] = useDraft(conversationId);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [stoppingRun, setStoppingRun] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const canOperate = useCan('operate');
   const autoSent = useRef(false);
@@ -652,6 +452,12 @@ function OrchestratorThread({
   const byId = Object.fromEntries(messages.map((m) => [m.id, m]));
 
   const stick = useStickToBottom(entries.length, conversationId);
+  // Stop is "Stopping…" from the click until this run ends (liveRunId changes).
+  const stopRun = () => {
+    if (!liveRunId) return;
+    setStoppingRun(liveRunId);
+    stop.mutate(liveRunId, { onError: () => setStoppingRun(null) });
+  };
 
   const config = useConfig();
   const attach = useAttachmentUploads(
@@ -664,7 +470,7 @@ function OrchestratorThread({
     try {
       stick.followNow();
       await send.mutateAsync({ text, attachments });
-      setDraft('');
+      clearDraft();
       attach.clear();
     } catch (err) {
       setSendError(errorMessage(err));
@@ -745,7 +551,7 @@ function OrchestratorThread({
             lines={liveRunId ? logs[liveRunId] : undefined}
             canStop={canOperate}
             stopping={stop.isPending}
-            onStop={() => liveRunId && stop.mutate(liveRunId)}
+            onStop={stopRun}
           />
         ) : null}
         {canOperate && queued > 0 && !working ? (
@@ -764,7 +570,8 @@ function OrchestratorThread({
         }}
         sending={send.isPending}
         attach={attach}
-        onEscape={() => liveRunId && stop.mutate(liveRunId)}
+        onStop={stopRun}
+        stopping={!!liveRunId && stoppingRun === liveRunId}
         textareaRef={textareaRef}
         label="Message the orchestrator"
       />
@@ -796,8 +603,9 @@ function TaskThread({
   const stop = useStopRun();
   const reopen = useReopenTaskConversation(taskId);
   const canOperate = useCan('operate');
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft, clearDraft] = useDraft(`task:${taskId}`);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [stoppingRun, setStoppingRun] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -813,6 +621,12 @@ function TaskThread({
   const byId = Object.fromEntries(messages.map((m) => [m.id, m]));
 
   const stick = useStickToBottom(entries.length, taskId);
+  // Stop is "Stopping…" from the click until this run ends (liveRunId changes).
+  const stopRun = () => {
+    if (!liveRunId) return;
+    setStoppingRun(liveRunId);
+    stop.mutate(liveRunId, { onError: () => setStoppingRun(null) });
+  };
 
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.status === 404) {
@@ -857,7 +671,7 @@ function TaskThread({
     try {
       stick.followNow();
       await send.mutateAsync(text);
-      setDraft('');
+      clearDraft();
     } catch (err) {
       // A 409 carries the reason the agent cannot be messaged.
       setSendError(errorMessage(err));
@@ -888,7 +702,7 @@ function TaskThread({
             lines={logs[liveRunId]}
             canStop={canOperate}
             stopping={stop.isPending}
-            onStop={() => stop.mutate(liveRunId)}
+            onStop={stopRun}
           />
         ) : null}
         {canOperate && queued > 0 && !liveRunId && !closed ? (
@@ -922,7 +736,8 @@ function TaskThread({
             onDraft={setDraft}
             onSend={() => draft.trim() && void sendText(draft.trim())}
             sending={send.isPending}
-            onEscape={() => liveRunId && stop.mutate(liveRunId)}
+            onStop={stopRun}
+            stopping={!!liveRunId && stoppingRun === liveRunId}
             textareaRef={textareaRef}
             label={`Message the ${role}`}
           />
