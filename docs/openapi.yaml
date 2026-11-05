@@ -3553,6 +3553,9 @@ components:
         max_goal_turns:
           type: integer
           description: Orchestrator turns one goal gets before it is blocked. Default 40.
+        run_shim:
+          type: boolean
+          description: Start each agent behind a per-run helper process that keeps it alive if onett exits. Default false.
         daily_budget_usd:
           type: number
           description: New task runs stop once today's reported cost reaches this. 0 means no limit.

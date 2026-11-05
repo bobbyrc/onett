@@ -433,6 +433,7 @@ export interface LimitsConfig {
   run_timeout: string;
   max_attempts: number;
   max_goal_turns: number;
+  run_shim?: boolean;
 }
 
 export interface Harness {

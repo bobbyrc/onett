@@ -33,6 +33,7 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `limits.max_attempts` | int | yes |  |
 | `limits.daily_budget_usd` | float | yes |  |
 | `limits.max_goal_turns` | int | yes |  |
+| `limits.run_shim` | bool | yes |  |
 | `harnesses` | map | yes |  |
 | `harnesses.*` | section | yes |  |
 | `harnesses.*.type` | string | yes |  |

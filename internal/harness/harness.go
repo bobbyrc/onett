@@ -111,6 +111,8 @@ type Config struct {
 	// Billing is the config override ("metered" or "subscription"); empty or "auto" means the
 	// adapter detects it.
 	Billing string
+	// Shim, when set, runs the harness's processes behind a per-run shim (limits.run_shim).
+	Shim *ShimOptions
 }
 
 var (

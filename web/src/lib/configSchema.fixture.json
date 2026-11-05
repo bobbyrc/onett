@@ -90,6 +90,11 @@
           "type": "int",
           "help": "Max goal turns is how many orchestrator turns one goal gets before it is blocked (default 40).",
           "default": 40
+        },
+        {
+          "key": "run_shim",
+          "type": "bool",
+          "help": "Run shim starts each agent behind a small per-run helper process (onett run-shim) that owns the agent and its output, so the agent can outlive a restart of onett. Off by default; today it only changes how agents are started, and onett does not yet reattach after a restart."
         }
       ]
     },

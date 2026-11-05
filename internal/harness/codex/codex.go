@@ -52,6 +52,8 @@ func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session,
 		Dir:        spec.Workdir,
 		Env:        mergeEnv(r.cfg.Env, spec.Env),
 		InheritEnv: r.cfg.InheritEnv,
+		RunID:      spec.RunID,
+		Shim:       r.cfg.Shim,
 		Stdin:      stdinText(spec),
 		ParseLine:  ps.parseLine,
 		// proc is assigned before StartProcess returns, and OnExit only runs from Wait.

@@ -65,6 +65,10 @@ type Limits struct {
 	DailyBudgetUSD float64 `yaml:"daily_budget_usd" json:"daily_budget_usd"`
 	// MaxGoalTurns is how many orchestrator turns one goal gets before it is blocked (default 40).
 	MaxGoalTurns int `yaml:"max_goal_turns" json:"max_goal_turns"`
+	// RunShim starts each agent behind a small per-run helper process (onett run-shim) that
+	// owns the agent and its output, so the agent can outlive a restart of onett. Off by default;
+	// today it only changes how agents are started, and onett does not yet reattach after a restart.
+	RunShim bool `yaml:"run_shim" json:"run_shim"`
 }
 
 // HarnessTypes lists the registered harness types, sorted. config cannot import the harness
