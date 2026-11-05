@@ -382,10 +382,11 @@ function MapEditor({ node, path, ctx }: { node: SchemaNode; path: Path; ctx: Edi
   const item: SchemaNode = node.item ?? { key: node.key, type: 'any' };
   const singular = singularize(node.key).replace(/_/g, ' ');
   const [action, setAction] = useState<EntryAction>(null);
-  // Only a top-level map (path of one key) takes the link's entry; nested maps ignore it.
-  const focused = path.length === 1 && ctx.focusEntry && names.includes(ctx.focusEntry) ? ctx.focusEntry : undefined;
   const [renameTo, setRenameTo] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
+  // Only a top-level map (path of one key) takes the link's entry; nested maps ignore it.
+  const focused =
+    path.length === 1 && ctx.focusEntry && names.includes(ctx.focusEntry) ? ctx.focusEntry : undefined;
 
   const add = (name: string) => ctx.setValue([...path, name], emptyValue(item));
 

@@ -210,7 +210,7 @@ branch, the deployer type (or "no deployer") and the observers (or "no observers
 is the loops: "Loops: 5 on, 2 off", where "Loops" links to `/loops`. If any loop's last run
 failed, its name follows in red ("pr_shepherd failing"), and the error shows as a tooltip.
 Owners also get an **Add project** button in the page header and, on each sheet, **Edit settings**
-(links to the Config page's Projects section) and **Remove**. Add opens a form: name, repository
+(opens the Config page at that project's card) and **Remove**. Add opens a form: name, repository
 (`owner/name`), local path, default branch, a policy dropdown of the configured policies and an
 instructions box. Empty optional fields keep their defaults. Onett does not clone the repository:
 the clone must already be at the path (default `<data_dir>/repos/<name>`). Problems the server
@@ -377,8 +377,7 @@ square `--lamp-call` after a section with unsaved edits, `--lamp-stop` after one
 active section's settings are on the right. A number, text or duration setting is an input; a
 checkbox is "On"; clearing an input removes the key. A value written as `${NAME}` shows as text with
 a note that onett reads that environment variable. A map is one card per entry, with Rename and
-Remove (Remove asks first), and a form at the end to add one. `/config?section=projects&entry=onett`
-opens that section and scrolls to the `onett` card, which gets an `--info` outline. A list has a row or a card per item,
+Remove (Remove asks first), and a form at the end to add one. A list has a row or a card per item,
 with Remove, and an Add button. A setting with fixed choices, such as a notifier's `type`, is a
 dropdown. The `options` of a notifier, channel, deploy block or observer show the fields of the
 selected `type`. A setting that names an environment variable for a secret is a picker: a box that
@@ -392,7 +391,9 @@ page until saved: a bar at the bottom says how many there are, with Save and Dis
 nothing when the file changed on disk since the page opened (a notice offers to load the latest,
 which discards your edits) or when the result would be invalid (the problems are listed above the
 editor, and each is also shown under its field). Settings that take effect only after a restart are
-named in a note until dismissed. The **YAML** tab edits the raw text of the file, with the same bar
+named in a note until dismissed. A link can open one map entry: `/config?section=projects&entry=onett`
+opens that section and scrolls to the `onett` card, which gets an `--info` outline (Projects'
+Edit settings uses it). The **YAML** tab edits the raw text of the file, with the same bar
 and checks, and switching tabs with unsaved edits asks first. The **Secrets** tab manages
 `secrets.env` and is write-only: each name shows set or not set, where the value comes from
 (`secrets.env` or the daemon's own environment, which wins and is marked "shadowed") and which
