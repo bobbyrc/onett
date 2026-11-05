@@ -264,12 +264,18 @@ loops:
 # A telegram channel is a bot you chat with: it relays your messages to the orchestrator and sends
 # replies and approval requests (with Approve/Reject buttons) back. Only allowed_user_ids are
 # obeyed. With a channel configured, telegram notifiers skip approvals so they are not sent twice.
+# A discord channel is the same over a Discord bot's direct messages (no public URL needed).
 # channels:
 #   - type: telegram
 #     options:
 #       bot_token_env: TELEGRAM_BOT_TOKEN        # env var holding the token from @BotFather
 #       allowed_user_ids: [123456789]            # numeric Telegram user IDs
 #       # state_file: /path/telegram.json        # default <data_dir>/channels/telegram.json
+#   - type: discord
+#     options:
+#       bot_token_env: DISCORD_BOT_TOKEN         # env var holding the bot token
+#       allowed_user_ids: ["123456789012345678"] # Discord user IDs, quoted strings
+#       # state_file: /path/discord.json         # default <data_dir>/channels/discord.json
 
 # Notify: where to send notifications. Empty means a log line only.
 notify:

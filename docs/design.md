@@ -332,6 +332,7 @@ internal/policy/      risk evaluation
 internal/deploy/      Deployer interface; command deployer; HTTP health checks
 internal/observe/     Observer interface; exec observer; sentry observer
 internal/notify/      Notifier interface; ntfy, discord, telegram, exec, log
+internal/channel/     two-way chat bots (telegram, discord) the daemon starts from the channels config
 internal/engine/      scheduler, supervisor, shepherd, loops, prompt assembly
 internal/chat/        orchestrator conversations
 internal/api/         chi HTTP API + SSE + WebSocket + embedded web UI

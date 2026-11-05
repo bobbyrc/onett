@@ -466,6 +466,22 @@ channel is configured, onett turns on `skip_approvals` for every `telegram` noti
 request is not also sent as a plain message. Other notifiers still get it. A bot error is logged and
 never stops the daemon.
 
+### `discord`
+
+A Discord bot that connects out to the Discord Gateway (a websocket), so no public URL is needed.
+Only the user IDs in `allowed_user_ids` are obeyed, and only in direct messages: an allowed user can
+approve merges. Each DM channel is one orchestrator conversation. Create the bot in the Discord
+developer portal; it needs no privileged intents.
+
+| Option             | Required | Default                           | Meaning                                                              |
+|--------------------|----------|-----------------------------------|----------------------------------------------------------------------|
+| `bot_token_env`    | yes      |                                   | Name of an environment variable holding the bot token. `onett serve` refuses to start when it is empty. The token never goes in the config and is never logged. |
+| `allowed_user_ids` | yes      |                                   | Non-empty list of Discord user IDs, each a **quoted string** (the IDs are 64-bit numbers that some YAML readers round). |
+| `state_file`       | no       | `<data_dir>/channels/discord.json` | Where the bot keeps its DM-to-conversation map.                      |
+
+Approval requests reach you with Approve and Reject buttons. A bot error is logged and never stops
+the daemon.
+
 ## Intake sources
 
 An intake source turns any external queue of work into onett tasks: a phone app's inbox, a ticket
