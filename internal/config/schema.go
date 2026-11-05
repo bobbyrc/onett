@@ -130,6 +130,9 @@ func defaultOf(v reflect.Value) any {
 	if v.Type() == durationType {
 		return shortDuration(v.Interface().(Duration).Duration)
 	}
+	if v.Type() == sizeType {
+		return Size(v.Int()).String()
+	}
 	switch v.Kind() {
 	case reflect.String:
 		return v.String()
@@ -174,6 +177,9 @@ func itemValue(v reflect.Value) reflect.Value {
 
 // durationType is config.Duration, which is written as "15m" and is not an ordinary struct.
 var durationType = reflect.TypeOf(Duration{})
+
+// sizeType is config.Size, written as "25MB".
+var sizeType = reflect.TypeOf(Size(0))
 
 type schemaBuilder struct {
 	help map[string]string // "Type.Field" -> help text
@@ -261,6 +267,10 @@ func (b schemaBuilder) variantNode(kind string) SchemaNode {
 func (b schemaBuilder) typeNode(t reflect.Type, helpKey string, v reflect.Value) SchemaNode {
 	if t == durationType {
 		return SchemaNode{Type: "duration", Default: defaultOf(v)}
+	}
+	if t == sizeType {
+		// A size is text such as "25MB", so the UI edits it as a string.
+		return SchemaNode{Type: "string", Default: defaultOf(v)}
 	}
 	switch t.Kind() {
 	case reflect.Pointer:

@@ -254,8 +254,21 @@ export interface ChatMessage {
   run_id?: string;
   created_at: string;
   queued?: boolean;
+  /** Files sent with the message; one that retention deleted is left out. */
+  attachments?: Attachment[];
   /** "internal" marks onett's own prompt to the orchestrator; the UI hides it. */
   kind?: string;
+}
+
+/** A file attached to a chat message (internal/domain). Download it from
+ * /conversations/{conversation_id}/attachments/{id}. */
+export interface Attachment {
+  id: string;
+  conversation_id: string;
+  name: string;
+  mime: string;
+  size: number;
+  created_at: string;
 }
 
 export interface TaskConversation {

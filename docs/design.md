@@ -328,6 +328,31 @@ the tasks' current statuses, so nothing is reported twice. A follow-up that an a
 a task keeps the source `followup` (policy rules match it) and carries the link in its source ref,
 `chat:<conversation id>`, so the loop reports it too.
 
+### Chat attachments
+
+The owner can attach photos and files to a chat message. `internal/attach` stores each file under
+`<data_dir>/attachments/<conversation id>/<attachment id>-<name>` (mode 0600, directories 0700)
+and its record (id, name, sniffed type, size, path) in the store; a message links to its
+attachments by id. The API and, later, the chat channels both save through `attach.Manager.Save`.
+
+- The client's file name is only a label: just its base name is kept, stripped of path separators,
+  `..`, control characters and leading dots, and capped at about 100 bytes. The final path is
+  checked to stay inside the attachments directory.
+- The type is sniffed from the first 512 bytes (plus HEIC); the extension and the client's
+  Content-Type are ignored.
+- The size limit (`chat.attachments.max_size`) is enforced while streaming; an upload over it
+  leaves no file and gets 413.
+- Upload and download need a signed-in person, not the API token. Raster images and PDFs are served
+  inline; everything else, SVG and HTML included, is a forced download, always with `nosniff` and a
+  sandboxing CSP. File contents never go into logs or events.
+- Housekeeping deletes attachments older than `chat.attachments.retention` (default 30 days): the
+  file, the record, and the conversation directory once empty. A message that referenced a deleted
+  file keeps rendering and simply lists one attachment fewer (**decision:** the reference is dropped
+  rather than shown as "expired", so clients need no extra state).
+
+Attachments are stored with the message only for now; the orchestrator's prompt does not see them
+yet.
+
 ### Goals
 
 A goal (`domain.Goal`) is an objective the owner states once for one project; it gets its own
@@ -419,6 +444,7 @@ internal/notify/      Notifier interface; ntfy, discord, telegram, exec, log
 internal/channel/     two-way chat bots (telegram, discord) the daemon starts from the channels config; each type registers itself (`channel.Register`) and `channel/all` links them in
 internal/engine/      scheduler, supervisor, shepherd, loops, prompt assembly
 internal/chat/        orchestrator conversations
+internal/attach/      chat attachments: sanitised names, type sniffing, size limit, retention
 internal/api/         chi HTTP API + SSE + WebSocket + embedded web UI
 web/                  React + Vite + TypeScript UI (built into internal/api/webdist)
 ```

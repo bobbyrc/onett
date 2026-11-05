@@ -15,6 +15,7 @@ import (
 // absolute against the directory of c.Path.
 func ApplyDefaults(c *Config) {
 	applyServerDefaults(c)
+	applyChatDefaults(c)
 	applyLimitDefaults(c)
 	applyHarnessDefaults(c)
 	applyAgentDefaults(c)
@@ -145,6 +146,19 @@ func applyServerDefaults(c *Config) {
 	}
 	if c.Server.RetainRunLogs.Duration == 0 {
 		c.Server.RetainRunLogs.Duration = 2160 * time.Hour
+	}
+}
+
+func applyChatDefaults(c *Config) {
+	a := &c.Chat.Attachments
+	if a.MaxSize == 0 {
+		a.MaxSize = 25 << 20
+	}
+	if a.MaxPerMessage == 0 {
+		a.MaxPerMessage = 10
+	}
+	if a.Retention.Duration == 0 {
+		a.Retention.Duration = 30 * 24 * time.Hour
 	}
 }
 

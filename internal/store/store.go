@@ -133,6 +133,15 @@ type Store interface {
 	AppendChatMessage(ctx context.Context, m domain.ChatMessage) (domain.ChatMessage, error)
 	// ListChatMessages returns a conversation's messages in ascending order.
 	ListChatMessages(ctx context.Context, conversationID string) ([]domain.ChatMessage, error)
+	// CreateAttachment records a stored file. a.ID, ConversationID, Path and CreatedAt are set by
+	// the caller; a message references it by ID through AppendChatMessage.
+	CreateAttachment(ctx context.Context, a domain.Attachment) (domain.Attachment, error)
+	// GetAttachment returns one attachment (with its Path), or ErrNotFound.
+	GetAttachment(ctx context.Context, id string) (domain.Attachment, error)
+	// ListAttachmentsBefore returns the attachments created before the cutoff, oldest first.
+	ListAttachmentsBefore(ctx context.Context, before time.Time) ([]domain.Attachment, error)
+	// DeleteAttachment removes the record and every message reference to it. ErrNotFound when absent.
+	DeleteAttachment(ctx context.Context, id string) error
 	// UpdateChatMessage applies fn to one message in a transaction. ErrNotFound when absent.
 	UpdateChatMessage(ctx context.Context, id string, fn func(*domain.ChatMessage) error) (domain.ChatMessage, error)
 	// DeleteChatMessage removes one message. ErrNotFound when absent.

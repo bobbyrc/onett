@@ -257,6 +257,18 @@ func (c *Config) Validate() error {
 		add("server.retain_run_logs: must be 0 (default 2160h) or greater, not %v", c.Server.RetainRunLogs.Duration)
 	}
 
+	if a := c.Chat.Attachments; a.MaxSize <= 0 || a.MaxPerMessage <= 0 || a.Retention.Duration <= 0 {
+		if a.MaxSize <= 0 {
+			add("chat.attachments.max_size: must be greater than 0 (default 25MB), not %v", a.MaxSize)
+		}
+		if a.MaxPerMessage <= 0 {
+			add("chat.attachments.max_per_message: must be greater than 0 (default 10), not %d", a.MaxPerMessage)
+		}
+		if a.Retention.Duration <= 0 {
+			add("chat.attachments.retention: must be greater than 0 (default 720h), not %v", a.Retention.Duration)
+		}
+	}
+
 	// Notifications link to the server with this URL, so a bare "host:port" would make broken links.
 	if u, err := url.Parse(c.Server.PublicURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
 		add("server.public_url %q must be an absolute http or https URL", c.Server.PublicURL)

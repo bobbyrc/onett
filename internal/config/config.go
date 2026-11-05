@@ -12,8 +12,13 @@ import (
 // Duration is a time.Duration written as "15m" in YAML and JSON.
 type Duration struct{ time.Duration }
 
+// Size is a number of bytes written as "25MB" in YAML and JSON (a bare number is bytes). K, M and
+// G are powers of 1024.
+type Size int64
+
 type Config struct {
 	Server   Server              `yaml:"server" json:"server"`
+	Chat     Chat                `yaml:"chat" json:"chat"`
 	Limits   Limits              `yaml:"limits" json:"limits"`
 	Harness  map[string]Harness  `yaml:"harnesses" json:"harnesses"`
 	Agents   map[string]Agent    `yaml:"agents" json:"agents"`
@@ -49,6 +54,24 @@ type Server struct {
 	// and 2160h (90 days); a very large value (e.g. 876000h) keeps them in practice forever.
 	RetainEvents  Duration `yaml:"retain_events" json:"retain_events"`
 	RetainRunLogs Duration `yaml:"retain_run_logs" json:"retain_run_logs"`
+}
+
+// Chat holds the settings of the owner's chat with the orchestrator.
+type Chat struct {
+	Attachments ChatAttachments `yaml:"attachments" json:"attachments"`
+}
+
+// ChatAttachments bounds the photos and files the owner attaches to a chat message. They are
+// stored under <data_dir>/attachments.
+type ChatAttachments struct {
+	// MaxSize is the largest single file accepted, such as "25MB" (default 25MB). A larger upload
+	// is refused with 413 and nothing is kept.
+	MaxSize Size `yaml:"max_size" json:"max_size"`
+	// MaxPerMessage is how many files one message may carry (default 10).
+	MaxPerMessage int `yaml:"max_per_message" json:"max_per_message"`
+	// Retention is how long an attachment is kept; older files and their records are deleted once
+	// a day, and a message that referenced one shows without it (default 720h = 30 days).
+	Retention Duration `yaml:"retention" json:"retention"`
 }
 
 type Limits struct {

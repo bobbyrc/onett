@@ -150,6 +150,26 @@ var migrations = []string{
 	CREATE INDEX goals_project_status ON goals (project, status);
 	ALTER TABLE tasks ADD COLUMN goal_id TEXT;
 	CREATE INDEX tasks_goal_id ON tasks (goal_id);`,
+
+	// Files the owner attaches to chat, and which messages carry them. Deleting an attachment
+	// (retention) removes its links, so a message simply shows without it.
+	`CREATE TABLE attachments (
+		id TEXT PRIMARY KEY,
+		conversation_id TEXT NOT NULL,
+		name TEXT NOT NULL,
+		mime TEXT NOT NULL,
+		size INTEGER NOT NULL,
+		path TEXT NOT NULL,
+		created_at INTEGER NOT NULL
+	);
+	CREATE INDEX attachments_created_at ON attachments (created_at);
+	CREATE TABLE chat_message_attachments (
+		message_id TEXT NOT NULL,
+		attachment_id TEXT NOT NULL,
+		position INTEGER NOT NULL,
+		PRIMARY KEY (message_id, attachment_id)
+	);
+	CREATE INDEX chat_message_attachments_attachment ON chat_message_attachments (attachment_id);`,
 }
 
 // migrate applies every migration whose version is not yet recorded, each in its own transaction.

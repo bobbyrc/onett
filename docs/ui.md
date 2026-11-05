@@ -381,7 +381,7 @@ JSON (keys `--info`, strings `--ok`, numbers `--warn`), with the note "Only an o
 settings. Secrets are hidden." Operators also get a Reload button. An owner gets the editor, which
 opens on the **Visual** tab. The settings of `onett.yaml` sit in groups in a list on the left, in
 the order Projects, Agents & routing, Policies, Limits & budget, Loops, Goals, Self-update,
-Channels & notifiers, Server, then Users (a link to the Users page; users are not in the file). A
+Channels & notifiers, Chat, Server, then Users (a link to the Users page; users are not in the file). A
 square `--lamp-call` after a group means unsaved edits, `--lamp-stop` problems. The table that says
 which settings each group shows is `web/src/lib/configGroups.ts`; its test fails when a setting is in no group
 or in two. The active group's settings are on the right. A setting

@@ -1468,6 +1468,85 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /conversations/{id}/attachments:
+    post:
+      operationId: uploadAttachment
+      tags: [conversations]
+      summary: Upload a file to attach to a message.
+      description: |
+        A multipart/form-data body with the file in the field `file` (one file per request). The
+        file is stored under the data directory and can then be listed in `attachments` of a
+        message. Its type is sniffed from the content; the client's Content-Type and the file
+        extension are ignored, and the name is reduced to a safe base name. A file over
+        `chat.attachments.max_size` gets 413 and nothing is kept. A task agent's conversation is
+        not found here (404). A signed-in person only; the API token gets 403.
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: The stored attachment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentUpload'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          description: The file is larger than `chat.attachments.max_size`.
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /conversations/{id}/attachments/{aid}:
+    get:
+      operationId: downloadAttachment
+      tags: [conversations]
+      summary: Download an attachment.
+      description: |
+        Serves the stored file with its sniffed Content-Type and `X-Content-Type-Options: nosniff`.
+        Raster images and PDFs are `inline`; every other type (text, HTML, SVG, unknown) is sent
+        as an `attachment` download. 404 when the attachment belongs to another conversation or
+        has expired. A signed-in person only; the API token gets 403.
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - name: aid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The file.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /conversations/{id}/flush:
     post:
       operationId: flushConversation
@@ -3115,12 +3194,52 @@ components:
         queued:
           type: boolean
           description: True while the message waits for the agent's current run to finish.
+        attachments:
+          type: array
+          description: Files sent with the message. One that retention has deleted is left out.
+          items:
+            $ref: '#/components/schemas/Attachment'
         kind:
           type: string
           description: "`internal` on a prompt onett wrote to the orchestrator itself (follow-up or goal check-in); clients hide it. Omitted otherwise."
         created_at:
           type: string
           format: date-time
+
+    Attachment:
+      type: object
+      required: [id, conversation_id, name, mime, size, created_at]
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        name:
+          type: string
+          description: The cleaned file name, never a path.
+        mime:
+          type: string
+          description: The type sniffed from the content.
+        size:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+
+    AttachmentUpload:
+      type: object
+      required: [id, name, mime, size]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        mime:
+          type: string
+        size:
+          type: integer
+          format: int64
 
     # --- view types (internal/api and internal/api/controller.go) ---
 
@@ -3483,11 +3602,17 @@ components:
     SendMessageRequest:
       type: object
       additionalProperties: false
-      required: [text]
       properties:
         text:
           type: string
-          minLength: 1
+          description: Required unless `attachments` is given.
+        attachments:
+          type: array
+          description: |
+            IDs from `POST /conversations/{id}/attachments`. At most `chat.attachments.max_per_message`;
+            each must exist and belong to this conversation, else 400.
+          items:
+            type: string
 
     # --- configuration (internal/config). GET /config returns Config with env values redacted. ---
 

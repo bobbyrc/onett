@@ -50,6 +50,7 @@ type fakeCtl struct {
 	loopRun     string
 	chatConvID  string
 	chatText    string
+	chatAtts    []string
 	reloadCalls int
 	// projectPaused maps a project to its runtime pause owner ("owner") when set.
 	projectPaused map[string]string

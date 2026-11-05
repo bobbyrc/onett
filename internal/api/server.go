@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/bobbyrc/onett/internal/attach"
 	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/events"
@@ -48,6 +49,8 @@ type Options struct {
 	Web fs.FS
 	// Secrets is the secrets.env store behind /secrets. Nil makes those routes answer 501.
 	Secrets *secrets.Store
+	// Attachments stores files attached to chat. Nil makes the attachment routes answer 501.
+	Attachments *attach.Manager
 	// ChannelTest sends a test message through the running bot of a channel entry; see
 	// channel.Supervisor.Test. Nil makes POST /channels/test answer 501.
 	ChannelTest func(ctx context.Context, ch config.Channel) error

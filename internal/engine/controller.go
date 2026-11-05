@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bobbyrc/onett/internal/api"
+	"github.com/bobbyrc/onett/internal/attach"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/notify"
@@ -411,8 +412,15 @@ func (e *Engine) SetProjectPaused(ctx context.Context, name string, paused bool)
 // When idle it starts a turn in the background, carrying any queued messages too. The busy flag
 // is set in the same store update that checks it, so two sends cannot both start a turn.
 func (e *Engine) SendChat(ctx context.Context, conversationID, text string) (domain.ChatMessage, error) {
+	return e.SendChatWith(ctx, conversationID, text, nil)
+}
+
+// SendChatWith is SendChat for a message that also carries attachments (ids from the attach
+// package). The text may be empty when there are attachments. The attachments are stored with the
+// message and returned on it; they do not reach the agent's prompt yet.
+func (e *Engine) SendChatWith(ctx context.Context, conversationID, text string, attachmentIDs []string) (domain.ChatMessage, error) {
 	text = strings.TrimSpace(text)
-	if text == "" {
+	if text == "" && len(attachmentIDs) == 0 {
 		return domain.ChatMessage{}, fmt.Errorf("%w: message is empty", api.ErrInvalid)
 	}
 	cur, err := e.d.Store.GetConversation(ctx, conversationID)
@@ -422,11 +430,21 @@ func (e *Engine) SendChat(ctx context.Context, conversationID, text string) (dom
 	if cur.TaskID != "" {
 		return domain.ChatMessage{}, fmt.Errorf("%w: conversation %s", store.ErrNotFound, conversationID)
 	}
+	var atts []domain.Attachment
+	if len(attachmentIDs) > 0 {
+		if e.d.Attachments == nil {
+			return domain.ChatMessage{}, fmt.Errorf("%w: attachments are not available", api.ErrInvalid)
+		}
+		atts, err = e.d.Attachments.Validate(ctx, conversationID, attachmentIDs, e.Config().Chat.Attachments.MaxPerMessage)
+		if err != nil {
+			return domain.ChatMessage{}, fmt.Errorf("%w: %s", api.ErrInvalid, strings.TrimPrefix(err.Error(), attach.ErrInvalid.Error()+": "))
+		}
+	}
 	if cur.Busy && cur.ActiveRunID != "" {
 		switch err := e.deliverToRun(ctx, cur.ActiveRunID, text); {
 		case err == nil:
 			return e.storeOwnerMessage(ctx, cur, domain.ChatMessage{
-				ConversationID: cur.ID, Role: "user", Text: text, RunID: cur.ActiveRunID,
+				ConversationID: cur.ID, Role: "user", Text: text, RunID: cur.ActiveRunID, Attachments: atts,
 			})
 		case errors.Is(err, errRunNotLive), errors.Is(err, harness.ErrInputClosed):
 			// The agent cannot take it now; it waits in the queue.
@@ -441,6 +459,9 @@ func (e *Engine) SendChat(ctx context.Context, conversationID, text string) (dom
 		c.Busy = true
 		if c.Title == "" {
 			c.Title = firstRunes(text, 60)
+			if c.Title == "" && len(atts) > 0 {
+				c.Title = firstRunes(atts[0].Name, 60)
+			}
 		}
 		return nil
 	})
@@ -449,7 +470,7 @@ func (e *Engine) SendChat(ctx context.Context, conversationID, text string) (dom
 	}
 	if wasBusy {
 		msg, err := e.storeOwnerMessage(ctx, conv, domain.ChatMessage{
-			ConversationID: conv.ID, Role: "user", Text: text, Queued: true,
+			ConversationID: conv.ID, Role: "user", Text: text, Queued: true, Attachments: atts,
 		})
 		if err != nil {
 			return domain.ChatMessage{}, err
@@ -472,7 +493,7 @@ func (e *Engine) SendChat(ctx context.Context, conversationID, text string) (dom
 	}
 	_, queuedIDs := messageTexts(queued)
 	msg, err := e.storeOwnerMessage(ctx, conv, domain.ChatMessage{
-		ConversationID: conv.ID, Role: "user", Text: text,
+		ConversationID: conv.ID, Role: "user", Text: text, Attachments: atts,
 	})
 	if err != nil {
 		e.restoreQueued(ctx, queuedIDs)
