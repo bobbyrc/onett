@@ -21,6 +21,8 @@ interface ScalarInputProps {
   invalid?: boolean;
   /** A string with fixed choices shows a dropdown. */
   enumValues?: string[];
+  /** What the setting is when unset: shown as the placeholder, so the owner sees what leaving it empty means. */
+  defaultValue?: string | number | boolean;
   onChange: (next: unknown) => void;
 }
 
@@ -33,8 +35,10 @@ export function ScalarInput({
   value,
   invalid,
   enumValues,
+  defaultValue,
   onChange,
 }: ScalarInputProps) {
+  const hint = defaultValue === undefined ? undefined : `default: ${String(defaultValue)}`;
   if (type === 'string' && enumValues && enumValues.length > 0) {
     // A value outside the list (a type from a newer onett, or a typo) stays selectable, so the
     // dropdown never silently shows something else than the file holds.
@@ -50,7 +54,7 @@ export function ScalarInput({
         value={current}
         onChange={(event) => onChange(event.target.value === '' ? undefined : event.target.value)}
       >
-        <option value="">(not set)</option>
+        <option value="">{hint ? `(${hint})` : '(not set)'}</option>
         {choices.map((choice) => (
           <option key={choice} value={choice}>
             {choice}
@@ -92,6 +96,7 @@ export function ScalarInput({
         className="config-input"
         type="number"
         step={type === 'int' ? 1 : 'any'}
+        placeholder={hint}
         aria-labelledby={labelledBy}
         aria-label={labelledBy ? undefined : label}
         aria-invalid={invalid || undefined}
@@ -119,7 +124,7 @@ export function ScalarInput({
       aria-labelledby={labelledBy}
       aria-label={labelledBy ? undefined : label}
       aria-invalid={invalid || undefined}
-      placeholder={type === 'duration' ? 'e.g. 15m' : undefined}
+      placeholder={hint ?? (type === 'duration' ? 'e.g. 15m' : undefined)}
       value={shown}
       onChange={(event) => {
         const raw = event.target.value;
