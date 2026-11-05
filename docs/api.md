@@ -214,7 +214,8 @@ case the approval is recorded as rejected and the task goes back to review so on
 
 // AgentView
 {"name":"implementer","origin":"builtin","disabled":false,"harness":"codex","harness_type":"codex",
- "model":"","prompt":"builtin:implementer","prompt_text":"# Role: implementer…","prompt_updates":true,
+ "harness_cli_found":true,"model":"","prompt":"builtin:implementer",
+ "prompt_text":"# Role: implementer…","prompt_updates":true,
  "description":"…","args":[],"kinds":["feature","bugfix"],
  "uses":[{"kind":"feature","description":"builds features"}]}
 ```

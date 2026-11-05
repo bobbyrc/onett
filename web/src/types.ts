@@ -295,6 +295,8 @@ export interface AgentView {
   disabled: boolean;
   harness: string;
   harness_type: string;
+  /** False when the harness CLI is not on onett's PATH. */
+  harness_cli_found: boolean;
   model: string;
   prompt: string;
   prompt_text: string;

@@ -18,6 +18,7 @@ function view(overrides: Partial<AgentView>): AgentView {
     disabled: false,
     harness: 'claude',
     harness_type: 'claude',
+    harness_cli_found: true,
     model: '',
     prompt: '',
     prompt_text: 'Write docs.',

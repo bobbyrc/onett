@@ -12,7 +12,7 @@ export interface SetupStep {
 /** The data the checklist reads. `undefined` means not loaded yet (or not allowed): the step is left out. */
 export interface SetupInputs {
   projects?: Pick<ProjectView, 'name' | 'policy'>[];
-  agents?: Pick<AgentView, 'name' | 'disabled'>[];
+  agents?: Pick<AgentView, 'name' | 'disabled' | 'harness_cli_found'>[];
   stats?: Pick<Stats, 'owner_unreachable'>;
   secrets?: Pick<SecretView, 'name' | 'set' | 'referenced_by'>[];
 }
@@ -36,11 +36,18 @@ export function setupSteps(in_: SetupInputs): SetupStep[] {
     });
   }
   if (agents) {
-    const ready = agents.filter((a) => !a.disabled).length;
+    const enabled = agents.filter((a) => !a.disabled);
+    const ready = enabled.filter((a) => a.harness_cli_found).length;
+    const missing = enabled.length - ready;
+    const noun = `agent${ready === 1 ? '' : 's'}`;
+    let detail = `${ready} ${noun} ready`;
+    if (enabled.length === 0) detail = 'No agent is enabled.';
+    else if (ready === 0) detail = 'No enabled agent has its CLI installed: run onett doctor.';
+    else if (missing > 0) detail += `; ${missing} enabled with no CLI found`;
     steps.push({
       id: 'agents',
       label: 'Agents ready',
-      detail: ready > 0 ? `${ready} agent${ready === 1 ? '' : 's'} configured` : 'No agent is enabled.',
+      detail,
       done: ready > 0,
       to: '/config?section=agents',
     });

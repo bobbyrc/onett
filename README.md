@@ -164,22 +164,50 @@ Prerequisites: `git`; `mise` (it installs the Go version in `mise.toml`); Node.j
 the web UI build); `gh` logged in (`gh auth status`); and the `claude` and/or `codex` CLI installed
 and logged in.
 
-```sh
-# Builds the web UI, then the binary with it embedded and the version stamped (OUT=path to relocate).
-mise exec -- scripts/build.sh
+Install and start (build the binary with the web UI embedded; `OUT=path` relocates it):
 
+```sh
+mise exec -- scripts/build.sh
 # Manual fallback: (cd web && npm ci && npm run build) && go build -o onett ./cmd/onett
+./onett serve      # leave it running in its own terminal
+```
+
+Then finish setup in the web UI:
+
+1. **Open the link `serve` prints.** With no config file, `serve` writes a starter one and, until
+   an owner account exists, prints `No owner account yet: open http://127.0.0.1:7777/ ...`. Create
+   the owner account on that page. (`./onett open` opens the UI later.)
+2. **Follow the "Finish setting up onett" card** on the **Overview** page. It has one live check per
+   step and links to where each is done:
+   - **Add a project**: the **Projects** page, **Add project** (a repository, plus an optional
+     checkout path and branch). **Remove** is there too.
+   - **Agents ready**: the **Config** page, Agents group. Check that at least one agent is enabled.
+   - **Choose a policy**: the Config page, Policies group. With none chosen, the default applies.
+   - **Reach me**: the Config page's **Setup** tab walks through Telegram, Discord or ntfy and has
+     a **Send test** button. See [docs/channels.md](docs/channels.md).
+   - **Secrets set**: the Config page's **Secrets** tab stores tokens in `secrets.env`. It only
+     writes: a saved value is never shown again.
+3. **Change anything else on the Config page.** Its Visual tab has every setting, grouped, with
+   defaults shown; the YAML tab edits the raw file. Changes apply live. Settings that need a
+   restart (`server.addr`, `server.data_dir`) offer a **Restart now** button.
+
+Before you point onett at a real repository, follow [docs/getting-started.md](docs/getting-started.md):
+it starts with a throwaway repository and a paused project.
+
+**Prefer a terminal or config-as-code?** Everything above can also be done with the CLI and files:
+
+```sh
 ./onett init --project myproject --repo you/myproject   # writes ~/.config/onett/onett.yaml
+./onett project add other --repo you/other               # add a project to the file
 ./onett doctor     # checks your setup: config, git, gh, harness CLIs, daemon
 ./onett serve      # run the daemon; leave it running in its own terminal
-                   # (with no config file it writes a starter one and you finish setup in the web UI)
 ./onett open       # open the web UI in your browser (second terminal)
 ./onett chat "What is running right now?"
 ```
 
-Put `onett` on your PATH to drop the `./`. Before you point onett at a real repository, follow
-[docs/getting-started.md](docs/getting-started.md): it starts with a throwaway repository and a
-paused project.
+Edit `onett.yaml` by hand (every option is annotated in [onett.example.yaml](onett.example.yaml))
+and keep tokens in `~/.config/onett/secrets.env`, then run `./onett config --reload`. Put `onett`
+on your PATH to drop the `./`.
 
 The web UI's **Chat** page works like a coding agent's terminal for every agent: talk to the
 orchestrator, open any task's agent from the sidebar or from a task, watch its tool calls as they
@@ -333,6 +361,8 @@ docs/             design, API, UI and plugin documentation
 - [docs/design.md](docs/design.md): the architecture, task lifecycle, policy and known limits.
 - [docs/api.md](docs/api.md): the HTTP API and event stream.
 - [docs/ui.md](docs/ui.md): the web UI pages and design.
+- [docs/channels.md](docs/channels.md): connect Telegram or Discord.
+- [docs/config-ui-coverage.md](docs/config-ui-coverage.md): which settings the Config page edits; a test keeps every setting editable in the UI.
 - [docs/plugins.md](docs/plugins.md): writing harnesses, deployers, observers and notifiers.
 - [onett.example.yaml](onett.example.yaml): every config option, annotated.
 - [examples/dogfood/README.md](examples/dogfood/README.md): run onett on its own repo, with a local staging release.
