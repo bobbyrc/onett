@@ -233,6 +233,9 @@ function FieldRow({
         <span className="config-field-path mono">{dotted(path)}</span>
       </div>
       {node.help ? <p className="config-field-help">{node.help}</p> : null}
+      {node.type === 'bool' && node.default !== undefined ? (
+        <p className="config-field-help">Default: {node.default ? 'on' : 'off'}</p>
+      ) : null}
       <div className="config-field-input">
         {node.secret_env && node.type === 'string' ? (
           <SecretPicker

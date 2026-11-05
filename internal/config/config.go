@@ -214,7 +214,7 @@ type Deploy struct {
 	// Timeout fails a release still building after this long. Default 30m.
 	Timeout Duration `yaml:"timeout" json:"timeout"`
 	// AutoRollback rolls back on a failed verify window. Default true.
-	AutoRollback *bool `yaml:"auto_rollback" json:"auto_rollback,omitempty"`
+	AutoRollback *bool `yaml:"auto_rollback" json:"auto_rollback,omitempty" default:"true"`
 }
 
 type Observer struct {
@@ -230,7 +230,7 @@ type Notifier struct {
 }
 
 type Loop struct {
-	Enabled *bool    `yaml:"enabled" json:"enabled,omitempty"`
+	Enabled *bool    `yaml:"enabled" json:"enabled,omitempty" default:"true"`
 	Every   Duration `yaml:"every" json:"every"`
 }
 
@@ -281,10 +281,10 @@ type Loops struct {
 	// Friction files GitHub issues for reported friction.
 	Friction struct {
 		Loop      `yaml:",inline"`
-		AutoFile  *bool  `yaml:"auto_file" json:"auto_file,omitempty"` // default true
-		AutoQueue bool   `yaml:"auto_queue" json:"auto_queue"`         // also label the issue for intake
-		Label     string `yaml:"label" json:"label"`                   // default "friction"
-		MinCount  int    `yaml:"min_count" json:"min_count"`           // reports before filing; default 1
+		AutoFile  *bool  `yaml:"auto_file" json:"auto_file,omitempty" default:"true"`
+		AutoQueue bool   `yaml:"auto_queue" json:"auto_queue"` // also label the issue for intake
+		Label     string `yaml:"label" json:"label"`           // default "friction"
+		MinCount  int    `yaml:"min_count" json:"min_count"`   // reports before filing; default 1
 	} `yaml:"friction" json:"friction"`
 }
 

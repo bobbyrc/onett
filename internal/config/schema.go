@@ -7,6 +7,7 @@ import (
 	"go/parser"
 	"go/token"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -33,6 +34,9 @@ type SchemaNode struct {
 	Item   *SchemaNode  `json:"item,omitempty"`   // map and list: the value or element schema
 	// Enum lists the allowed values of a string setting, sorted. The UI shows a dropdown.
 	Enum []string `json:"enum,omitempty"`
+	// Default is the value a bool setting has when it is left out of the file. Only a pointer bool
+	// whose nil means a non-false value needs it; the UI shows it as "default: on" or "off".
+	Default *bool `json:"default,omitempty"`
 	// SecretEnv marks a string that names an environment variable holding a secret, never the secret.
 	SecretEnv bool `json:"secret_env,omitempty"`
 	// Discriminator (variant only) is the sibling key whose value picks the variant: "type".
@@ -59,8 +63,29 @@ func Schema() SchemaNode {
 		}
 		b := schemaBuilder{help: help}
 		schemaRoot = SchemaNode{Type: "section", Fields: b.structNode(reflect.TypeOf(Config{}), "Config").Fields}
+		// Loop.Enabled defaults to on, but retro and self_update work it out (see RetroOn and
+		// SelfUpdateOn), so a flat "default: on" would be wrong for them.
+		for _, loop := range []string{"retro", "self_update"} {
+			clearDefault(schemaRoot, "loops", loop, "enabled")
+		}
 	})
 	return schemaRoot
+}
+
+// clearDefault removes the Default of the setting at path under n.
+func clearDefault(n SchemaNode, path ...string) {
+	for i := range n.Fields {
+		if n.Fields[i].Key != path[0] {
+			continue
+		}
+		if len(path) == 1 {
+			n.Fields[i].Default = nil
+			return
+		}
+		clearDefault(n.Fields[i], path[1:]...)
+		return
+	}
+	panic(fmt.Sprintf("config schema: no setting %s", strings.Join(path, ".")))
 }
 
 // durationType is config.Duration, which is written as "15m" and is not an ordinary struct.
@@ -106,6 +131,13 @@ func (b schemaBuilder) structNode(t reflect.Type, base string) SchemaNode {
 				panic(fmt.Sprintf("config schema: %s has onett tag %q, want secret_env on a string", helpKey, tag))
 			}
 			node.SecretEnv = true
+		}
+		if tag := sf.Tag.Get("default"); tag != "" {
+			v, err := strconv.ParseBool(tag)
+			if err != nil || node.Type != "bool" {
+				panic(fmt.Sprintf("config schema: %s has default tag %q, want a bool on a bool setting", helpKey, tag))
+			}
+			node.Default = &v
 		}
 		node.Key = name
 		node.Help = leadWithYAMLKey(b.help[helpKey], sf.Name, name)

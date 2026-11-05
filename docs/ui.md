@@ -375,7 +375,7 @@ settings. Secrets are hidden." Operators also get a Reload button. An owner gets
 opens on the **Visual** tab. The top-level sections of `onett.yaml` sit in a list on the left (a
 square `--lamp-call` after a section with unsaved edits, `--lamp-stop` after one with problems); the
 active section's settings are on the right. A number, text or duration setting is an input; a
-checkbox is "On"; clearing an input removes the key. A value written as `${NAME}` shows as text with
+checkbox is "On", with a "Default: on" note when leaving it out of the file means on (a loop's `enabled`, friction's `auto_file`, a deploy's `auto_rollback`); clearing an input removes the key. A value written as `${NAME}` shows as text with
 a note that onett reads that environment variable. A map is one card per entry, with Rename and
 Remove (Remove asks first), and a form at the end to add one. A list has a row or a card per item,
 with Remove, and an Add button. A setting with fixed choices, such as a notifier's `type`, is a
