@@ -114,7 +114,7 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 	}
 
 	// The orchestrator alone gets the onett API token: it runs the onett CLI.
-	env := make(map[string]string, len(e.d.AgentEnv)+len(e.d.OrchestratorEnv)+3)
+	env := make(map[string]string, len(e.d.AgentEnv)+len(e.d.OrchestratorEnv)+4)
 	for k, v := range e.d.AgentEnv {
 		env[k] = v
 	}
@@ -124,6 +124,10 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 	env["ONETT_CONVERSATION_ID"] = conv.ID
 	env["ONETT_ROLE"] = "orchestrator"
 	env["ONETT_RUN_ID"] = run.ID
+	if conv.GoalID != "" {
+		// Tasks the orchestrator creates in a goal conversation are linked to the goal.
+		env["ONETT_GOAL"] = conv.GoalID
+	}
 
 	sess, err := h.Start(runCtx, harness.Spec{
 		RunID:           run.ID,
@@ -245,6 +249,9 @@ func chatInstructions(cfg *config.Config, conv domain.Conversation, base string)
 	}
 	if conv.Project != "" {
 		fmt.Fprintf(&b, "\nDefault project for this conversation: %s.", conv.Project)
+	}
+	if conv.GoalID != "" {
+		b.WriteString(goalInstructions(conv.GoalID))
 	}
 	return b.String()
 }

@@ -23,10 +23,11 @@ const (
 	loopProdWatch   = "prod_watch"
 	loopFriction    = "friction"
 	loopRetro       = "retro"
+	loopGoals       = "goals"
 )
 
 // loopNames lists every loop, in the order they start.
-var loopNames = []string{loopIssueIntake, loopExecIntake, loopPRShepherd, loopDeployWatch, loopProdWatch, loopFriction, loopRetro}
+var loopNames = []string{loopIssueIntake, loopExecIntake, loopPRShepherd, loopDeployWatch, loopProdWatch, loopFriction, loopRetro, loopGoals}
 
 // loopWakeMax and loopWakeMin bound how often a loop checks which projects are due.
 const (
@@ -50,6 +51,7 @@ func (e *Engine) loopFuncs() map[string]loopFn {
 		loopProdWatch:   e.prodLoop,
 		loopFriction:    e.frictionLoop,
 		loopRetro:       e.retroLoop,
+		loopGoals:       e.goalsLoop,
 	}
 }
 
@@ -345,6 +347,8 @@ func loopSettingsFor(l config.Loops, name string) config.Loop {
 		return l.Friction.Loop
 	case loopRetro:
 		return l.Retro.Loop
+	case loopGoals:
+		return l.Goals
 	}
 	return config.Loop{}
 }

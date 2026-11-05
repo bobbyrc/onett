@@ -22,6 +22,7 @@ var tasks = entity[domain.Task]{
 			{"status", string(t.Status)},
 			{"kind", string(t.Kind)},
 			{"parent_id", t.ParentID},
+			{"goal_id", nullIfEmpty(t.GoalID)},
 			{"source_ref", t.SourceRef},
 			{"priority", t.Priority},
 			{"created_at", nanos(t.CreatedAt)},
@@ -74,6 +75,9 @@ func (s *Store) ListTasks(ctx context.Context, f store.TaskFilter) ([]domain.Tas
 	}
 	if f.ParentID != "" {
 		c.add("parent_id = ?", f.ParentID)
+	}
+	if f.GoalID != "" {
+		c.add("goal_id = ?", f.GoalID)
 	}
 	args := append(c.args, limitOr(f.Limit, 200))
 	out, err := queryDocs[domain.Task](ctx, s.db,

@@ -324,3 +324,11 @@ func limitOr(n, def int) int {
 	}
 	return n
 }
+
+// nullIfEmpty stores an empty string as NULL, for nullable columns such as tasks.goal_id.
+func nullIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}

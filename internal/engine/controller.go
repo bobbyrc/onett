@@ -30,6 +30,9 @@ func (e *Engine) CreateTask(ctx context.Context, t domain.Task) (domain.Task, er
 	default:
 		return domain.Task{}, fmt.Errorf("%w: unknown task kind %q", api.ErrInvalid, t.Kind)
 	}
+	if err := e.checkGoalTask(ctx, t); err != nil {
+		return domain.Task{}, err
+	}
 	t.ID, t.Status, t.Attempts = "", "", 0
 	t.Branch, t.PRNumber, t.PRURL = "", 0, ""
 	t.ApprovedSHA, t.MergeSHA = "", ""

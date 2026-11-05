@@ -42,6 +42,7 @@ type NewTask struct {
 	Priority int             `json:"priority"`
 	ParentID string          `json:"parent_id"`
 	Source   string          `json:"source"`
+	GoalID   string          `json:"goal_id"`
 }
 
 // TaskDetail is the body of GET /tasks/{id}.
@@ -130,6 +131,7 @@ func (s *server) listTasks(w http.ResponseWriter, r *http.Request) {
 		Project:  q.Get("project"),
 		Statuses: csvQuery[domain.TaskStatus](q, "status"),
 		Kind:     domain.TaskKind(q.Get("kind")),
+		GoalID:   q.Get("goal_id"),
 		Limit:    limit,
 	})
 	if err != nil {
@@ -163,6 +165,7 @@ func (s *server) createTask(w http.ResponseWriter, r *http.Request) {
 		Role:         in.Role,
 		Priority:     in.Priority,
 		ParentID:     in.ParentID,
+		GoalID:       in.GoalID,
 		Source:       source,
 		CreatedByRun: createdByRun,
 	})

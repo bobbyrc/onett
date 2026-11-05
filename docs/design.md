@@ -227,6 +227,25 @@ succeeded. A turn that was cancelled, denied, stalled, timed out or failed leave
 alone, as does any other terminal outcome (invariant 4); only an explicit owner send or flush
 starts the next turn. A queued message can be edited or cancelled until a turn takes it.
 
+### Goals
+
+A goal (`domain.Goal`) is an objective the owner states once for one project; it gets its own
+orchestrator conversation. The `goals` loop (default every 1m, per-project `enabled`) looks at each
+active goal and starts an orchestrator turn in that conversation when the previous step has settled:
+every task linked to the goal (`Task.GoalID`) is done, blocked, failed or cancelled, the
+conversation is not busy, and something changed since the last turn (a goal task changed, or the
+owner wrote in the conversation; the first turn needs nothing). A task still queued, running, in
+review, awaiting approval, merged or deploying makes the goal wait, so approvals stay with the
+owner. The turn is a `system` message holding a check-in (the goal, each task's status, blocked
+reason and summary, and what to decide), run through the normal chat path with `ONETT_GOAL` in the
+orchestrator's environment, which the CLI uses to link every `onett task create` to the goal; no
+fake owner message is written. Two guards keep an unattended loop from spinning: a turn that leaves
+the goal active but queued no task, retried none and did not finish or block the goal blocks it, and
+so does reaching `limits.max_goal_turns` (default 40). Blocking, and `onett goal done`, notify the
+owner. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
+Goals add no new way to act: the orchestrator still only queues tasks, and merges still wait for
+the policy and the owner.
+
 ### Messaging a task's agent
 
 The owner can also message the agent working on a task (`POST /tasks/{id}/messages`). The

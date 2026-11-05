@@ -297,6 +297,7 @@ func taskCreate(e *env, args []string) error {
 	role := fs.String("role", "", "agent role (default: routed by kind)")
 	priority := fs.Int("priority", 0, "higher runs first")
 	parent := fs.String("parent", "", "parent task ID")
+	goal := fs.String("goal", os.Getenv("ONETT_GOAL"), "goal this task works toward (default: $ONETT_GOAL)")
 	jsonOut := fs.Bool("json", false, "print the created task as JSON")
 	positional, err := parseArgs(fs, args)
 	if err != nil {
@@ -325,7 +326,7 @@ func taskCreate(e *env, args []string) error {
 	}
 	task, err := c.CreateTask(context.Background(), client.NewTask{
 		Project: *project, Kind: *kind, Title: *title, Body: text, Role: *role,
-		Priority: *priority, ParentID: *parent, Source: "api",
+		Priority: *priority, ParentID: *parent, Source: "api", GoalID: *goal,
 	})
 	if err != nil {
 		return err
