@@ -936,6 +936,32 @@
                 ]
               },
               {
+                "key": "heartbeat",
+                "type": "section",
+                "help": "Heartbeat wakes the orchestrator on a schedule when the attention digest (blocked or failed work, stuck queues, failed deploys, pending approvals) has an item it has not shown before. Default every 15m.",
+                "fields": [
+                  {
+                    "key": "enabled",
+                    "type": "bool",
+                    "default": true
+                  },
+                  {
+                    "key": "every",
+                    "type": "duration"
+                  },
+                  {
+                    "key": "quiet_hours",
+                    "type": "string",
+                    "help": "Quiet hours is a window such as \"22:00-07:00\", in the daemon's local time, when the heartbeat does not wake anyone. It may wrap midnight. Empty means no quiet hours."
+                  },
+                  {
+                    "key": "stale_queued",
+                    "type": "duration",
+                    "help": "Stale queued is how long a task may sit queued before it counts as stuck; default 4h."
+                  }
+                ]
+              },
+              {
                 "key": "friction",
                 "type": "section",
                 "help": "Friction files GitHub issues for reported friction.",
@@ -1151,6 +1177,34 @@
               "key": "every",
               "type": "duration",
               "default": "1m"
+            }
+          ]
+        },
+        {
+          "key": "heartbeat",
+          "type": "section",
+          "help": "Heartbeat wakes the orchestrator on a schedule when the attention digest (blocked or failed work, stuck queues, failed deploys, pending approvals) has an item it has not shown before. Default every 15m.",
+          "fields": [
+            {
+              "key": "enabled",
+              "type": "bool",
+              "default": true
+            },
+            {
+              "key": "every",
+              "type": "duration",
+              "default": "15m"
+            },
+            {
+              "key": "quiet_hours",
+              "type": "string",
+              "help": "Quiet hours is a window such as \"22:00-07:00\", in the daemon's local time, when the heartbeat does not wake anyone. It may wrap midnight. Empty means no quiet hours."
+            },
+            {
+              "key": "stale_queued",
+              "type": "duration",
+              "help": "Stale queued is how long a task may sit queued before it counts as stuck; default 4h.",
+              "default": "4h"
             }
           ]
         },

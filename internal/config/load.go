@@ -304,6 +304,18 @@ func (c *Config) LoopsFor(project string) Loops {
 	if ov.Goals.Every.Duration != 0 {
 		out.Goals.Every = ov.Goals.Every
 	}
+	if ov.Heartbeat.Enabled != nil {
+		out.Heartbeat.Enabled = ov.Heartbeat.Enabled
+	}
+	if ov.Heartbeat.Every.Duration != 0 {
+		out.Heartbeat.Every = ov.Heartbeat.Every
+	}
+	if ov.Heartbeat.QuietHours != "" {
+		out.Heartbeat.QuietHours = ov.Heartbeat.QuietHours
+	}
+	if ov.Heartbeat.StaleQueued.Duration != 0 {
+		out.Heartbeat.StaleQueued = ov.Heartbeat.StaleQueued
+	}
 	return out
 }
 

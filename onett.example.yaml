@@ -264,6 +264,10 @@ loops:
     every: 1m                          # runs each project's intake sources and creates tasks for new items (default 1m)
   goals:
     every: 1m                          # wakes the orchestrator on each active goal whose last step has settled (default 1m)
+  heartbeat:
+    every: 15m                         # checks for blocked, failed or stuck work and wakes the orchestrator when something new appears (default 15m)
+    quiet_hours: ""                    # e.g. "22:00-07:00", daemon local time; may wrap midnight; no wake-ups in this window (default none)
+    stale_queued: 4h                   # a task queued this long counts as stuck (default 4h)
   retro:
     every: 24h                         # files a retrospective improve task with recent failures and friction (default 24h)
     lookback: 24h                      # evidence window; default is every

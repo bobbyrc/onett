@@ -92,6 +92,9 @@ func (c *Config) Validate() error {
 		if p.Loops != nil && p.Loops.Retro.Lookback.Duration < 0 {
 			add("%s.loops.retro.lookback: must be 0 (default = every) or greater", prefix)
 		}
+		if p.Loops != nil {
+			validateHeartbeat(prefix+".loops.heartbeat", p.Loops.Heartbeat.QuietHours, p.Loops.Heartbeat.StaleQueued.Duration, add)
+		}
 		if su := c.LoopsFor(name).SelfUpdate; su.Enabled != nil && *su.Enabled && strings.TrimSpace(su.Command) == "" {
 			add("%s.loops.self_update.command: required when self_update is enabled", prefix)
 		}
@@ -228,6 +231,7 @@ func (c *Config) Validate() error {
 	if c.Loops.Retro.Lookback.Duration < 0 {
 		add("loops.retro.lookback: must be 0 (default = every) or greater")
 	}
+	validateHeartbeat("loops.heartbeat", c.Loops.Heartbeat.QuietHours, c.Loops.Heartbeat.StaleQueued.Duration, add)
 	if c.Loops.SelfUpdate.MinHealthy.Duration < 0 {
 		add("loops.self_update.min_healthy: must be 0 (default 10m) or greater")
 	}

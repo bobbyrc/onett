@@ -324,6 +324,17 @@ type Loops struct {
 	} `yaml:"self_update" json:"self_update"`
 	// Goals wakes the orchestrator on each active goal whose last step has settled. Default every 1m.
 	Goals Loop `yaml:"goals" json:"goals"`
+	// Heartbeat wakes the orchestrator on a schedule when the attention digest (blocked or
+	// failed work, stuck queues, failed deploys, pending approvals) has an item it has not
+	// shown before. Default every 15m.
+	Heartbeat struct {
+		Loop `yaml:",inline"`
+		// QuietHours is a window such as "22:00-07:00", in the daemon's local time, when the
+		// heartbeat does not wake anyone. It may wrap midnight. Empty means no quiet hours.
+		QuietHours string `yaml:"quiet_hours" json:"quiet_hours"`
+		// StaleQueued is how long a task may sit queued before it counts as stuck; default 4h.
+		StaleQueued Duration `yaml:"stale_queued" json:"stale_queued"`
+	} `yaml:"heartbeat" json:"heartbeat"`
 	// Friction files GitHub issues for reported friction.
 	Friction struct {
 		Loop      `yaml:",inline"`

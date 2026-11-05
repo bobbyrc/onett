@@ -1295,7 +1295,7 @@ paths:
       summary: Run one loop now.
       description: |
         `name` is one of `issue_intake`, `exec_intake`, `pr_shepherd`, `deploy_watch`,
-        `prod_watch`, `friction`, `retro`, `self_update` or `goals`. An unknown name, or an unknown project, returns 400. The run is
+        `prod_watch`, `friction`, `retro`, `self_update`, `goals` or `heartbeat`. An unknown name, or an unknown project, returns 400. The run is
         asynchronous, so the response carries no body.
       parameters:
         - name: name
@@ -3930,7 +3930,7 @@ components:
 
     Loops:
       type: object
-      required: [issue_intake, exec_intake, pr_shepherd, deploy_watch, prod_watch, friction, retro, self_update, goals]
+      required: [issue_intake, exec_intake, pr_shepherd, deploy_watch, prod_watch, friction, retro, self_update, goals, heartbeat]
       properties:
         issue_intake:
           description: Turns open issues carrying `label` into tasks.
@@ -3991,6 +3991,25 @@ components:
                 min_count:
                   type: integer
                   description: Reports needed before filing. Default 1.
+        heartbeat:
+          description: >-
+            Builds an attention digest (blocked or failed work, stuck queues, failed deploys,
+            pending approvals) and wakes the orchestrator only when it holds an item not reported
+            before. Default every `15m`.
+          allOf:
+            - $ref: '#/components/schemas/Loop'
+            - type: object
+              required: [quiet_hours, stale_queued]
+              properties:
+                quiet_hours:
+                  type: string
+                  description: >-
+                    Window such as `22:00-07:00` in the daemon's local time when nothing wakes
+                    the orchestrator. May wrap midnight. Empty means none.
+                stale_queued:
+                  allOf:
+                    - $ref: '#/components/schemas/Duration'
+                  description: How long a task may sit queued before it counts as stuck. Default `4h`.
         retro:
           description: >-
             Gives an improver agent the recent evidence of what went wrong (blocked and failed

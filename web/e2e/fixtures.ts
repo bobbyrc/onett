@@ -338,6 +338,7 @@ const loopsCfg = {
   issue_intake: { enabled: true, every: '5m', label: 'onett' },
   exec_intake: { enabled: false, every: '5m' },
   goals: { enabled: true, every: '1m' },
+  heartbeat: { enabled: true, every: '15m', quiet_hours: '', stale_queued: '4h' },
   pr_shepherd: { enabled: true, every: '1m' },
   deploy_watch: { enabled: true, every: '1m' },
   prod_watch: { enabled: false, every: '5m', min_level: 'error', min_count: 3 },

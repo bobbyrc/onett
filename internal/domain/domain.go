@@ -479,6 +479,10 @@ type LoopState struct {
 	LastRunAt time.Time `json:"last_run_at"`
 	LastError string    `json:"last_error,omitempty"`
 	Cursor    string    `json:"cursor,omitempty"` // loop-specific resume point
+	// NextRunAt and ItemCount are for loops that report them (heartbeat): when the loop next
+	// runs on its schedule, and how many items its last run found.
+	NextRunAt *time.Time `json:"next_run_at,omitempty"`
+	ItemCount int        `json:"item_count,omitempty"`
 }
 
 // Pause reasons: why the factory is paused.
