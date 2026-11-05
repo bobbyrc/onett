@@ -3,9 +3,16 @@
 // react-dom and jsdom (no Testing Library: it is not a dependency here).
 import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { SchemaNode } from '../../types';
 import { NodeEditor, type EditContext } from './ConfigSection';
+
+// The secret picker lists secrets; none exist here.
+vi.mock('../../api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api')>()),
+  listSecrets: () => Promise.resolve({ secrets: [] }),
+}));
 
 const str = (key: string): SchemaNode => ({ key, type: 'string' });
 const channel: SchemaNode = {
@@ -70,7 +77,14 @@ function render(initial: Record<string, unknown>) {
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
-  act(() => root?.render(<Harness initial={initial} />));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  act(() =>
+    root?.render(
+      <QueryClientProvider client={client}>
+        <Harness initial={initial} />
+      </QueryClientProvider>,
+    ),
+  );
 }
 
 function pick(value: string) {

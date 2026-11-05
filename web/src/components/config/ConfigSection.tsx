@@ -16,6 +16,7 @@ import {
   type Path,
 } from '../../lib/configDoc';
 import { AnyInput, ScalarInput, isScalarType } from './ConfigFieldInput';
+import { SecretPicker } from './SecretPicker';
 
 export interface EditContext {
   /** The file with the pending changes applied: what the inputs show. */
@@ -230,15 +231,27 @@ function FieldRow({
       </div>
       {node.help ? <p className="config-field-help">{node.help}</p> : null}
       <div className="config-field-input">
-        <ScalarInput
-          id={id}
-          labelledBy={node.type === 'bool' ? labelId : undefined}
-          type={node.type}
-          value={value}
-          invalid={issues.length > 0}
-          enumValues={node.enum}
-          onChange={onChange}
-        />
+        {node.secret_env && node.type === 'string' ? (
+          <SecretPicker
+            id={id}
+            fieldKey={node.key}
+            help={node.help}
+            type={getAt(ctx.draft, [...path.slice(0, -2), 'type'])}
+            value={value}
+            invalid={issues.length > 0}
+            onChange={onChange}
+          />
+        ) : (
+          <ScalarInput
+            id={id}
+            labelledBy={node.type === 'bool' ? labelId : undefined}
+            type={node.type}
+            value={value}
+            invalid={issues.length > 0}
+            enumValues={node.enum}
+            onChange={onChange}
+          />
+        )}
       </div>
       {pending ? (
         <p className="config-env" role="alert">
@@ -263,7 +276,7 @@ function FieldRow({
       ) : null}
       {node.secret_env ? (
         <p className="muted config-env">
-          The name of an environment variable that holds the secret, not the secret itself.
+          This is the name of an environment variable that holds the secret, not the secret itself.
         </p>
       ) : null}
       {envName ? (
