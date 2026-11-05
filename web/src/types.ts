@@ -274,6 +274,14 @@ export interface Attachment {
   created_at: string;
 }
 
+/** What the upload endpoint answers with. */
+export interface UploadedAttachment {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+}
+
 export interface TaskConversation {
   task: Task;
   conversation?: Conversation;
@@ -561,6 +569,7 @@ export interface Config {
   notify: Notifier[] | null;
   channels: Channel[] | null;
   self_project: string;
+  chat?: { attachments?: { max_per_message?: number } };
   path: string;
 }
 

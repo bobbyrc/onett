@@ -333,7 +333,8 @@ export function useCreateConversation() {
 export function useSendMessage(conversationId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (text: string) => api.sendMessage(conversationId, text),
+    mutationFn: ({ text, attachments }: { text: string; attachments?: string[] }) =>
+      api.sendMessage(conversationId, text, attachments),
     onSuccess: () => invalidate(qc, keys.conversation(conversationId), keys.conversationsAll),
   });
 }

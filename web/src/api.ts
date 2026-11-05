@@ -40,6 +40,7 @@ import type {
   TaskDetail,
   SecretSaved,
   SecretView,
+  UploadedAttachment,
   User,
 } from './types';
 
@@ -267,8 +268,60 @@ export const createConversation = (title: string, project = '') =>
 export const getConversation = (id: string) =>
   request<ConversationDetail>('GET', `/conversations/${encodeURIComponent(id)}`);
 
-export const sendMessage = (id: string, text: string) =>
-  request<ChatMessage>('POST', `/conversations/${encodeURIComponent(id)}/messages`, { body: { text } });
+export const sendMessage = (id: string, text: string, attachments: string[] = []) =>
+  request<ChatMessage>('POST', `/conversations/${encodeURIComponent(id)}/messages`, {
+    body: attachments.length > 0 ? { text, attachments } : { text },
+  });
+
+/** Where a conversation's attachment is served (cookie auth; images and PDFs inline). */
+export const attachmentUrl = (conversationId: string, attachmentId: string) =>
+  `/api/v1/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(attachmentId)}`;
+
+/** An upload in flight: `done` settles with the stored file, `abort` cancels it. */
+export interface Upload {
+  done: Promise<UploadedAttachment>;
+  abort: () => void;
+}
+
+/**
+ * Uploads one file to a conversation. fetch cannot report upload progress, so this uses
+ * XMLHttpRequest; `onProgress` gets a fraction from 0 to 1. Errors are ApiError, like request().
+ */
+export function uploadAttachment(conversationId: string, file: File, onProgress?: (fraction: number) => void): Upload {
+  const xhr = new XMLHttpRequest();
+  const done = new Promise<UploadedAttachment>((resolve, reject) => {
+    xhr.open('POST', `/api/v1/conversations/${encodeURIComponent(conversationId)}/attachments`);
+    xhr.responseType = 'text';
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as UploadedAttachment);
+        } catch {
+          reject(new ApiError(xhr.status, 'unreadable answer from the server'));
+        }
+        return;
+      }
+      if (xhr.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+      let message = xhr.statusText || `HTTP ${xhr.status}`;
+      try {
+        const body = JSON.parse(xhr.responseText) as { error?: string };
+        if (body.error) message = body.error;
+      } catch {
+        // Not JSON: keep the status text.
+      }
+      reject(new ApiError(xhr.status, message));
+    };
+    xhr.onerror = () => reject(new ApiError(0, 'network error'));
+    xhr.onabort = () => reject(new ApiError(0, 'upload cancelled'));
+    const form = new FormData();
+    form.append('file', file, file.name);
+    xhr.send(form);
+  });
+  return { done, abort: () => xhr.abort() };
+}
 
 export const editMessage = (id: string, text: string) =>
   request<ChatMessage>('PATCH', `/messages/${encodeURIComponent(id)}`, { body: { text } });

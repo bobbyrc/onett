@@ -4,6 +4,7 @@ import { parseTime } from '../lib/time';
 import { clipLines, type Entry } from '../lib/transcript';
 import type { TranscriptView } from '../lib/transcriptView';
 import { Markdown } from './Markdown';
+import { MessageAttachments } from './MessageAttachments';
 import './Transcript.css';
 
 const RESULT_PREVIEW_LINES = 3;
@@ -103,7 +104,8 @@ function ConversationEntry({
               {e.messageId && queuedActions ? queuedActions(e.messageId) : null}
             </span>
           ) : null}
-          <span className="tr-body">{e.text}</span>
+          {e.text ? <span className="tr-body">{e.text}</span> : null}
+          {e.attachments?.length ? <MessageAttachments attachments={e.attachments} /> : null}
         </div>
       );
     case 'prompt':

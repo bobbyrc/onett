@@ -292,7 +292,17 @@ export const conversations: Conversation[] = [
 ];
 
 export const chatMessages: ChatMessage[] = [
-  { id: id(91), conversation_id: CONV_ID, role: 'user', text: `${LONG_TITLE}\n\n${UNBROKEN}`, created_at: EARLIER },
+  {
+    id: id(91),
+    conversation_id: CONV_ID,
+    role: 'user',
+    text: `${LONG_TITLE}\n\n${UNBROKEN}`,
+    created_at: EARLIER,
+    attachments: [
+      { id: id(95), conversation_id: CONV_ID, name: 'screenshot.png', mime: 'image/png', size: 84_000, created_at: EARLIER },
+      { id: id(96), conversation_id: CONV_ID, name: `${UNBROKEN}-quarterly-report.pdf`, mime: 'application/pdf', size: 2_400_000, created_at: EARLIER },
+    ],
+  },
   {
     id: id(92),
     conversation_id: CONV_ID,
