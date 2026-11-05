@@ -22,7 +22,6 @@ const NAV: { to: string; label: string; end?: boolean; approvals?: boolean; bloc
   { to: '/loops', label: 'Loops' },
   { to: '/agents', label: 'Agents' },
   { to: '/config', label: 'Config' },
-  { to: '/secrets', label: 'Secrets', admin: true },
   { to: '/users', label: 'Users', admin: true },
 ];
 

@@ -61,6 +61,9 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `POST /auth/login` | `{"username","password"}` | `User` and sets the cookie (200); 401 wrong credentials; 429 locked; 503 busy |
 | `POST /auth/logout` | | 204, clears the cookie; session only (token gets 403) |
 | `POST /auth/password` | `{"current","new"}` | 204; 403 wrong current password; 429 too many wrong guesses (same count rules as sign-in, keyed to the user); 503 busy; other sessions end; session only |
+| `GET /secrets` | | `{"secrets":[{"name","set","source","referenced_by"}]}` (owner); names the config refers to plus names in `secrets.env`; never a value or length |
+| `PUT /secrets/{name}` | `{"value"}` | `{"name","set","shadowed"}` (owner); 400 bad name or empty value; writes `secrets.env` (0600) and reloads |
+| `DELETE /secrets/{name}` | | 204 (owner); 404 when the file lacks it |
 | `GET /users` | | `[]User` (owner) |
 | `POST /users` | `{"username","password","role"}` | `User` (201, owner); 409 taken |
 | `POST /users/{name}/role` | `{"role"}` | `User` (owner); 409 last owner |
@@ -70,9 +73,6 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `PUT /config/file` | `{"version","text"}` | `ConfigSaved` (owner); 409 stale version; 422 `problems` |
 | `GET /config/document` | | `{"path","version","document","schema"}` (owner) |
 | `PATCH /config/document` | `{"version","changes":[{"op":"set"\|"delete","path":[...],"value"}]}` | `ConfigSaved` (owner); keeps comments |
-| `GET /secrets` | | `{"path","names":[...]}` (owner): names in `secrets.env`, never values |
-| `PUT /secrets/{name}` | `{"value"}` | 204 (owner); writes the file and the running environment; 422 bad name or value |
-| `DELETE /secrets/{name}` | | 204 (owner); 404 unknown; takes effect after a restart |
 | `GET /events` | `?after=<id>&token=` | SSE stream (below) |
 | `GET /ws` | `?after=<id>` | WebSocket stream for the web UI (below) |
 | `GET /events/history` | `?after=&project=&task_id=&limit=` (default 500) | `[]Event` |

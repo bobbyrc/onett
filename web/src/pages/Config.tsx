@@ -8,11 +8,14 @@ import { useConfig, useConfigDocument, useReloadConfig } from '../queries';
 import { useParamState } from '../useParamState';
 import { Button } from '../components/Button';
 import { ConfigEditor } from '../components/config/ConfigEditor';
+import { SecretsPanel } from '../components/config/SecretsPanel';
 import { YamlEditor } from '../components/config/YamlEditor';
 import { Empty } from '../components/Empty';
 import { ErrorLine } from '../components/ErrorLine';
 import { JsonView } from '../components/JsonView';
 import { PageHeader } from '../components/PageHeader';
+
+type Mode = 'visual' | 'yaml' | 'secrets';
 
 export function Config() {
   return useCan('administer') ? <OwnerConfig /> : <ViewerConfig />;
@@ -47,10 +50,10 @@ function ViewerConfig() {
   );
 }
 
-/** The owner's page: the visual editor or the YAML tab, chosen with ?mode=yaml in the URL. */
+/** The owner's page: the visual editor, the YAML tab or the Secrets tab, chosen with ?mode= in the URL. */
 function OwnerConfig() {
   const [modeParam, setModeParam] = useParamState('mode');
-  const mode = modeParam === 'yaml' ? 'yaml' : 'visual';
+  const mode: Mode = modeParam === 'yaml' || modeParam === 'secrets' ? modeParam : 'visual';
   const doc = useConfigDocument();
   const reload = useReloadConfig();
   // Whether the open editor has unsaved edits; it reports this up so a switch can ask first.
@@ -58,11 +61,11 @@ function OwnerConfig() {
 
   if (doc.error instanceof ApiError && doc.error.status === 403) return <ViewerConfig />;
 
-  const switchMode = (next: 'visual' | 'yaml') => {
+  const switchMode = (next: Mode) => {
     if (next === mode) return;
     if (dirty && !window.confirm('Discard unsaved changes?')) return;
     setDirty(false);
-    setModeParam(next === 'yaml' ? 'yaml' : '');
+    setModeParam(next === 'visual' ? '' : next);
   };
 
   return (
@@ -88,6 +91,14 @@ function OwnerConfig() {
               >
                 YAML
               </button>
+              <button
+                type="button"
+                className={mode === 'secrets' ? 'on' : undefined}
+                aria-pressed={mode === 'secrets'}
+                onClick={() => switchMode('secrets')}
+              >
+                Secrets
+              </button>
             </div>
             <Button disabled={reload.isPending} onClick={() => reload.mutate()}>
               Reload from file
@@ -101,7 +112,9 @@ function OwnerConfig() {
       </p>
       <ErrorLine error={doc.error ?? reload.error} />
 
-      {mode === 'yaml' ? (
+      {mode === 'secrets' ? (
+        <SecretsPanel />
+      ) : mode === 'yaml' ? (
         <YamlEditor onDirtyChange={setDirty} />
       ) : doc.data ? (
         <ConfigEditor doc={doc.data} refetch={doc.refetch} onDirtyChange={setDirty} />

@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -61,7 +60,8 @@ func cmdServe(e *env, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := loadSecretsFile(filepath.Join(dir, "secrets.env")); err != nil {
+	secretStore := secrets.New(filepath.Join(dir, "secrets.env"))
+	if err := secretStore.Load(); err != nil {
 		return err
 	}
 
@@ -120,6 +120,10 @@ func cmdServe(e *env, args []string) error {
 		DeployerFor:  deployerFor,
 		ObserversFor: observersFor,
 		ReloadConfig: func(p string) (*config.Config, error) {
+			// Re-read secrets.env first: ${NAME} references expand from the environment.
+			if err := secretStore.Load(); err != nil {
+				return nil, err
+			}
 			c, err := config.Load(p)
 			if err != nil {
 				return nil, err
@@ -149,7 +153,7 @@ func cmdServe(e *env, args []string) error {
 		Version:       version,
 		SecureCookies: strings.HasPrefix(cfg.Server.PublicURL, "https://"),
 		AllowedHosts:  serveAllowedHosts(cfg.Server),
-		SecretsPath:   filepath.Join(dir, "secrets.env"),
+		Secrets:       secretStore,
 		Logger:        logger,
 	})
 	// Every request context derives from baseCtx. Streaming (SSE) handlers run until their
@@ -346,32 +350,6 @@ func scmFor(p *config.Project) (scm.SCM, error) {
 		return nil, fmt.Errorf("project %s has no GitHub repository; pull requests need one", p.Name)
 	}
 	return github.New(p.Repo), nil
-}
-
-// loadSecretsFile sets environment variables from a secrets file before the config is read,
-// because ${NAME} references in the config expand from the environment. A missing file is not
-// an error. Variables already set in the environment win.
-func loadSecretsFile(path string) error {
-	f, err := os.Open(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("read secrets: %w", err)
-	}
-	defer f.Close()
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return fmt.Errorf("read secrets: %w", err)
-	}
-	for _, kv := range secrets.Parse(data) {
-		if _, set := os.LookupEnv(kv.Key); !set {
-			if err := os.Setenv(kv.Key, kv.Value); err != nil {
-				return fmt.Errorf("set %s from secrets: %w", kv.Key, err)
-			}
-		}
-	}
-	return nil
 }
 
 // serveAllowedHosts returns the Host names the API accepts beyond localhost: the bind host, the

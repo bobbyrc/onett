@@ -257,6 +257,7 @@ func (e *Engine) recover(ctx context.Context) error {
 		}
 	}
 	e.projMu.Unlock()
+	e.restoreHolds(states)
 
 	runs, err := e.d.Store.ListRuns(ctx, store.RunFilter{
 		Statuses: []domain.RunStatus{domain.RunStarting, domain.RunRunning}, Limit: 1000,

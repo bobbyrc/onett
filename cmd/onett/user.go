@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/bobbyrc/onett/internal/auth"
+	"github.com/bobbyrc/onett/internal/secrets"
 	"github.com/bobbyrc/onett/internal/store"
 	"github.com/bobbyrc/onett/internal/store/sqlite"
 )
@@ -60,7 +61,7 @@ func resetUserPassword(e *env, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := loadSecretsFile(filepath.Join(dir, "secrets.env")); err != nil {
+	if err := secrets.New(filepath.Join(dir, "secrets.env")).Load(); err != nil {
 		return err
 	}
 	cfg, err := loadConfig(path)

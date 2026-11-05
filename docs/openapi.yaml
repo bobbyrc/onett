@@ -31,7 +31,7 @@ tags:
   - name: users
     description: Accounts and roles. Owner sessions only.
   - name: secrets
-    description: The names in secrets.env, and writing or removing a value. Owner sessions only; values are never returned.
+    description: Write-only secrets.env entries. Owner sessions only; values are never sent back.
   - name: health
   - name: events
     description: Server-Sent Event stream for the CLI, the WebSocket stream for the web UI, and stored event history.
@@ -1729,29 +1729,28 @@ paths:
     get:
       operationId: listSecrets
       tags: [secrets]
-      summary: List the names in secrets.env.
-      description: Owner only; the API token gets 403. Only names are returned, never values. 404 when the daemon has no secrets file configured.
+      summary: List secret names and where each comes from.
+      description: >-
+        Owner only. The union of the names in secrets.env and the names the config refers to
+        (every `*_env` option value and every `${NAME}` reference). A value, or its length, is
+        never sent.
       responses:
         '200':
-          description: The file's path and the names in it, in file order.
+          description: The secrets.
           content:
             application/json:
               schema:
                 type: object
-                required: [path, names]
+                required: [secrets]
                 properties:
-                  path:
-                    type: string
-                  names:
+                  secrets:
                     type: array
                     items:
-                      type: string
+                      $ref: '#/components/schemas/SecretView'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -1759,15 +1758,18 @@ paths:
     put:
       operationId: putSecret
       tags: [secrets]
-      summary: Create or replace a secret.
-      description: Owner only. Writes NAME=value to secrets.env (mode 600), keeping the other lines, and sets it in the running daemon's environment so the next config reload and agent run see it. 422 for a name that is not letters, digits and underscores, or an empty, multi-line or oversized value.
+      summary: Set or replace a secret.
+      description: >-
+        Owner only. Writes secrets.env (atomically, mode 0600, other lines kept), sets the value
+        in the daemon's environment unless the daemon's own environment already defines the name
+        (then `shadowed` is true), and reloads the config. There is no way to read a value back.
       parameters:
         - name: name
           in: path
           required: true
-          description: Environment variable name.
           schema:
             type: string
+            pattern: '^[A-Z_][A-Z0-9_]*$'
       requestBody:
         required: true
         content:
@@ -1778,31 +1780,31 @@ paths:
               properties:
                 value:
                   type: string
+                  description: Non-empty, one line.
       responses:
-        '204':
+        '200':
           description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretSaved'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
         '500':
           $ref: '#/components/responses/InternalError'
     delete:
       operationId: deleteSecret
       tags: [secrets]
       summary: Remove a secret from secrets.env.
-      description: Owner only. The running daemon keeps its copy of the value until it restarts.
+      description: Owner only. Also unsets it in the daemon when it came from the file, then reloads the config.
       parameters:
         - name: name
           in: path
           required: true
-          description: Environment variable name.
           schema:
             type: string
       responses:
@@ -1814,8 +1816,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -2060,6 +2060,38 @@ components:
         type: string
 
   schemas:
+    SecretView:
+      type: object
+      required: [name, set, source, referenced_by]
+      properties:
+        name:
+          type: string
+        set:
+          type: boolean
+        source:
+          type: string
+          enum: [file, environment, '']
+          description: >-
+            `file` when the value came from secrets.env, `environment` when the daemon's own
+            environment defines it (that wins over the file), empty when unset.
+        referenced_by:
+          type: array
+          items:
+            type: string
+          description: Config paths that refer to the name, such as `channels[0].options.bot_token_env`.
+
+    SecretSaved:
+      type: object
+      required: [name, set, shadowed]
+      properties:
+        name:
+          type: string
+        set:
+          type: boolean
+        shadowed:
+          type: boolean
+          description: The daemon's environment owns the name, so the saved value is not in effect.
+
     User:
       type: object
       description: A signed-in account. The password hash is never included.
