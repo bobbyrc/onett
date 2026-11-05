@@ -23,6 +23,8 @@ export function SetupChecklist() {
   const stats = useStats();
   const secrets = useSecrets(owner);
   const [dismissed, setDismissed] = useState(wasDismissed);
+  // Only narrow screens collapse the card; on desktop CSS always shows the list.
+  const [open, setOpen] = useState(false);
   if (dismissed || !owner) return null;
 
   const steps = setupSteps({ projects: projects.data, agents: agents.data, stats: stats.data, secrets: secrets.data?.secrets });
@@ -37,10 +39,17 @@ export function SetupChecklist() {
     setDismissed(true);
   };
 
+  const left = steps.filter((s) => !s.done);
+  const summary = `${steps.length - left.length} of ${steps.length} done, ${left.map((s) => s.label).join(', ')} left`;
+
   return (
-    <section className="card setup-checklist" aria-labelledby="finish-setup">
+    <section className={`card setup-checklist${open ? ' is-open' : ''}`} aria-labelledby="finish-setup">
       <h2 id="finish-setup">Finish setting up onett</h2>
-      <ul className="setup-steps">
+      <button type="button" className="setup-summary" aria-expanded={open} aria-controls="setup-steps" onClick={() => setOpen(!open)}>
+        <span>{summary}</span>
+        <span aria-hidden="true">{open ? '▴' : '▾'}</span>
+      </button>
+      <ul className="setup-steps" id="setup-steps">
         {steps.map((step) => (
           <li key={step.id} className={step.done ? 'is-done' : undefined}>
             <span aria-hidden="true">{step.done ? '✓' : '○'}</span>{' '}
