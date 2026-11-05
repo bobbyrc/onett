@@ -129,6 +129,8 @@ func (f *fakeCtl) ReloadConfig(context.Context) error {
 	return f.note("ReloadConfig")
 }
 
+func (f *fakeCtl) Preflight() []domain.Preflight { return nil }
+
 func (f *fakeCtl) Paused() bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()

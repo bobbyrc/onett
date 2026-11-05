@@ -61,6 +61,8 @@ type Engine struct {
 	cfgMu sync.RWMutex
 	cfg   *config.Config
 
+	pre *preflight // preflight.go
+
 	paused atomic.Bool
 	wake   chan struct{}
 
@@ -146,6 +148,7 @@ func New(d Deps) (*Engine, error) {
 	}
 	return &Engine{
 		d:          d,
+		pre:        newPreflight(),
 		cfg:        d.Config,
 		wake:       make(chan struct{}, 1),
 		active:     map[string]*activeRun{},

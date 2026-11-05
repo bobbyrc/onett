@@ -294,6 +294,16 @@ export interface Stats {
   approvals_pending: number;
   cost_today_usd: number;
   paused: boolean;
+  preflight: Preflight[];
+}
+
+export interface Preflight {
+  project: string;
+  ok: boolean;
+  path?: string;
+  error?: string;
+  fix?: string;
+  checked_at: string;
 }
 
 export interface TaskDetail {

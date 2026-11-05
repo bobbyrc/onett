@@ -44,6 +44,9 @@ type Controller interface {
 	// RunLoop runs one loop now; project "" runs it for every project.
 	RunLoop(ctx context.Context, name, project string) error
 
+	// Preflight is the last tool-directory check per project (see internal/engine/preflight.go).
+	Preflight() []domain.Preflight
+
 	Config() *config.Config
 	ReloadConfig(ctx context.Context) error
 

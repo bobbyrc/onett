@@ -299,6 +299,7 @@ func (e *Engine) ReloadConfig(ctx context.Context) error {
 	e.cfgMu.Lock()
 	e.cfg = cfg
 	e.cfgMu.Unlock()
+	e.resetPreflight()
 	e.d.Bus.Emit(ctx, domain.EvSystem, "", "", "", "config reloaded from "+path, nil)
 	e.wakeScheduler()
 	return nil

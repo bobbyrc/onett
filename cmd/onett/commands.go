@@ -123,6 +123,12 @@ func writeStatus(w io.Writer, s statusSnapshot) error {
 		fmt.Fprintf(w, "  blocked  %s  %s: %s\n", oneLine(t.ID), truncate(t.Title, titleWidth), orDash(oneLine(t.BlockedReason)))
 		n++
 	}
+	for _, p := range s.Stats.Preflight {
+		if !p.OK {
+			fmt.Fprintf(w, "  preflight %s  %s\n", oneLine(p.Project), oneLine(p.Summary()))
+			n++
+		}
+	}
 	if n == 0 {
 		fmt.Fprintln(w, "  nothing")
 	}
