@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,12 +29,13 @@ func stubHost(t *testing.T) (plistDir string) {
 	plistDir = t.TempDir()
 	t.Setenv("HOME", t.TempDir())
 
-	prevOS, prevUID, prevDir := hostOS, currentUID, launchAgentsDir
+	prevOS, prevUID, prevDir, prevPause := hostOS, currentUID, launchAgentsDir, pause
+	pause = func(time.Duration) {}
 	hostOS = "darwin"
 	currentUID = func() int { return 501 }
 	launchAgentsDir = plistDir
 	t.Cleanup(func() {
-		hostOS, currentUID, launchAgentsDir = prevOS, prevUID, prevDir
+		hostOS, currentUID, launchAgentsDir, pause = prevOS, prevUID, prevDir, prevPause
 	})
 	return plistDir
 }
@@ -140,7 +142,10 @@ func TestInstallTwiceKickstarts(t *testing.T) {
 
 	code, out, errOut := runCLI("service", "install", "--config", cfg)
 	require.Equal(t, 0, code, errOut)
-	assert.Equal(t, []runCall{{name: "launchctl", args: []string{"kickstart", "-k", "gui/501/io.onett.serve"}}}, *calls)
+	assert.Equal(t, []runCall{
+		{name: "launchctl", args: []string{"print", "gui/501/io.onett.serve"}},
+		{name: "launchctl", args: []string{"kickstart", "-k", "gui/501/io.onett.serve"}},
+	}, *calls)
 	assert.Contains(t, out, "already installed")
 
 	after, err := os.ReadFile(filepath.Join(plistDir, "io.onett.serve.plist"))
@@ -151,7 +156,12 @@ func TestInstallTwiceKickstarts(t *testing.T) {
 func TestInstallRewritesAnOutdatedPlist(t *testing.T) {
 	plistDir := stubHost(t)
 	cfg := writeServiceConfig(t, filepath.Join(t.TempDir(), "data"))
-	calls := fakeRunner(t, nil)
+	calls := fakeRunner(t, func(name string, args ...string) (string, error) {
+		if args[0] == "print" {
+			return `Could not find service "io.onett.serve" in domain for user gui: 501`, errors.New("exit status 113")
+		}
+		return "", nil
+	})
 	plist := filepath.Join(plistDir, "io.onett.serve.plist")
 	require.NoError(t, os.WriteFile(plist, []byte("<plist>old, no AbandonProcessGroup</plist>"), 0o600))
 
@@ -163,12 +173,13 @@ func TestInstallRewritesAnOutdatedPlist(t *testing.T) {
 	assert.Contains(t, string(body), "<key>AbandonProcessGroup</key>")
 	assert.Equal(t, []runCall{
 		{name: "launchctl", args: []string{"bootout", "gui/501/io.onett.serve"}},
+		{name: "launchctl", args: []string{"print", "gui/501/io.onett.serve"}},
 		{name: "launchctl", args: []string{"bootstrap", "gui/501", plist}},
 	}, *calls, "launchd reads the plist only when it loads it")
 	assert.Contains(t, out, "updated")
 }
 
-func TestInstallFailedBootstrapRemovesPlist(t *testing.T) {
+func TestInstallFailedBootstrapKeepsPlist(t *testing.T) {
 	plistDir := stubHost(t)
 	cfg := writeServiceConfig(t, filepath.Join(t.TempDir(), "data"))
 	fakeRunner(t, func(name string, args ...string) (string, error) {
@@ -178,7 +189,7 @@ func TestInstallFailedBootstrapRemovesPlist(t *testing.T) {
 	code, _, errOut := runCLI("service", "install", "--config", cfg)
 	assert.Equal(t, 1, code)
 	assert.Contains(t, errOut, "Bootstrap failed")
-	assert.NoFileExists(t, filepath.Join(plistDir, "io.onett.serve.plist"))
+	assert.FileExists(t, filepath.Join(plistDir, "io.onett.serve.plist"), "a later install must be able to finish the job")
 }
 
 func TestInstallNeedsLoadableConfig(t *testing.T) {
