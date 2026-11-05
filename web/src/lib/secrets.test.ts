@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { SecretView } from '../types';
-import { isShadowed, secretStatus, sortSecrets, sourceLabel, valueProblem } from './secrets';
+import {
+  SECRET_NAME_RE,
+  isShadowed,
+  pickerNames,
+  secretStatus,
+  sortSecrets,
+  sourceLabel,
+  valueProblem,
+} from './secrets';
 
 const view = (over: Partial<SecretView>): SecretView => ({
   name: 'X',
@@ -46,5 +54,20 @@ describe('sortSecrets', () => {
       view({ name: 'A_NEEDED', referenced_by: ['x'] }),
     ]);
     expect(sorted.map((s) => s.name)).toEqual(['A_NEEDED', 'C_NEEDED', 'A_SET', 'B_UNUSED']);
+  });
+});
+
+describe('secret picker', () => {
+  it('lists known names sorted and keeps an unknown current value', () => {
+    const list = [view({ name: 'B' }), view({ name: 'A' })];
+    expect(pickerNames(list, 'A')).toEqual(['A', 'B']);
+    expect(pickerNames(list, 'ODD')).toEqual(['A', 'B', 'ODD']);
+    expect(pickerNames(list, '')).toEqual(['A', 'B']);
+  });
+
+  it('checks secret names', () => {
+    expect(SECRET_NAME_RE.test('TELEGRAM_BOT_TOKEN')).toBe(true);
+    expect(SECRET_NAME_RE.test('telegram')).toBe(false);
+    expect(SECRET_NAME_RE.test('1ABC')).toBe(false);
   });
 });

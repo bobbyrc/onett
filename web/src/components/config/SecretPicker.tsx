@@ -4,11 +4,11 @@
 // the config draft: the name still goes through the Save bar. It never reads or shows a value.
 import { useState } from 'react';
 import { usePutSecret, useSecrets } from '../../queries';
-import { isShadowed, secretStatus, sortSecrets, valueProblem } from '../../lib/secrets';
+import { SECRET_NAME_RE, isShadowed, secretStatus, sortSecrets, valueProblem } from '../../lib/secrets';
 import { Button } from '../Button';
 import { ErrorLine } from '../ErrorLine';
 
-const NAME_RE = /^[A-Z_][A-Z0-9_]*$/;
+const NAME_RE = SECRET_NAME_RE;
 // A name the help text spells out, such as "Default TELEGRAM_BOT_TOKEN". It needs an underscore,
 // so a word in capitals (ONETT, URL) is not taken for one.
 const HELP_NAME_RE = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/;

@@ -4,14 +4,13 @@
 // the save. See docs/api.md (GET/PUT/DELETE /secrets).
 import { useState, type FormEvent } from 'react';
 import { useDeleteSecret, usePutSecret, useSecrets } from '../../queries';
-import { isShadowed, secretStatus, sortSecrets, sourceLabel, valueProblem } from '../../lib/secrets';
+import { SECRET_NAME_RE as NAME_RE, isShadowed, secretStatus, sortSecrets, sourceLabel, valueProblem } from '../../lib/secrets';
 import type { SecretView } from '../../types';
 import { Button } from '../Button';
 import { Empty } from '../Empty';
 import { ErrorLine } from '../ErrorLine';
 import { Field } from '../Field';
 
-const NAME_RE = /^[A-Z_][A-Z0-9_]*$/;
 
 export function SecretsPanel() {
   const secrets = useSecrets();

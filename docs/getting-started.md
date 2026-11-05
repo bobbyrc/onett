@@ -355,7 +355,7 @@ code ~/.config/onett/secrets.env    # add lines like SENTRY_AUTH_TOKEN=...
   commands such as the rollback above.
 - Restart `onett serve` after you edit `secrets.env` by hand. It is read at startup. An owner can
   also add, replace and remove secrets on the **Secrets** page; a saved value applies to the next
-  config reload and agent run without a restart.
+  config reload (which rebuilds channels and notifiers) and agent run without a restart.
 
 ## 13. Pause and resume
 

@@ -36,10 +36,9 @@ You can also set it from the web UI: Config, then Secrets (an owner session is n
 panel only writes: it shows whether a name is set and where it comes from, never the value. It
 writes the same file (mode 0600) and reloads the config.
 
-A save reloads the config, but channels and notifiers are built once when `onett serve` starts.
-So a new or changed bot token, webhook URL or notifier token takes effect after a restart;
-agents started afterwards and anything read through `${NAME}` pick the new value up at the
-reload. Restart `onett serve` after you change a channel or notifier secret.
+A change to the file, from the UI or by hand, applies on the next config reload
+(`onett config --reload`), which rebuilds the channels and notifiers. Removing a secret needs a
+restart.
 
 ## Config
 
