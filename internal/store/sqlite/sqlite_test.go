@@ -676,6 +676,23 @@ func TestCostSince(t *testing.T) {
 	assert.Equal(t, 0.0, none, "no runs since: zero, not an error")
 }
 
+func TestCostSinceSkipsSubscriptionRuns(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	now := time.Now()
+	for _, r := range []domain.Run{
+		{TaskID: "sub", Project: "p", CostUSD: 10, Billing: "subscription", StartedAt: now},
+		{TaskID: "metered", Project: "p", CostUSD: 1, Billing: "metered", StartedAt: now},
+		{TaskID: "unknown", Project: "p", CostUSD: 2, StartedAt: now},
+	} {
+		_, err := s.CreateRun(ctx, r)
+		require.NoError(t, err)
+	}
+	got, err := s.CostSince(ctx, now.Add(-time.Hour))
+	require.NoError(t, err)
+	assert.InDelta(t, 3.0, got, 1e-9)
+}
+
 func TestListEventsFromStartPages(t *testing.T) {
 	s, err := Open(":memory:")
 	require.NoError(t, err)

@@ -5,6 +5,7 @@ package codex
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/bobbyrc/onett/internal/harness"
 )
@@ -35,6 +36,11 @@ func init() {
 // runner starts Codex sessions for one configured harness.
 type runner struct {
 	cfg harness.Config
+	// loginStatus runs `codex login status` and now reads the clock; both default when nil and
+	// tests replace them.
+	loginStatus func(ctx context.Context, args []string, spec harness.Spec) (string, error)
+	now         func() time.Time
+	cache       billingCache
 }
 
 // Start runs one codex exec session, or resumes one. The prompt is written to stdin.
@@ -54,7 +60,9 @@ func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session,
 			if proc != nil {
 				tail = proc.StderrTail()
 			}
-			return ps.result(exitCode, tail), nil
+			res := ps.result(exitCode, tail)
+			res.Billing = r.billing(spec)
+			return res, nil
 		},
 	})
 	if err != nil {

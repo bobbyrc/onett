@@ -221,7 +221,7 @@ func containsString(list []string, s string) bool {
 func harnessFor(name string, h config.Harness) (harness.Harness, error) {
 	return harness.New(harness.Config{
 		Name: name, Type: h.Type, Command: h.Command, Args: h.Args, Env: h.Env,
-		InheritEnv: h.InheritEnv,
+		InheritEnv: h.InheritEnv, Billing: h.Billing,
 	})
 }
 

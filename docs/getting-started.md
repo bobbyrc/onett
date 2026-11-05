@@ -113,6 +113,8 @@ run with that same environment (the allowlist, the harness's `inherit_env` and t
 not onett's, because they execute code the agent may have written.
 
 **Budget.** `limits.daily_budget_usd` stops new task runs once the day's reported cost reaches it.
+It counts only pay-per-token runs: runs on a subscription (Claude Code signed in with claude.ai,
+Codex signed in with ChatGPT) are left out, and a harness's `billing` setting overrides detection.
 A run's cost is recorded when it ends, so runs in flight count only after they finish. Codex
 reports no cost, so give its harness a `price` to count an estimate (shown as `~$0.42`).
 
