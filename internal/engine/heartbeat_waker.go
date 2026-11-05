@@ -147,6 +147,8 @@ You are the operator on duty. Look at each item and act only within what the own
 - resume or unblock a goal when its blocker is gone;
 - message a task agent to answer its question when the answer is already known.
 
+Work in an active goal belongs to that goal's orchestrator; leave it alone.
+
 Do not start new product work. Inspect before you act (` + "`onett task show`, `onett run logs`" + `); never guess.
 
 Do not repeat an action already listed for an item ("previously:"); if every useful action has been tried, escalate. An item that stays open for several heartbeats is escalated to the owner by onett itself.

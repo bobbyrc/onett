@@ -406,7 +406,21 @@ func (e *Engine) heartbeatItems(ctx context.Context, p *config.Project, stale ti
 	for _, t := range tasks {
 		byID[t.ID] = t
 	}
+	// Work in an active goal belongs to that goal's orchestrator, which the goals loop wakes when
+	// its tasks settle; the heartbeat leaves it alone so two orchestrators never act on one task.
+	// Statuses are loaded once per tick. A task whose goal is blocked, paused or done stays here.
+	activeGoals, err := e.d.Store.ListGoals(ctx, store.GoalFilter{Project: p.Name, Statuses: []domain.GoalStatus{domain.GoalActive}, Limit: hbScanLimit})
+	if err != nil {
+		return nil, fmt.Errorf("list active goals: %w", err)
+	}
+	goalOwned := make(map[string]bool, len(activeGoals))
+	for _, g := range activeGoals {
+		goalOwned[g.ID] = true
+	}
 	for _, t := range tasks {
+		if t.GoalID != "" && goalOwned[t.GoalID] {
+			continue
+		}
 		switch t.Status {
 		case domain.TaskBlocked, domain.TaskFailed:
 			kind := hbBlockedTask

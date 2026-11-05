@@ -455,7 +455,9 @@ denied, failed or timed out since the last digest, queued tasks waiting on a tas
 failed, cancelled or already landed, tasks queued longer than `stale_queued` (default 4h), loops
 whose last run failed, failed or rolled-back deploys, self-update failures, a failing preflight,
 pending approvals, and agent results that say they need a human (matched conservatively by
-`resultNeedsHuman`). Each item has a stable key (kind, entity id, a fingerprint of the reason).
+`resultNeedsHuman`). Task-level items (blocked, failed, dependency, stale queued, agent question)
+are skipped for tasks in an active goal, because that goal's orchestrator owns them; tasks with no
+goal, or whose goal is blocked, paused or done, stay in, and so do blocked goals. Each item has a stable key (kind, entity id, a fingerprint of the reason).
 The loop keeps the keys it has reported, with their first-seen times, in its `LoopState.Cursor`, so a
 restart does not repeat them. When the digest holds a key that is not stored, the loop calls
 `HeartbeatWaker.WakeHeartbeat`; otherwise nothing runs and no model is called. If the call fails, the
