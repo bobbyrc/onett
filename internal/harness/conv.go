@@ -23,11 +23,55 @@ import (
 
 // convs is the process-wide registry. Harnesses are built anew for each use, so it cannot live
 // on one.
-var convs = &convRegistry{procs: map[string]*convProc{}}
+var convs = &convRegistry{procs: map[string]*convProc{}, starts: map[string]*startLock{}}
 
 type convRegistry struct {
-	mu    sync.Mutex
-	procs map[string]*convProc
+	mu     sync.Mutex // guards the maps only; never held across a process start or a write
+	procs  map[string]*convProc
+	starts map[string]*startLock
+}
+
+// startLock serialises the starts and first writes of one conversation, so a slow spawn or a
+// blocked stdin write of one conversation cannot hold up the others.
+type startLock struct {
+	mu   sync.Mutex
+	refs int
+}
+
+// lockStart takes the conversation's start lock and returns the function that releases it.
+func (r *convRegistry) lockStart(key string) func() {
+	r.mu.Lock()
+	l := r.starts[key]
+	if l == nil {
+		l = &startLock{}
+		r.starts[key] = l
+	}
+	l.refs++
+	r.mu.Unlock()
+	l.mu.Lock()
+	return func() {
+		l.mu.Unlock()
+		r.mu.Lock()
+		if l.refs--; l.refs == 0 {
+			delete(r.starts, key)
+		}
+		r.mu.Unlock()
+	}
+}
+
+func (r *convRegistry) get(key string) *convProc {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.procs[key]
+}
+
+// remove drops c from the registry unless a newer process already replaced it.
+func (r *convRegistry) remove(key string, c *convProc) {
+	r.mu.Lock()
+	if r.procs[key] == c {
+		delete(r.procs, key)
+	}
+	r.mu.Unlock()
 }
 
 // ConvStart is how an adapter starts the process of a conversation.
@@ -80,12 +124,11 @@ func StartConvTurn(ctx context.Context, spec Spec, cs ConvStart) (Session, error
 	if spec.ConversationID == "" || spec.KeepAlive <= 0 {
 		return nil, errors.New("harness: StartConvTurn needs a conversation ID and a keep-alive")
 	}
-	convs.mu.Lock()
-	defer convs.mu.Unlock()
+	defer convs.lockStart(spec.ConversationID)()
 
 	// A live process can turn out to be gone only when the write fails; then one fresh start.
 	for attempt := 0; attempt < 2; attempt++ {
-		c := convs.procs[spec.ConversationID]
+		c := convs.get(spec.ConversationID)
 		if c != nil {
 			t, err := c.beginTurn(spec, cs)
 			switch {
@@ -93,7 +136,7 @@ func StartConvTurn(ctx context.Context, spec Spec, cs ConvStart) (Session, error
 				if werr := c.write(t, spec.Prompt); werr != nil {
 					c.abandon(t)
 					c.stop()
-					delete(convs.procs, spec.ConversationID)
+					convs.remove(spec.ConversationID, c)
 					continue
 				}
 				return t.watch(ctx), nil
@@ -102,7 +145,7 @@ func StartConvTurn(ctx context.Context, spec Spec, cs ConvStart) (Session, error
 			}
 			// Stopped or configured differently: replace it.
 			c.stop()
-			delete(convs.procs, spec.ConversationID)
+			convs.remove(spec.ConversationID, c)
 		}
 		first, err := cs.Encode(spec.Prompt)
 		if err != nil {
@@ -115,7 +158,9 @@ func StartConvTurn(ctx context.Context, spec Spec, cs ConvStart) (Session, error
 		c = &convProc{key: spec.ConversationID, fp: cs.Fingerprint, proc: p, encode: cs.Encode}
 		t := newConvTurn(c, spec.KeepAlive)
 		c.turn = t // before the router runs, so the first events have a turn to go to
+		convs.mu.Lock()
 		convs.procs[spec.ConversationID] = c
+		convs.mu.Unlock()
 		go c.route()
 		return t.watch(ctx), nil
 	}
@@ -203,11 +248,7 @@ func (c *convProc) route() {
 		c.idle.Stop()
 	}
 	c.mu.Unlock()
-	convs.mu.Lock()
-	if convs.procs[c.key] == c {
-		delete(convs.procs, c.key)
-	}
-	convs.mu.Unlock()
+	convs.remove(c.key, c)
 	if t != nil {
 		// The process ended before the turn's result: the turn failed, whatever the exit code.
 		res.IsError = true
@@ -281,8 +322,14 @@ func (t *convTurn) Wait() (Result, error) {
 
 // Cancel kills the process: after a denial, a stall or a timeout its state is not trusted, and
 // the conversation resumes its session in a new one. The turn ends when the process has exited.
+// A Cancel that arrives after the turn ended (a context cancelled right after the result) does
+// nothing: the process is idle or already serving the next turn.
 func (t *convTurn) Cancel() {
 	t.c.mu.Lock()
+	if t.c.turn != t {
+		t.c.mu.Unlock()
+		return
+	}
 	t.c.stopping = true
 	t.c.mu.Unlock()
 	t.c.proc.Cancel()
