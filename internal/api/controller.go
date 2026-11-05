@@ -106,4 +106,10 @@ type LoopView struct {
 	// NextRunAt and ItemCount are set only by loops that report them (heartbeat).
 	NextRunAt *time.Time `json:"next_run_at,omitempty"`
 	ItemCount int        `json:"item_count,omitempty"`
+	// The rest is set only by the heartbeat loop: actions and escalations in the last 24 hours,
+	// the Operations conversation ("" until it exists) and whether quiet hours are on now.
+	Actions24h               int    `json:"actions_24h,omitempty"`
+	Escalations24h           int    `json:"escalations_24h,omitempty"`
+	OperationsConversationID string `json:"operations_conversation_id,omitempty"`
+	QuietNow                 bool   `json:"quiet_now,omitempty"`
 }

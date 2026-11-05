@@ -221,7 +221,9 @@ case the approval is recorded as rejected and the task goes back to review so on
 // LoopView
 {"name":"pr_shepherd","project":"onett","enabled":true,"every":"1m",
  "last_run_at":"…","last_error":""}
-// the heartbeat loop also sends "next_run_at":"…","item_count":3
+// the heartbeat loop also sends "next_run_at":"…","item_count":3,"actions_24h":4,"escalations_24h":1,
+// "operations_conversation_id":"…" (absent until the Operations conversation exists) and
+// "quiet_now":true while its quiet hours are on
 
 // AgentView
 {"name":"implementer","origin":"builtin","disabled":false,"harness":"codex","harness_type":"codex",

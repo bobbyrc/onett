@@ -3541,6 +3541,18 @@ components:
         item_count:
           type: integer
           description: How many items the loop's last run found. Only loops that report it (heartbeat) set it.
+        actions_24h:
+          type: integer
+          description: Orchestrator action lines the heartbeat read in the last 24 hours. Heartbeat only.
+        escalations_24h:
+          type: integer
+          description: Escalations the heartbeat sent to the notifiers in the last 24 hours. Heartbeat only.
+        operations_conversation_id:
+          type: string
+          description: The Operations conversation the heartbeat wakes. Heartbeat only; absent until it exists.
+        quiet_now:
+          type: boolean
+          description: True while the heartbeat's quiet hours are on. Heartbeat only.
 
     ConversationDetail:
       type: object

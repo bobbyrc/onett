@@ -228,7 +228,7 @@ export const friction: Friction[] = [0, 1, 2].map((n) => ({
   updated_at: NOW,
 }));
 
-export const loops: LoopView[] = ['issue_intake', 'goals', 'pr_shepherd', 'deploy_watch', 'prod_watch', 'friction', 'retro', 'self_update'].map(
+export const loops: LoopView[] = ['issue_intake', 'goals', 'pr_shepherd', 'deploy_watch', 'prod_watch', 'friction', 'retro', 'self_update', 'heartbeat'].map(
   (name, n) => ({
     name,
     project: n % 2 ? 'a-project-with-a-long-name-for-layout-testing' : 'onett',
@@ -236,6 +236,7 @@ export const loops: LoopView[] = ['issue_intake', 'goals', 'pr_shepherd', 'deplo
     every: '5m',
     last_run_at: NOW,
     last_error: n === 1 ? UNBROKEN + ' ' + LONG_TITLE : undefined,
+    ...(name === 'heartbeat' ? { next_run_at: NOW, item_count: 3, actions_24h: 7, escalations_24h: 1, operations_conversation_id: CONV_ID } : {}),
   }),
 );
 

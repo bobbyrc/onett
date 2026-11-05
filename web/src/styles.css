@@ -1080,6 +1080,23 @@ input[type='checkbox'] {
   overflow-wrap: anywhere;
 }
 
+/* The Overview's Heartbeat card: the same sheet as a call item, with a key/value list. */
+.heartbeat-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 16px 18px;
+}
+
+.heartbeat-card > h2 {
+  margin-bottom: 0;
+}
+
+.heartbeat-error,
+.heartbeat-link {
+  margin: 10px 0 0;
+  overflow-wrap: anywhere;
+}
+
 /* ---- markdown ---- */
 
 .markdown {

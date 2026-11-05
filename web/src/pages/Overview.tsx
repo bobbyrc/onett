@@ -13,6 +13,7 @@ import { ApprovalCard } from '../components/ApprovalCard';
 import { Button } from '../components/Button';
 import { Callout } from '../components/Callout';
 import { Empty } from '../components/Empty';
+import { HeartbeatCard } from '../components/HeartbeatCard';
 import { HoldBanner } from '../components/HoldBanner';
 import { ErrorLine } from '../components/ErrorLine';
 import { RelTime } from '../components/RelTime';
@@ -40,6 +41,7 @@ export function Overview() {
         <NeedsYou />
         <div className="overview-side">
           <LiveRuns />
+          <HeartbeatCard />
           <Activity />
         </div>
       </div>

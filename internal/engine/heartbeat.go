@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bobbyrc/onett/internal/api"
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/notify"
@@ -78,6 +79,31 @@ type HeartbeatWaker interface {
 // hbKeepActions is how many past actions the loop remembers per item.
 const hbKeepActions = 5
 
+// hbEventWindow is how long the rolling action and escalation log keeps an entry.
+const hbEventWindow = 24 * time.Hour
+
+// countRecent returns how many of times are within hbEventWindow before now.
+func countRecent(times []time.Time, now time.Time) int {
+	n := 0
+	for _, t := range times {
+		if t.After(now.Add(-hbEventWindow)) {
+			n++
+		}
+	}
+	return n
+}
+
+// pruneEvents drops the entries older than hbEventWindow.
+func pruneEvents(times []time.Time, now time.Time) []time.Time {
+	var out []time.Time
+	for _, t := range times {
+		if t.After(now.Add(-hbEventWindow)) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 // hbItemMemory is what the loop remembers about one item while it stays in the digest.
 type hbItemMemory struct {
 	EntityID   string    `json:"entity_id"`
@@ -96,6 +122,11 @@ type heartbeatState struct {
 	BuiltAt time.Time               `json:"built_at"`
 	// RepliesAt is the time of the newest orchestrator reply already read.
 	RepliesAt time.Time `json:"replies_at,omitempty"`
+	// ActionTimes and EscalationTimes log each parsed action line and each escalation sent, so
+	// the status card can count them after the items they were about are forgotten. Pruned to
+	// hbEventWindow.
+	ActionTimes     []time.Time `json:"action_times,omitempty"`
+	EscalationTimes []time.Time `json:"escalation_times,omitempty"`
 	// Seen is the old format (first-seen time per key). It is read and migrated into Items, and
 	// never written.
 	Seen map[string]time.Time `json:"seen,omitempty"`
@@ -196,6 +227,7 @@ func (e *Engine) readHeartbeatReplies(ctx context.Context, st *heartbeatState) (
 		}
 		st.RepliesAt = m.CreatedAt
 		for _, l := range parseHeartbeatReplies(m.Text, ids) {
+			st.ActionTimes = append(st.ActionTimes, m.CreatedAt.UTC())
 			for key, mem := range st.Items {
 				if mem.EntityID != l.ID {
 					continue
@@ -252,7 +284,8 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 
 	// An item that left the digest is resolved, so it is forgotten.
 	digest := HeartbeatDigest{Project: p.Name, At: now.UTC()}
-	cur := heartbeatState{Items: map[string]hbItemMemory{}, BuiltAt: now.UTC(), RepliesAt: prev.RepliesAt}
+	cur := heartbeatState{Items: map[string]hbItemMemory{}, BuiltAt: now.UTC(), RepliesAt: prev.RepliesAt,
+		ActionTimes: pruneEvents(prev.ActionTimes, now), EscalationTimes: pruneEvents(prev.EscalationTimes, now)}
 	for _, it := range items {
 		mem, known := prev.Items[it.Key]
 		if !known {
@@ -286,6 +319,7 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 		mem.Escalated = true
 		cur.Items[it.Key] = mem
 		e.escalateHeartbeat(ctx, p, it, mem, now)
+		cur.EscalationTimes = append(cur.EscalationTimes, now.UTC())
 	}
 	raw, err := json.Marshal(cur)
 	if err != nil {
@@ -293,6 +327,25 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 	}
 	st.Cursor = string(raw)
 	return e.saveHeartbeat(ctx, st)
+}
+
+// fillHeartbeatView adds the heartbeat-only fields of GET /loops from the loop's state.
+func (e *Engine) fillHeartbeatView(ctx context.Context, v *api.LoopView, st domain.LoopState, quietHours string) {
+	now := e.d.Now()
+	hs := loadHeartbeatState(st.Cursor)
+	v.Actions24h = countRecent(hs.ActionTimes, now)
+	v.Escalations24h = countRecent(hs.EscalationTimes, now)
+	if q, err := config.ParseQuietHours(quietHours); err == nil {
+		v.QuietNow = q.Contains(now.Local())
+	}
+	if convs, err := e.d.Store.ListConversations(ctx, 10000); err == nil {
+		for _, c := range convs {
+			if c.Kind == domain.ConversationOperations {
+				v.OperationsConversationID = c.ID
+				break
+			}
+		}
+	}
 }
 
 // escalateHeartbeat tells the owner, once, that an item is still open. The text quotes agent

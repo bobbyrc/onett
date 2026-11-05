@@ -166,6 +166,11 @@ type LoopView struct {
 	// NextRunAt and ItemCount are set only by loops that report them (heartbeat).
 	NextRunAt *time.Time `json:"next_run_at,omitempty"`
 	ItemCount int        `json:"item_count,omitempty"`
+	// Heartbeat only: see api.LoopView.
+	Actions24h               int    `json:"actions_24h,omitempty"`
+	Escalations24h           int    `json:"escalations_24h,omitempty"`
+	OperationsConversationID string `json:"operations_conversation_id,omitempty"`
+	QuietNow                 bool   `json:"quiet_now,omitempty"`
 }
 
 // NewTask is the body of POST /tasks.
