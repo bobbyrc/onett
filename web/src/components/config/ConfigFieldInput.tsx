@@ -19,11 +19,47 @@ interface ScalarInputProps {
   type: SchemaType;
   value: unknown;
   invalid?: boolean;
+  /** A string with fixed choices shows a dropdown. */
+  enumValues?: string[];
   onChange: (next: unknown) => void;
 }
 
 /** One scalar: text, a number, or a checkbox. ${NAME} references stay as text for any type. */
-export function ScalarInput({ id, labelledBy, label, type, value, invalid, onChange }: ScalarInputProps) {
+export function ScalarInput({
+  id,
+  labelledBy,
+  label,
+  type,
+  value,
+  invalid,
+  enumValues,
+  onChange,
+}: ScalarInputProps) {
+  if (type === 'string' && enumValues && enumValues.length > 0) {
+    // A value outside the list (a type from a newer onett, or a typo) stays selectable, so the
+    // dropdown never silently shows something else than the file holds.
+    const current = typeof value === 'string' ? value : '';
+    const choices = current !== '' && !enumValues.includes(current) ? [...enumValues, current] : enumValues;
+    return (
+      <select
+        id={id}
+        className="config-input"
+        aria-labelledby={labelledBy}
+        aria-label={labelledBy ? undefined : label}
+        aria-invalid={invalid || undefined}
+        value={current}
+        onChange={(event) => onChange(event.target.value === '' ? undefined : event.target.value)}
+      >
+        <option value="">(not set)</option>
+        {choices.map((choice) => (
+          <option key={choice} value={choice}>
+            {choice}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
   if (type === 'bool') {
     const checked = value === true;
     return (

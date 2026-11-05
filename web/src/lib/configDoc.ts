@@ -178,6 +178,7 @@ export function emptyValue(node: SchemaNode): unknown {
   switch (node.type) {
     case 'section':
     case 'map':
+    case 'variant':
       return {};
     case 'list':
       return [];
@@ -188,4 +189,36 @@ export function emptyValue(node: SchemaNode): unknown {
     default:
       return '';
   }
+}
+
+/**
+ * The variant section for an `options` node: the one the sibling discriminator (`type`) names in
+ * `parent`, or undefined when it is unset or unknown (the editor then shows the raw value).
+ */
+export function activeVariant(node: SchemaNode, draft: unknown, parent: Path): SchemaNode | undefined {
+  if (!node.variants || !node.discriminator) return undefined;
+  const chosen = getAt(draft, [...parent, node.discriminator]);
+  return typeof chosen === 'string' && Object.hasOwn(node.variants, chosen)
+    ? node.variants[chosen]
+    : undefined;
+}
+
+/**
+ * Splits current options for a switch to another variant: the keys the new variant also has are
+ * kept, the rest are dropped. An unknown target keeps everything, since nothing says what is valid.
+ */
+export function splitOptionsForVariant(
+  options: unknown,
+  target: SchemaNode | undefined,
+): { kept: Record<string, unknown>; dropped: string[] } {
+  if (options === null || typeof options !== 'object' || Array.isArray(options)) {
+    return { kept: {}, dropped: [] };
+  }
+  const entries = Object.entries(options as Record<string, unknown>);
+  if (!target) return { kept: Object.fromEntries(entries), dropped: [] };
+  const allowed = new Set((target.fields ?? []).map((f) => f.key));
+  return {
+    kept: Object.fromEntries(entries.filter(([k]) => allowed.has(k))),
+    dropped: entries.filter(([k]) => !allowed.has(k)).map(([k]) => k),
+  };
 }
