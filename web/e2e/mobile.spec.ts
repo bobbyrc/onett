@@ -221,6 +221,34 @@ for (const vp of VIEWPORTS) {
       await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-composer-attachments.png` });
     });
 
+    test('chat code blocks: no page overflow, copy and wrap are tappable', async ({ page }) => {
+      await open(page, `/chat/${CONV_ID}`);
+      const blocks = page.locator('.code-block');
+      await expect(blocks).toHaveCount(2);
+      const vw = page.viewportSize()!.width;
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      const coarse = await page.evaluate(() => matchMedia('(pointer: coarse)').matches);
+      for (const button of await page.locator('.code-block-btn').all()) {
+        await button.scrollIntoViewIfNeeded();
+        const box = await button.boundingBox();
+        expect(box!.x + box!.width).toBeLessThanOrEqual(vw);
+        if (coarse) {
+          expect(box!.width).toBeGreaterThanOrEqual(44);
+          expect(box!.height).toBeGreaterThanOrEqual(44);
+        }
+      }
+      const go = blocks.nth(0);
+      const goPre = go.locator('pre');
+      expect(await goPre.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+      await go.getByRole('button', { name: /^Wrap/ }).tap();
+      await expect(go.getByRole('button', { name: /^Wrap/ })).toHaveAttribute('aria-pressed', 'true');
+      expect(await goPre.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      await go.scrollIntoViewIfNeeded();
+      mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
+      await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-code-blocks.png` });
+    });
+
     test('chat composer clears a 34px home indicator', async ({ page }) => {
       await open(page, `/chat/${CONV_ID}`);
       await page.addStyleTag({ content: ':root { --composer-inset: 34px !important; }' });

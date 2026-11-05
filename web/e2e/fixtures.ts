@@ -413,6 +413,26 @@ export const configText = {
   text: `server:\n  addr: 127.0.0.1:7777\n  data_dir: ${config.server.data_dir}\n# ${UNBROKEN}\n`,
 };
 
+// Code blocks in agent Markdown: a long Go line and a shell block. Agent text reaches the chat
+// and the run page through these log lines (see mobile.spec.ts).
+const LONG_GO = `func main() { fmt.Println("${'long-line-'.repeat(30)}") }`;
+logs.push({
+  run_id: RUN_ID,
+  seq: 9,
+  time: NOW,
+  kind: 'text',
+  text: `Code:\n\n\`\`\`go\npackage main\n\n${LONG_GO}\n\`\`\`\n\n\`\`\`bash\ngo test -race -count=1 ./... && echo ${'done-'.repeat(40)}\n\`\`\``,
+});
+
+// The same code as a chat message with no run, so the orchestrator chat renders its text itself.
+chatMessages.push({
+  id: id(97),
+  conversation_id: CONV_ID,
+  role: 'assistant',
+  text: logs[logs.length - 1].text,
+  created_at: NOW,
+});
+
 /** A long conversation (40 turns), for scroll behaviour in the chat. */
 export const longChatMessages: ChatMessage[] = Array.from({ length: 40 }, (_, n) => ({
   id: id(100 + n),
