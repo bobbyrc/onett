@@ -14,6 +14,7 @@ import (
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/runshim"
+	"github.com/bobbyrc/onett/internal/store"
 	"github.com/bobbyrc/onett/internal/sysproc"
 	"github.com/bobbyrc/onett/internal/workspace"
 )
@@ -27,14 +28,12 @@ import (
 // the run timeout carried over from before the restart. Finishing the run is then the same code
 // as for a run that never restarted (settleTask).
 //
-// Covered: task runs, including review runs, and orchestrator chat turns and goal turns (reattachChat,
-// which finishes the turn as chatReply does). A chat turn whose shim is gone is not failed: recover
-// re-runs it by resuming the conversation's session with interruptedNote (rerunInterrupted); an
-// interrupted goal turn is not counted and not judged. A reattached task run also does not know about three things only the first process knew: whether
-// setup was still owed after the agent (taskRun.setupOwed), the owner messages the run claimed
-// (a failed follow-up is retried like a plain run), and its queue-continuation root when the
-// conversation had no claimed messages. A run whose shim is gone is failed and its task re-queued,
-// as before.
+// Covered: task runs, including review runs, and orchestrator chat turns and goal turns (resumeChat,
+// which finishes the turn as chatReply does). Setup owed after the agent (taskRun.setupOwed) and the
+// owner messages a task run claimed are restored from the run row. A task run whose shim is gone ends
+// interrupted and resumes from its session. A chat turn whose shim is gone is not failed: recover
+// re-runs it by resuming the conversation's session with chatInterruptedNote (rerunInterrupted); an
+// interrupted goal turn is not counted and not judged.
 
 // reattachRun tries to take a running run over again after a restart. It reports whether it did:
 // true means supervision continues in a goroutine and recover must leave the run and its task
@@ -119,7 +118,10 @@ func (e *Engine) takeOver(ctx context.Context, r domain.Run, log *slog.Logger, c
 		taskState := &taskRun{
 			t: t, run: r, ar: ar, p: p, agent: agent, parent: parent, repo: e.repoFor(p), ws: ws,
 			cmdEnv: sysproc.AgentEnv(cfg.Harness[agent.Harness].InheritEnv, env),
-			root:   root, fail: e.requeueOrBlock,
+			root:   root, fail: e.requeueOrBlock, setupOwed: r.SetupOwed,
+		}
+		if claimed := e.claimedBy(ctx, root, r.ID); len(claimed) > 0 {
+			taskState.fail = e.failFollowUp(claimed)
 		}
 		e.resumeTask(runCtx, taskState, sess)
 	}, func(ar *activeRun) {
@@ -219,7 +221,7 @@ func (e *Engine) resumeChat(ctx context.Context, conv domain.Conversation, agent
 
 // rerunInterrupted is recover's answer to an orchestrator turn whose agent is gone (its shim did
 // not survive, or run_shim was off): rather than lose the turn it starts a new one that resumes
-// the conversation's session with interruptedNote. The conversation stays busy for it. A goal turn
+// the conversation's session with chatInterruptedNote. The conversation stays busy for it. A goal turn
 // interrupted this way is taken back out of the goal's turn count, and the re-run is not judged
 // by the goal guard, so a restart can neither use up the goal's turns nor block it. It reports
 // whether a turn was started; false leaves the conversation for recover to release.
@@ -251,7 +253,7 @@ func (e *Engine) rerunInterrupted(ctx context.Context, c domain.Conversation) bo
 	return e.goTracked(func() {
 		runCtx, cancel := context.WithTimeout(base, timeout)
 		defer cancel()
-		e.chatReply(runCtx, c, interruptedNote, nil, chatOpts{})
+		e.chatReply(runCtx, c, chatInterruptedNote, nil, chatOpts{})
 	})
 }
 
@@ -266,6 +268,58 @@ func (e *Engine) resumeTask(ctx context.Context, st *taskRun, sess harness.Sessi
 		return
 	}
 	e.settleTask(ctx, st, res, status, reason)
+}
+
+// claimedBy returns the owner messages that the run took from root's conversation.
+func (e *Engine) claimedBy(ctx context.Context, root domain.Task, runID string) []domain.ChatMessage {
+	conv, err := e.d.Store.GetConversationByTask(ctx, root.ID)
+	if err != nil {
+		return nil
+	}
+	msgs, err := e.d.Store.ListChatMessages(ctx, conv.ID)
+	if err != nil {
+		return nil
+	}
+	var out []domain.ChatMessage
+	for _, m := range msgs {
+		if m.RunID == runID {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// interruptible reports whether recover should mark r interrupted rather than failed: it is a run
+// of a task that is still running, so the task can pick it up again.
+func (e *Engine) interruptible(ctx context.Context, r domain.Run) bool {
+	if r.TaskID == "" {
+		return false // chat and goal turns are failed, as before
+	}
+	t, err := e.d.Store.GetTask(ctx, r.TaskID)
+	return err == nil && t.Status == domain.TaskRunning
+}
+
+// interruptedResume looks for an interrupted run before the current one. It returns the session
+// to resume ("" when that run never reported one, or ran on another harness) and whether there was
+// such a run at all.
+func (e *Engine) interruptedResume(ctx context.Context, t domain.Task, current domain.Run, harnessName string) (string, bool) {
+	runs, err := e.d.Store.ListRuns(ctx, store.RunFilter{TaskID: t.ID, Limit: 2})
+	if err != nil {
+		return "", false
+	}
+	for _, r := range runs {
+		if r.ID == current.ID {
+			continue
+		}
+		if r.Status != domain.RunInterrupted {
+			return "", false
+		}
+		if r.Harness != harnessName {
+			return "", true
+		}
+		return r.SessionID, true
+	}
+	return "", false
 }
 
 // shimKillGrace is how long terminateShim waits after SIGTERM before SIGKILL (as the harness's

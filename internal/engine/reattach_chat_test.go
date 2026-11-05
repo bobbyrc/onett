@@ -261,7 +261,7 @@ func TestInterruptedChatTurnIsRunAgain(t *testing.T) {
 	require.Len(t, seen, 2)
 	assert.Contains(t, seen[0], "hello")
 	assert.Contains(t, seen[1], "resume=prev-session")
-	assert.Contains(t, seen[1], interruptedNote)
+	assert.Contains(t, seen[1], chatInterruptedNote)
 }
 
 func TestInterruptedGoalTurnIsNeitherCountedNorBlocking(t *testing.T) {
@@ -289,7 +289,7 @@ func TestInterruptedGoalTurnIsNeitherCountedNorBlocking(t *testing.T) {
 	assert.Equal(t, domain.GoalActive, got.Status, "a restart does not block the goal")
 	assert.Equal(t, 0, got.Turns, "the interrupted turn is not counted")
 	assert.Equal(t, 1, got.StalledTurns)
-	assert.Contains(t, f.seenRuns()[1], interruptedNote)
+	assert.Contains(t, f.seenRuns()[1], chatInterruptedNote)
 	assert.Equal(t, []string{"all done"}, f.assistantTexts(g.ConversationID))
 	// Nothing else is left running.
 	runs, err := f.st.ListRuns(context.Background(), store.RunFilter{Project: "demo", Statuses: []domain.RunStatus{domain.RunStarting, domain.RunRunning}})

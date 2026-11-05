@@ -34,9 +34,9 @@ type chatOpts struct {
 	goal bool
 }
 
-// interruptedNote is the prompt of a turn re-run because onett restarted mid-turn and the agent
+// chatInterruptedNote is the prompt of a turn re-run because onett restarted mid-turn and the agent
 // behind it was gone. The session resumes, so the agent has its own history.
-const interruptedNote = "onett was restarted mid-turn; your previous turn was interrupted. " +
+const chatInterruptedNote = "onett was restarted mid-turn; your previous turn was interrupted. " +
 	"Re-check state with the onett CLI before acting, since some commands may already have run."
 
 // chatReply runs one orchestrator turn and stores its reply. The caller has already marked the

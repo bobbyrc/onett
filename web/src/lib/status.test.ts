@@ -9,6 +9,7 @@ describe('toneFor', () => {
     expect(toneFor('task', 'done')).toBe('ok');
     expect(toneFor('task', 'blocked')).toBe('danger');
     expect(toneFor('run', 'timed_out')).toBe('danger');
+    expect(toneFor('run', 'interrupted')).toBe('warn');
     expect(toneFor('run', 'succeeded')).toBe('ok');
     expect(toneFor('deploy', 'rolled_back')).toBe('danger');
     expect(toneFor('deploy', 'healthy')).toBe('ok');

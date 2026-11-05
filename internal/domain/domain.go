@@ -134,6 +134,10 @@ const (
 	RunTimedOut  RunStatus = "timed_out"
 	RunDenied    RunStatus = "denied"
 	RunCancelled RunStatus = "cancelled"
+	// RunInterrupted: onett restarted and the run's agent was gone with nothing to reattach to
+	// (reboot, shim crash). It is not an agent failure: the task is queued again and its next run
+	// resumes the agent's session without using an attempt.
+	RunInterrupted RunStatus = "interrupted"
 )
 
 // Run is one harness session working on a task.
@@ -163,7 +167,7 @@ type Run struct {
 	Summary      string `json:"summary,omitempty"`
 	Error        string `json:"error,omitempty"`
 
-	// The next four let a restarted onett pick the run up again (limits.run_shim). They live in
+	// The next five let a restarted onett pick the run up again (limits.run_shim). They live in
 	// the run's JSON document, so they need no schema change.
 	//
 	// StreamOffset is where in the shim's stdout log to read next: every line before it has been
@@ -177,6 +181,9 @@ type Run struct {
 	// GoalTurn marks an orchestrator turn that was a goal check-in, so a restarted onett can still
 	// run the goal's after-turn check when the turn ends.
 	GoalTurn bool `json:"goal_turn,omitempty"`
+	// SetupOwed: project setup did not pass before the agent started, so it runs again after the
+	// agent's turn. A reattached run needs it to finish like a run that never restarted.
+	SetupOwed bool `json:"setup_owed,omitempty"`
 }
 
 // LogKind classifies one line of a run's streamed output.
