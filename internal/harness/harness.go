@@ -120,6 +120,13 @@ type Reattacher interface {
 	Reattach(ctx context.Context, spec Spec, from int64) (Session, error)
 }
 
+// LogReplayer is a Harness that can read the output of a run whose shim is gone. ReplayLog parses
+// the shim's stream.log for spec (the Spec the session was started with) and returns the events
+// for lines from offset from on. The result carries no final Result: the agent never reported one.
+type LogReplayer interface {
+	ReplayLog(spec Spec, from int64) ([]Event, error)
+}
+
 // Factory builds a harness from its config block.
 type Factory func(cfg Config) (Harness, error)
 

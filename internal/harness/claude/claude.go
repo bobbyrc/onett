@@ -88,7 +88,19 @@ func (r *runner) Reattach(ctx context.Context, spec harness.Spec, from int64) (h
 	return ps.attach(p), nil
 }
 
-var _ harness.Reattacher = (*runner)(nil)
+// ReplayLog returns the output a dead shim's log holds from offset from on.
+func (r *runner) ReplayLog(spec harness.Spec, from int64) ([]harness.Event, error) {
+	ps, err := r.procSpec(spec)
+	if err != nil {
+		return nil, err
+	}
+	return harness.ReplayProcessLog(ps.ProcSpec, from)
+}
+
+var (
+	_ harness.Reattacher  = (*runner)(nil)
+	_ harness.LogReplayer = (*runner)(nil)
+)
 
 // claudeProc is the process spec of a session, with the Proc it will run as filled in by attach.
 type claudeProc struct {
