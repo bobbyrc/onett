@@ -165,6 +165,13 @@ as a fallback.
 ## Pages
 
 **Overview** (`/`): the andon board, then the work.
+- **Finish setting up onett** (owners only): a card above everything while setup is incomplete,
+  with a live check per step, each linking to where it is done: Add a project (`/projects`),
+  Agents ready (at least one enabled agent; `/config?section=agents`), Choose a policy (a project
+  with no policy uses the default, which counts; `/config?section=policies`), Reach me (not
+  `owner_unreachable` in `/stats`; `/config?mode=setup`), Secrets set (every secret the config
+  refers to is set, from `/secrets`; `/config?mode=secrets`). It hides itself when all are done
+  and has a Dismiss button (remembered in the browser). Logic is in `src/lib/setupChecklist.ts`.
 - **Owner-unreachable banner**: above the board, a red callout "Nobody will be told" while
   `/stats` says `owner_unreachable` (only the log notifier, no channel). It names the fix (set
   up Telegram, Discord or ntfy) and lists each blocked goal as "Goal X is blocked and you have
@@ -396,7 +403,7 @@ page until saved: a bar at the bottom says how many there are, with Save and Dis
 nothing when the file changed on disk since the page opened (a notice offers to load the latest,
 which discards your edits) or when the result would be invalid (the problems are listed above the
 editor, and each is also shown under its field). Settings that take effect only after a restart are
-named in a note until dismissed. A link can open one map entry: `/config?section=projects&entry=onett` (`section` is a group id; an older top-level key such as `routing` still opens its group)
+named in a note until dismissed; the note has a **Restart now** button that asks first, restarts the daemon (`POST /restart`) and waits for it, at the new address when `server.addr` changed, then reloads the page there (it says so if the daemon is not back within a minute). A link can open one map entry: `/config?section=projects&entry=onett` (`section` is a group id; an older top-level key such as `routing` still opens its group)
 opens that group and scrolls to the `onett` card, which gets an `--info` outline (Projects'
 Edit settings uses it). **Send test** sends one clearly labelled test notification (a notifier) or message (a chat
 channel) through the saved entry and shows the result beside the button; a failure shows the reason

@@ -16,6 +16,12 @@ import { classifySaveFailure } from './saveFailure';
 
 const SAVED_MS = 4_000;
 
+/** server.addr from the saved document, or undefined when unset. */
+function savedAddr(document: unknown): string | undefined {
+  const addr = (document as { server?: { addr?: unknown } } | null)?.server?.addr;
+  return typeof addr === 'string' ? addr : undefined;
+}
+
 export function ConfigEditor({
   doc,
   refetch,
@@ -161,6 +167,7 @@ export function ConfigEditor({
             state={{ saved, restart, problems, conflict, reloadFailed, error }}
             onDismissRestart={() => setRestart([])}
             onLoadLatest={() => void loadLatest()}
+            restartAddr={savedAddr(doc.document)}
           />
           {activeSections.length > 0 ? (
             activeSections.map(({ path, node }) => (

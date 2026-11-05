@@ -163,3 +163,15 @@ func (s *server) saveConfigAs(w http.ResponseWriter, r *http.Request, version *s
 		RestartRequired: nonNil(config.RestartRequired(old, cfg)),
 	}, cfg))
 }
+
+// restart answers 202 and then asks the process to restart itself. The request is already
+// answered when the restart starts, and the HTTP server's shutdown waits for this handler to
+// return, so the reply reaches the browser before the listener closes.
+func (s *server) restart(w http.ResponseWriter, r *http.Request) {
+	if s.opts.Restart == nil {
+		writeErrorMsg(w, http.StatusNotImplemented, "this daemon cannot restart itself")
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]bool{"ok": true})
+	s.opts.Restart()
+}

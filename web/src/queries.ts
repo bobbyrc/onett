@@ -446,8 +446,8 @@ export function useDeleteUser() {
 
 // ---- secrets (owner only) ----
 
-export function useSecrets() {
-  return useQuery({ queryKey: keys.secrets, queryFn: () => api.listSecrets() });
+export function useSecrets(enabled = true) {
+  return useQuery({ queryKey: keys.secrets, queryFn: () => api.listSecrets(), enabled });
 }
 
 export function usePutSecret() {

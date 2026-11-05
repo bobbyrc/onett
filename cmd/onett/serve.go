@@ -65,6 +65,15 @@ func cmdServe(e *env, args []string) error {
 		return err
 	}
 
+	// First run: no config yet. Write the starter one so the owner can finish setup in the
+	// web UI. A file that exists but is broken still fails in loadConfig.
+	starter, err := writeStarterConfig(path)
+	if err != nil {
+		return err
+	}
+	if starter {
+		fmt.Fprintf(e.errOut, "no config found: wrote a starter config to %s\n", path)
+	}
 	cfg, err := loadConfig(path)
 	if err != nil {
 		return err
@@ -155,6 +164,8 @@ func cmdServe(e *env, args []string) error {
 		return err
 	}
 
+	// POST /restart signals this channel; the main loop below then shuts down and restarts.
+	restartCh := make(chan struct{}, 1)
 	handler := api.NewServer(api.Options{
 		Store:            st,
 		Bus:              bus,
@@ -170,6 +181,12 @@ func cmdServe(e *env, args []string) error {
 				return fmt.Errorf("%w: the daemon is still starting", channel.ErrNotRunning)
 			}
 			return sup.Test(ctx, ch, chanEnv)
+		},
+		Restart: func() {
+			select {
+			case restartCh <- struct{}{}:
+			default:
+			}
 		},
 		Logger: logger,
 	})
@@ -190,6 +207,10 @@ func cmdServe(e *env, args []string) error {
 	defer stop()
 
 	fmt.Fprintf(e.out, "onett %s listening on http://%s — open the UI with `onett open`\n", version, cfg.Server.Addr)
+	// Until an owner account exists, the UI's first page creates it. The URL carries no token.
+	if n, err := st.CountUsers(context.Background()); err == nil && n == 0 {
+		fmt.Fprintf(e.out, "No owner account yet: open %s/ to create one and finish setup.\n", strings.TrimRight(publicBaseURL(cfg), "/"))
+	}
 
 	engineDone := make(chan error, 1)
 	go func() { engineDone <- eng.Run(ctx) }()
@@ -203,8 +224,12 @@ func cmdServe(e *env, args []string) error {
 	go func() { serverDone <- srv.ListenAndServe() }()
 
 	var listenErr error
+	restarting := false
 	select {
 	case <-ctx.Done():
+	case <-restartCh:
+		restarting = true
+		stop()
 	case listenErr = <-serverDone:
 		// The listener failed (for example the port is in use); stop the engine too.
 		stop()
@@ -228,6 +253,10 @@ func cmdServe(e *env, args []string) error {
 		return fmt.Errorf("listen on %s: %w", cfg.Server.Addr, listenErr)
 	case engErr != nil:
 		return engErr
+	case restarting && closeErr == nil:
+		// Everything is stopped and the store is closed; start again (see restartAfterShutdown).
+		stop()
+		return restartAfterShutdown(exe, os.Args, os.Environ(), os.Getenv)
 	default:
 		return closeErr
 	}
