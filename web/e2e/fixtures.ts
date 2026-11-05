@@ -326,6 +326,13 @@ export const chatMessages: ChatMessage[] = [
     run_id: RUN_ID,
     created_at: NOW,
   },
+  {
+    id: id(98),
+    conversation_id: CONV_ID,
+    role: 'user',
+    text: Array.from({ length: 20 }, (_, i) => `A long pasted line number ${i + 1}`).join('\n'),
+    created_at: NOW,
+  },
   { id: id(93), conversation_id: CONV_ID, role: 'user', text: 'queued message', created_at: NOW, queued: true },
 ];
 
