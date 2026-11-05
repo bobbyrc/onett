@@ -252,6 +252,14 @@ notify:
       topic: onett-bcraig-example    # pick a hard-to-guess topic; anyone who knows it can read it
     min_priority: normal               # low, normal or high; empty means normal (low-priority messages are not sent)
 
+  # A Discord notifier posts to a channel through a webhook. The webhook URL holds a secret token,
+  # so it is read from the environment variable named here, never written in this file.
+  # - type: discord
+  #   options:
+  #     webhook_url_env: ONETT_DISCORD_WEBHOOK_URL
+  #     username: onett                # optional display name
+  #   min_priority: high
+
   # An exec notifier runs a command with the message. Uncomment to use it.
   # Push to your phone through the Herdr app. The exec notifier runs a shell command with the
   # notification in ONETT_NOTIFY_TITLE, _BODY, _PRIORITY and _URL.
