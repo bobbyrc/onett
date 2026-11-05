@@ -138,6 +138,18 @@ var migrations = []string{
 
 	`ALTER TABLE conversations ADD COLUMN task_id TEXT NOT NULL DEFAULT '';
 	CREATE INDEX conversations_task_id ON conversations (task_id);`,
+
+	// Goals, and the goal a task belongs to (NULL for tasks that belong to none).
+	`CREATE TABLE goals (
+		id TEXT PRIMARY KEY,
+		project TEXT NOT NULL,
+		status TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		data TEXT NOT NULL
+	);
+	CREATE INDEX goals_project_status ON goals (project, status);
+	ALTER TABLE tasks ADD COLUMN goal_id TEXT;
+	CREATE INDEX tasks_goal_id ON tasks (goal_id);`,
 }
 
 // migrate applies every migration whose version is not yet recorded, each in its own transaction.

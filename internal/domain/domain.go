@@ -114,6 +114,8 @@ type Task struct {
 	UpdatedAt       time.Time `json:"updated_at"`
 	// CreatedByRun is the run that created this task, when an agent created it.
 	CreatedByRun string `json:"created_by_run,omitempty"`
+	// GoalID is the goal this task works toward, when it was queued for one.
+	GoalID string `json:"goal_id,omitempty"`
 }
 
 type RunStatus string
@@ -212,6 +214,7 @@ const (
 	EvChatMessage         = "chat.message"         // Data: ChatMessage
 	EvConversationUpdated = "conversation.updated" // Data: {"task_id"}
 	EvChatDelta           = "chat.delta"           // Data: {"conversation_id","text"}; live
+	EvGoalUpdated         = "goal.updated"         // Data: Goal
 	EvLoopError           = "loop.error"
 	EvNotification        = "notification"
 	EvSystem              = "system"
@@ -334,6 +337,8 @@ type Conversation struct {
 	// ClosedBy is "agent", "orchestrator" or "owner:<username>".
 	ClosedBy     string `json:"closed_by,omitempty"`
 	ClosedReason string `json:"closed_reason,omitempty"`
+	// GoalID is set on the conversation a goal runs in; its orchestrator turns get ONETT_GOAL.
+	GoalID string `json:"goal_id,omitempty"`
 }
 
 type ChatMessage struct {
@@ -379,4 +384,32 @@ type LoopState struct {
 	LastRunAt time.Time `json:"last_run_at"`
 	LastError string    `json:"last_error,omitempty"`
 	Cursor    string    `json:"cursor,omitempty"` // loop-specific resume point
+}
+
+type GoalStatus string
+
+const (
+	GoalActive  GoalStatus = "active"
+	GoalPaused  GoalStatus = "paused"
+	GoalBlocked GoalStatus = "blocked"
+	GoalDone    GoalStatus = "done"
+)
+
+// Goal is an objective the owner stated once. While it is active, the goals loop wakes the
+// orchestrator in the goal's own conversation each time the previous step has settled.
+type Goal struct {
+	ID      string     `json:"id"`
+	Project string     `json:"project"`
+	Title   string     `json:"title"`
+	Body    string     `json:"body"`
+	Status  GoalStatus `json:"status"`
+	// ConversationID is the orchestrator conversation the goal's turns run in.
+	ConversationID string `json:"conversation_id"`
+	// Turns counts the orchestrator turns the loop has started; LastTurnAt is when the last began.
+	Turns      int        `json:"turns"`
+	LastTurnAt *time.Time `json:"last_turn_at,omitempty"`
+	// Summary is why the goal is done or blocked.
+	Summary   string    `json:"summary,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }

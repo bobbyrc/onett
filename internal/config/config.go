@@ -60,6 +60,8 @@ type Limits struct {
 	// limit). Chat with the orchestrator is exempt. Codex reports no cost, so it is counted only
 	// when its harness has a price.
 	DailyBudgetUSD float64 `yaml:"daily_budget_usd" json:"daily_budget_usd"`
+	// MaxGoalTurns is how many orchestrator turns one goal gets before it is blocked (default 40).
+	MaxGoalTurns int `yaml:"max_goal_turns" json:"max_goal_turns"`
 }
 
 // Harness configures one agent CLI. Type is a registered harness type: claude-code, codex,
@@ -253,6 +255,8 @@ type Loops struct {
 	} `yaml:"retro" json:"retro"`
 	// ExecIntake runs each project's intake sources. Default every 1m.
 	ExecIntake Loop `yaml:"exec_intake" json:"exec_intake"`
+	// Goals wakes the orchestrator on each active goal whose last step has settled. Default every 1m.
+	Goals Loop `yaml:"goals" json:"goals"`
 	// Friction files GitHub issues for reported friction.
 	Friction struct {
 		Loop      `yaml:",inline"`

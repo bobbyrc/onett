@@ -70,6 +70,7 @@ export interface Task {
   created_at: string;
   updated_at: string;
   created_by_run?: string;
+  goal_id?: string;
 }
 
 export interface Run {
@@ -377,6 +378,7 @@ export interface LimitsConfig {
   stall_timeout: string;
   run_timeout: string;
   max_attempts: number;
+  max_goal_turns: number;
 }
 
 export interface Harness {
@@ -447,6 +449,7 @@ export interface LoopSettings {
 export interface Loops {
   issue_intake: LoopSettings & { label: string };
   exec_intake: LoopSettings;
+  goals: LoopSettings;
   pr_shepherd: LoopSettings;
   deploy_watch: LoopSettings;
   prod_watch: LoopSettings & { min_level: string; min_count: number };

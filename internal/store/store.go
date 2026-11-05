@@ -24,7 +24,14 @@ type TaskFilter struct {
 	Statuses []domain.TaskStatus // empty = all
 	Kind     domain.TaskKind
 	ParentID string
+	GoalID   string
 	Limit    int // 0 = 200
+}
+
+type GoalFilter struct {
+	Project  string
+	Statuses []domain.GoalStatus // empty = all
+	Limit    int                 // 0 = 200
 }
 
 type RunFilter struct {
@@ -60,6 +67,11 @@ type Store interface {
 	// ClaimNextTask atomically moves the highest-priority, oldest queued task whose project is
 	// not in busyProjects to running, increments Attempts, and returns it. ErrNotFound when none.
 	ClaimNextTask(ctx context.Context, busyProjects []string) (domain.Task, error)
+
+	CreateGoal(ctx context.Context, g domain.Goal) (domain.Goal, error)
+	GetGoal(ctx context.Context, id string) (domain.Goal, error)
+	ListGoals(ctx context.Context, f GoalFilter) ([]domain.Goal, error)
+	UpdateGoal(ctx context.Context, id string, fn func(*domain.Goal) error) (domain.Goal, error)
 
 	CreateRun(ctx context.Context, r domain.Run) (domain.Run, error)
 	GetRun(ctx context.Context, id string) (domain.Run, error)
