@@ -14,8 +14,12 @@ const ev = (type: string, extra: Partial<OnettEvent> = {}): OnettEvent => ({
 
 describe('keysFor', () => {
   it('maps task events to tasks, the task detail and stats', () => {
-    expect(keysFor(ev('task.updated', { task_id: 't1' }))).toEqual([keys.tasksAll, keys.stats, keys.task('t1')]);
-    expect(keysFor(ev('task.created'))).toEqual([keys.tasksAll, keys.stats]);
+    expect(keysFor(ev('task.updated', { task_id: 't1' }))).toEqual([keys.tasksAll, keys.stats, keys.goalsDetailAll, keys.task('t1')]);
+    expect(keysFor(ev('task.created'))).toEqual([keys.tasksAll, keys.stats, keys.goalsDetailAll]);
+  });
+
+  it('maps goal.updated to the goal lists and that goal', () => {
+    expect(keysFor(ev('goal.updated', { data: { id: 'g1' } }))).toEqual([keys.goalsAll, keys.goal('g1')]);
   });
 
   it('maps run.updated to runs and the run detail', () => {
@@ -83,6 +87,7 @@ describe('invalidateFor', () => {
     expect(invalidateQueries.mock.calls).toEqual([
       [{ queryKey: keys.tasksAll }],
       [{ queryKey: keys.stats }],
+      [{ queryKey: keys.goalsDetailAll }],
       [{ queryKey: keys.task('t1') }],
     ]);
   });
