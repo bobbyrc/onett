@@ -50,6 +50,22 @@ type selfUpdateState struct {
 	// retryAt holds a commit back until then: its updater gave up because the factory stayed
 	// busy. Separate from fails, which counts real failures.
 	retryAt map[string]time.Time
+	// behindSince is when a release different from the running version first became eligible,
+	// and behindVersion the running version it was measured for. max_defer counts from here, not
+	// from the newest release, so a steady stream of releases cannot keep pushing the update away.
+	behindSince   time.Time
+	behindVersion string
+}
+
+// behind returns when the daemon first fell behind while running version, noting eligible as that
+// moment if it had not yet. It starts over when the running version changes.
+func (s *selfUpdateState) behind(version string, eligible time.Time) time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.behindVersion != version || s.behindSince.IsZero() {
+		s.behindVersion, s.behindSince = version, eligible
+	}
+	return s.behindSince
 }
 
 func (s *selfUpdateState) backoff(ref string, until time.Time) {
@@ -124,10 +140,11 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 		return nil
 	}
 	// Starting the updater pauses the factory, so prefer a moment when nothing is going on. A
-	// busy factory is waited out until max_defer after the release became eligible; then the
-	// updater drains whatever is running.
-	eligible := dep.UpdatedAt.Add(su.MinHealthy.Duration)
-	if e.d.Now().Sub(eligible) < su.MaxDefer.Duration {
+	// busy factory is waited out until max_defer after the daemon first fell behind (not after
+	// the newest release, whose clock every new release would restart); then the updater drains
+	// whatever is running. The newest healthy release is still the one installed.
+	behindSince := e.selfUpd.behind(version, dep.UpdatedAt.Add(su.MinHealthy.Duration))
+	if e.d.Now().Sub(behindSince) < su.MaxDefer.Duration {
 		busy, err := e.selfUpdateBusy(ctx, p.Name)
 		if err != nil {
 			return fmt.Errorf("self_update: %w", err)
