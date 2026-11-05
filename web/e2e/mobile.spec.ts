@@ -44,18 +44,7 @@ type Check = 'overflow' | 'content' | 'nav';
 // (not test.fail), so a parallel fix that makes one pass never breaks CI. Remove the entry in
 // the same PR that fixes the bug. Keys are ROUTES entries; a key may also list a viewport name
 // to limit it, as 'overflow@android-360x800'.
-// Reported by the first run; every one is the unbroken-title fixture (or a long unbroken value)
-// forcing the page wider than the phone.
-const KNOWN_MOBILE_FAILURES: Record<string, string[]> = {
-  '/': ['overflow'], // callout p, approval-card h3 and blocked call-item h3/call-body: ~1700px of unbroken title
-  [`/goals`]: ['overflow'], // table td holding the unbroken goal-title link
-  [`/goals/${GOAL_ID}`]: ['overflow'], // table td holding the unbroken task-title link
-  '/tasks': ['overflow'], // table td with the unbroken title link; div.muted.small, span.tag
-  [`/tasks/${TASK_ID}`]: ['overflow'], // div.task-body (unbroken body text), ol.task-line station label, subtask link
-  '/approvals': ['overflow'], // article.approval-card div.call-title h3 (unbroken title)
-  '/signals': ['overflow'], // table td with the unbroken title link
-  '/friction': ['overflow'], // table td with the unbroken title
-};
+const KNOWN_MOBILE_FAILURES: Record<string, string[]> = {};
 
 const isKnown = (route: string, check: Check, viewport: string) => {
   const entries = KNOWN_MOBILE_FAILURES[route] ?? [];
