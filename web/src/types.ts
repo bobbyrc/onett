@@ -464,6 +464,11 @@ export interface Notifier {
   min_priority?: string;
 }
 
+export interface Channel {
+  type: string;
+  options?: Record<string, unknown>;
+}
+
 export interface LoopSettings {
   enabled?: boolean;
   every: string;
@@ -496,6 +501,7 @@ export interface Config {
   projects: Record<string, Project | null>;
   loops: Loops;
   notify: Notifier[] | null;
+  channels: Channel[] | null;
   self_project: string;
   path: string;
 }

@@ -411,7 +411,7 @@ func dotted(path []string) string {
 // problemPrefix matches the setting path that Validate puts at the start of each message, such
 // as "projects.web.repo: " or "server.public_url \"...\" ". It accepts only the top-level keys of
 // the file, so a YAML syntax error or another message without a path is left whole.
-var problemPrefix = regexp.MustCompile(`^((?:server|limits|harnesses|agents|routing|policies|projects|loops|notify|self_project)[^\s:]*)(?::\s|\s)`)
+var problemPrefix = regexp.MustCompile(`^((?:server|limits|harnesses|agents|routing|policies|projects|loops|notify|channels|self_project)[^\s:]*)(?::\s|\s)`)
 
 // ProblemsFrom turns an error from Parse or Validate into one Problem per message. Validate joins errors with errors.Join and prefixes each with the setting path (read validate.go to see the exact prefix format and match it); a message without such a prefix (e.g. a YAML syntax error) gets Path "".
 func ProblemsFrom(err error) []Problem {
@@ -449,6 +449,9 @@ func RestartRequired(old, new *Config) []string {
 	}
 	if !reflect.DeepEqual(old.Notify, new.Notify) {
 		out = append(out, "notify")
+	}
+	if !reflect.DeepEqual(old.Channels, new.Channels) {
+		out = append(out, "channels")
 	}
 	return out
 }

@@ -47,6 +47,9 @@ func (c *Config) Redacted() *Config {
 	for i := range out.Notify {
 		redactOptions(out.Notify[i].Options)
 	}
+	for i := range out.Channels {
+		redactOptions(out.Channels[i].Options)
+	}
 	if len(c.expanded) > 0 {
 		out = maskExpanded(out, c.expanded)
 	}

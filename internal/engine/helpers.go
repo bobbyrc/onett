@@ -195,7 +195,7 @@ func (e *Engine) requeueOrBlockFrom(ctx context.Context, id string, from []domai
 
 // notify sends a notification to every configured notifier and records it as an event.
 // path is a web UI path such as "/tasks/<id>".
-func (e *Engine) notify(ctx context.Context, prio notify.Priority, title, body, path string) {
+func (e *Engine) notify(ctx context.Context, prio notify.Priority, title, body, path string, tags ...string) {
 	url := ""
 	if path != "" {
 		url = strings.TrimRight(e.Config().Server.PublicURL, "/") + path
@@ -203,7 +203,7 @@ func (e *Engine) notify(ctx context.Context, prio notify.Priority, title, body, 
 	e.d.Bus.Emit(ctx, domain.EvNotification, "", "", "", title, map[string]string{
 		"priority": string(prio), "body": body, "url": url,
 	})
-	if err := e.d.Notifier.Notify(ctx, notify.Notification{Title: title, Body: body, Priority: prio, URL: url}); err != nil {
+	if err := e.d.Notifier.Notify(ctx, notify.Notification{Title: title, Body: body, Priority: prio, URL: url, Tags: tags}); err != nil {
 		e.d.Logger.Warn("notify", "err", err)
 	}
 }
