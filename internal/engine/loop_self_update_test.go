@@ -86,17 +86,11 @@ func TestSelfUpdateStartsDetachedWithRef(t *testing.T) {
 
 func TestSelfUpdateHoldsOff(t *testing.T) {
 	cases := map[string]func(s *suEnv){
-		"healthy too recently": func(s *suEnv) {
-			s.deploy("cccccccccccccccccccccccccccccccccccccccc", domain.DeployHealthy, time.Minute)
-		},
 		"newer release verifying": func(s *suEnv) {
 			s.deploy("cccccccccccccccccccccccccccccccccccccccc", domain.DeployVerifying, 0)
 		},
 		"newer release pending": func(s *suEnv) {
 			s.deploy("cccccccccccccccccccccccccccccccccccccccc", domain.DeployPending, 0)
-		},
-		"newest release failed": func(s *suEnv) {
-			s.deploy("cccccccccccccccccccccccccccccccccccccccc", domain.DeployFailed, 0)
 		},
 		"same version": func(s *suEnv) {
 			s.e.d.Version = "v0.1-3-gbbbbbbb-dirty"

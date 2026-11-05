@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
@@ -73,23 +74,11 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 	if e.projectPaused(p.Name) {
 		return nil
 	}
-	deps, err := e.d.Store.ListDeployments(ctx, p.Name, 1)
+	dep, ok, err := e.selfUpdateTarget(ctx, p, su.MinHealthy.Duration, version)
 	if err != nil {
-		return fmt.Errorf("self_update: list deployments: %w", err)
+		return err
 	}
-	// The newest release must be healthy: pending, deploying and verifying mean another is in
-	// flight, and failed or rolled back means the newest commit is not one to run.
-	if len(deps) == 0 || deps[0].State != domain.DeployHealthy {
-		return nil
-	}
-	dep := deps[0]
-	if e.d.Now().Sub(dep.UpdatedAt) < su.MinHealthy.Duration {
-		return nil
-	}
-	if versionHasRef(version, dep.Ref) {
-		return nil
-	}
-	if e.selfUpd.failures(dep.Ref) >= selfUpdateMaxFailures {
+	if !ok {
 		return nil
 	}
 
@@ -102,12 +91,14 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 		return fmt.Errorf("self_update: %w", err)
 	}
 	if inFlight {
+		e.d.Logger.Info("self_update: update held back", "ref", dep.Ref, "reason", "a release is in flight")
 		return nil
 	}
 
 	dataDir := cfg.Server.DataDir
 	lock := filepath.Join(dataDir, selfUpdateLockFile)
 	if updaterRunning(lock) {
+		e.d.Logger.Info("self_update: update held back", "ref", dep.Ref, "reason", "an updater is already running")
 		return nil
 	}
 
@@ -150,6 +141,52 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 		}
 	}()
 	return nil
+}
+
+// selfUpdateScan is how many recent deployments selfUpdateTarget looks through.
+const selfUpdateScan = 50
+
+// selfUpdateTarget picks the release to update to: the newest one that is healthy, has been for
+// min_healthy, and has not failed too often. Newer releases do not hide it, because with merges
+// landing every few minutes the newest one is rarely old enough. The scan stops at the release the
+// daemon already runs, since anything older is not an update.
+func (e *Engine) selfUpdateTarget(ctx context.Context, p *config.Project, minHealthy time.Duration, version string) (domain.Deployment, bool, error) {
+	deps, err := e.d.Store.ListDeployments(ctx, p.Name, selfUpdateScan) // newest first
+	if err != nil {
+		return domain.Deployment{}, false, fmt.Errorf("self_update: list deployments: %w", err)
+	}
+	now := e.d.Now()
+	for _, d := range deps {
+		if versionHasRef(version, d.Ref) {
+			break
+		}
+		if d.State != domain.DeployHealthy || now.Sub(d.UpdatedAt) < minHealthy {
+			continue
+		}
+		if e.selfUpd.failures(d.Ref) >= selfUpdateMaxFailures {
+			continue
+		}
+		return d, true, nil
+	}
+	return domain.Deployment{}, false, nil
+}
+
+// selfUpdateWaiting reports whether a self-update target is eligible, so the deploy loop should
+// not start another release: a new release in flight would hold the updater back again.
+func (e *Engine) selfUpdateWaiting(ctx context.Context) bool {
+	cfg := e.Config()
+	name := cfg.SelfProject
+	p := cfg.Projects[name]
+	if name == "" || p == nil || !loopOn(cfg, loopSelfUpdate, name) {
+		return false
+	}
+	su := cfg.LoopsFor(name).SelfUpdate
+	version := e.d.Version
+	if su.Command == "" || version == "" || strings.HasPrefix(version, "dev") {
+		return false
+	}
+	_, ok, err := e.selfUpdateTarget(ctx, p, su.MinHealthy.Duration, version)
+	return err == nil && ok
 }
 
 // releaseInFlight reports whether any project has a release being deployed or verified. A
