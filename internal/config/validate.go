@@ -33,6 +33,11 @@ func (c *Config) Validate() error {
 		if h.Type == "" {
 			add("harnesses.%s.type: must not be empty", name)
 		}
+		switch h.Billing {
+		case "", "auto", "metered", "subscription":
+		default:
+			add("harnesses.%s.billing: must be auto, metered or subscription, got %q", name, h.Billing)
+		}
 		if p := h.Price; p != nil && (!validPrice(p.InputPerMTok) || !validPrice(p.OutputPerMTok) || !validPrice(p.CachedInputPerMTok)) {
 			add("harnesses.%s.price: prices must be finite numbers, 0 (unknown) or greater", name)
 		}

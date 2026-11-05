@@ -147,11 +147,14 @@ type Run struct {
 	ExitCode     int        `json:"exit_code"`
 	CostUSD      float64    `json:"cost_usd"`
 	// CostEstimated: CostUSD was computed from tokens and the configured price, not reported.
-	CostEstimated bool   `json:"cost_estimated,omitempty"`
-	InputTokens   int64  `json:"input_tokens"`
-	OutputTokens  int64  `json:"output_tokens"`
-	Summary       string `json:"summary,omitempty"`
-	Error         string `json:"error,omitempty"`
+	CostEstimated bool `json:"cost_estimated,omitempty"`
+	// Billing is "metered", "subscription" or "" (unknown). A subscription run's CostUSD is an
+	// estimate nobody is billed for, so it does not count toward the daily budget.
+	Billing      string `json:"billing,omitempty"`
+	InputTokens  int64  `json:"input_tokens"`
+	OutputTokens int64  `json:"output_tokens"`
+	Summary      string `json:"summary,omitempty"`
+	Error        string `json:"error,omitempty"`
 }
 
 // LogKind classifies one line of a run's streamed output.

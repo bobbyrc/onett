@@ -135,12 +135,15 @@ func (s *Store) ListRunLogs(ctx context.Context, runID string, afterSeq int64, l
 	return out, nil
 }
 
-// CostSince sums CostUSD of runs started at or after since. CostUSD lives in the JSON data column;
-// runs with no reported cost count as zero.
+// CostSince sums CostUSD of runs started at or after since, skipping subscription runs, whose cost
+// is an estimate nobody is billed for. CostUSD and Billing live in the JSON data column; runs with
+// no reported cost count as zero, and runs with no Billing (unknown, or stored before the field
+// existed) count as metered.
 func (s *Store) CostSince(ctx context.Context, since time.Time) (float64, error) {
 	var total float64
 	if err := s.db.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(json_extract(data, '$.cost_usd')), 0) FROM runs WHERE started_at >= ?`,
+		`SELECT COALESCE(SUM(json_extract(data, '$.cost_usd')), 0) FROM runs WHERE started_at >= ?
+		   AND COALESCE(json_extract(data, '$.billing'), '') != 'subscription'`,
 		nanos(since)).Scan(&total); err != nil {
 		return 0, fmt.Errorf("cost since: %w", err)
 	}

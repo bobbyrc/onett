@@ -12,6 +12,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/client"
 	"github.com/bobbyrc/onett/internal/domain"
+	"github.com/bobbyrc/onett/internal/harness"
 )
 
 // Timings for the commands that wait on the server. They are variables so tests can shorten
@@ -99,6 +100,9 @@ func costToday(s client.Stats) string {
 		if s.CostTodayUSD >= s.DailyBudgetUSD {
 			out += " (budget reached — no new runs until midnight)"
 		}
+	}
+	if s.SubscriptionCostTodayUSD > 0 {
+		out += fmt.Sprintf(" (+$%.2f estimated on subscriptions, not billed)", s.SubscriptionCostTodayUSD)
 	}
 	return out
 }
@@ -665,7 +669,11 @@ func runShow(e *env, args []string) error {
 	if r.CostEstimated {
 		approx = "~"
 	}
-	fmt.Fprintf(e.out, "Exit:     %d   Cost: %s$%.4f   Tokens in/out: %d/%d\n", r.ExitCode, approx, r.CostUSD, r.InputTokens, r.OutputTokens)
+	sub := ""
+	if r.Billing == harness.BillingSubscription {
+		sub = " (subscription estimate)"
+	}
+	fmt.Fprintf(e.out, "Exit:     %d   Cost: %s$%.4f%s   Tokens in/out: %d/%d\n", r.ExitCode, approx, r.CostUSD, sub, r.InputTokens, r.OutputTokens)
 	if r.Summary != "" {
 		fmt.Fprintf(e.out, "Summary:  %s\n", cleanText(r.Summary))
 	}

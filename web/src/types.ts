@@ -89,6 +89,7 @@ export interface Run {
   exit_code: number;
   cost_usd: number;
   cost_estimated?: boolean;
+  billing?: "metered" | "subscription";
   input_tokens: number;
   output_tokens: number;
   summary?: string;
@@ -293,6 +294,7 @@ export interface Stats {
   active_runs: number;
   approvals_pending: number;
   cost_today_usd: number;
+  subscription_cost_today_usd: number;
   paused: boolean;
   preflight: Preflight[];
 }

@@ -159,6 +159,10 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 		r.ExitCode = res.ExitCode
 		r.CostUSD = res.CostUSD
 		r.CostEstimated = false
+		r.Billing = res.Billing
+		if b := e.Config().Harness[run.Harness].Billing; b == harness.BillingMetered || b == harness.BillingSubscription {
+			r.Billing = b
+		}
 		if p := e.Config().Harness[run.Harness].Price; res.CostUSD == 0 && p != nil {
 			if est := p.Estimate(res.InputTokens, res.CachedInputTokens, res.OutputTokens); est > 0 {
 				r.CostUSD, r.CostEstimated = est, true

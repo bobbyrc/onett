@@ -12,6 +12,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
+	agentharness "github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/store"
 )
 
@@ -70,9 +71,14 @@ type Stats struct {
 	TasksByStatus    map[string]int `json:"tasks_by_status"`
 	ActiveRuns       int            `json:"active_runs"`
 	ApprovalsPending int            `json:"approvals_pending"`
-	CostTodayUSD     float64        `json:"cost_today_usd"`
-	DailyBudgetUSD   float64        `json:"daily_budget_usd"`
-	Paused           bool           `json:"paused"`
+	// CostTodayUSD is today's cost of pay-per-token and unknown-billing runs: what the daily
+	// budget counts.
+	CostTodayUSD float64 `json:"cost_today_usd"`
+	// SubscriptionCostTodayUSD is today's API-price estimate for subscription runs, which
+	// nobody is billed for and the budget ignores.
+	SubscriptionCostTodayUSD float64 `json:"subscription_cost_today_usd"`
+	DailyBudgetUSD           float64 `json:"daily_budget_usd"`
+	Paused                   bool    `json:"paused"`
 	// Preflight is the daemon's last tool-directory check per project; see the engine.
 	Preflight []domain.Preflight `json:"preflight"`
 }
@@ -634,20 +640,26 @@ func (s *server) stats(w http.ResponseWriter, r *http.Request) {
 	}
 	now := time.Now()
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	var cost float64
+	var cost, subCost float64
 	for _, run := range runs {
-		if !run.StartedAt.Before(midnight) {
+		if run.StartedAt.Before(midnight) {
+			continue
+		}
+		if run.Billing == agentharness.BillingSubscription {
+			subCost += run.CostUSD
+		} else {
 			cost += run.CostUSD
 		}
 	}
 	writeJSON(w, http.StatusOK, Stats{
-		TasksByStatus:    byStatus,
-		ActiveRuns:       len(active),
-		ApprovalsPending: len(pending),
-		CostTodayUSD:     cost,
-		DailyBudgetUSD:   s.opts.Controller.Config().Limits.DailyBudgetUSD,
-		Paused:           s.opts.Controller.Paused(),
-		Preflight:        s.opts.Controller.Preflight(),
+		TasksByStatus:            byStatus,
+		ActiveRuns:               len(active),
+		ApprovalsPending:         len(pending),
+		CostTodayUSD:             cost,
+		SubscriptionCostTodayUSD: subCost,
+		DailyBudgetUSD:           s.opts.Controller.Config().Limits.DailyBudgetUSD,
+		Paused:                   s.opts.Controller.Paused(),
+		Preflight:                s.opts.Controller.Preflight(),
 	})
 }
 

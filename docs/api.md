@@ -169,7 +169,7 @@ case the approval is recorded as rejected and the task goes back to review so on
 
 // Stats
 {"tasks_by_status":{"queued":3,...},"active_runs":1,"approvals_pending":0,
- "cost_today_usd":1.23,"daily_budget_usd":25,"paused":false,
+ "cost_today_usd":1.23,"subscription_cost_today_usd":38.47,"daily_budget_usd":25,"paused":false,
  "preflight":[{"project":"onett","ok":true,"checked_at":"…"}]}
 
 // LoopView
