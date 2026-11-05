@@ -747,6 +747,12 @@ func (e *Engine) queueFollowups(ctx context.Context, t domain.Task, result domai
 	if t.Source == "followup" {
 		return
 	}
+	// A follow-up of a chat task keeps Source "followup" but carries the chat link in SourceRef, so
+	// the orchestrator still hears when it settles.
+	var sourceRef string
+	if convID := t.ChatConversationID(); convID != "" {
+		sourceRef = domain.SourceChatPrefix + convID
+	}
 	queued := 0
 	for _, f := range result.Followups {
 		if queued == 3 {
@@ -760,13 +766,14 @@ func (e *Engine) queueFollowups(ctx context.Context, t domain.Task, result domai
 			kind = f.Kind
 		}
 		if _, err := e.createTask(ctx, domain.Task{
-			Project:  t.Project,
-			ParentID: t.ID,
-			Kind:     kind,
-			Title:    f.Title,
-			Body:     f.Body,
-			Source:   "followup",
-			Priority: t.Priority - 1,
+			Project:   t.Project,
+			ParentID:  t.ID,
+			Kind:      kind,
+			Title:     f.Title,
+			Body:      f.Body,
+			Source:    "followup",
+			SourceRef: sourceRef,
+			Priority:  t.Priority - 1,
 		}); err != nil {
 			e.d.Logger.Warn("queue followup", "task", t.ID, "err", err)
 			continue

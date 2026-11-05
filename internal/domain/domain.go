@@ -4,6 +4,7 @@ package domain
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -326,6 +327,18 @@ const SourceConversation = "conversation"
 // conversation; the rest is the conversation ID ("chat:<id>"). Policy rules that match sources
 // ("followup", "retro") compare whole strings, so they are unaffected.
 const SourceChatPrefix = "chat:"
+
+// ChatConversationID returns the chat conversation a task is linked to, or "". A task the
+// orchestrator created has it in Source; a follow-up of such a task keeps Source "followup" (policy
+// rules match it) and carries the link in SourceRef instead.
+func (t Task) ChatConversationID() string {
+	for _, s := range []string{t.Source, t.SourceRef} {
+		if id, ok := strings.CutPrefix(s, SourceChatPrefix); ok && id != "" {
+			return id
+		}
+	}
+	return ""
+}
 
 // Conversation is one chat thread: with the orchestrator agent, or (when TaskID is set) with
 // the agent of one task.
