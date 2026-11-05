@@ -75,3 +75,38 @@ jobs:
 
       - name: CSP check on built UI
         run: mise exec -- go test -run TestCSPAllowsBuiltUIWithoutInlineScripts ./internal/api/
+
+  # Opens every route at two phone sizes in Chromium against a mocked backend and checks the
+  # layout (no sideways scroll, nav reachable, content in view). Known bugs are listed in
+  # web/e2e/mobile.spec.ts and skipped.
+  web-mobile:
+    name: Web mobile layout
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Mobile layout check
+        working-directory: web
+        run: npm run test:mobile
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-screenshots
+          path: web/e2e-results/screenshots
+          if-no-files-found: warn

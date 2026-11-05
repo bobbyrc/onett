@@ -6,3 +6,4 @@
 .onett-run/
 *.db
 .playwright-mcp/
+/web/e2e-results
