@@ -24,7 +24,7 @@ limits:
   run_timeout: 2h                      # a run longer than this is stopped (default 2h)
   max_attempts: 3                      # tries per task before it is blocked until a human retries it (default 3)
   max_goal_turns: 40                   # orchestrator turns one goal gets before it is blocked (default 40)
-  # run_shim: false                    # start each agent behind a per-run helper process that keeps it alive if onett exits (default false; experimental, reattach after a restart is not built yet)
+  # run_shim: true                     # start each agent behind a per-run helper process that keeps it alive if onett exits, and reattach to it after a restart (default true; false starts agents as direct children)
   daily_budget_usd: 20                 # pay-per-token task-run cost per local day (USD) before new runs stop; 0 = no limit. Subscription runs are not counted (see harnesses.*.billing). Codex reports no cost, so it is counted only with a price
 
 # Harnesses: the agent CLIs onett can drive. "claude" and "codex" are always present; you

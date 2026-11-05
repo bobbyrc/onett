@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"syscall"
@@ -65,6 +66,43 @@ func startShimProcess(ctx context.Context, p ProcSpec) (*Proc, error) {
 	if err != nil {
 		return nil, fmt.Errorf("start %s: %w", p.Command[0], err)
 	}
+	return attachShim(ctx, p, client, 0)
+}
+
+// ReattachProcess is StartProcess for a process that an earlier onett started behind a shim and
+// that may still be running: it dials the run's shim and follows its output, delivering events
+// only for lines from stream offset from on (see Reattacher). p must be the ProcSpec the process
+// was started with, with p.Shim set. Nothing is started; if the shim cannot be reached the error
+// says so.
+func ReattachProcess(ctx context.Context, p ProcSpec, from int64) (*Proc, error) {
+	if p.Shim == nil || p.RunID == "" {
+		return nil, errors.New("reattach: needs a run ID and shim options")
+	}
+	runDir := runshim.RunDir(p.Shim.DataDir, p.RunID)
+	sock := ""
+	if st, err := runshim.ReadStatus(runDir); err == nil {
+		sock = st.Socket
+	}
+	if sock == "" {
+		var err error
+		if sock, err = runshim.SocketPath(p.Shim.DataDir, p.RunID); err != nil {
+			return nil, fmt.Errorf("reattach %s: %w", p.RunID, err)
+		}
+	}
+	client, err := runshim.Dial(sock)
+	if err != nil {
+		return nil, fmt.Errorf("reattach %s: %w", p.RunID, err)
+	}
+	proc, err := attachShim(ctx, p, client, from)
+	if err != nil {
+		return nil, fmt.Errorf("reattach %s: %w", p.RunID, err)
+	}
+	return proc, nil
+}
+
+// attachShim turns a connected shim client into a Proc. The whole stdout log is replayed so the
+// parser rebuilds its state, but events for lines before offset from are dropped.
+func attachShim(ctx context.Context, p ProcSpec, client *runshim.Client, from int64) (*Proc, error) {
 	stream, err := client.Replay(0)
 	if err != nil {
 		_ = client.Close()
@@ -78,6 +116,10 @@ func startShimProcess(ctx context.Context, p ProcSpec) (*Proc, error) {
 		done:   make(chan struct{}),
 	}
 	proc.signalGroup = func(sig syscall.Signal) { _ = client.Signal(sig) }
+	proc.detach = func() {
+		stream.Close()
+		_ = client.Close()
+	}
 	if p.KeepStdinOpen {
 		proc.stdin = shimStdin{client}
 	} else {
@@ -87,7 +129,7 @@ func startShimProcess(ctx context.Context, p ProcSpec) (*Proc, error) {
 	proc.readers.Add(1)
 	go func() {
 		defer proc.readers.Done()
-		proc.readShim(stream, client, p.ParseLine)
+		proc.readShim(stream, client, p.ParseLine, from)
 	}()
 	go func() {
 		proc.readers.Wait()
@@ -111,7 +153,7 @@ func startShimProcess(ctx context.Context, p ProcSpec) (*Proc, error) {
 // readShim feeds the shim's stream into Events until the agent's exit message, then records the
 // exit and acks the whole log so the shim can stop. A stream that ends without that message
 // means the shim is gone; the process is then reported as failed with exit code -1.
-func (p *Proc) readShim(stream *runshim.Stream, client *runshim.Client, parse func(string) []Event) {
+func (p *Proc) readShim(stream *runshim.Stream, client *runshim.Client, parse func(string) []Event, from int64) {
 	exitCode := -1
 	var exitErr error
 	defer func() {
@@ -123,7 +165,16 @@ func (p *Proc) readShim(stream *runshim.Stream, client *runshim.Client, parse fu
 		switch m.Type {
 		case runshim.MsgLine:
 			if text := strings.TrimRight(m.Text, "\r\n"); text != "" && parse != nil {
-				for _, ev := range parse(text) {
+				// Lines before from were delivered by an earlier process; they are parsed
+				// only to rebuild the parser's state.
+				evs := parse(text)
+				if m.Offset < from {
+					continue
+				}
+				for i, ev := range evs {
+					if i == len(evs)-1 {
+						ev.Offset = m.Next
+					}
 					p.emit(ev)
 				}
 			}

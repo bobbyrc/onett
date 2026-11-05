@@ -118,6 +118,10 @@ export interface Run {
   output_tokens: number;
   summary?: string;
   error?: string;
+  stream_offset?: number;
+  deadline_at?: string;
+  start_sha?: string;
+  remote_sha?: string;
 }
 
 export interface LogLine {

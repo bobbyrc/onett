@@ -7,12 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunShimIsOffByDefaultAndCanBeEnabled(t *testing.T) {
+func TestRunShimIsOnByDefaultAndCanBeDisabled(t *testing.T) {
 	cfg, err := Parse(nil, "")
 	require.NoError(t, err)
-	assert.False(t, cfg.Limits.RunShim)
+	assert.True(t, cfg.Limits.RunShimOn())
+
+	cfg, err = Parse([]byte("limits:\n  run_shim: false\n"), "")
+	require.NoError(t, err)
+	assert.False(t, cfg.Limits.RunShimOn())
 
 	cfg, err = Parse([]byte("limits:\n  run_shim: true\n"), "")
 	require.NoError(t, err)
-	assert.True(t, cfg.Limits.RunShim)
+	assert.True(t, cfg.Limits.RunShimOn())
 }

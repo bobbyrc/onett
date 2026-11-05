@@ -26,19 +26,33 @@ const (
 //
 // Denials and stalls cancel the run's context (ar.cancel), which kills the session. The reason
 // is recorded on ar first, so the status below reflects why the run ended.
+//
+// A run behind a shim has two more duties. It stores the shim stream offset of the last stored
+// line, with last_output_at, after each flush, so a restarted onett can reattach without losing
+// or repeating a line. And when onett shuts down (ar.detach) it lets go of the agent instead of
+// killing it and returns domain.RunRunning without touching the run: it is still running. A run
+// that ar.reattached is seeded with its stored last_output_at, so the stall clock carries over.
 func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Session, ar *activeRun, onEvent func(harness.Event)) (harness.Result, domain.RunStatus, string) {
 	bg := context.WithoutCancel(ctx)
 	limits := e.Config().Limits
 	stall := limits.StallTimeout.Duration
 
 	var lastOutput atomic.Int64 // unix nanos of the last event, or the start time
-	lastOutput.Store(e.d.Now().UnixNano())
+	seed := e.d.Now()
+	if ar.reattached && !run.LastOutputAt.IsZero() {
+		seed = run.LastOutputAt
+	}
+	lastOutput.Store(seed.UnixNano())
 	done := make(chan struct{})
 
-	// Kill the session when the run's context ends (timeout, cancellation, stall, denial).
+	// Kill the session when the run's context ends (timeout, cancellation, stall, denial), or
+	// let it go on running when onett itself is shutting down.
 	go func() {
 		select {
 		case <-ctx.Done():
+			if d, ok := sess.(harness.Detacher); ok && ar.detach.Load() && d.Detach() {
+				return
+			}
 			sess.Cancel()
 		case <-done:
 		}
@@ -68,7 +82,17 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 		}()
 	}
 
-	flush := func(lines []domain.LogLine) { e.storeRunLogs(bg, run, lines) }
+	// streamed is the shim offset after the last event received; saved is the last one stored.
+	var streamed, saved int64
+	flush := func(lines []domain.LogLine) {
+		e.storeRunLogs(bg, run, lines)
+		// The lines are stored now, so the offset after them may be too. A hard stop between the
+		// two writes repeats at most this one batch after reattach, never skips one.
+		if len(lines) > 0 || streamed > saved {
+			saved = streamed
+			e.saveProgress(bg, run.ID, saved, time.Unix(0, lastOutput.Load()))
+		}
+	}
 
 	ticker := time.NewTicker(logFlushEvery)
 	defer ticker.Stop()
@@ -84,6 +108,9 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 			}
 			now := e.d.Now()
 			lastOutput.Store(now.UnixNano())
+			if ev.Offset > streamed {
+				streamed = ev.Offset
+			}
 			if ev.SessionID != "" && !savedSession {
 				savedSession = true
 				e.updateRun(bg, run.ID, func(r *domain.Run) error {
@@ -116,6 +143,9 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 
 	res, err := sess.Wait()
 	close(done)
+	if errors.Is(err, harness.ErrDetached) {
+		return res, domain.RunRunning, ""
+	}
 
 	reason := reasonOf(ar)
 	if reason == "" && errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -186,6 +216,23 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 		return nil
 	})
 	return res, status, reason
+}
+
+// saveProgress stores how far into the run's shim output the log goes and when it last produced
+// any. It adds nothing but those two fields, and publishes nothing.
+func (e *Engine) saveProgress(ctx context.Context, runID string, offset int64, lastOutput time.Time) {
+	_, err := e.d.Store.UpdateRun(ctx, runID, func(r *domain.Run) error {
+		if offset > r.StreamOffset {
+			r.StreamOffset = offset
+		}
+		if lastOutput.After(r.LastOutputAt) || r.LastOutputAt.IsZero() {
+			r.LastOutputAt = lastOutput.UTC()
+		}
+		return nil
+	})
+	if err != nil {
+		e.d.Logger.Error("save run progress", "run", runID, "err", err)
+	}
 }
 
 // storeRunLogs appends lines to the run's log and tells subscribers.

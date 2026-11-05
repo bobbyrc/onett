@@ -162,6 +162,18 @@ type Run struct {
 	OutputTokens int64  `json:"output_tokens"`
 	Summary      string `json:"summary,omitempty"`
 	Error        string `json:"error,omitempty"`
+
+	// The next four let a restarted onett pick the run up again (limits.run_shim). They live in
+	// the run's JSON document, so they need no schema change.
+	//
+	// StreamOffset is where in the shim's stdout log to read next: every line before it has been
+	// stored in the run's log. DeadlineAt is when the run times out (started + limits.run_timeout),
+	// kept absolute so a restart does not grant a new full timeout. StartSHA and RemoteSHA are the
+	// workspace's HEAD and origin/<branch> when the agent started; finishing the run needs both.
+	StreamOffset int64      `json:"stream_offset,omitempty"`
+	DeadlineAt   *time.Time `json:"deadline_at,omitempty"`
+	StartSHA     string     `json:"start_sha,omitempty"`
+	RemoteSHA    string     `json:"remote_sha,omitempty"`
 }
 
 // LogKind classifies one line of a run's streamed output.

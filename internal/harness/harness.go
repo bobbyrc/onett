@@ -39,6 +39,10 @@ type Event struct {
 	ToolID string
 	// SessionID is set on the first event that reveals it.
 	SessionID string
+	// Offset is set only for a session behind a run shim, on the last event of each stdout line:
+	// the shim's stream offset just after that line. A caller that has stored every event up to
+	// this one can persist it and give it back to Reattacher.Reattach.
+	Offset int64
 }
 
 // Result is how a session ended.
@@ -93,6 +97,27 @@ type Steerable interface {
 // Harness starts sessions of one agent CLI.
 type Harness interface {
 	Start(ctx context.Context, spec Spec) (Session, error)
+}
+
+// ErrDetached is returned by Wait on a session that was detached while its agent was still
+// running: there is no result, because the run has not ended.
+var ErrDetached = errors.New("harness: session detached from a run that is still running")
+
+// Detacher is a Session whose agent can outlive onett (it runs behind a run shim). Detach lets go
+// of the agent without stopping it: Events is closed and Wait returns ErrDetached. The agent keeps
+// running and Reattacher.Reattach can pick it up again. It reports false, and does nothing, when
+// the session cannot outlive onett (a direct child); the caller then cancels it instead.
+type Detacher interface {
+	Detach() bool
+}
+
+// Reattacher is a Harness that can resume a session whose agent is still running behind a run
+// shim, started by an earlier process. spec must be the Spec the session was started with, since
+// the harness rebuilds its output parser from it. The agent's whole output is replayed to that
+// parser, but events for lines before offset from (a value of Event.Offset) are dropped, so each
+// event is delivered once across the restart. The error says why the shim could not be reached.
+type Reattacher interface {
+	Reattach(ctx context.Context, spec Spec, from int64) (Session, error)
 }
 
 // Factory builds a harness from its config block.

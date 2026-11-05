@@ -79,6 +79,28 @@ func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session,
 	return p, nil
 }
 
+// Reattach resumes the session that Start began for spec, if its shim is still running. The
+// temporary prompt and instructions files of the earlier process are not removed: this process
+// no longer knows their names.
+func (r *runner) Reattach(ctx context.Context, spec harness.Spec, from int64) (harness.Session, error) {
+	ps := newParser()
+	p, err := harness.ReattachProcess(ctx, harness.ProcSpec{
+		Command:   []string{r.cfg.Command[0]},
+		RunID:     spec.RunID,
+		Shim:      r.cfg.Shim,
+		ParseLine: ps.parseLine,
+		OnExit: func(exitCode int, _ error) (harness.Result, error) {
+			return ps.result(exitCode), nil
+		},
+	}, from)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+var _ harness.Reattacher = (*runner)(nil)
+
 // writeTemp writes content to a new temporary file and returns its path.
 func writeTemp(pattern, content string) (string, error) {
 	f, err := os.CreateTemp("", pattern)
