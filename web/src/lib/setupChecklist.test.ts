@@ -12,7 +12,7 @@ describe('setupSteps', () => {
   it('shows everything unchecked on a fresh install', () => {
     const steps = setupSteps({
       projects: [],
-      agents: [{ name: 'coder', disabled: true }],
+      agents: [{ name: 'coder', disabled: true, harness_cli_found: true }],
       stats: { owner_unreachable: true },
       secrets: [secret('TELEGRAM_BOT_TOKEN', false)],
     });
@@ -30,12 +30,25 @@ describe('setupSteps', () => {
   it('checks each step off as it is done, and the default policy counts', () => {
     const steps = setupSteps({
       projects: [{ name: 'app', policy: '' }],
-      agents: [{ name: 'coder', disabled: false }],
+      agents: [{ name: 'coder', disabled: false, harness_cli_found: true }],
       stats: { owner_unreachable: false },
       secrets: [secret('A', true), secret('B', false, [])],
     });
     expect(steps.every((s) => s.done)).toBe(true);
     expect(setupIncomplete(steps)).toBe(false);
+  });
+
+  it('needs an enabled agent whose CLI was found', () => {
+    const agents = (list: { disabled: boolean; harness_cli_found: boolean }[]) =>
+      setupSteps({ agents: list.map((a, i) => ({ name: `a${i}`, ...a })) })[0];
+    expect(agents([{ disabled: false, harness_cli_found: false }]).done).toBe(false);
+    expect(agents([{ disabled: true, harness_cli_found: true }]).done).toBe(false);
+    const mixed = agents([
+      { disabled: false, harness_cli_found: true },
+      { disabled: false, harness_cli_found: false },
+    ]);
+    expect(mixed.done).toBe(true);
+    expect(mixed.detail).toContain('1 enabled with no CLI found');
   });
 
   it('is not incomplete before anything loads', () => {

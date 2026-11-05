@@ -30,3 +30,14 @@ func TestHarnessCLIFoundOnPath(t *testing.T) {
 	assert.True(t, harnessCLIFound(config.Harness{Type: "exec", Command: []string{"claude"}}))
 	assert.False(t, harnessCLIFound(config.Harness{Type: "codex"}))
 }
+
+func TestHarnessCLIFoundUsesConfiguredCommand(t *testing.T) {
+	dir := t.TempDir()
+	wrapper := filepath.Join(dir, "my-claude")
+	require.NoError(t, os.WriteFile(wrapper, []byte("#!/bin/sh\n"), 0o755))
+	t.Setenv("PATH", t.TempDir()) // no "claude" or "codex" on PATH
+
+	assert.True(t, harnessCLIFound(config.Harness{Type: "claude-code", Command: []string{wrapper}}))
+	assert.True(t, harnessCLIFound(config.Harness{Type: "codex", Command: []string{wrapper, "--flag"}}))
+	assert.False(t, harnessCLIFound(config.Harness{Type: "claude-code", Command: []string{filepath.Join(dir, "missing")}}))
+}

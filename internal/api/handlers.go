@@ -647,8 +647,14 @@ func (s *server) listAgents(w http.ResponseWriter, r *http.Request) {
 	}
 	builtins := config.BuiltinAgents()
 	out := make([]AgentView, 0, len(agents))
+	cliFound := make(map[string]bool) // per harness: several agents share one
 	for _, name := range sortedKeys(agents) {
 		a := agents[name]
+		found, seen := cliFound[a.Harness]
+		if !seen {
+			found = harnessCLIFound(cfg.Harness[a.Harness])
+			cliFound[a.Harness] = found
+		}
 		kinds := kindsByAgent[name]
 		sort.Strings(kinds)
 		ownBuiltin := a.Prompt == "builtin:"+name && a.PromptText == ""
@@ -658,7 +664,7 @@ func (s *server) listAgents(w http.ResponseWriter, r *http.Request) {
 			Disabled:        a.Disabled,
 			Harness:         a.Harness,
 			HarnessType:     cfg.Harness[a.Harness].Type,
-			HarnessCLIFound: harnessCLIFound(cfg.Harness[a.Harness]),
+			HarnessCLIFound: found,
 			Model:           a.Model,
 			Prompt:          a.Prompt,
 			PromptUpdates:   strings.HasPrefix(a.Prompt, "builtin:") && a.PromptText == "",
@@ -690,15 +696,17 @@ func (s *server) listAgents(w http.ResponseWriter, r *http.Request) {
 func harnessCLIFound(h config.Harness) bool {
 	var cli string
 	switch h.Type {
-	case "claude-code":
-		cli = "claude"
-	case "codex":
-		cli = "codex"
-	case "exec":
-		if len(h.Command) == 0 {
+	case "claude-code", "codex", "exec":
+		// A configured command (a path or wrapper) replaces the default binary, as the runners do.
+		if len(h.Command) > 0 {
+			cli = h.Command[0]
+		} else if h.Type == "exec" {
 			return false
+		} else if h.Type == "claude-code" {
+			cli = "claude"
+		} else {
+			cli = "codex"
 		}
-		cli = h.Command[0]
 	default:
 		return true
 	}
