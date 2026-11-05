@@ -50,7 +50,7 @@
   box-sizing: border-box;
   background: var(--chat-user-bg);
   color: var(--chat-user-fg);
-  border: 1px solid var(--chat-border);
+  border: 1px solid var(--chat-user-border);
   border-radius: var(--chat-radius-lg);
   padding: var(--chat-space-3) var(--chat-space-4);
   font-size: var(--chat-text-md);
@@ -375,6 +375,7 @@
   gap: 4px 10px;
   border: 1px solid var(--chat-border);
   background: var(--chat-surface);
+  border-radius: var(--chat-radius-md);
   padding: 6px 10px;
   font-size: 13.5px;
 }
