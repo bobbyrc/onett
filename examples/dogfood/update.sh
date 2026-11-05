@@ -161,7 +161,12 @@ if ! restart_daemon "$new"; then
   echo "update.sh: $new did not come up healthy; restoring $old (see $log)" >&2
   write_result rolled_back
   cp "$bin.prev" "$bin.new" && mv "$bin.new" "$bin"
-  restart_daemon "$old" || echo "update.sh: $old did not come up either" >&2
+  if restart_daemon "$old"; then
+    # The pause outlives the restart; leaving it would stall the factory after a failed update.
+    [ "$was_paused" = yes ] || "$bin" resume >/dev/null
+  else
+    echo "update.sh: $old did not come up either" >&2
+  fi
   exit 1
 fi
 [ "$was_paused" = yes ] || "$bin" resume >/dev/null
