@@ -8,7 +8,7 @@ you pick one per harness, project or notifier by its `type` in `onett.yaml`:
 - **Deployers** release a project after a merge. Built in: `command` (shell commands) and `noop`.
   Deployers have no `exec` type; the `command` type plays that role.
 - **Observers** report production problems. Built in: `sentry`. Any program: the `exec` type.
-- **Notifiers** tell you about things that need attention. Built in: `log`, `ntfy`, `discord`. Any program: the
+- **Notifiers** tell you about things that need attention. Built in: `log`, `ntfy`, `discord`, `telegram`. Any program: the
   `exec` type.
 - **Intake sources** turn an external queue of work into tasks. There are no built-in types: any
   program that prints JSON lines can be one. See [Intake sources](#intake-sources).
