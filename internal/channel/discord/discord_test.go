@@ -327,6 +327,7 @@ type sentWith struct {
 }
 
 type harness struct {
+	bot    *Bot
 	f      *fakeDiscord
 	host   *fakeHost
 	state  string
@@ -349,7 +350,7 @@ func start(t *testing.T, f *fakeDiscord, host *fakeHost, state string, users ...
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	h := &harness{f: f, host: host, state: state, logs: logs, cancel: cancel, done: make(chan error, 1)}
+	h := &harness{bot: b, f: f, host: host, state: state, logs: logs, cancel: cancel, done: make(chan error, 1)}
 	go func() { h.done <- b.Run(ctx) }()
 	t.Cleanup(h.stop)
 	return h
@@ -536,11 +537,18 @@ func requestApproval(host *fakeHost) {
 func TestApprovalButtonsAndClick(t *testing.T) {
 	f := newFakeDiscord(t)
 	host := newFakeHost()
-	start(t, f, host, statePath(t), "42", "43")
+	h := start(t, f, host, statePath(t), "42", "43")
 	f.conn(t, 0)
 	requestApproval(host)
 	waitFor(t, "both approval messages", func() bool {
 		return len(f.messages("dm-42")) == 1 && len(f.messages("dm-43")) == 1
+	})
+	// The fake sees a POST before the bot has read the reply and recorded the message ID. A click
+	// in that gap would find no copy to edit, so wait for the bot's own record.
+	waitFor(t, "bot to record both messages", func() bool {
+		h.bot.mu.Lock()
+		defer h.bot.mu.Unlock()
+		return len(h.bot.approvals["ap1"]) == 2
 	})
 	call := f.rest("POST", "/channels/dm-42/messages")[0]
 	if call.Auth != "Bot "+testToken {
