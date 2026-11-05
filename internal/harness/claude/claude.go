@@ -261,6 +261,11 @@ func buildArgs(cfg harness.Config, spec harness.Spec) []string {
 	}
 	args = append(args, cfg.Args...)
 	args = append(args, spec.Args...)
+	// One flag per rule, after the extras: repeated --allowedTools flags add up, so an owner's own
+	// --allowedTools in the extras cannot drop a rule onett asks for.
+	for _, rule := range spec.AllowedTools {
+		args = append(args, "--allowedTools", rule)
+	}
 	if !hasPermissionFlag(cfg.Args, spec.Args) {
 		args = append(args, "--permission-mode", defaultPermissionMode)
 	}
