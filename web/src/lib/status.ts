@@ -26,6 +26,7 @@ const TONES: Record<PillKind, Record<string, Tone>> = {
     timed_out: 'danger',
     denied: 'danger',
     cancelled: 'muted',
+    interrupted: 'warn',
   },
   deploy: {
     pending: 'info',

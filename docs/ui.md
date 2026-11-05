@@ -53,7 +53,7 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
   queued and cancelled off; running (blinking), review, merged and deploying run green;
   awaiting_approval call yellow; done done-green; blocked and failed stop red. Runs:
   starting/running run (blinking), succeeded done, failed/stalled/timed_out/denied stop,
-  cancelled off. Deployments: pending/deploying/verifying run, healthy done, failed/rolled_back
+  cancelled off, interrupted (onett restarted; the task resumes) call yellow. Deployments: pending/deploying/verifying run, healthy done, failed/rolled_back
   stop. The tone names in `src/lib/status.ts` are unchanged; the stylesheet maps them to lamps.
 - **RiskBadge**: condensed caps on one fixed ramp, the same everywhere: low outlined, medium on
   call yellow, high on stop red, unrated as quiet muted text.

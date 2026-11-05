@@ -352,24 +352,31 @@ func TestReattachKeepsTheStoredRunDeadline(t *testing.T) {
 	f.waitShimGone(run.ID)
 }
 
-func TestRestartWithoutShimKeepsTheOldRecovery(t *testing.T) {
+func TestRestartWithoutShimInterruptsAndResumes(t *testing.T) {
 	f := newReattachFixture(t, time.Hour, time.Hour)
 	e1, stop1 := f.engine(time.Now)
 	task := f.create(e1)
 	run := f.waitStoredBothLines(task.ID)
 	stop1()
 
-	// The shim is gone (killed, or the machine rebooted): the run fails and the task is re-queued
-	// or, with no attempts left (max_attempts is 1), blocked, as before this feature.
+	// The shim is gone (killed, or the machine rebooted): the run is interrupted, not failed, and
+	// the task is re-queued without using its only attempt (max_attempts is 1). The new run
+	// resumes the session the agent reported.
 	st := f.shimStatus(run.ID)
 	require.NoError(t, syscall.Kill(-st.AgentPGID, syscall.SIGKILL))
 	require.NoError(t, syscall.Kill(st.ShimPID, syscall.SIGKILL))
 	rtWait(t, 15*time.Second, "shim to die", func() bool { return syscall.Kill(st.ShimPID, 0) == syscall.ESRCH })
+	require.NoError(t, os.WriteFile(f.gate, nil, 0o644)) // the second run's agent does not wait
 
 	_, _ = f.engine(time.Now)
-	got := f.waitTask(task.ID, domain.TaskBlocked)
-	assert.Contains(t, got.BlockedReason, "onett restarted")
-	assert.Equal(t, domain.RunFailed, f.run(task.ID).Status)
+	f.waitTask(task.ID, domain.TaskDone)
+	runs, err := f.st.ListRuns(context.Background(), store.RunFilter{TaskID: task.ID})
+	require.NoError(t, err)
+	require.Len(t, runs, 2)
+	assert.Equal(t, domain.RunInterrupted, runs[1].Status)
+	assert.Equal(t, domain.RunSucceeded, runs[0].Status)
+	assert.Equal(t, 1, f.task(task.ID).Attempts)
+	f.waitShimGone(runs[0].ID)
 }
 
 func TestReattachStopsTheShimWhenItsTaskIsNoLongerRunning(t *testing.T) {

@@ -13,6 +13,7 @@ import (
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/runshim"
+	"github.com/bobbyrc/onett/internal/store"
 	"github.com/bobbyrc/onett/internal/sysproc"
 	"github.com/bobbyrc/onett/internal/workspace"
 )
@@ -122,7 +123,10 @@ func (e *Engine) takeOver(ctx context.Context, r domain.Run, log *slog.Logger, c
 	taskState := &taskRun{
 		t: t, run: r, ar: ar, p: p, agent: agent, parent: parent, repo: e.repoFor(p), ws: ws,
 		cmdEnv: sysproc.AgentEnv(cfg.Harness[agent.Harness].InheritEnv, env),
-		root:   root, fail: e.requeueOrBlock,
+		root:   root, fail: e.requeueOrBlock, setupOwed: r.SetupOwed,
+	}
+	if claimed := e.claimedBy(ctx, root, r.ID); len(claimed) > 0 {
+		taskState.fail = e.failFollowUp(claimed)
 	}
 	e.appendRunLog(context.WithoutCancel(ctx), r.ID, domain.LogSystem,
 		fmt.Sprintf("onett restarted; reattached to the agent at stream offset %d", r.StreamOffset))
@@ -158,6 +162,58 @@ func (e *Engine) resumeTask(ctx context.Context, st *taskRun, sess harness.Sessi
 		return
 	}
 	e.settleTask(ctx, st, res, status, reason)
+}
+
+// claimedBy returns the owner messages that the run took from root's conversation.
+func (e *Engine) claimedBy(ctx context.Context, root domain.Task, runID string) []domain.ChatMessage {
+	conv, err := e.d.Store.GetConversationByTask(ctx, root.ID)
+	if err != nil {
+		return nil
+	}
+	msgs, err := e.d.Store.ListChatMessages(ctx, conv.ID)
+	if err != nil {
+		return nil
+	}
+	var out []domain.ChatMessage
+	for _, m := range msgs {
+		if m.RunID == runID {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// interruptible reports whether recover should mark r interrupted rather than failed: it is a run
+// of a task that is still running, so the task can pick it up again.
+func (e *Engine) interruptible(ctx context.Context, r domain.Run) bool {
+	if r.TaskID == "" {
+		return false // chat and goal turns are failed, as before
+	}
+	t, err := e.d.Store.GetTask(ctx, r.TaskID)
+	return err == nil && t.Status == domain.TaskRunning
+}
+
+// interruptedResume looks for an interrupted run before the current one. It returns the session
+// to resume ("" when that run never reported one, or ran on another harness) and whether there was
+// such a run at all.
+func (e *Engine) interruptedResume(ctx context.Context, t domain.Task, current domain.Run, harnessName string) (string, bool) {
+	runs, err := e.d.Store.ListRuns(ctx, store.RunFilter{TaskID: t.ID, Limit: 2})
+	if err != nil {
+		return "", false
+	}
+	for _, r := range runs {
+		if r.ID == current.ID {
+			continue
+		}
+		if r.Status != domain.RunInterrupted {
+			return "", false
+		}
+		if r.Harness != harnessName {
+			return "", true
+		}
+		return r.SessionID, true
+	}
+	return "", false
 }
 
 // shimKillGrace is how long terminateShim waits after SIGTERM before SIGKILL (as the harness's

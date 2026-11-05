@@ -2671,7 +2671,7 @@ components:
 
     RunStatus:
       type: string
-      enum: [starting, running, succeeded, failed, stalled, timed_out, denied, cancelled]
+      enum: [starting, running, succeeded, failed, stalled, timed_out, denied, cancelled, interrupted]
 
     LogKind:
       type: string

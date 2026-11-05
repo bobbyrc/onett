@@ -247,8 +247,9 @@ func (e *Engine) goTracked(fn func()) bool {
 }
 
 // recover fixes state a crashed or restarted process left behind: runs still marked live are
-// failed (unless their agent is still running behind a shim and reattachRun takes them over),
-// their running tasks re-queued, busy conversations released, and the pause switch restored.
+// ended (unless their agent is still running behind a shim and reattachRun takes them over): a
+// task run whose agent is gone is interrupted and its task resumes without using an attempt, any
+// other run is failed. Running tasks are re-queued, busy conversations released, and the pause switch restored.
 func (e *Engine) recover(ctx context.Context) error {
 	st, err := e.d.Store.GetLoopState(ctx, controlLoop, "")
 	if err != nil {
@@ -284,14 +285,21 @@ func (e *Engine) recover(ctx context.Context) error {
 	}
 	// reattached holds the tasks whose run was picked up again: they are still running.
 	reattached := map[string]bool{}
+	// interrupted holds the tasks whose run lost its agent to the restart: they resume, for free.
+	interrupted := map[string]bool{}
 	for _, r := range runs {
 		if e.reattachRun(ctx, r) {
 			reattached[r.TaskID] = true
 			continue
 		}
+		status, msg := domain.RunFailed, "onett restarted during this run"
+		if e.interruptible(ctx, r) {
+			status, msg = domain.RunInterrupted, "onett restarted and the agent's shim is gone; the run resumes from its session"
+			interrupted[r.TaskID] = true
+		}
 		now := e.d.Now().UTC()
 		if _, err := e.d.Store.UpdateRun(ctx, r.ID, func(r *domain.Run) error {
-			r.Status, r.Error, r.EndedAt = domain.RunFailed, "onett restarted during this run", &now
+			r.Status, r.Error, r.EndedAt = status, msg, &now
 			return nil
 		}); err != nil {
 			return err
@@ -308,6 +316,20 @@ func (e *Engine) recover(ctx context.Context) error {
 	}
 	for _, t := range tasks {
 		if reattached[t.ID] {
+			continue
+		}
+		if interrupted[t.ID] {
+			// The restart, not the agent, ended the run: give the attempt back and resume.
+			if _, _, err := e.setTaskFrom(ctx, t.ID, []domain.TaskStatus{domain.TaskRunning},
+				"re-queued to resume after restart", func(t *domain.Task) error {
+					t.Status = domain.TaskQueued
+					if t.Attempts > 0 {
+						t.Attempts--
+					}
+					return nil
+				}); err != nil {
+				return err
+			}
 			continue
 		}
 		if t.Attempts >= t.MaxAttempts {

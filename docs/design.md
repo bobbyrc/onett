@@ -208,11 +208,15 @@ dial) it replays the agent's output through the harness's parser, drops the even
 stored offset, and supervises the run again with the stall clock seeded from the stored
 `last_output_at` and the timeout from `deadline_at`. Cancel, stall and timeout reach the agent
 through the shim's `signal`. The run then finishes through the same code as any other
-(`settleTask`). If the shim is gone, the run fails and its task is re-queued, as before; a resume
-fallback is a later step. Covered: task and review runs. Not covered: orchestrator chat and goal
-turns, which are still killed at shutdown and failed by `recover`. A reattached run does not
-re-run setup after the agent when setup was owed, and does not restore the owner messages it had
-claimed for failure handling.
+(`settleTask`); setup owed after the agent (`setup_owed` on the run) and the owner messages the run
+claimed (found by their run id) are restored first. If the shim is gone (reboot, shim crash), the
+run ends `interrupted`, not `failed`, and its task is re-queued with the attempt given back, so
+the interruption never uses one up, even on a task at its last attempt. The next run resumes the
+interrupted run's harness session with a note to check the worktree and carry on
+(`interruptedNote`); a run that had no session yet starts fresh with the same note. Reviews
+are treated the same. The agent's output past the stored offset in the shim's `stream.log` is not
+ingested. Covered: task and review runs. Not covered: orchestrator chat and goal turns, which are
+still killed at shutdown and failed by `recover`.
 
 ### Risk and auto-merge **(review)**
 
