@@ -36,6 +36,13 @@ test.beforeAll(async ({ browser }) => {
   mkdirSync(SCREENSHOTS, { recursive: true });
 });
 
+// A failing step is hard to debug from the browser side alone: attach what the daemon printed.
+test.afterEach(async ({}, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus || !daemon) return;
+  console.log(`--- daemon log (after "${testInfo.title}" failed) ---\n${daemon.log()}`);
+  await testInfo.attach('daemon.log', { body: daemon.log(), contentType: 'text/plain' });
+});
+
 test.afterAll(async () => {
   await page?.close();
   await daemon?.stop();
@@ -94,7 +101,8 @@ test('Config → Agents & routing: add a fake harness and an agent that uses it'
   await page.getByLabel('New agent name').fill('tester');
   await page.getByRole('button', { name: 'Add agent' }).click();
   // Fields of the new entries.
-  await page.getByRole('textbox', { name: 'Type', exact: true }).fill('fake');
+  // The harness type is an enum, so the editor renders a dropdown. The agent's harness is free text.
+  await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('fake');
   await page.getByRole('textbox', { name: 'Harness', exact: true }).fill('fake');
   await page.getByRole('textbox', { name: 'Prompt text', exact: true }).fill('You are a test agent.');
   await saveVisualEditor();
