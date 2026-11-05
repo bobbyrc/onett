@@ -216,8 +216,15 @@ interrupted run's harness session with a note to check the worktree and carry on
 (`interruptedNote`); a run that had no session yet starts fresh with the same note. Reviews
 are treated the same. Before that, `recover` replays the agent's output past the stored offset
 from the shim's `stream.log` through the harness parser (`harness.LogReplayer`), so it is stored on
-the interrupted run, and any session ID in it is kept for the resume. Covered: task and review runs. Not covered: orchestrator chat and goal turns, which are
-still killed at shutdown and failed by `recover`.
+the interrupted run, and any session ID in it is kept for the resume. Covered: task and review runs,
+and orchestrator chat and goal turns. A
+turn is reattached the same way (the conversation's `active_run_id` finds it) and finishes through
+the code a normal turn uses: the reply is stored once, the session id kept, the conversation
+released and, for a goal turn (`goal_turn` on the run), the goal's progress check runs on the real
+result, judged from the goal's `last_turn_at` because the in-memory snapshot is gone. If a turn's
+shim is gone, `recover` does not fail the turn: it re-runs it by resuming the conversation's session
+with a note that onett restarted. An interrupted goal turn is taken back out of `turns` and its
+re-run is not judged, so a restart can neither use up a goal's turns nor block it.
 
 ### Risk and auto-merge **(review)**
 
