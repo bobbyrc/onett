@@ -34,9 +34,15 @@ const (
 	hbAgentQuestion     = "agent_question"
 )
 
-// hbFirstWindow is how far back the first digest looks for runs, deploys and results, when no
-// earlier digest has been built.
-const hbFirstWindow = 24 * time.Hour
+// hbFirstWindowMin is the least the first digest looks back for runs, deploys and results, when
+// no earlier digest has been built. The window is the loop's interval or this, whichever is
+// larger, so the first tick after an upgrade does not replay a day of history.
+const hbFirstWindowMin = time.Hour
+
+// hbFirstWindow returns how far back the first digest looks, given the loop's interval.
+func hbFirstWindow(every time.Duration) time.Duration {
+	return max(every, hbFirstWindowMin)
+}
 
 // hbScanLimit is how many tasks, runs and events the digest reads per project.
 const hbScanLimit = 1000
@@ -275,7 +281,7 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 	}
 	since := prev.BuiltAt
 	if since.IsZero() {
-		since = now.Add(-hbFirstWindow)
+		since = now.Add(-hbFirstWindow(hb.Every.Duration))
 	}
 	items, err := e.heartbeatItems(ctx, p, hb.StaleQueued.Duration, since)
 	if err != nil {
@@ -384,6 +390,15 @@ func (e *Engine) saveHeartbeat(ctx context.Context, st domain.LoopState) error {
 	return nil
 }
 
+// hbTaskSettled reports whether a task is past needing attention, so its failed runs are history.
+func hbTaskSettled(s domain.TaskStatus) bool {
+	switch s {
+	case domain.TaskDone, domain.TaskMerged, domain.TaskDeploying, domain.TaskCancelled:
+		return true
+	}
+	return false
+}
+
 // heartbeatItems collects every attention item of project p, sorted by kind then entity. since
 // starts the window for things that happen once (runs, deploys, results, self-update failures).
 func (e *Engine) heartbeatItems(ctx context.Context, p *config.Project, stale time.Duration, since time.Time) ([]HeartbeatItem, error) {
@@ -477,8 +492,20 @@ func (e *Engine) heartbeatItems(ctx context.Context, p *config.Project, stale ti
 		if ended.Before(since) {
 			continue
 		}
+		// A run of a task that later succeeded or was abandoned needs no action.
+		t, ok := byID[r.TaskID]
+		if !ok {
+			if t, err = e.d.Store.GetTask(ctx, r.TaskID); err == nil {
+				ok = true
+			} else if !errors.Is(err, store.ErrNotFound) {
+				return nil, fmt.Errorf("get task %s: %w", r.TaskID, err)
+			}
+		}
+		if ok && hbTaskSettled(t.Status) {
+			continue
+		}
 		title := r.TaskID
-		if t, ok := byID[r.TaskID]; ok {
+		if ok {
 			title = fmt.Sprintf("%s (%s)", t.Title, r.TaskID)
 		}
 		add(hbRun, r.ID, string(r.Status), fmt.Sprintf("%s run of %s %s: %s", r.Role, title, r.Status, quote(r.Error)))
