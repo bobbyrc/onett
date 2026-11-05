@@ -1,33 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { copyText } from '../lib/clipboard';
 import { cx } from '../lib/format';
 import './CopyButton.css';
-
-/** Copy text with the async clipboard API, or a hidden textarea where that is unavailable (plain http). */
-export async function copyText(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText && window.isSecureContext !== false) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    // Fall through to the legacy path (permission denied, or an insecure context).
-  }
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.setAttribute('readonly', '');
-  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
-  document.body.append(ta);
-  const prev = document.activeElement as HTMLElement | null;
-  ta.select();
-  try {
-    return document.execCommand('copy');
-  } catch {
-    return false;
-  } finally {
-    ta.remove();
-    prev?.focus?.();
-  }
-}
 
 const FEEDBACK_MS = 1500;
 

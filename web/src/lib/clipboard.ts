@@ -2,7 +2,7 @@
 // localhost); onett is often opened over plain http on a LAN, so fall back to a hidden textarea.
 export async function copyText(text: string): Promise<boolean> {
   try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText && window.isSecureContext !== false) {
       await navigator.clipboard.writeText(text);
       return true;
     }
