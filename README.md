@@ -246,7 +246,7 @@ as in `onett task create -h`.
 | `loops` | list recurring loops |
 | `loop run NAME` | run a loop now |
 | `user reset-password NAME` | give a user a new random password and sign them out everywhere |
-| `pause` | stop starting runs and loops (`--reason`/`--detail` record why; `status` shows it) |
+| `pause` | stop starting runs and loops (`status` shows who paused it and since when) |
 | `resume` | resume a paused factory |
 | `chat` | message the orchestrator and print its reply |
 | `service` | install, uninstall or check the launchd service that keeps serve running |

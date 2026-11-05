@@ -327,7 +327,7 @@ func (e *Engine) SetPaused(ctx context.Context, paused bool) error {
 // PauseWith pauses the factory and records why, who and since when.
 func (e *Engine) PauseWith(ctx context.Context, info domain.PauseInfo) error {
 	switch info.Reason {
-	case domain.PauseOwner, domain.PauseSelfUpdate:
+	case domain.PauseOwner:
 	default:
 		return fmt.Errorf("%w: unknown pause reason %q", api.ErrInvalid, info.Reason)
 	}
@@ -353,9 +353,6 @@ func (e *Engine) setPaused(ctx context.Context, paused bool, info *domain.PauseI
 	if paused {
 		cursor = "paused"
 		title = "factory paused — running agents finish, nothing new starts"
-		if info.Reason == domain.PauseSelfUpdate {
-			title = "factory paused for self-update — waiting for running agents to finish"
-		}
 		b, err := json.Marshal(info)
 		if err != nil {
 			return err
