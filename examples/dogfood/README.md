@@ -75,6 +75,31 @@ If the new version doesn't come up healthy, the script restarts the previous bin
 the instance already runs `main`. A launcher at `$DOGFOOD/run-daemon.sh`, if present, is used to
 start the daemon. Run the script from your own shell, never from an agent that onett runs.
 
+## Self-update
+
+The factory can keep itself up to date. When the newest release of the `self_project` has been
+healthy on staging for `min_healthy`, the `self_update` loop starts `update.sh` with
+`ONETT_UPDATE_REF` set to that commit, so the daemon runs exactly what staging verified rather
+than whatever `main` is. It waits for a quiet moment (the script pauses the factory and waits for
+active runs to finish, including orchestrator chat turns), swaps the binary, and rolls back if the
+new one does not come up healthy. You get a notification when it starts, when it fails (with the end
+of `$DOGFOOD/data/self-update.log`) and when the new daemon is up. It is off by default. Add this
+to `$DOGFOOD/onett.yaml`:
+
+```yaml
+loops:
+  self_update:
+    enabled: true
+    every: 5m          # how often to check (default 5m)
+    min_healthy: 10m   # how long the release must have been healthy (default 10m)
+    command: "DOGFOOD=$HOME/.local/share/onett-dogfood mise exec -- /path/to/clone/examples/dogfood/update.sh"
+```
+
+The loop does nothing while the factory is paused, while a newer release is still being deployed
+or verified, for a `dev` build, when the daemon already runs that commit, or while an earlier
+updater is alive (its PID is in `data/self-update.lock`). A commit whose update fails three times is
+skipped until the daemon restarts, and one that was rolled back is not tried again.
+
 ## Stopping
 
 - Stop new work: `onett pause`.

@@ -262,6 +262,15 @@ type Loops struct {
 	} `yaml:"retro" json:"retro"`
 	// ExecIntake runs each project's intake sources. Default every 1m.
 	ExecIntake Loop `yaml:"exec_intake" json:"exec_intake"`
+	// SelfUpdate starts Command to update the running daemon to the self project's latest
+	// release once it has been healthy on staging for MinHealthy. Off unless enabled, and it only
+	// ever applies to self_project.
+	SelfUpdate struct {
+		Loop       `yaml:",inline"`
+		MinHealthy Duration `yaml:"min_healthy" json:"min_healthy"` // default 10m
+		// Command is run with sh -c, detached, with ONETT_UPDATE_REF set to the commit to run.
+		Command string `yaml:"command" json:"command"`
+	} `yaml:"self_update" json:"self_update"`
 	// Goals wakes the orchestrator on each active goal whose last step has settled. Default every 1m.
 	Goals Loop `yaml:"goals" json:"goals"`
 	// Friction files GitHub issues for reported friction.

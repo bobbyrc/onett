@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os/exec"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -48,6 +49,12 @@ type Deps struct {
 	// OrchestratorEnv is added only to orchestrator (chat) sessions: ONETT_API and
 	// ONETT_TOKEN, so the orchestrator can run the `onett` CLI.
 	OrchestratorEnv map[string]string
+	// Version is the running build's version (`onett version`); the self_update loop compares
+	// it with the newest release. Empty or "dev..." means a build that never self-updates.
+	Version string
+	// StartUpdater starts the self-update command and returns its PID and a function that waits
+	// for it. Default: cmd.Start and cmd.Wait. Tests replace it.
+	StartUpdater func(cmd *exec.Cmd) (pid int, wait func() error, err error)
 	// Now defaults to time.Now.
 	Now func() time.Time
 	// SchedulerTick is how often the scheduler looks for work without being woken (default 5s).
@@ -62,6 +69,8 @@ type Engine struct {
 	cfg   *config.Config
 
 	pre *preflight // preflight.go
+
+	selfUpd selfUpdateState // loop_self_update.go
 
 	paused atomic.Bool
 	wake   chan struct{}
@@ -167,6 +176,7 @@ func (e *Engine) Run(ctx context.Context) error {
 	if err := e.recover(ctx); err != nil {
 		return fmt.Errorf("engine recover: %w", err)
 	}
+	e.reportSelfUpdate(ctx) // loop_self_update.go
 	// Worktrees from runs that ended in an earlier process are swept in the background, so a
 	// large project's cleanup does not delay the scheduler.
 	for _, p := range e.Config().Projects {

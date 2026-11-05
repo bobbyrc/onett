@@ -120,6 +120,7 @@ func cmdServe(e *env, args []string) error {
 		DeployerFor:     deployerFor,
 		ObserversFor:    observersFor,
 		ReloadConfig:    func(p string) (*config.Config, error) { return config.Load(p) },
+		Version:         version,
 		AgentEnv:        agentEnv,
 		OrchestratorEnv: orchestratorEnv,
 	})

@@ -1196,7 +1196,7 @@ paths:
       summary: Run one loop now.
       description: |
         `name` is one of `issue_intake`, `exec_intake`, `pr_shepherd`, `deploy_watch`,
-        `prod_watch`, `friction`, `retro` or `goals`. An unknown name, or an unknown project, returns 400. The run is
+        `prod_watch`, `friction`, `retro`, `self_update` or `goals`. An unknown name, or an unknown project, returns 400. The run is
         asynchronous, so the response carries no body.
       parameters:
         - name: name
@@ -3284,7 +3284,7 @@ components:
 
     Loops:
       type: object
-      required: [issue_intake, exec_intake, pr_shepherd, deploy_watch, prod_watch, friction, retro, goals]
+      required: [issue_intake, exec_intake, pr_shepherd, deploy_watch, prod_watch, friction, retro, self_update, goals]
       properties:
         issue_intake:
           description: Turns open issues carrying `label` into tasks.
@@ -3359,3 +3359,19 @@ components:
                   allOf:
                     - $ref: '#/components/schemas/Duration'
                   description: Evidence window. Defaults to `every`.
+        self_update:
+          description: >-
+            Starts `command` to update the running daemon to the self project's latest release
+            once it has been healthy for `min_healthy`. Off unless `enabled`; self project only.
+          allOf:
+            - $ref: '#/components/schemas/Loop'
+            - type: object
+              required: [min_healthy, command]
+              properties:
+                min_healthy:
+                  allOf:
+                    - $ref: '#/components/schemas/Duration'
+                  description: Default `10m`.
+                command:
+                  type: string
+                  description: Run with `sh -c`; gets `ONETT_UPDATE_REF`. Required when enabled.

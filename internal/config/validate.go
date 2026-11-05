@@ -92,6 +92,9 @@ func (c *Config) Validate() error {
 		if p.Loops != nil && p.Loops.Retro.Lookback.Duration < 0 {
 			add("%s.loops.retro.lookback: must be 0 (default = every) or greater", prefix)
 		}
+		if su := c.LoopsFor(name).SelfUpdate; su.Enabled != nil && *su.Enabled && strings.TrimSpace(su.Command) == "" {
+			add("%s.loops.self_update.command: required when self_update is enabled", prefix)
+		}
 		if _, ok := c.Policies[p.Policy]; !ok {
 			add("%s.policy: unknown policy %q", prefix, p.Policy)
 		}
@@ -220,6 +223,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Loops.Retro.Lookback.Duration < 0 {
 		add("loops.retro.lookback: must be 0 (default = every) or greater")
+	}
+	if c.Loops.SelfUpdate.MinHealthy.Duration < 0 {
+		add("loops.self_update.min_healthy: must be 0 (default 10m) or greater")
 	}
 	if l.DailyBudgetUSD < 0 {
 		add("limits.daily_budget_usd: must be 0 (no limit) or greater, not %v", l.DailyBudgetUSD)

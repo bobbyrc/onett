@@ -252,6 +252,13 @@ loops:
     every: 24h                         # files a retrospective improve task with recent failures and friction (default 24h)
     lookback: 24h                      # evidence window; default is every
     # enabled: true                    # unset, retro runs for self_project only; true or false overrides that
+  # self_update starts command to move the running daemon to self_project's latest release once it
+  # has been healthy for min_healthy. Off unless enabled. See examples/dogfood/README.md.
+  # self_update:
+  #   enabled: true
+  #   every: 5m                      # default 5m
+  #   min_healthy: 10m               # default 10m
+  #   command: ./update.sh           # required; run with sh -c, gets ONETT_UPDATE_REF
 
 # Notify: where to send notifications. Empty means a log line only.
 notify:

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Updates the long-lived dogfood instance to origin/main: builds main in a temporary worktree,
+# Updates the long-lived dogfood instance to origin/main (or, when ONETT_UPDATE_REF is set, to
+# that commit: the daemon's self_update loop sets it to the release that was healthy on staging).
+# It builds the commit in a temporary worktree,
 # pauses the factory and waits until no run is active and no release is in flight, swaps the
 # binary ($DOGFOOD/onett; the old one is kept as onett.prev), restarts the daemon, checks that
 # it answers with the new version, and resumes the factory if it was running before. A restart
@@ -10,7 +12,11 @@
 # the launchd service is installed (`onett service install`), launchd restarts the daemon;
 # otherwise it is started with $DOGFOOD/run-daemon.sh when that file exists (a machine's own
 # launcher), or with `onett serve`. Never run this from an agent that onett runs: restarting
-# the daemon ends every run it supervises.
+# the daemon ends every run it supervises. The self_update loop is not an agent run: it starts
+# this script detached, so the script outlives the daemon it restarts.
+#
+# It leaves $ONETT_DATA_DIR/self-update.result (default $DOGFOOD/data) for the new daemon to
+# report: old, new, ref and status ok or rolled_back.
 set -euo pipefail
 
 DOGFOOD=${DOGFOOD:?set DOGFOOD to the dogfood directory}
@@ -39,8 +45,15 @@ cleanup() {
 trap cleanup EXIT
 
 # Build first, so a failed build leaves the running instance untouched.
-git -C "$repo" fetch -q origin main
-git -C "$repo" worktree add -q --detach "$tmp/src" origin/main
+ref=${ONETT_UPDATE_REF:-}
+if [ -n "$ref" ]; then
+  git -C "$repo" fetch -q origin dogfood main
+  git -C "$repo" worktree add -q --detach "$tmp/src" "$ref"
+else
+  git -C "$repo" fetch -q origin main
+  git -C "$repo" worktree add -q --detach "$tmp/src" origin/main
+  ref=$(git -C "$tmp/src" rev-parse HEAD)
+fi
 OUT=$tmp/onett "$tmp/src/scripts/build.sh"
 new=$("$tmp/onett" version | awk '{print $2}')
 running=$(curl -sf "http://$addr/api/v1/health" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' || true)
@@ -85,7 +98,12 @@ for i in $(seq 1 360); do
     break
   fi
   if [ "$i" = 360 ]; then
-    echo "update.sh: still busy after 30 minutes; the factory is left paused" >&2
+    if [ "$was_paused" = yes ]; then
+      echo "update.sh: still busy after 30 minutes; the factory is left paused" >&2
+    else
+      "$bin" resume >/dev/null
+      echo "update.sh: still busy after 30 minutes; resumed the factory, nothing changed" >&2
+    fi
     exit 1
   fi
   sleep 5
@@ -127,11 +145,21 @@ restart_daemon() {
   return 1
 }
 
+# write_result records the outcome for the daemon that starts next, which reports it once. It is
+# written before the restart because the new daemon reads it as it starts.
+result=${ONETT_DATA_DIR:-$DOGFOOD/data}/self-update.result
+write_result() {
+  mkdir -p "$(dirname "$result")"
+  printf 'old=%s\nnew=%s\nref=%s\nstatus=%s\n' "$old" "$new" "$ref" "$1" >"$result"
+}
+
 old=$("$bin" version | awk '{print $2}')
 cp "$bin" "$bin.prev"
 cp "$tmp/onett" "$bin.new" && mv "$bin.new" "$bin"
+write_result ok
 if ! restart_daemon "$new"; then
   echo "update.sh: $new did not come up healthy; restoring $old (see $log)" >&2
+  write_result rolled_back
   cp "$bin.prev" "$bin.new" && mv "$bin.new" "$bin"
   restart_daemon "$old" || echo "update.sh: $old did not come up either" >&2
   exit 1

@@ -205,6 +205,16 @@ picks up issues labelled `onett` (configurable), so turning a friction issue int
 label — or automatic with `friction.auto_queue`. Comments from OWNER/MEMBER/COLLABORATOR are
 included in the task body; others are ignored.
 
+The self_update loop (`loops.self_update`, off by default, `self_project` only) keeps the
+running daemon current. When the newest release of the self project is `healthy` and has been for
+`min_healthy`, and its commit is not the one the daemon was built from, code starts the configured
+`command` with `ONETT_UPDATE_REF=<sha>`, detached in its own session (a launchd stop kills the
+daemon's process group, and the updater must survive it). Agents never trigger it: the decision is
+deterministic code over deployment state. The updater pauses the factory, waits for it to go idle,
+swaps the binary and rolls back on a failed health check; it leaves a result file that the next
+daemon reports once. A PID lock file keeps one updater at a time, and a commit that fails three
+times (counted in memory) is skipped.
+
 The retro loop (`loops.retro`, default every 24h) is the factory's retrospective. Each day, code
 gathers the evidence of the last `lookback` (blocked and failed tasks with their reasons,
 re-queued attempts, friction, incidents, review findings sent back) and files one improve task

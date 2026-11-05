@@ -23,11 +23,12 @@ const (
 	loopProdWatch   = "prod_watch"
 	loopFriction    = "friction"
 	loopRetro       = "retro"
+	loopSelfUpdate  = "self_update"
 	loopGoals       = "goals"
 )
 
 // loopNames lists every loop, in the order they start.
-var loopNames = []string{loopIssueIntake, loopExecIntake, loopPRShepherd, loopDeployWatch, loopProdWatch, loopFriction, loopRetro, loopGoals}
+var loopNames = []string{loopIssueIntake, loopExecIntake, loopPRShepherd, loopDeployWatch, loopProdWatch, loopFriction, loopRetro, loopSelfUpdate, loopGoals}
 
 // loopWakeMax and loopWakeMin bound how often a loop checks which projects are due.
 const (
@@ -51,6 +52,7 @@ func (e *Engine) loopFuncs() map[string]loopFn {
 		loopProdWatch:   e.prodLoop,
 		loopFriction:    e.frictionLoop,
 		loopRetro:       e.retroLoop,
+		loopSelfUpdate:  e.selfUpdateLoop,
 		loopGoals:       e.goalsLoop,
 	}
 }
@@ -347,6 +349,8 @@ func loopSettingsFor(l config.Loops, name string) config.Loop {
 		return l.Friction.Loop
 	case loopRetro:
 		return l.Retro.Loop
+	case loopSelfUpdate:
+		return l.SelfUpdate.Loop
 	case loopGoals:
 		return l.Goals
 	}
@@ -354,8 +358,12 @@ func loopSettingsFor(l config.Loops, name string) config.Loop {
 }
 
 // loopOn reports whether loop name is enabled for project. Every loop follows its Enabled flag
-// (default on), except retro, which defaults to on for the self project only.
+// (default on), except retro, which defaults to on for the self project only, and self_update,
+// which is off unless enabled and then runs for the self project only.
 func loopOn(cfg *config.Config, name, project string) bool {
+	if name == loopSelfUpdate {
+		return cfg.LoopsFor(project).SelfUpdateOn(project, cfg.SelfProject)
+	}
 	if name == loopRetro {
 		return cfg.LoopsFor(project).RetroOn(project, cfg.SelfProject)
 	}
