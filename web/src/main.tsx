@@ -6,6 +6,7 @@ import { App } from './App';
 import { loadAuthState } from './auth';
 import { retryPolicy } from './queries';
 import './styles.css';
+import './chat-tokens.css';
 
 // Asks the server who is signed in; App waits on the answer before drawing the rest of the UI.
 void loadAuthState();
