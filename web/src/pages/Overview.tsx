@@ -13,6 +13,7 @@ import { ApprovalCard } from '../components/ApprovalCard';
 import { Button } from '../components/Button';
 import { Callout } from '../components/Callout';
 import { Empty } from '../components/Empty';
+import { HoldBanner } from '../components/HoldBanner';
 import { ErrorLine } from '../components/ErrorLine';
 import { RelTime } from '../components/RelTime';
 import { RetryTaskControl, CancelTaskButton } from '../components/TaskActions';
@@ -30,6 +31,7 @@ export function Overview() {
     <>
       <h1 className="sr-only">Overview</h1>
       <AndonBoard />
+      <HoldBanner />
       <div className="overview-grid">
         <NeedsYou />
         <div className="overview-side">
