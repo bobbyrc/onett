@@ -18,6 +18,7 @@
   /* colour: state */
   --chat-accent: #1d6f3d;
   --chat-warning: #7a5800;
+  --chat-warning-bg: #fbf3d4;
   --chat-danger: #b0251c;
   --chat-diff-add-fg: #1d6f3d;
   --chat-diff-add-bg: #d3e8d9;
@@ -73,6 +74,7 @@
     --chat-field-border: #64736b;
     --chat-accent: #5fd08b;
     --chat-warning: #f2c230;
+    --chat-warning-bg: #2b2308;
     --chat-danger: #ff7a70;
     --chat-diff-add-fg: #7fdca1;
     --chat-diff-add-bg: #16301f;

@@ -37,17 +37,17 @@
 }
 
 .chat-page .conv-list ul {
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--chat-border);
 }
 
 .chat-page .conv-item {
   gap: 2px;
   padding: 10px 10px;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--chat-border);
 }
 
 .chat-page .conv-item.active {
-  background: var(--panel);
+  background: var(--chat-surface);
   font-weight: 600;
 }
 
@@ -122,19 +122,19 @@
   min-height: 44px;
   max-width: calc(100% - 16px);
   padding: 0 16px;
-  border: 1px solid var(--field);
+  border: 1px solid var(--chat-field-border);
   border-radius: 22px;
-  background: var(--input);
-  color: var(--text);
+  background: var(--chat-surface);
+  color: var(--chat-fg-strong);
   font: inherit;
   font-size: 14px;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+  box-shadow: var(--chat-shadow-composer);
 }
 
 .chat-page .jump-latest:focus-visible {
-  outline: 2px solid var(--text);
+  outline: 2px solid var(--chat-focus-ring);
   outline-offset: 2px;
 }
 
@@ -151,8 +151,8 @@
 
 .chat-page .msg.user .bubble {
   max-width: 72ch;
-  background: var(--panel);
-  border: 1px solid var(--border);
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border);
   border-radius: 0;
 }
 
@@ -163,13 +163,12 @@
 .chat-page .msg-label {
   display: block;
   margin-bottom: 4px;
-  font-family: var(--font-cond);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
   line-height: 1.2;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--chat-fg-faint);
 }
 
 /* Phone: the list becomes a row of chips above an open thread; the full list shows otherwise. */
@@ -191,12 +190,12 @@
     flex: none;
     max-width: 240px;
     padding: 6px 10px;
-    border: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
+    border: 1px solid var(--chat-border);
+    border-bottom: 1px solid var(--chat-border);
   }
 
   .chat-page .conv-list.compact .conv-item.active {
-    border-color: var(--text);
+    border-color: var(--chat-fg-strong);
   }
 
   .chat-page .conv-list.compact .conv-meta {
@@ -218,19 +217,19 @@
 
 .chat-page .conv-heading-quiet {
   margin-top: 20px;
-  color: var(--muted);
+  color: var(--chat-fg-faint);
   font-size: 0.8em;
 }
 
 .chat-page .conv-agent-group {
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--chat-border);
   padding-top: 6px;
 }
 
 .chat-page .conv-task {
   margin: 0;
   padding: 2px 10px 0;
-  color: var(--muted);
+  color: var(--chat-fg-faint);
   font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -248,7 +247,7 @@
 }
 
 .chat-page .conv-agent.active {
-  background: var(--panel);
+  background: var(--chat-surface);
   font-weight: 600;
 }
 
@@ -292,7 +291,7 @@
   gap: 8px 16px;
   padding-bottom: 12px;
   margin-bottom: 14px;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--chat-border);
 }
 
 .chat-page .thread-title {
@@ -320,22 +319,15 @@
 .chat-page .chat-hint {
   margin-top: 12px;
   padding: 6px 10px;
-  border: 1px solid #ead79a;
-  background: #fbf3d4;
-  color: #7a5800;
+  border: 1px solid var(--chat-warning);
+  background: var(--chat-warning-bg);
+  color: var(--chat-warning);
   font-size: 13px;
 }
 
 .chat-page .chat-hint a {
-  color: var(--link);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .chat-page .chat-hint {
-    border-color: color-mix(in srgb, var(--lamp-call) 45%, var(--border));
-    background: color-mix(in srgb, var(--lamp-call) 12%, var(--panel));
-    color: var(--text);
-  }
+  color: var(--chat-warning);
+  text-decoration: underline;
 }
 
 .chat-page .closed-note {
@@ -346,8 +338,8 @@
   gap: 8px 16px;
   margin-top: 12px;
   padding: 10px 14px;
-  border: 1px solid var(--border);
-  background: var(--panel);
+  border: 1px solid var(--chat-border);
+  background: var(--chat-surface);
 }
 
 .chat-page .closed-note p {
@@ -407,11 +399,11 @@
     flex: none;
     max-width: 240px;
     padding: 6px 10px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--chat-border);
   }
 
   .chat-page .conv-list.compact .conv-agent.active {
-    border-color: var(--text);
+    border-color: var(--chat-fg-strong);
   }
 
   .chat-page .conv-list.compact .conv-agent-title {
@@ -446,14 +438,14 @@
   max-width: 100%;
   box-sizing: border-box;
   padding: 4px 4px 4px 6px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--text);
+  border: 1px solid var(--chat-border);
+  background: var(--chat-surface);
+  color: var(--chat-fg-strong);
   text-decoration: none;
 }
 
 .att-chip.is-error {
-  border-color: var(--danger, #c0392b);
+  border-color: var(--chat-danger);
 }
 
 .msg-att-chip {
@@ -494,7 +486,7 @@
 }
 
 .att-error {
-  color: var(--danger, #c0392b);
+  color: var(--chat-danger);
   overflow-wrap: anywhere;
 }
 
@@ -504,7 +496,7 @@
   min-height: 44px;
   border: 0;
   background: transparent;
-  color: var(--text);
+  color: var(--chat-fg-strong);
   font-size: 20px;
   cursor: pointer;
 }
@@ -518,7 +510,7 @@
   display: block;
   max-width: 100%;
   max-height: 240px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--chat-border);
 }
 
 @media (max-width: 640px) {

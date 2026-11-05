@@ -2,15 +2,15 @@
 
 .tr-seg {
   display: inline-flex;
-  border: 1px solid var(--border);
+  border: 1px solid var(--chat-border);
   border-radius: 2px;
   overflow: hidden;
 }
 
 .tr-seg button {
   border: 0;
-  background: var(--panel);
-  color: var(--muted);
+  background: var(--chat-surface);
+  color: var(--chat-fg-faint);
   padding: 5px 12px;
   font: inherit;
   font-size: 13px;
@@ -18,8 +18,8 @@
 }
 
 .tr-seg button.on {
-  background: var(--text);
-  color: var(--bg);
+  background: var(--chat-fg-strong);
+  color: var(--chat-bg);
 }
 
 .tr-col {
@@ -247,11 +247,11 @@
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font: 12.5px/1.5 var(--mono);
+  font: 12.5px/1.5 var(--chat-font-mono);
 }
 
 .tr-muted {
-  color: var(--muted);
+  color: var(--chat-fg-faint);
 }
 
 .tr-stderr {
@@ -260,28 +260,27 @@
 
 .tr-error,
 .tr-denial {
-  color: var(--danger);
+  color: var(--chat-danger);
 }
 
 .tr-denial {
-  border-left: 2px solid var(--danger);
+  border-left: 2px solid var(--chat-danger);
   padding-left: 10px;
 }
 
 .tr-denied {
   display: inline-block;
-  font-family: var(--font-cond);
   font-weight: 700;
   font-size: 12px;
   letter-spacing: 0.06em;
-  color: var(--danger);
+  color: var(--chat-danger);
 }
 
 .tr-divider {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: var(--muted);
+  color: var(--chat-fg-faint);
   font-size: 12.5px;
 }
 
@@ -289,10 +288,11 @@
 .tr-divider::after {
   content: '';
   flex: 1;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--chat-border);
 }
 
-/* terminal view */
+/* terminal view: exempt from the --chat-* guard (chatCss.test.ts); it keeps the andon-board look */
+/* terminal-view:start */
 .tr-term {
   font: 12.5px/1.55 var(--mono);
   max-width: 100%;
@@ -364,6 +364,8 @@
   }
 }
 
+/* terminal-view:end */
+
 /* Chip under an orchestrator turn that created a task. */
 .tr-chip {
   align-self: flex-start;
@@ -371,19 +373,19 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 10px;
-  border: 1px solid var(--border);
-  background: var(--input);
+  border: 1px solid var(--chat-border);
+  background: var(--chat-surface);
   padding: 6px 10px;
   font-size: 13.5px;
 }
 
 .tr-chip a {
-  color: var(--link);
+  color: var(--chat-accent);
   font-size: 12.5px;
 }
 
 .tr-chip .tr-chip-status {
-  color: var(--muted);
+  color: var(--chat-fg-faint);
 }
 
 .tr-queued-note .tr-qa {
@@ -395,7 +397,7 @@
   background: none;
   padding: 0 4px;
   font: inherit;
-  color: var(--link);
+  color: var(--chat-accent);
   cursor: pointer;
   text-decoration: underline;
 }
