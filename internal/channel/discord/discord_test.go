@@ -157,10 +157,13 @@ func (f *fakeDiscord) gateway(w http.ResponseWriter, r *http.Request) {
 		case 2:
 			f.mu.Lock()
 			f.identifies = append(f.identifies, fr.D)
-			f.conns = append(f.conns, gc)
 			f.mu.Unlock()
 			ready := fmt.Sprintf(`{"op":0,"s":1,"t":"READY","d":{"session_id":"sess","resume_gateway_url":%q,"user":{"id":"BOT"}}}`, f.wsURL())
 			c.Write(ctx, websocket.MessageText, []byte(ready))
+			// Register only after READY is written, so a test push cannot overtake it.
+			f.mu.Lock()
+			f.conns = append(f.conns, gc)
+			f.mu.Unlock()
 		case 6:
 			f.mu.Lock()
 			f.conns = append(f.conns, gc)
