@@ -224,15 +224,17 @@ func (e *Engine) ingestStreamLog(ctx context.Context, r domain.Run) {
 	log := e.d.Logger.With("run", r.ID, "task", r.TaskID)
 	t, err := e.d.Store.GetTask(ctx, r.TaskID)
 	if err != nil {
+		log.Warn("not ingesting the interrupted run's stream log: task lookup failed", "err", err)
 		return
 	}
 	h, agent, err := e.harnessFor(t.Project, t.Role)
 	if err != nil {
+		log.Warn("not ingesting the interrupted run's stream log: no harness", "err", err)
 		return
 	}
 	lr, ok := h.(harness.LogReplayer)
 	if !ok {
-		return
+		return // this harness cannot replay a log; not worth a warning
 	}
 	evs, err := lr.ReplayLog(harness.Spec{
 		RunID: r.ID, Workdir: r.Workdir, Model: agent.Model, Args: agent.Args,
@@ -260,7 +262,9 @@ func (e *Engine) ingestStreamLog(ctx context.Context, r domain.Run) {
 	}
 	// Lines first, then the offset past them, as supervise does: a crash between the two repeats
 	// lines rather than losing them.
-	e.storeRunLogs(ctx, r, lines)
+	if err := e.storeRunLogs(ctx, r, lines); err != nil {
+		return // offset stays put, so nothing is skipped
+	}
 	e.updateRun(ctx, r.ID, func(r *domain.Run) error {
 		r.StreamOffset = max(r.StreamOffset, offset)
 		if r.SessionID == "" {
