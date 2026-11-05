@@ -69,8 +69,16 @@ func Schema() SchemaNode {
 		schemaRoot = SchemaNode{Type: "section", Fields: b.structNode(reflect.TypeOf(Config{}), "Config", defaultsConfig()).Fields}
 		// Loop.Enabled defaults to on, but retro and self_update work it out (see RetroOn and
 		// SelfUpdateOn), so a flat "default: on" would be wrong for them.
+		// A project can override the loops too, so clear them under projects as well.
+		var projects SchemaNode
+		for _, f := range schemaRoot.Fields {
+			if f.Key == "projects" {
+				projects = f
+			}
+		}
 		for _, loop := range []string{"retro", "self_update"} {
 			clearDefault(schemaRoot, "loops", loop, "enabled")
+			clearDefault(*projects.Item, "loops", loop, "enabled")
 		}
 	})
 	return schemaRoot

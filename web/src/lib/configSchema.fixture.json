@@ -811,8 +811,7 @@
                 "fields": [
                   {
                     "key": "enabled",
-                    "type": "bool",
-                    "default": true
+                    "type": "bool"
                   },
                   {
                     "key": "every",
@@ -848,8 +847,7 @@
                 "fields": [
                   {
                     "key": "enabled",
-                    "type": "bool",
-                    "default": true
+                    "type": "bool"
                   },
                   {
                     "key": "every",

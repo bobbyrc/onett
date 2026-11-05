@@ -38,6 +38,13 @@ func TestSchemaShowsBoolDefaults(t *testing.T) {
 			t.Errorf("%v: Default = %v, want none", p, d)
 		}
 	}
+	// The same holds for a project's own loops override.
+	item := *findNode(t, root, "projects").Item
+	for _, p := range [][]string{{"loops", "retro", "enabled"}, {"loops", "self_update", "enabled"}} {
+		if d := findNode(t, item, p...).Default; d != nil {
+			t.Errorf("projects.%v: Default = %v, want none", p, d)
+		}
+	}
 	// auto_rollback lives in a project's deploy section, under the projects map.
 	projects := findNode(t, root, "projects")
 	deploy := findNode(t, *projects.Item, "deploy", "auto_rollback")
