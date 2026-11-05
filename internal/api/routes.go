@@ -63,6 +63,7 @@ func (s *server) apiRoutes(r chi.Router) {
 
 	s.read(r, "/config", s.getConfig)
 	s.operate(r, http.MethodPost, "/config/reload", s.reloadConfig)
+	s.administer(r, http.MethodPost, "/restart", s.restart)
 	s.administer(r, http.MethodPost, "/projects", s.createProject)
 	s.administer(r, http.MethodDelete, "/projects/{name}", s.deleteProject)
 	s.administer(r, http.MethodGet, "/config/file", s.getConfigFile)

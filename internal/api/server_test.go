@@ -261,6 +261,8 @@ type harness struct {
 	st  *sqlite.Store
 	bus events.Bus
 	ctl *fakeCtl
+	// restarts counts calls to Options.Restart.
+	restarts int
 }
 
 func newHarness(t *testing.T) *harness {
@@ -271,16 +273,18 @@ func newHarness(t *testing.T) *harness {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	bus := events.NewBus(st, logger)
 	ctl := &fakeCtl{cfg: testConfig(), errs: map[string]error{}}
-	h := NewServer(Options{
+	x := &harness{st: st, bus: bus, ctl: ctl}
+	x.h = NewServer(Options{
 		Store:      st,
 		Bus:        bus,
 		Controller: ctl,
 		Token:      testToken,
 		Version:    "test-version",
 		Web:        fstest.MapFS{},
+		Restart:    func() { x.restarts++ },
 		Logger:     logger,
 	})
-	return &harness{h: h, st: st, bus: bus, ctl: ctl}
+	return x
 }
 
 // do sends a request through the handler. A non-empty body is sent as JSON.
@@ -338,7 +342,11 @@ func TestAuth(t *testing.T) {
 
 	rec = x.do(t, http.MethodGet, "/api/v1/health", "", "")
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.JSONEq(t, `{"ok":true,"version":"test-version"}`, rec.Body.String())
+	var health map[string]any
+	decode(t, rec, &health)
+	assert.Equal(t, true, health["ok"])
+	assert.Equal(t, "test-version", health["version"])
+	assert.NotEmpty(t, health["started_at"], "a client tells a restart by this changing")
 }
 
 func TestAuthEmptyConfiguredToken(t *testing.T) {

@@ -164,6 +164,8 @@ func cmdServe(e *env, args []string) error {
 		return err
 	}
 
+	// POST /restart signals this channel; the main loop below then shuts down and restarts.
+	restartCh := make(chan struct{}, 1)
 	handler := api.NewServer(api.Options{
 		Store:            st,
 		Bus:              bus,
@@ -179,6 +181,12 @@ func cmdServe(e *env, args []string) error {
 				return fmt.Errorf("%w: the daemon is still starting", channel.ErrNotRunning)
 			}
 			return sup.Test(ctx, ch, chanEnv)
+		},
+		Restart: func() {
+			select {
+			case restartCh <- struct{}{}:
+			default:
+			}
 		},
 		Logger: logger,
 	})
@@ -216,8 +224,12 @@ func cmdServe(e *env, args []string) error {
 	go func() { serverDone <- srv.ListenAndServe() }()
 
 	var listenErr error
+	restarting := false
 	select {
 	case <-ctx.Done():
+	case <-restartCh:
+		restarting = true
+		stop()
 	case listenErr = <-serverDone:
 		// The listener failed (for example the port is in use); stop the engine too.
 		stop()
@@ -241,6 +253,10 @@ func cmdServe(e *env, args []string) error {
 		return fmt.Errorf("listen on %s: %w", cfg.Server.Addr, listenErr)
 	case engErr != nil:
 		return engErr
+	case restarting && closeErr == nil:
+		// Everything is stopped and the store is closed; start again (see restartAfterShutdown).
+		stop()
+		return restartAfterShutdown(exe, os.Args, os.Environ(), os.Getenv)
 	default:
 		return closeErr
 	}

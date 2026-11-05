@@ -51,7 +51,10 @@ type Options struct {
 	// ChannelTest sends a test message through the running bot of a channel entry; see
 	// channel.Supervisor.Test. Nil makes POST /channels/test answer 501.
 	ChannelTest func(ctx context.Context, ch config.Channel) error
-	Logger      *slog.Logger
+	// Restart asks the process to shut down gracefully and start again; see POST /restart. It
+	// must return at once (serve signals its main loop). Nil makes the route answer 501.
+	Restart func()
+	Logger  *slog.Logger
 }
 
 type server struct {
@@ -64,6 +67,9 @@ type server struct {
 	limiter *auth.Limiter
 	// now is the clock for sessions. Tests may replace it before serving requests.
 	now func() time.Time
+	// startedAt is when this server was built; /health reports it so a client can tell a
+	// restarted daemon from the one it asked to restart.
+	startedAt time.Time
 	// configMu serialises saves of the config file, so two saves cannot both check the version
 	// and then overwrite each other.
 	configMu sync.Mutex
@@ -78,7 +84,7 @@ func NewServer(o Options) http.Handler {
 	if web == nil {
 		web = DefaultWeb()
 	}
-	s := &server{opts: o, log: o.Logger, web: web, streams: make(chan struct{}, maxEventStreams), now: time.Now}
+	s := &server{opts: o, log: o.Logger, web: web, streams: make(chan struct{}, maxEventStreams), now: time.Now, startedAt: time.Now().UTC()}
 	s.limiter = auth.NewLimiter(signInLimit, signInWindow, s.now)
 
 	r := chi.NewRouter()
@@ -134,7 +140,7 @@ func (s *server) requestLog(next http.Handler) http.Handler {
 }
 
 func (s *server) health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "version": s.opts.Version})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "version": s.opts.Version, "started_at": s.startedAt.Format(time.RFC3339Nano)})
 }
 
 // fail writes the error response for err.

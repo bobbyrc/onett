@@ -3,6 +3,7 @@
 import type { ConfigProblem } from '../../types';
 import { Callout } from '../Callout';
 import { ErrorLine } from '../ErrorLine';
+import { RestartNow } from './RestartNow';
 
 export function SaveBar({
   label,
@@ -51,8 +52,11 @@ export function ConfigNotes({
   state,
   onDismissRestart,
   onLoadLatest,
+  restartAddr,
 }: {
   state: ConfigNoticeState;
+  /** The saved server.addr, where the UI will be after a restart. */
+  restartAddr?: string;
   onDismissRestart: () => void;
   onLoadLatest: () => void;
 }) {
@@ -69,6 +73,7 @@ export function ConfigNotes({
       {restart.length > 0 ? (
         <Callout tone="info">
           These settings take effect after onett restarts: {restart.join(', ')}.{' '}
+          <RestartNow settings={restart} addr={restartAddr} />{' '}
           <button type="button" className="link-button" onClick={onDismissRestart}>
             Dismiss
           </button>
