@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"thread-limit-1"}
+{"type":"turn.started"}
+{"type":"error","message":"You've hit your usage limit. Upgrade to Pro or try again in 2 hours 5 minutes."}
+{"type":"turn.failed","error":{"message":"You've hit your usage limit. Upgrade to Pro or try again in 2 hours 5 minutes."}}

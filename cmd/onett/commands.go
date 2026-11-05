@@ -108,6 +108,15 @@ func costToday(s client.Stats) string {
 	return out
 }
 
+// holdLine renders a rate-limit hold: "Held: claude (rate limit) until 15:04, 37m left".
+func holdLine(h domain.HarnessHold, now time.Time) string {
+	left := "<1m"
+	if d := h.Until.Sub(now).Round(time.Minute); d > 0 {
+		left = strings.TrimSuffix(d.String(), "0s")
+	}
+	return fmt.Sprintf("Held: %s (rate limit) until %s, %s left", oneLine(h.Harness), h.Until.Local().Format("15:04"), left)
+}
+
 func writeStatus(w io.Writer, s statusSnapshot) error {
 	if s.Control.Paused {
 		// The first line always starts "Factory: PAUSED": examples/dogfood/update.sh greps for it.
@@ -117,6 +126,9 @@ func writeStatus(w io.Writer, s statusSnapshot) error {
 		}
 	} else {
 		fmt.Fprintln(w, "Factory: running.")
+	}
+	for _, h := range s.Stats.Holds {
+		fmt.Fprintln(w, holdLine(h, time.Now()))
 	}
 	fmt.Fprintf(w, "Tasks: %s\n", joinNonZero(s.Stats.TasksByStatus))
 	fmt.Fprintf(w, "Active runs: %d   Pending approvals: %d   Cost today: %s\n\n",

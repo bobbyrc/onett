@@ -1,0 +1,4 @@
+{"type":"system","subtype":"init","cwd":"/tmp/work","session_id":"sess-limit-3","model":"claude-haiku-5-5","apiKeySource":"none"}
+{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resetsAt":1893456000,"rateLimitType":"five_hour"},"session_id":"sess-limit-3"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"All done; note the rate limit warning."}]},"session_id":"sess-limit-3"}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":900,"num_turns":1,"result":"All done; note the rate limit warning.","session_id":"sess-limit-3","total_cost_usd":0.004,"usage":{"input_tokens":10,"output_tokens":12},"permission_denials":[]}

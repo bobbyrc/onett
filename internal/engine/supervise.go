@@ -135,8 +135,16 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 	case len(res.Denials) > 0:
 		status = domain.RunDenied
 		reason = "denied: " + strings.Join(res.Denials, "; ")
+	case res.RateLimit != nil:
+		// Not a failure: the harness's limit ended the run. The caller holds the harness and
+		// re-queues the task (or tells the chat). Recorded as cancelled, with the harness's words.
+		status = domain.RunCancelled
+		reason = "rate limited: " + res.RateLimit.Message
 	case err != nil || res.IsError:
 		status = domain.RunFailed
+	}
+	if res.RateLimit == nil && status == domain.RunSucceeded {
+		e.holds.clear(run.Harness)
 	}
 
 	var errMsg string

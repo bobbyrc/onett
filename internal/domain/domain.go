@@ -453,3 +453,15 @@ type Goal struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// HarnessHold says new runs on a harness are held because it hit a subscription or provider
+// rate limit. The hold lifts by itself at Until.
+type HarnessHold struct {
+	Harness string    `json:"harness"`
+	Until   time.Time `json:"until"`
+	// Message is the harness's own words about the limit.
+	Message string `json:"message,omitempty"`
+	// Hits counts consecutive limit hits on this harness; it sets the backoff when the harness
+	// gave no reset time.
+	Hits int `json:"hits"`
+}

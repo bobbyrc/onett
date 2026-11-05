@@ -174,6 +174,16 @@ The supervisor owns every harness session:
 - marks `denied` when the harness reports a permission denial;
 - in every one of those cases sets the task `blocked` with the exact reason and notifies.
 
+A subscription or provider rate limit is not one of those cases. When a harness reports that a
+run stopped on its usage limit (Claude Code's 5-hour and weekly limits, Codex usage limits, a
+provider 429), the run ends as `cancelled` with the limit's message, the task goes back to
+`queued` without using an attempt, and the harness is held: the scheduler starts no run for any
+role that uses it until the reset time plus a minute. With no reset time the hold backs off from
+5 minutes, doubling per consecutive hit up to 1 hour. Other harnesses keep running, and dispatch
+resumes by itself when the hold ends. Holds live in memory, so after a restart the next run finds
+the limit again. `onett status` lists each hold. An orchestrator chat turn on a held harness is
+not queued: the chat is told the limit and when it lifts.
+
 ### Risk and auto-merge **(review)**
 
 Risk is `low < medium < high`. Final risk = max(rules matched by the diff, agent's own rating).

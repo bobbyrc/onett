@@ -33,8 +33,10 @@ import (
 // rtOpts configures rtNewEngine. Zero values give one project "demo", limits that suit tests,
 // and the fake harness's default script.
 type rtOpts struct {
-	projects      []string
-	script        hfake.Script
+	projects []string
+	script   hfake.Script
+	// scriptFor, when set, gives the harness with that name its own script (others use script).
+	scriptFor     map[string]hfake.Script
 	maxAttempts   int
 	selfProject   string
 	maxConcurrent int
@@ -135,6 +137,9 @@ agents:
 		Logger:     logger,
 		SCMFor:     func(*config.Project) (scm.SCM, error) { return env.scm, nil },
 		HarnessFor: func(name string, h config.Harness) (harness.Harness, error) {
+			if sc, ok := o.scriptFor[name]; ok {
+				return hfake.New(sc), nil
+			}
 			if o.script != nil {
 				return hfake.New(o.script), nil
 			}
