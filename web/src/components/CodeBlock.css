@@ -1,0 +1,173 @@
+/* Fenced code blocks in Markdown: header bar, wrap toggle and syntax colours. */
+
+.markdown .code-block {
+  margin: 8px 0;
+  border: 1px solid var(--rule);
+  background: var(--panel-2);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.code-block-slot {
+  display: contents;
+}
+
+.code-block-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 2px 12px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.code-block-lang {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.code-block-status {
+  color: var(--text);
+  padding-right: 4px;
+}
+
+.code-block-btn {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.code-block-btn:hover {
+  background: var(--rule);
+}
+
+.code-block-btn[aria-pressed='true'] {
+  background: var(--rule);
+  text-decoration: underline;
+}
+
+@media (pointer: coarse) {
+  .code-block-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* The block's own border replaces the pre's. */
+.markdown .code-block pre {
+  margin: 0;
+  border: 0;
+  background: none;
+  overflow-x: auto;
+}
+
+.markdown .code-block-wrap pre {
+  overflow-x: visible;
+}
+
+.markdown .code-block-wrap pre code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Token colours. Light values pass 4.5:1 on --panel-2 (#eaf0eb); dark values likewise. */
+.markdown .code-block {
+  --tok-keyword: #a3236b;
+  --tok-string: #0b6b35;
+  --tok-number: #8a4b00;
+  --tok-comment: #5c675f;
+  --tok-title: #1d4fa3;
+  --tok-attr: #6a3fa0;
+  --tok-add: #0b6b35;
+  --tok-del: #b3261e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .markdown .code-block {
+    --tok-keyword: #ff9ac8;
+    --tok-string: #8fd6a8;
+    --tok-number: #f2c230;
+    --tok-comment: #94a39a;
+    --tok-title: #8fbaff;
+    --tok-attr: #c9a6ff;
+    --tok-add: #8fd6a8;
+    --tok-del: #ff7a70;
+  }
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-literal,
+.hljs-doctag {
+  color: var(--tok-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-meta .hljs-string {
+  color: var(--tok-string);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-variable,
+.hljs-template-variable {
+  color: var(--tok-number);
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-meta {
+  color: var(--tok-comment);
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-type,
+.hljs-class .hljs-title {
+  color: var(--tok-title);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-name,
+.hljs-tag,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: var(--tok-attr);
+}
+
+.hljs-addition {
+  color: var(--tok-add);
+}
+
+.hljs-deletion {
+  color: var(--tok-del);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
