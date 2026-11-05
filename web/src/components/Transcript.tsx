@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, useId, useState, type ReactNode } from 'react';
 import { cx, formatClock } from '../lib/format';
 import { parseTime } from '../lib/time';
 import { clipLines, type Entry } from '../lib/transcript';
@@ -6,6 +6,7 @@ import type { TranscriptView } from '../lib/transcriptView';
 import { CopyButton } from './CopyButton';
 import { Markdown } from './Markdown';
 import { MessageAttachments } from './MessageAttachments';
+import { RelTime } from './RelTime';
 import { ToolLine, ToolRun } from './ToolRun';
 import { groupToolRuns, type ToolEntry } from './toolRuns';
 import './Transcript.css';
@@ -116,27 +117,31 @@ function ConversationEntry({
   switch (e.kind) {
     case 'owner':
       return (
-        <div className={cx('tr-you', 'tr-copyable', e.queued && 'queued')}>
-          {e.text ? <CopyButton text={e.text} /> : null}
-          {e.queued ? (
-            <span className="tr-queued-note">
-              {QUEUED_NOTE}
-              {e.messageId && queuedActions ? queuedActions(e.messageId) : null}
-            </span>
-          ) : null}
-          {e.author ? <span className="tr-queued-note">{authorLabel(e.author)}</span> : null}
-          {e.text ? <span className="tr-body">{e.text}</span> : null}
-          {e.attachments?.length ? <MessageAttachments attachments={e.attachments} /> : null}
+        <div className="tr-row tr-row-you">
+          <div className={cx('tr-you', e.queued && 'queued')}>
+            {e.queued ? (
+              <span className="tr-queued-note">
+                {QUEUED_NOTE}
+                {e.messageId && queuedActions ? queuedActions(e.messageId) : null}
+              </span>
+            ) : null}
+            {e.author ? <span className="tr-queued-note">{authorLabel(e.author)}</span> : null}
+            {e.text ? <FoldedText text={e.text} /> : null}
+            {e.attachments?.length ? <MessageAttachments attachments={e.attachments} /> : null}
+          </div>
+          <MessageActions time={e.time} text={e.text} />
         </div>
       );
     case 'prompt':
-      return <PromptSheet label={e.label} text={e.text} />;
+      return <PromptSheet label={e.label} text={e.text} time={e.time} />;
     case 'text':
       return (
-        <div className="tr-ai tr-copyable">
-          {labelled ? <div className="tr-lbl">{agentLabel}</div> : null}
-          <CopyButton text={e.text} />
-          <Markdown text={e.text} />
+        <div className="tr-row tr-row-ai">
+          <div className="tr-ai">
+            {labelled ? <div className="tr-lbl">{agentLabel}</div> : null}
+            <Markdown text={e.text} />
+          </div>
+          <MessageActions time={e.time} text={e.text} />
         </div>
       );
     case 'tool':
@@ -180,21 +185,56 @@ function ConversationEntry({
   }
 }
 
-const PROMPT_PREVIEW_LINES = 6;
+/** A message longer than this many lines or characters folds. */
+const FOLD_LINES = 12;
+const FOLD_CHARS = 1200;
 
-/** A task prompt can run to dozens of lines, so the conversation view shows a few and a toggle. */
-function PromptSheet({ label, text }: { label: string; text: string }) {
-  const [all, setAll] = useState(false);
-  const { lines, clipped } = clipLines(text, PROMPT_PREVIEW_LINES, all);
+/** Whether `text` is long enough to fold: more than about 12 lines or 1200 characters. */
+export const needsFold = (text: string) => text.length > FOLD_CHARS || text.split('\n').length > FOLD_LINES;
+
+/**
+ * An owner's message as pre-wrapped text. A long one shows about eight lines under a fade with a
+ * Show more / Show less button; the copy button elsewhere still copies all of it.
+ */
+function FoldedText({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const foldable = needsFold(text);
   return (
-    <div className="tr-you">
-      <div className="tr-lbl">{label}</div>
-      <span className="tr-body">{lines.join('\n')}</span>
-      {clipped ? (
-        <button type="button" className="link-button tr-more" onClick={() => setAll(!all)}>
-          {all ? 'show less' : 'show more'}
+    <>
+      <span id={id} className={cx('tr-body', foldable && !open && 'folded')}>
+        {text}
+      </span>
+      {foldable ? (
+        <button type="button" className="tr-fold" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
+          {open ? 'Show less' : 'Show more'}
         </button>
       ) : null}
+    </>
+  );
+}
+
+/** A task prompt can run to dozens of lines, so the conversation view folds it like any long message. */
+function PromptSheet({ label, text, time }: { label: string; text: string; time: string }) {
+  return (
+    <div className="tr-row tr-row-you">
+      <div className="tr-you">
+        <div className="tr-lbl">{label}</div>
+        <FoldedText text={text} />
+      </div>
+      <MessageActions time={time} text={text} />
+    </div>
+  );
+}
+
+/** The small row under a message: when it was sent, and a copy button. Hover or focus reveals it on a mouse; touch always shows it. */
+function MessageActions({ time, text }: { time: string; text?: string }) {
+  const hasTime = parseTime(time) !== null;
+  if (!hasTime && !text) return null;
+  return (
+    <div className="tr-actions">
+      {hasTime ? <RelTime value={time} className="tr-time" spoken /> : null}
+      {text ? <CopyButton text={text} className="tr-copy" /> : null}
     </div>
   );
 }

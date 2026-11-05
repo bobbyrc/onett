@@ -129,6 +129,12 @@ func (e *Engine) startRelease(ctx context.Context, p *config.Project, dep deploy
 	if len(merged) == 0 {
 		return nil
 	}
+	if e.selfUpdateWaiting(ctx) {
+		// An eligible self-update goes first: the updater cannot start while a release is in
+		// flight, and releases landing back to back would starve it. The release waits one tick.
+		e.d.Logger.Info("deploy watch: new release held back for the self-update", "project", p.Name)
+		return nil
+	}
 	oldest := merged[len(merged)-1] // lists are newest first
 	if oldest.MergeSHA == "" {
 		return fmt.Errorf("task %s is merged without a merge commit", oldest.ID)
@@ -436,6 +442,13 @@ func (e *Engine) setDeployment(ctx context.Context, id string, fn func(*domain.D
 	}
 	e.d.Bus.Emit(ctx, domain.EvDeployUpdated, saved.Project, saved.TaskID, "",
 		"deploy "+deployShortRef(saved.Ref)+" is "+string(saved.State), saved)
+	switch saved.State {
+	case domain.DeployHealthy, domain.DeployFailed, domain.DeployRolledBack:
+		// A settled release may be the last thing the self-update was waiting for.
+		if name := e.Config().SelfProject; name != "" {
+			e.kickLoop(loopSelfUpdate, name)
+		}
+	}
 	return saved, nil
 }
 

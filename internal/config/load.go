@@ -316,6 +316,9 @@ func (c *Config) LoopsFor(project string) Loops {
 	if ov.Heartbeat.StaleQueued.Duration != 0 {
 		out.Heartbeat.StaleQueued = ov.Heartbeat.StaleQueued
 	}
+	if ov.Heartbeat.EscalateAfter != 0 {
+		out.Heartbeat.EscalateAfter = ov.Heartbeat.EscalateAfter
+	}
 	return out
 }
 

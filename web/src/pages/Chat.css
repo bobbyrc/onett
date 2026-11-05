@@ -142,7 +142,13 @@
   font-weight: 600;
 }
 
-/* Thread */
+/* Thread. On a phone the column's side gutters shrink from the page's 16px to 12px. */
+@media (max-width: 759px) {
+  .chat-page .chat-layout > .thread {
+    margin-inline: calc(-1 * var(--chat-space-1));
+  }
+}
+
 .chat-page .msg.user .bubble {
   max-width: 72ch;
   background: var(--panel);

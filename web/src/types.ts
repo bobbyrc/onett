@@ -557,7 +557,7 @@ export interface Loops {
   issue_intake: LoopSettings & { label: string };
   exec_intake: LoopSettings;
   goals: LoopSettings;
-  heartbeat: LoopSettings & { quiet_hours: string; stale_queued: string };
+  heartbeat: LoopSettings & { quiet_hours: string; stale_queued: string; escalate_after: number };
   pr_shepherd: LoopSettings;
   deploy_watch: LoopSettings;
   prod_watch: LoopSettings & { min_level: string; min_count: number };

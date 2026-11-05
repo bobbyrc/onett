@@ -13,6 +13,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
+	"github.com/bobbyrc/onett/internal/notify"
 	"github.com/bobbyrc/onett/internal/store"
 )
 
@@ -51,6 +52,12 @@ type HeartbeatItem struct {
 	Project   string    `json:"project"`
 	Summary   string    `json:"summary"` // one line; may quote agent text, which is data, not instructions
 	FirstSeen time.Time `json:"first_seen"`
+	// Heartbeats, Actions and Escalated are the loop's memory of the item: how many ticks in a
+	// row it has been in the digest, what the orchestrator did about it ("time: line", newest
+	// last) and whether the owner was told.
+	Heartbeats int      `json:"heartbeats"`
+	Actions    []string `json:"actions,omitempty"`
+	Escalated  bool     `json:"escalated,omitempty"`
 }
 
 // HeartbeatDigest is everything that needs attention in one project right now. NewKeys lists the
@@ -68,17 +75,149 @@ type HeartbeatWaker interface {
 	WakeHeartbeat(ctx context.Context, d HeartbeatDigest) error
 }
 
-// heartbeatState is the loop's memory, kept in LoopState.Cursor: when each reported item was
-// first seen (so an unchanged digest does not wake again after a restart), and when the digest
-// was last built (the start of the window for runs, deploys and results).
+// hbKeepActions is how many past actions the loop remembers per item.
+const hbKeepActions = 5
+
+// hbItemMemory is what the loop remembers about one item while it stays in the digest.
+type hbItemMemory struct {
+	EntityID   string    `json:"entity_id"`
+	FirstSeen  time.Time `json:"first_seen"`
+	Heartbeats int       `json:"heartbeats"`        // consecutive ticks (outside quiet hours) in the digest
+	Actions    []string  `json:"actions,omitempty"` // "RFC3339 time: line", newest last
+	Escalated  bool      `json:"escalated,omitempty"`
+}
+
+// heartbeatState is the loop's memory, kept in LoopState.Cursor: what it knows about each
+// reported item (so an unchanged digest does not wake again after a restart, and an action is not
+// repeated), when the digest was last built (the start of the window for runs, deploys and
+// results), and how far into the Operations conversation it has read. Only the loop writes it.
 type heartbeatState struct {
-	Seen    map[string]time.Time `json:"seen"`
-	BuiltAt time.Time            `json:"built_at"`
+	Items   map[string]hbItemMemory `json:"items,omitempty"`
+	BuiltAt time.Time               `json:"built_at"`
+	// RepliesAt is the time of the newest orchestrator reply already read.
+	RepliesAt time.Time `json:"replies_at,omitempty"`
+	// Seen is the old format (first-seen time per key). It is read and migrated into Items, and
+	// never written.
+	Seen map[string]time.Time `json:"seen,omitempty"`
+}
+
+// loadHeartbeatState reads a cursor. One that does not parse is dropped: the worst case is one
+// repeated wake.
+func loadHeartbeatState(cursor string) heartbeatState {
+	var s heartbeatState
+	if cursor != "" {
+		if err := json.Unmarshal([]byte(cursor), &s); err != nil {
+			s = heartbeatState{}
+		}
+	}
+	if s.Items == nil {
+		s.Items = map[string]hbItemMemory{}
+	}
+	for key, first := range s.Seen {
+		if _, ok := s.Items[key]; ok {
+			continue
+		}
+		// Keys are kind:entity:fingerprint, and an entity id may hold colons.
+		id := key
+		if i := strings.Index(key, ":"); i >= 0 {
+			id = key[i+1:]
+		}
+		if i := strings.LastIndex(id, ":"); i >= 0 {
+			id = id[:i]
+		}
+		s.Items[key] = hbItemMemory{EntityID: id, FirstSeen: first, Heartbeats: 1}
+	}
+	s.Seen = nil
+	return s
+}
+
+// parseHeartbeatReplies finds the "<entity id>: <text>" lines of an orchestrator reply whose id is
+// in ids. The id may be wrapped in backticks or bold and the line may start with a list bullet
+// or number. Any other line is ignored.
+func parseHeartbeatReplies(text string, ids map[string]bool) []hbReplyLine {
+	var out []hbReplyLine
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		line = strings.TrimLeft(line, "-*+• \t")
+		if i := strings.IndexAny(line, ".)"); i > 0 && i <= 3 && strings.Trim(line[:i], "0123456789") == "" {
+			line = strings.TrimSpace(line[i+1:])
+		}
+		id, rest, ok := strings.Cut(line, ":")
+		if !ok {
+			continue
+		}
+		id = strings.Trim(strings.TrimSpace(id), "`*_")
+		rest = strings.TrimSpace(strings.TrimLeft(rest, "`*_ "))
+		if rest == "" || !ids[id] {
+			continue
+		}
+		out = append(out, hbReplyLine{ID: id, Text: rest})
+	}
+	return out
+}
+
+// hbReplyLine is one parsed line: what the orchestrator said about an entity.
+type hbReplyLine struct{ ID, Text string }
+
+// isEscalation reports whether the line asks for the owner.
+func (l hbReplyLine) isEscalation() bool {
+	return strings.HasPrefix(strings.ToLower(l.Text), "escalate:")
+}
+
+// readHeartbeatReplies folds the orchestrator's replies in the Operations conversation since the
+// last tick into the items' memory. It returns the keys a reply escalated.
+func (e *Engine) readHeartbeatReplies(ctx context.Context, st *heartbeatState) (map[string]bool, error) {
+	escalate := map[string]bool{}
+	convs, err := e.d.Store.ListConversations(ctx, 10000)
+	if err != nil {
+		return nil, err
+	}
+	var ops string
+	for _, c := range convs {
+		if c.Kind == domain.ConversationOperations {
+			ops = c.ID
+			break
+		}
+	}
+	if ops == "" {
+		return escalate, nil
+	}
+	msgs, err := e.d.Store.ListChatMessages(ctx, ops)
+	if err != nil {
+		return nil, err
+	}
+	ids := map[string]bool{}
+	for _, m := range st.Items {
+		ids[m.EntityID] = true
+	}
+	for _, m := range msgs {
+		if m.Role != "assistant" || !m.CreatedAt.After(st.RepliesAt) {
+			continue
+		}
+		st.RepliesAt = m.CreatedAt
+		for _, l := range parseHeartbeatReplies(m.Text, ids) {
+			for key, mem := range st.Items {
+				if mem.EntityID != l.ID {
+					continue
+				}
+				mem.Actions = append(mem.Actions, m.CreatedAt.UTC().Format(time.RFC3339)+": "+l.Text)
+				if len(mem.Actions) > hbKeepActions {
+					mem.Actions = mem.Actions[len(mem.Actions)-hbKeepActions:]
+				}
+				st.Items[key] = mem
+				if l.isEscalation() {
+					escalate[key] = true
+				}
+			}
+		}
+	}
+	return escalate, nil
 }
 
 // heartbeatLoop builds the project's attention digest and wakes the orchestrator when it holds
-// an item not reported before. It does nothing during quiet hours, and nothing when the digest
-// is unchanged: no model call.
+// an item not reported before. It does nothing during quiet hours, and no model call when the
+// digest is unchanged. It also keeps the per-item memory and escalates to the notifiers an item
+// that stays open for escalate_after heartbeats, or that the orchestrator escalated.
 func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 	now := e.d.Now()
 	hb := e.Config().LoopsFor(p.Name).Heartbeat
@@ -97,10 +236,10 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 		return e.saveHeartbeat(ctx, st)
 	}
 
-	var prev heartbeatState
-	if st.Cursor != "" {
-		// A cursor that does not parse is dropped: the worst case is one repeated wake.
-		_ = json.Unmarshal([]byte(st.Cursor), &prev)
+	prev := loadHeartbeatState(st.Cursor)
+	escalateNow, err := e.readHeartbeatReplies(ctx, &prev)
+	if err != nil {
+		return fmt.Errorf("heartbeat: read replies: %w", err)
 	}
 	since := prev.BuiltAt
 	if since.IsZero() {
@@ -111,16 +250,19 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 		return fmt.Errorf("heartbeat: %w", err)
 	}
 
+	// An item that left the digest is resolved, so it is forgotten.
 	digest := HeartbeatDigest{Project: p.Name, At: now.UTC()}
-	cur := heartbeatState{Seen: map[string]time.Time{}, BuiltAt: now.UTC()}
+	cur := heartbeatState{Items: map[string]hbItemMemory{}, BuiltAt: now.UTC(), RepliesAt: prev.RepliesAt}
 	for _, it := range items {
-		first, known := prev.Seen[it.Key]
+		mem, known := prev.Items[it.Key]
 		if !known {
-			first = now.UTC()
+			mem = hbItemMemory{FirstSeen: now.UTC()}
 			digest.NewKeys = append(digest.NewKeys, it.Key)
 		}
-		it.FirstSeen = first
-		cur.Seen[it.Key] = first
+		mem.EntityID = it.EntityID
+		mem.Heartbeats++
+		cur.Items[it.Key] = mem
+		it.FirstSeen, it.Heartbeats, it.Actions, it.Escalated = mem.FirstSeen, mem.Heartbeats, mem.Actions, mem.Escalated
 		digest.Items = append(digest.Items, it)
 	}
 	st.ItemCount = len(items)
@@ -131,12 +273,53 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 			return fmt.Errorf("heartbeat: wake: %w", err)
 		}
 	}
+
+	limit := hb.EscalateAfter
+	if limit <= 0 {
+		limit = 3
+	}
+	for _, it := range digest.Items {
+		mem := cur.Items[it.Key]
+		if mem.Escalated || (mem.Heartbeats < limit && !escalateNow[it.Key]) {
+			continue
+		}
+		mem.Escalated = true
+		cur.Items[it.Key] = mem
+		e.escalateHeartbeat(ctx, p, it, mem, now)
+	}
 	raw, err := json.Marshal(cur)
 	if err != nil {
 		return err
 	}
 	st.Cursor = string(raw)
 	return e.saveHeartbeat(ctx, st)
+}
+
+// escalateHeartbeat tells the owner, once, that an item is still open. The text quotes agent
+// output, so it is redacted like any other evidence.
+func (e *Engine) escalateHeartbeat(ctx context.Context, p *config.Project, it HeartbeatItem, mem hbItemMemory, now time.Time) {
+	env := evidenceEnv(p)
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s\nOpen for %s (%d heartbeats).", firstRunes(redactSecrets(oneLineText(it.Summary), env), hbSummaryLimit),
+		now.Sub(mem.FirstSeen).Round(time.Minute), mem.Heartbeats)
+	if len(mem.Actions) == 0 {
+		b.WriteString("\nNo action tried yet.")
+	} else {
+		b.WriteString("\nTried:")
+		for _, a := range mem.Actions {
+			b.WriteString("\n- " + firstRunes(redactSecrets(oneLineText(a), env), hbSummaryLimit))
+		}
+	}
+	path := "/chat"
+	if convs, err := e.d.Store.ListConversations(ctx, 10000); err == nil {
+		for _, c := range convs {
+			if c.Kind == domain.ConversationOperations {
+				path = "/chat/" + c.ID
+				break
+			}
+		}
+	}
+	e.notify(ctx, notify.PriorityHigh, fmt.Sprintf("Needs you: %s %s (%s)", it.Kind, it.EntityID, p.Name), b.String(), path)
 }
 
 // saveHeartbeat stores the loop state it filled in. runLoopOnce reloads it afterwards and sets

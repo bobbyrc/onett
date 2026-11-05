@@ -15,6 +15,7 @@ func TestHeartbeatDefaults(t *testing.T) {
 	assert.True(t, hb.On())
 	assert.Equal(t, 15*time.Minute, hb.Every.Duration)
 	assert.Equal(t, 4*time.Hour, hb.StaleQueued.Duration)
+	assert.Equal(t, 3, hb.EscalateAfter)
 	assert.Empty(t, hb.QuietHours)
 }
 
@@ -25,6 +26,7 @@ loops:
     every: 5m
     quiet_hours: "22:00-07:00"
     stale_queued: 2h
+    escalate_after: 5
 projects:
   app:
     repo: owner/app
@@ -39,6 +41,7 @@ projects:
 	assert.Equal(t, 5*time.Minute, hb.Every.Duration)
 	assert.Equal(t, "22:00-07:00", hb.QuietHours)
 	assert.Equal(t, 2*time.Hour, hb.StaleQueued.Duration)
+	assert.Equal(t, 5, hb.EscalateAfter)
 
 	app := cfg.LoopsFor("app").Heartbeat
 	assert.False(t, app.On())
@@ -52,6 +55,7 @@ func TestHeartbeatValidation(t *testing.T) {
 		{"bad format", `quiet_hours: "late"`, "loops.heartbeat.quiet_hours"},
 		{"bad hour", `quiet_hours: "25:00-07:00"`, "loops.heartbeat.quiet_hours"},
 		{"empty window", `quiet_hours: "08:00-08:00"`, "loops.heartbeat.quiet_hours"},
+		{"negative escalate", `escalate_after: -1`, "loops.heartbeat.escalate_after"},
 		{"negative stale", `stale_queued: -1h`, "loops.heartbeat.stale_queued"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

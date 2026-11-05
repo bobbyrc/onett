@@ -326,6 +326,13 @@ export const chatMessages: ChatMessage[] = [
     run_id: RUN_ID,
     created_at: NOW,
   },
+  {
+    id: id(98),
+    conversation_id: CONV_ID,
+    role: 'user',
+    text: Array.from({ length: 20 }, (_, i) => `A long pasted line number ${i + 1}`).join('\n'),
+    created_at: NOW,
+  },
   { id: id(93), conversation_id: CONV_ID, role: 'user', text: 'queued message', created_at: NOW, queued: true },
 ];
 
@@ -353,7 +360,7 @@ const loopsCfg = {
   issue_intake: { enabled: true, every: '5m', label: 'onett' },
   exec_intake: { enabled: false, every: '5m' },
   goals: { enabled: true, every: '1m' },
-  heartbeat: { enabled: true, every: '15m', quiet_hours: '', stale_queued: '4h' },
+  heartbeat: { enabled: true, every: '15m', quiet_hours: '', stale_queued: '4h', escalate_after: 3 },
   pr_shepherd: { enabled: true, every: '1m' },
   deploy_watch: { enabled: true, every: '1m' },
   prod_watch: { enabled: false, every: '5m', min_level: 'error', min_count: 3 },

@@ -12,7 +12,7 @@ const rule = (selector: string, source = css): string => {
 describe('transcript layout rules', () => {
   it('lets the column and owner sheets shrink', () => {
     expect(rule('.tr-col')).toContain('min-width: 0');
-    expect(rule('.tr-you')).toContain('max-width: min(72ch, 100%)');
+    expect(rule('.tr-you')).toContain('max-width: min(72ch, 85%)');
   });
   it('ellipses a long tool argument instead of widening the row', () => {
     const arg = rule('.tl-arg,\n.tl-summary', toolCss);

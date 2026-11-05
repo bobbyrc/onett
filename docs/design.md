@@ -332,8 +332,10 @@ label — or automatic with `friction.auto_queue`. Comments from OWNER/MEMBER/CO
 included in the task body; others are ignored.
 
 The self_update loop (`loops.self_update`, on by default for `self_project` once a command is set or inferred, `enabled: false` turns it off) keeps the
-running daemon current. When the newest release of the self project is `healthy` and has been for
-`min_healthy`, and its commit is not the one the daemon was built from, code starts the configured
+running daemon current. The target is the newest release of the self project that is `healthy` and has been for
+`min_healthy`, even when newer releases exist (merges landing every few minutes would otherwise
+keep the newest one too young). The scan runs through the last 50 releases and stops at the commit
+the daemon was built from, since anything older is not an update. When there is a target, code starts the configured
 `command` with `ONETT_UPDATE_REF=<sha>`, detached in its own session (a launchd stop kills the
 daemon's process group, and the updater must survive it). Agents never trigger it: the decision is
 deterministic code over deployment state. It does not wait for a quiet factory and does not
@@ -341,11 +343,15 @@ pause anything: agent runs and orchestrator turns survive a daemon restart. A ru
 detached `onett run-shim` process that the new daemon reattaches to at startup; if the shim is gone,
 the run resumes the agent's session. The one thing a restart would break is a release in flight,
 because a deploy command is a child of the daemon, so the loop does not start the updater while any
-project has a release `pending`, `deploying` or `verifying`. The updater swaps the binary,
+project has a release `pending`, `deploying` or `verifying`. So that releases cannot starve it,
+an eligible target takes priority: the deploy loop starts no new release while one exists (a
+release already in flight finishes), and a release settling kicks the self_update loop at once
+instead of waiting for its next tick. A tick that finds a target but cannot start logs one INFO
+line with the ref and the reason. The updater swaps the binary,
 restarts the daemon and rolls back on a failed health check; it leaves a result file that the next
 daemon reports once. (The retired `max_defer` key is still accepted, ignored, with a warning in the
 log.) A PID lock file keeps one updater at a time, and a commit that fails three
-times (counted in memory) is skipped.
+times (counted in memory) is skipped in favour of an older eligible release.
 
 The retro loop (`loops.retro`, default every 24h) is the factory's retrospective. Each day, code
 gathers the evidence of the last `lookback` (blocked and failed tasks with their reasons,
@@ -463,8 +469,19 @@ is queued behind it, never run beside it. The prompt (`heartbeatPrompt`) lists e
 ones, labels the item text as data, not instructions, and limits the orchestrator to what the owner
 already asked for (retry, cancel duplicates, re-queue a dependency, file one small fix, resume a
 goal, answer an agent), ending with one `<entity id>: <action | left alone | escalate>` line per
-item. For now an `escalate:` line is only text in the conversation; notifiers and a repeat threshold
-come later.
+item.
+
+The loop is the only writer of the per-item memory, kept in the same cursor: how many ticks in a
+row (quiet hours not counted) the key has been in the digest, and the last five actions. At the
+start of each tick it reads the orchestrator's replies in the Operations conversation posted since
+the last tick, parses the `<entity id>: <text>` lines whose id is a remembered item
+(`parseHeartbeatReplies`) and appends each to that item's actions; the prompt shows them as
+"previously:" and tells the orchestrator not to repeat one. An item that leaves the digest is
+forgotten, and a changed reason is a new key with fresh memory. Escalation is plain code, no model
+call, and happens on unchanged digests too: once per key, the loop sends one high-priority
+notification (item, time open, actions tried, link to the Operations conversation) when the item
+reaches `escalate_after` heartbeats (default 3), or at once when a reply line says `escalate:`. The
+old cursor format (first-seen times only) is migrated on read.
 Not covered yet: a failed self-update is found from its system event, so it shows only while that
 event is in the project's recent events.
 

@@ -469,5 +469,31 @@ for (const vp of VIEWPORTS) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
       await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-loading.png` });
     });
+
+    // The owner's sheet stays inside 90% of the width, timestamps and copy show without hover, and a
+    // long message folds behind a 44px Show more button that opens and closes.
+    test('chat messages: sheet width, timestamps and the fold button on touch', async ({ page }) => {
+      await open(page, `/chat/${CONV_ID}`);
+      const vw = page.viewportSize()!.width;
+      for (const sheet of await page.locator('.tr-you').all()) {
+        const box = (await sheet.boundingBox())!;
+        expect(box.width).toBeLessThanOrEqual(vw * 0.9 + 1);
+        expect(box.x + box.width).toBeLessThanOrEqual(vw);
+      }
+      const times = page.locator('time.tr-time');
+      expect(await times.count()).toBeGreaterThan(1);
+      for (const t of await times.all()) {
+        expect(await t.evaluate((el) => getComputedStyle(el.parentElement!).opacity)).toBe('1');
+        await expect(t).toBeVisible();
+      }
+      const more = page.getByRole('button', { name: 'Show more' });
+      await expect(more).toBeVisible();
+      expect((await more.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await more.tap();
+      await expect(page.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
+      await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-messages.png` });
+    });
   });
 }

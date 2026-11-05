@@ -4011,7 +4011,7 @@ components:
           allOf:
             - $ref: '#/components/schemas/Loop'
             - type: object
-              required: [quiet_hours, stale_queued]
+              required: [quiet_hours, stale_queued, escalate_after]
               properties:
                 quiet_hours:
                   type: string
@@ -4022,6 +4022,11 @@ components:
                   allOf:
                     - $ref: '#/components/schemas/Duration'
                   description: How long a task may sit queued before it counts as stuck. Default `4h`.
+                escalate_after:
+                  type: integer
+                  description: >-
+                    Heartbeats in a row an item may stay unresolved before the owner gets one
+                    high-priority notification. Default 3.
         retro:
           description: >-
             Gives an improver agent the recent evidence of what went wrong (blocked and failed
