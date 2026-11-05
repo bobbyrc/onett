@@ -32,7 +32,8 @@ chmod 600 ~/.config/onett/secrets.env
 code ~/.config/onett/secrets.env    # add TELEGRAM_BOT_TOKEN=... and/or DISCORD_BOT_TOKEN=...
 ```
 
-Restart `onett serve` after you change the file.
+A change to the file applies on the next config reload (`onett config --reload`), which rebuilds the
+channels and notifiers. Removing a secret needs a restart.
 
 ## Config
 

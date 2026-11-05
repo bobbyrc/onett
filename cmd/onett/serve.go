@@ -93,14 +93,9 @@ func cmdServe(e *env, args []string) error {
 	bus := events.NewBus(st, logger)
 
 	// Resolve the channels before anything starts, so a missing token stops startup.
-	starters, skipApprovals, err := resolveChannels(cfg, logger)
-	if err != nil {
-		_ = st.Close()
-		return err
-	}
-	notifCfgs := notifyConfigs(cfg.Notify, skipApprovals)
-	notifier, err := notify.NewFanout(notifCfgs, logger)
-	if err != nil {
+	notifier := &swapNotifier{}
+	cm := &comms{notifier: notifier, logger: logger}
+	if err := cm.rebuild(cfg); err != nil {
 		_ = st.Close()
 		return err
 	}
@@ -126,10 +121,16 @@ func cmdServe(e *env, args []string) error {
 		ObserversFor: observersFor,
 		ReloadConfig: func(p string) (*config.Config, error) {
 			c, err := config.Load(p)
-			if err == nil {
-				inferSelfUpdate(c, p, exe)
+			if err != nil {
+				return nil, err
 			}
-			return c, err
+			inferSelfUpdate(c, p, exe)
+			// Channels and notifiers read their tokens from the environment, which a
+			// secret saved from the UI changes, so rebuild them with the new config.
+			if err := cm.rebuild(c); err != nil {
+				return nil, err
+			}
+			return c, nil
 		},
 		Version:         version,
 		AgentEnv:        agentEnv,
@@ -171,9 +172,7 @@ func cmdServe(e *env, args []string) error {
 
 	engineDone := make(chan error, 1)
 	go func() { engineDone <- eng.Run(ctx) }()
-	var bots sync.WaitGroup
-	host := &channel.EngineHost{Controller: eng, Store: st, Bus: bus}
-	startBots(ctx, &bots, host, starters, logger)
+	cm.run(ctx, &channel.EngineHost{Controller: eng, Store: st, Bus: bus})
 	serverDone := make(chan error, 1)
 	go func() { serverDone <- srv.ListenAndServe() }()
 
@@ -195,7 +194,7 @@ func cmdServe(e *env, args []string) error {
 		_ = srv.Close()
 	}
 	engErr := <-engineDone
-	bots.Wait()
+	cm.wait()
 	closeErr := st.Close()
 
 	switch {
