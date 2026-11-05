@@ -210,7 +210,7 @@ function OwnerControls({ project }: { project: ProjectView }) {
 
   return (
     <div className="sheet-owner row-actions">
-      <Link className="btn btn-secondary" to="/config?section=projects">
+      <Link className="btn btn-secondary" to={`/config?section=projects&entry=${encodeURIComponent(project.name)}`}>
         Edit settings
       </Link>
       <Button variant="danger" disabled={remove.isPending} onClick={onRemove}>

@@ -15,6 +15,7 @@ import {
   splitOptionsForVariant,
   type Path,
 } from '../../lib/configDoc';
+import { cx } from '../../lib/format';
 import { AnyInput, ScalarInput, isScalarType } from './ConfigFieldInput';
 import { SecretPicker } from './SecretPicker';
 
@@ -27,6 +28,8 @@ export interface EditContext {
   setValue: (path: Path, value: unknown) => void;
   /** Clears a value: removes its key, or drops the earlier edit when the file never had it. */
   clearValue: (path: Path) => void;
+  /** A top-level map entry to bring into view (?entry=onett), so a link can open one project. */
+  focusEntry?: string;
 }
 
 /** Messages for one path, from the last refused save. */
@@ -365,6 +368,10 @@ function AddEntry({
   );
 }
 
+function scrollIntoView(el: HTMLElement | null) {
+  el?.scrollIntoView?.({ block: 'start' });
+}
+
 /** The one inline question open on a map entry, so only one entry asks at a time. */
 type EntryAction = { op: 'remove' | 'rename'; name: string } | null;
 
@@ -377,6 +384,9 @@ function MapEditor({ node, path, ctx }: { node: SchemaNode; path: Path; ctx: Edi
   const [action, setAction] = useState<EntryAction>(null);
   const [renameTo, setRenameTo] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
+  // Only a top-level map (path of one key) takes the link's entry; nested maps ignore it.
+  const focused =
+    path.length === 1 && ctx.focusEntry && names.includes(ctx.focusEntry) ? ctx.focusEntry : undefined;
 
   const add = (name: string) => ctx.setValue([...path, name], emptyValue(item));
 
@@ -462,7 +472,12 @@ function MapEditor({ node, path, ctx }: { node: SchemaNode; path: Path; ctx: Edi
         const entryPath = [...path, name];
         const open = action?.name === name ? action.op : null;
         return (
-          <div className="card config-entry" key={name}>
+          <div
+            className={cx('card', 'config-entry', focused === name && 'config-entry-focus')}
+            key={name}
+            id={focused === name ? `config-entry-${name}` : undefined}
+            ref={focused === name ? scrollIntoView : undefined}
+          >
             <div className="config-entry-head">
               <span className="config-entry-name">{name}</span>
               <span className="row-actions">
