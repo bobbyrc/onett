@@ -75,6 +75,10 @@ If the new version doesn't come up healthy, the script restarts the previous bin
 the instance already runs `main`. A launcher at `$DOGFOOD/run-daemon.sh`, if present, is used to
 start the daemon. Run the script from your own shell, never from an agent that onett runs.
 
+To test the script without touching the running instance, set `ONETT_UPDATE_DRY_RUN=1`. It builds the
+commit and says what it would do, then stops before pausing the factory, swapping the binary or
+restarting the daemon. This is the only mode that runs inside an onett agent run.
+
 ## Self-update
 
 The factory can keep itself up to date. When the newest release of the `self_project` has been
