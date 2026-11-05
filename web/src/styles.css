@@ -2356,6 +2356,10 @@ a.board-window:hover .board-name {
   border-left: 1px solid var(--rule);
 }
 
+.config-entry-focus {
+  border-color: var(--info);
+}
+
 .config-entry-head {
   display: flex;
   align-items: center;

@@ -370,7 +370,8 @@ square `--lamp-call` after a section with unsaved edits, `--lamp-stop` after one
 active section's settings are on the right. A number, text or duration setting is an input; a
 checkbox is "On"; clearing an input removes the key. A value written as `${NAME}` shows as text with
 a note that onett reads that environment variable. A map is one card per entry, with Rename and
-Remove (Remove asks first), and a form at the end to add one. A list has a row or a card per item,
+Remove (Remove asks first), and a form at the end to add one. `/config?section=projects&entry=onett`
+opens that section and scrolls to the `onett` card, which gets an `--info` outline. A list has a row or a card per item,
 with Remove, and an Add button. A setting with fixed choices, such as a notifier's `type`, is a
 dropdown. The `options` of a notifier, channel, deploy block or observer show the fields of the
 selected `type`. A setting that names a secret (such as a token's `*_env`) is a dropdown of the

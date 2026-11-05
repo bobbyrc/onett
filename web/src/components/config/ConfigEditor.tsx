@@ -33,6 +33,7 @@ export function ConfigEditor({
   const [reloadFailed, setReloadFailed] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [sectionKey, setSectionKey] = useParamState('section');
+  const [entryKey, setEntryKey] = useParamState('entry');
 
   const dirty = changes.length > 0;
   useEffect(() => {
@@ -61,6 +62,7 @@ export function ConfigEditor({
     problems: problemMap,
     setValue: (path, value) => setChanges((prev) => addChange(prev, { op: 'set', path, value })),
     clearValue: (path) => setChanges((prev) => clearChange(doc.document, prev, path)),
+    focusEntry: entryKey || undefined,
   };
 
   const discard = () => {
@@ -129,7 +131,10 @@ export function ConfigEditor({
                 type="button"
                 className={cx('config-nav-item', on && 'active')}
                 aria-current={on ? 'true' : undefined}
-                onClick={() => setSectionKey(section.key)}
+                onClick={() => {
+                  setSectionKey(section.key);
+                  if (entryKey) setEntryKey('');
+                }}
               >
                 <span>{humanizeKey(section.key)}</span>
                 {unsaved ? <span className="config-lamp lamp-call" aria-hidden="true" /> : null}
