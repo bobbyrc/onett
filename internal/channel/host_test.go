@@ -36,6 +36,10 @@ func (c *fakeController) SendChat(_ context.Context, conv, text string) (domain.
 	return domain.ChatMessage{ConversationID: conv, Text: text}, nil
 }
 
+func (c *fakeController) SendChatWith(ctx context.Context, conv, text string, _ []string) (domain.ChatMessage, error) {
+	return c.SendChat(ctx, conv, text)
+}
+
 func (c *fakeController) DecideApproval(_ context.Context, id string, _ bool, _ string) (domain.Approval, error) {
 	return domain.Approval{ID: id}, nil
 }

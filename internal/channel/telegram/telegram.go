@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bobbyrc/onett/internal/attach"
 	"github.com/bobbyrc/onett/internal/channel"
 	"github.com/bobbyrc/onett/internal/domain"
 )
@@ -55,6 +57,9 @@ var backoffBase = time.Second
 type Host interface {
 	CreateConversation(ctx context.Context, title string) (domain.Conversation, error)
 	SendChat(ctx context.Context, conversationID, text string) (domain.ChatMessage, error)
+	SendChatWith(ctx context.Context, conversationID, text string, attachmentIDs []string) (domain.ChatMessage, error)
+	SaveAttachment(ctx context.Context, conversationID, name string, r io.Reader) (domain.Attachment, error)
+	MaxAttachmentSize() int64 // bytes; 0 means attachments are off
 	DecideApproval(ctx context.Context, id string, approve bool, note string) (domain.Approval, error)
 	Subscribe() (<-chan domain.Event, func())
 }
@@ -287,6 +292,43 @@ type message struct {
 	From      *user  `json:"from"`
 	Chat      chat   `json:"chat"`
 	Text      string `json:"text"`
+	Caption   string `json:"caption"`
+	// Media. A photo arrives as several sizes of the same picture, smallest first.
+	Photo    []fileRef `json:"photo"`
+	Document *fileRef  `json:"document"`
+	Video    *fileRef  `json:"video"`
+	Audio    *fileRef  `json:"audio"`
+	Voice    *fileRef  `json:"voice"`
+}
+
+// fileRef is the part of a Bot API file object (PhotoSize, Document, Video, ...) we use.
+type fileRef struct {
+	FileID   string `json:"file_id"`
+	FileSize int64  `json:"file_size"`
+	FileName string `json:"file_name"`
+}
+
+// file returns the one file a message carries, preferring the largest photo size, or nil.
+func (m *message) file() (ref *fileRef, fallbackName string) {
+	switch {
+	case len(m.Photo) > 0:
+		best := m.Photo[0]
+		for _, p := range m.Photo[1:] {
+			if p.FileSize > best.FileSize {
+				best = p
+			}
+		}
+		return &best, "photo.jpg"
+	case m.Document != nil:
+		return m.Document, "document"
+	case m.Video != nil:
+		return m.Video, "video.mp4"
+	case m.Audio != nil:
+		return m.Audio, "audio"
+	case m.Voice != nil:
+		return m.Voice, "voice.ogg"
+	}
+	return nil, ""
 }
 
 type chat struct {
@@ -334,12 +376,17 @@ func (b *Bot) ignore(from *user) {
 
 func (b *Bot) handleMessage(ctx context.Context, m *message) {
 	chatID := m.Chat.ID
-	if m.Text == "" {
-		b.sendText(ctx, chatID, "Only text messages are supported.")
+	ref, fallbackName := m.file()
+	text := m.Text
+	if ref != nil {
+		text = m.Caption
+	}
+	if text == "" && ref == nil {
+		b.sendText(ctx, chatID, "I can read text, photos and files. Send one of those.")
 		return
 	}
-	if strings.HasPrefix(m.Text, "/") {
-		cmd, _, _ := strings.Cut(strings.Fields(m.Text)[0], "@")
+	if ref == nil && strings.HasPrefix(text, "/") {
+		cmd, _, _ := strings.Cut(strings.Fields(text)[0], "@")
 		switch cmd {
 		case "/start":
 			b.sendText(ctx, chatID, "Send me a message to chat with the onett orchestrator. /new starts a fresh conversation; approval requests arrive here with Approve and Reject buttons.")
@@ -350,6 +397,12 @@ func (b *Bot) handleMessage(ctx context.Context, m *message) {
 				return
 			}
 			b.sendText(ctx, chatID, "Started a new conversation.")
+			return
+		}
+	}
+	if ref != nil {
+		if reply := b.checkFileSize(ref); reply != "" {
+			b.sendText(ctx, chatID, reply)
 			return
 		}
 	}
@@ -364,13 +417,87 @@ func (b *Bot) handleMessage(ctx context.Context, m *message) {
 		}
 		convID = conv
 	}
-	if _, err := b.host.SendChat(ctx, convID, m.Text); err != nil {
+	var err error
+	if ref != nil {
+		var att domain.Attachment
+		if att, err = b.fetchAttachment(ctx, convID, ref, fallbackName); err != nil {
+			b.sendText(ctx, chatID, err.Error())
+			return
+		}
+		_, err = b.host.SendChatWith(ctx, convID, text, []string{att.ID})
+	} else {
+		_, err = b.host.SendChat(ctx, convID, text)
+	}
+	if err != nil {
 		b.sendText(ctx, chatID, "Could not send your message: "+err.Error())
 		return
 	}
 	if err := b.call(ctx, "sendChatAction", map[string]any{"chat_id": chatID, "action": "typing"}, nil); err != nil {
 		b.log.Debug("telegram: sendChatAction failed", "err", err)
 	}
+}
+
+// maxBotDownload is the largest file the Bot API lets a bot download.
+const maxBotDownload = 20 << 20
+
+// checkFileSize returns the reply to send when the file's declared size rules it out, or "".
+// It runs before anything is downloaded.
+func (b *Bot) checkFileSize(ref *fileRef) string {
+	limit := b.host.MaxAttachmentSize()
+	if limit <= 0 {
+		return "Attachments are turned off, so I can only read text."
+	}
+	if ref.FileSize > limit {
+		return channel.TooLarge(ref.FileSize, limit)
+	}
+	if ref.FileSize > maxBotDownload {
+		return fmt.Sprintf("That file is %s; Telegram only lets bots download files up to %s.",
+			channel.MB(ref.FileSize), channel.MB(maxBotDownload))
+	}
+	return ""
+}
+
+// fetchAttachment downloads a file from Telegram and saves it to the conversation. The error
+// text is meant for the user. Only ids, sizes and types are logged: never the file contents or
+// the download URL, which embeds the bot token.
+func (b *Bot) fetchAttachment(ctx context.Context, convID string, ref *fileRef, fallbackName string) (domain.Attachment, error) {
+	limit := b.host.MaxAttachmentSize()
+	ctx, cancel := context.WithTimeout(ctx, channel.DownloadTimeout)
+	defer cancel()
+	var f struct {
+		FilePath string `json:"file_path"`
+		FileSize int64  `json:"file_size"`
+	}
+	if err := b.call(ctx, "getFile", map[string]any{"file_id": ref.FileID}, &f); err != nil {
+		b.log.Warn("telegram: getFile failed", "err", err)
+		return domain.Attachment{}, errors.New("Could not fetch that file from Telegram. Bots can only download files up to 20 MB.")
+	}
+	if f.FilePath == "" {
+		return domain.Attachment{}, errors.New("Telegram did not give me a download for that file.")
+	}
+	body, err := channel.Download(ctx, channel.DownloadClient(b.client), b.api+"/file/bot"+b.token+"/"+f.FilePath, limit)
+	if err != nil {
+		b.log.Warn("telegram: download failed", "err", b.scrub(err.Error()))
+		return domain.Attachment{}, errors.New("Could not download that file from Telegram.")
+	}
+	defer body.Close()
+	name := ref.FileName
+	if name == "" {
+		name = path.Base(f.FilePath)
+	}
+	if name == "" || name == "." || name == "/" {
+		name = fallbackName
+	}
+	att, err := b.host.SaveAttachment(ctx, convID, name, body)
+	switch {
+	case errors.Is(err, attach.ErrTooLarge):
+		return domain.Attachment{}, errors.New(channel.TooLarge(0, limit))
+	case err != nil:
+		b.log.Warn("telegram: saving attachment failed", "err", b.scrub(err.Error()))
+		return domain.Attachment{}, errors.New("Could not save that file: " + b.scrub(err.Error()))
+	}
+	b.log.Info("telegram: attachment saved", "attachment_id", att.ID, "size", att.Size, "mime", att.MIME)
+	return att, nil
 }
 
 func (b *Bot) newConversation(ctx context.Context, chatID int64) (string, error) {
