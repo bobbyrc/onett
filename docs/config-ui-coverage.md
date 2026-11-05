@@ -50,6 +50,7 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `harnesses.*.price.output_per_mtok` | float | yes |  |
 | `harnesses.*.price.cached_input_per_mtok` | float | yes |  |
 | `harnesses.*.billing` | string | yes |  |
+| `harnesses.*.isolate` | bool | yes |  |
 | `agents` | map | yes |  |
 | `agents.*` | section | yes |  |
 | `agents.*.harness` | string | yes |  |

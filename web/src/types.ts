@@ -117,6 +117,9 @@ export interface Run {
   billing?: "metered" | "subscription";
   input_tokens: number;
   output_tokens: number;
+  /** Parts of input_tokens read from / written to the prompt cache, when the harness reports them. */
+  cached_input_tokens?: number;
+  cache_write_tokens?: number;
   summary?: string;
   error?: string;
   stream_offset?: number;
@@ -447,6 +450,8 @@ export interface Harness {
   args?: string[];
   env?: Record<string, string>;
   inherit_env?: string[];
+  /** claude-code: run agents without the owner's MCP servers, plugins and hooks. Default true. */
+  isolate?: boolean;
 }
 
 export interface Agent {

@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/bobbyrc/onett/internal/domain"
 )
 
 // A disabled agent is not in the factory the orchestrator is told about, so it cannot be
@@ -17,7 +15,7 @@ func TestChatInstructionsOmitDisabledAgents(t *testing.T) {
 	r.cfg.Agents["improver"] = improver
 	r.cfg.Routing["improve"] = "implementer"
 
-	text := chatInstructions(r.cfg, domain.Conversation{}, "BASE")
+	text := factorySnapshot(r.cfg)
 	assert.NotContains(t, text, "**improver**")
 	assert.NotContains(t, text, "improver", "no line mentions the disabled agent")
 	assert.Contains(t, text, "- **implementer** (codex) — ")

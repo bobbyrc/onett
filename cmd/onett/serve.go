@@ -344,7 +344,7 @@ func containsString(list []string, s string) bool {
 func harnessFor(name string, h config.Harness) (harness.Harness, error) {
 	return harness.New(harness.Config{
 		Name: name, Type: h.Type, Command: h.Command, Args: h.Args, Env: h.Env,
-		InheritEnv: h.InheritEnv, Billing: h.Billing,
+		InheritEnv: h.InheritEnv, Billing: h.Billing, Isolate: h.IsolateOn(),
 	})
 }
 
@@ -353,7 +353,7 @@ func harnessFor(name string, h config.Harness) (harness.Harness, error) {
 func harnessWithShim(name string, h config.Harness, cfg *config.Config, exe string) (harness.Harness, error) {
 	hc := harness.Config{
 		Name: name, Type: h.Type, Command: h.Command, Args: h.Args, Env: h.Env,
-		InheritEnv: h.InheritEnv, Billing: h.Billing,
+		InheritEnv: h.InheritEnv, Billing: h.Billing, Isolate: h.IsolateOn(),
 	}
 	if cfg != nil && cfg.Limits.RunShimOn() {
 		hc.Shim = &harness.ShimOptions{

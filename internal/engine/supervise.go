@@ -208,6 +208,8 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 		}
 		r.InputTokens = res.InputTokens
 		r.OutputTokens = res.OutputTokens
+		r.CachedInputTokens = res.CachedInputTokens
+		r.CacheWriteTokens = res.CacheWriteTokens
 		if res.SessionID != "" {
 			r.SessionID = res.SessionID
 		}

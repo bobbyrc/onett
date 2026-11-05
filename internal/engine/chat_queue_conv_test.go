@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -110,7 +111,7 @@ func TestChatMessageWhileBusyIsQueuedForNonSteerableTurn(t *testing.T) {
 	assert.Empty(t, done.ActiveRunID)
 
 	mu.Lock()
-	assert.Equal(t, "first\n\nsecond", prompts[1])
+	assertOwnerText(t, "first\n\nsecond", prompts[1])
 	mu.Unlock()
 
 	msgs, err := r.st.ListChatMessages(ctx, convID)
@@ -151,7 +152,7 @@ func TestFlushChatSendsQueuedMessages(t *testing.T) {
 		ids = append(ids, m.ID)
 	}
 	require.NoError(t, e.FlushChat(ctx, convID))
-	assert.Equal(t, "one\n\ntwo", <-prompts)
+	assertOwnerText(t, "one\n\ntwo", <-prompts)
 	ctWaitIdle(t, r, convID)
 
 	msgs, err := r.st.ListChatMessages(ctx, convID)
@@ -226,7 +227,7 @@ func TestQueuedChatHeldAfterCancelledTurn(t *testing.T) {
 		return len(prompts) == 2
 	}, 10*time.Second, 10*time.Millisecond)
 	mu.Lock()
-	assert.Equal(t, "queued one\n\nnew text", prompts[1])
+	assertOwnerText(t, "queued one\n\nnew text", prompts[1])
 	mu.Unlock()
 	ctWaitIdle(t, r, convID)
 }
@@ -281,7 +282,7 @@ func TestQueuedChatSentAfterSuccessfulTurn(t *testing.T) {
 
 	_, err := e.SendChat(ctx, convID, "go")
 	require.NoError(t, err)
-	assert.Equal(t, "go", <-prompts)
+	assertOwnerText(t, "go", <-prompts)
 	runID := ctActiveRunID(t, e)
 	cqWaitSession(t, e, runID)
 	queued, err := e.SendChat(ctx, convID, "later")
@@ -289,7 +290,7 @@ func TestQueuedChatSentAfterSuccessfulTurn(t *testing.T) {
 	require.True(t, queued.Queued)
 
 	close(release)
-	assert.Equal(t, "later", <-prompts, "the success is followed by a turn with the queue")
+	assertOwnerText(t, "later", <-prompts)
 	ctWaitIdle(t, r, convID)
 	msgs, err := r.st.ListChatMessages(ctx, convID)
 	require.NoError(t, err)
@@ -395,4 +396,11 @@ func TestClaimedMessagesRestoredWhenTurnCannotStart(t *testing.T) {
 	assert.True(t, byID[old.ID].Queued, "the old message waits for the next send")
 	assert.True(t, byID[fresh.ID].Queued, "so does the one that rode with it")
 	assert.Empty(t, byID[old.ID].RunID)
+}
+
+// assertOwnerText checks that a turn's prompt is the owner's text followed by the factory
+// snapshot, which every chat turn carries (see factorySnapshot).
+func assertOwnerText(t *testing.T, want, got string) {
+	t.Helper()
+	assert.True(t, strings.HasPrefix(got, want+"\n\n---\n## The factory right now\n"), "prompt was %q", got)
 }

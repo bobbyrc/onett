@@ -172,6 +172,12 @@
             "key": "billing",
             "type": "string",
             "help": "Billing says how this harness's runs are paid for: \"auto\" (default; the adapter detects it), \"metered\" (pay per token) or \"subscription\" (flat rate). A value other than auto overrides detection for every run. Subscription runs do not count toward limits.daily_budget_usd."
+          },
+          {
+            "key": "isolate",
+            "type": "bool",
+            "help": "Isolate runs the agent without the owner's personal Claude Code setup (their MCP connectors, plugins, hooks and user-level settings). Default true. Their tools come and go between turns, which breaks the prompt cache, and they are not what onett's agents need. Set false to give agents your MCP servers and plugins. Only claude-code has such a setup; other harness types ignore it. Read it with IsolateOn.",
+            "default": true
           }
         ]
       }

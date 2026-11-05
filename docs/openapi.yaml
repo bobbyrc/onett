@@ -2841,6 +2841,14 @@ components:
         output_tokens:
           type: integer
           format: int64
+        cached_input_tokens:
+          type: integer
+          format: int64
+          description: Part of input_tokens read from the prompt cache. Absent when the harness reports none.
+        cache_write_tokens:
+          type: integer
+          format: int64
+          description: Part of input_tokens written to the prompt cache. Absent when the harness reports none.
         summary:
           type: string
         error:
@@ -3593,6 +3601,9 @@ components:
           type: object
           additionalProperties:
             type: string
+        isolate:
+          type: boolean
+          description: "claude-code only: run agents without the owner's MCP servers, plugins, hooks and user-level settings. Default true."
 
     Agent:
       type: object

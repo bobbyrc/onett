@@ -721,6 +721,9 @@ func runShow(e *env, args []string) error {
 		sub = " (subscription estimate)"
 	}
 	fmt.Fprintf(e.out, "Exit:     %d   Cost: %s$%.4f%s   Tokens in/out: %d/%d\n", r.ExitCode, approx, r.CostUSD, sub, r.InputTokens, r.OutputTokens)
+	if rate, ok := r.CacheHitRate(); ok {
+		fmt.Fprintf(e.out, "Cache:    %.0f%% of input read from cache (read %d, written %d)\n", rate*100, r.CachedInputTokens, r.CacheWriteTokens)
+	}
 	if r.Summary != "" {
 		fmt.Fprintf(e.out, "Summary:  %s\n", cleanText(r.Summary))
 	}

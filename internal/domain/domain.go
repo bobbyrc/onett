@@ -73,6 +73,16 @@ func (s TaskStatus) Terminal() bool {
 	return false
 }
 
+// CacheHitRate is the share of the run's input tokens served from the prompt cache. ok is false
+// when the harness reported no cache reads (or no input), so a rate of 0 is not shown for runs
+// that simply do not report it.
+func (r Run) CacheHitRate() (rate float64, ok bool) {
+	if r.InputTokens <= 0 || r.CachedInputTokens <= 0 {
+		return 0, false
+	}
+	return float64(r.CachedInputTokens) / float64(r.InputTokens), true
+}
+
 // Task is one unit of work for one agent role in one project.
 type Task struct {
 	ID          string     `json:"id"`
@@ -164,8 +174,13 @@ type Run struct {
 	Billing      string `json:"billing,omitempty"`
 	InputTokens  int64  `json:"input_tokens"`
 	OutputTokens int64  `json:"output_tokens"`
-	Summary      string `json:"summary,omitempty"`
-	Error        string `json:"error,omitempty"`
+	// CachedInputTokens and CacheWriteTokens are the parts of InputTokens read from and
+	// written to the prompt cache, when the harness reports them. Their ratio to InputTokens
+	// is the cache hit rate; see CacheHitRate.
+	CachedInputTokens int64  `json:"cached_input_tokens,omitempty"`
+	CacheWriteTokens  int64  `json:"cache_write_tokens,omitempty"`
+	Summary           string `json:"summary,omitempty"`
+	Error             string `json:"error,omitempty"`
 
 	// The next five let a restarted onett pick the run up again (limits.run_shim). They live in
 	// the run's JSON document, so they need no schema change.

@@ -24,6 +24,12 @@ export function formatTokens(n: number): string {
   return `${trimZero((n / 1_000_000).toFixed(1))}M`;
 }
 
+/** "87%" of a run's input served from the prompt cache, or "" when none was reported. */
+export function formatCacheHit(input: number, cached: number | undefined): string {
+  if (!cached || cached <= 0 || input <= 0) return '';
+  return `${Math.round((cached / input) * 100)}%`;
+}
+
 const trimZero = (s: string): string => s.replace(/\.0$/, '');
 
 /** Only http and https links are rendered as anchors; anything else (javascript:, data:) is not. */

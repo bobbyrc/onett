@@ -56,8 +56,11 @@ type Result struct {
 	InputTokens int64
 	// CachedInputTokens is the part of InputTokens served from cache (0 if not reported).
 	CachedInputTokens int64
-	OutputTokens      int64
-	IsError           bool
+	// CacheWriteTokens is the part of InputTokens written to the prompt cache (0 if not
+	// reported). Input that is neither read nor written was not cached at all.
+	CacheWriteTokens int64
+	OutputTokens     int64
+	IsError          bool
 	// Billing says how the run was paid for: BillingMetered, BillingSubscription, or "" when
 	// the adapter cannot tell.
 	Billing string
@@ -136,6 +139,10 @@ type Config struct {
 	// Billing is the config override ("metered" or "subscription"); empty or "auto" means the
 	// adapter detects it.
 	Billing string
+	// Isolate runs the agent without the owner's personal setup (claude-code: no MCP servers
+	// from user config, no user-level settings, hooks or plugins). Adapters that have no such
+	// setup ignore it.
+	Isolate bool
 	// Shim, when set, runs the harness's processes behind a per-run shim (limits.run_shim).
 	Shim *ShimOptions
 }
