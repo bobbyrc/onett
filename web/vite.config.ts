@@ -18,5 +18,7 @@ export default defineConfig({
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
+    // Testing Library matchers and cleanup; harmless in Node-environment tests.
+    setupFiles: ['src/test/setup.ts'],
   },
 });
