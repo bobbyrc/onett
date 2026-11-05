@@ -426,12 +426,12 @@ for (const vp of VIEWPORTS) {
 
     test('chat activity line: fits without overflow, link is tappable', async ({ page }) => {
       const vw = page.viewportSize()!.width;
-      // The mock's task thread has finished its last turn: "Worked for ...". The live wording is
-      // covered by ActivityLine.test.tsx.
+      // The mock resolves this task id to the awaiting-approval task, so the thread shows
+      // "Waiting for you". The other wordings are covered by ActivityLine*.test.tsx.
       await open(page, `/chat/task/${CHAT_TASK_ID}`);
       const line = page.locator('.chat-page .activity-line');
       await line.scrollIntoViewIfNeeded();
-      await expect(line).toContainText(/Worked for/);
+      await expect(line).toContainText(/Waiting for you/);
       const box = await line.boundingBox();
       expect(box!.x).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width).toBeLessThanOrEqual(vw);
