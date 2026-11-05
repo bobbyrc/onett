@@ -70,6 +70,9 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `PUT /config/file` | `{"version","text"}` | `ConfigSaved` (owner); 409 stale version; 422 `problems` |
 | `GET /config/document` | | `{"path","version","document","schema"}` (owner) |
 | `PATCH /config/document` | `{"version","changes":[{"op":"set"\|"delete","path":[...],"value"}]}` | `ConfigSaved` (owner); keeps comments |
+| `GET /secrets` | | `{"path","names":[...]}` (owner): names in `secrets.env`, never values |
+| `PUT /secrets/{name}` | `{"value"}` | 204 (owner); writes the file and the running environment; 422 bad name or value |
+| `DELETE /secrets/{name}` | | 204 (owner); 404 unknown; takes effect after a restart |
 | `GET /events` | `?after=<id>&token=` | SSE stream (below) |
 | `GET /ws` | `?after=<id>` | WebSocket stream for the web UI (below) |
 | `GET /events/history` | `?after=&project=&task_id=&limit=` (default 500) | `[]Event` |
@@ -119,7 +122,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 
 Which role may call each route: every `GET` needs `viewer` or better (the token included). Every
 `POST` that acts on work (tasks, approvals, pause, loops, chat, `config/reload`, projects) needs
-`operator` or better (the token included). Everything under `/users` and `/config/file` and
+`operator` or better (the token included). Everything under `/users`, `/secrets` and `/config/file` and
 `/config/document` needs `owner` (the token gets 403).
 
 `User` is `{"username","role","created_at","updated_at"}`. `ConfigSaved` is

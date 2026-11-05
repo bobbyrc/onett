@@ -35,6 +35,9 @@ type Options struct {
 	// Host gets 421. When the server listens on 0.0.0.0 or ::, no name is added for the bind
 	// address, so remote access needs the name listed in server.allowed_hosts.
 	AllowedHosts []string
+	// SecretsPath is the secrets.env file the owner edits from the UI. Empty turns the secrets
+	// routes off (they answer 404).
+	SecretsPath string
 	// Web is the UI to serve. Nil serves the build embedded from webdist (see DefaultWeb).
 	Web    fs.FS
 	Logger *slog.Logger

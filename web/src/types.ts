@@ -517,6 +517,12 @@ export interface User {
   updated_at: string;
 }
 
+/** The answer to GET /secrets: the names in secrets.env, never the values. */
+export interface SecretList {
+  path: string;
+  names: string[];
+}
+
 /** The answer to GET /auth/state. `user` is the signed-in account, or null. */
 export interface AuthStateResponse {
   setup_required: boolean;

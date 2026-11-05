@@ -338,6 +338,12 @@ asks for confirmation. "Add user" opens a sheet above the table with username, p
 role (default operator) and "Create user" or "Cancel". The server's message is shown under the
 table when it refuses a change, such as demoting or removing the last owner.
 
+**Secrets** (`/secrets`, owners only; anyone else is sent to Overview) — the names kept in
+`secrets.env` (bot tokens, API keys), never their values. A form above the list takes a name and a
+value (a password field) and "Save secret"; "Replace" on a row fills the name so a new value can be
+typed. "Remove" asks for confirmation. A saved value applies to the next config reload and agent
+run; a removal needs a restart.
+
 **Agents** (`/agents`) — card grid of the configured roles. Each card shows the name, a badge
 (`built-in`, `edited`, `custom` or `removed`: where its settings come from, or that it is switched
 off), the description, the harness and its type, the model (or "harness default"), and **Used for**:

@@ -341,7 +341,9 @@ code ~/.config/onett/secrets.env    # add lines like SENTRY_AUTH_TOKEN=...
 - In the config, `${NAME}` is replaced with the value of `NAME`. If `NAME` is not set, `onett serve`
   refuses to start and names the variable. A bare `$NAME` is left alone, so it can be used in shell
   commands such as the rollback above.
-- Restart `onett serve` after you change `secrets.env`. It is read only at startup.
+- Restart `onett serve` after you edit `secrets.env` by hand. It is read at startup. An owner can
+  also add, replace and remove secrets on the **Secrets** page; a saved value applies to the next
+  config reload and agent run without a restart.
 
 ## 13. Pause and resume
 

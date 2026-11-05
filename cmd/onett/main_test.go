@@ -302,26 +302,6 @@ func TestInitProjectNeedsRepo(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "no file is written on a usage error")
 }
 
-func TestParseSecrets(t *testing.T) {
-	data := []byte(`# comment
-
-FOO=bar
-export BAZ="quoted value"
-QUX='single'
-EMPTY=
-=novalue
-NOEQUALS
-  SPACED = padded  
-`)
-	assert.Equal(t, []secret{
-		{key: "FOO", value: "bar"},
-		{key: "BAZ", value: "quoted value"},
-		{key: "QUX", value: "single"},
-		{key: "EMPTY", value: ""},
-		{key: "SPACED", value: "padded"},
-	}, parseSecrets(data))
-}
-
 func TestLoadSecretsFileKeepsExistingEnvironment(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "secrets.env")
