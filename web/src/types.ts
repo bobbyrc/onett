@@ -34,7 +34,8 @@ export type RunStatus =
   | 'stalled'
   | 'timed_out'
   | 'denied'
-  | 'cancelled';
+  | 'cancelled'
+  | 'interrupted';
 
 export type LogKind = 'text' | 'tool_use' | 'tool_result' | 'denial' | 'system' | 'stderr' | 'error' | 'prompt' | 'owner';
 

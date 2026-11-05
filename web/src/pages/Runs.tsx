@@ -25,6 +25,7 @@ const STATUS_OPTIONS: [string, string][] = [
   ['timed_out', 'Timed out'],
   ['denied', 'Denied'],
   ['cancelled', 'Cancelled'],
+  ['interrupted', 'Interrupted'],
 ];
 
 const isActive = (run: Run) => run.status === 'starting' || run.status === 'running';

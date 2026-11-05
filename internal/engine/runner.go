@@ -136,7 +136,7 @@ func (e *Engine) stillRunning(ctx context.Context, id string) bool {
 }
 
 // taskRun is what finishing a task's run needs. runTask builds it as it prepares the run, and
-// reattachTask rebuilds it from the stored run when onett restarted while the agent kept going.
+// takeOver (reattach.go) rebuilds it from the stored run when onett restarted while the agent kept going.
 type taskRun struct {
 	t      domain.Task
 	run    domain.Run
@@ -333,6 +333,21 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 		}
 	}
 
+	// A run that follows one onett's restart cut short carries on in the same harness session,
+	// or starts fresh with the same note when that session was never reported.
+	if sid, ok := e.interruptedResume(bg, t, run, agent.Harness); ok {
+		switch {
+		case resumeID != "":
+			prompt = strings.TrimRight(prompt, "\n") + "\n\n" + interruptedNote
+		case sid != "":
+			resumeID = sid
+			prompt = interruptedNote + "\n\n" + mergeConflictSection(p, conflicts) + setupNote
+			prompt = strings.TrimRight(prompt, "\n") + "\n\n" + resumeReportReminder
+		default:
+			prompt = strings.TrimRight(prompt, "\n") + "\n\n" + interruptedNote
+		}
+	}
+
 	// A harness that can reattach is started without the run's cancellation: supervise ends the
 	// session when ctx is done, and at shutdown it detaches instead, which the harness's own
 	// cancel-on-ctx would pre-empt.
@@ -365,9 +380,11 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 	e.appendRunLog(bg, run.ID, domain.LogPrompt, prompt)
 	if r, err := e.updateRun(bg, run.ID, func(r *domain.Run) error {
 		r.Status = domain.RunRunning
+		r.SetupOwed = st.setupOwed
 		return nil
 	}); err == nil {
 		run = r
+		st.run = r
 	}
 
 	res, status, reason := e.supervise(ctx, run, sess, ar, nil)

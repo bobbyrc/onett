@@ -117,6 +117,9 @@ func buildTaskPrompt(t domain.Task, p *config.Project, parent *domain.Task, conf
 // owner's message alone does not remind the agent that onett reads its report from there.
 const resumeReportReminder = "When you have done what the owner asks, write your report to `$ONETT_OUTBOX/result.json` again, as your instructions describe. This run's outbox starts empty, so your earlier report is gone."
 
+// interruptedNote is what a run gets when it continues one that onett's restart cut short.
+const interruptedNote = "onett was restarted and your previous session was interrupted mid-run. Check the state of your worktree (git status, uncommitted changes, partial edits) and carry on with the task where you left off."
+
 // mergeConflictSection tells the agent which files onett's merge of the base branch left in
 // conflict; "" when there are none. A follow-up that resumes a session needs it too.
 func mergeConflictSection(p *config.Project, conflicts []string) string {
