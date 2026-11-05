@@ -84,7 +84,7 @@ type Stats struct {
 	DailyBudgetUSD           float64 `json:"daily_budget_usd"`
 	Paused                   bool    `json:"paused"`
 	// Pause says why, who and since when the factory is paused; null while it runs.
-	Pause *PauseView `json:"pause"`
+	Pause *domain.PauseInfo `json:"pause"`
 	// Preflight is the daemon's last tool-directory check per project; see the engine.
 	Preflight []domain.Preflight `json:"preflight"`
 	// Holds are the harnesses held for a rate limit; no new run starts on them until Until.
@@ -107,38 +107,10 @@ type BlockedGoal struct {
 	Reason  string `json:"reason"`
 }
 
-// PauseView is domain.PauseInfo plus, for a self-update, the task runs the pause is waiting on.
-type PauseView struct {
-	domain.PauseInfo
-	Waiting []PauseWait `json:"waiting"`
-}
-
-// PauseWait is one live task run that keeps the factory from finishing a drain.
-type PauseWait struct {
-	RunID  string `json:"run_id"`
-	TaskID string `json:"task_id"`
-}
-
 // ControlState is the body of GET /control and the pause and resume routes.
 type ControlState struct {
-	Paused bool       `json:"paused"`
-	Pause  *PauseView `json:"pause"`
-}
-
-// pauseView describes the pause for a reader, or nil while the factory runs. active is the live
-// runs: chat and goal turns have no task and never hold up a drain.
-func (s *server) pauseView(active []domain.Run) *PauseView {
-	info := s.opts.Controller.PauseInfo()
-	if info == nil {
-		return nil
-	}
-	v := &PauseView{PauseInfo: *info, Waiting: []PauseWait{}}
-	for _, run := range active {
-		if run.TaskID != "" {
-			v.Waiting = append(v.Waiting, PauseWait{RunID: run.ID, TaskID: run.TaskID})
-		}
-	}
-	return v
+	Paused bool              `json:"paused"`
+	Pause  *domain.PauseInfo `json:"pause"`
 }
 
 func (s *server) controlState(ctx context.Context) (ControlState, error) {
@@ -146,13 +118,7 @@ func (s *server) controlState(ctx context.Context) (ControlState, error) {
 	if !st.Paused {
 		return st, nil
 	}
-	active, err := s.opts.Store.ListRuns(ctx, store.RunFilter{
-		Statuses: []domain.RunStatus{domain.RunStarting, domain.RunRunning}, Limit: 10000,
-	})
-	if err != nil {
-		return st, err
-	}
-	st.Pause = s.pauseView(active)
+	st.Pause = s.opts.Controller.PauseInfo()
 	return st, nil
 }
 
@@ -781,7 +747,7 @@ func (s *server) stats(w http.ResponseWriter, r *http.Request) {
 		SubscriptionCostTodayUSD: subCost,
 		DailyBudgetUSD:           s.opts.Controller.Config().Limits.DailyBudgetUSD,
 		Paused:                   s.opts.Controller.Paused(),
-		Pause:                    s.pauseView(active),
+		Pause:                    s.opts.Controller.PauseInfo(),
 		Preflight:                s.opts.Controller.Preflight(),
 		Holds:                    holds,
 		OwnerUnreachable:         !s.opts.Controller.Config().OwnerReachable(),
@@ -801,30 +767,11 @@ func (s *server) getControl(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, st)
 }
 
-// maxPauseDetail bounds the free text a caller may attach to a pause.
-const maxPauseDetail = 200
-
 func (s *server) setPaused(paused bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		if paused {
-			// The body is optional: {"reason":"owner"|"self-update","detail":"…"}.
-			var body struct {
-				Reason string `json:"reason"`
-				Detail string `json:"detail"`
-			}
-			if err := readJSON(w, r, &body); err != nil && !errors.Is(err, io.EOF) {
-				s.fail(w, err)
-				return
-			}
-			if len(body.Detail) > maxPauseDetail || strings.ContainsAny(body.Detail, "\r\n") {
-				s.fail(w, invalidf("detail: one line of at most %d bytes", maxPauseDetail))
-				return
-			}
-			info := domain.PauseInfo{Reason: body.Reason, Detail: body.Detail, By: "api token"}
-			if info.Reason == "" {
-				info.Reason = domain.PauseOwner
-			}
+			info := domain.PauseInfo{Reason: domain.PauseOwner, By: "api token"}
 			if p, ok := principalFrom(r.Context()); ok && !p.token {
 				info.By = p.user.Username
 			}

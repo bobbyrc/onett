@@ -155,7 +155,7 @@ func (f *fakeCtl) PauseWith(_ context.Context, info domain.PauseInfo) error {
 	defer f.mu.Unlock()
 	f.paused = true
 	f.pause = &info
-	return f.note("PauseWith:" + info.Reason + ":" + info.By + ":" + info.Detail)
+	return f.note("PauseWith:" + info.Reason + ":" + info.By)
 }
 
 func (f *fakeCtl) PauseInfo() *domain.PauseInfo {

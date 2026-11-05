@@ -69,64 +69,23 @@ type ControlState struct {
 	Pause  *PauseView `json:"pause,omitempty"`
 }
 
-// PauseView says why the factory is paused: the reason ("owner" or "self-update"), who set it,
-// since when, the reason's detail (the commit for a self-update) and the task runs a drain is
-// waiting on.
+// PauseView says why the factory is paused: the reason ("owner"), who set it and since when.
 type PauseView struct {
-	Reason  string      `json:"reason"`
-	By      string      `json:"by"`
-	Detail  string      `json:"detail"`
-	Since   time.Time   `json:"since"`
-	Waiting []PauseWait `json:"waiting"`
+	Reason string    `json:"reason"`
+	By     string    `json:"by"`
+	Since  time.Time `json:"since"`
 }
 
-// PauseWait is one live task run holding up a drain.
-type PauseWait struct {
-	RunID  string `json:"run_id"`
-	TaskID string `json:"task_id"`
-}
-
-// Describe renders the pause in a sentence, e.g. "Paused for self-update to 69f1660 since 22:36,
-// waiting for 1 run (task 01a1a9c6…)."
+// Describe renders the pause in a sentence, e.g. "Paused by bob since 22:36."
 func (p PauseView) Describe() string {
 	since := ""
 	if !p.Since.IsZero() {
 		since = " since " + p.Since.Local().Format("15:04")
 	}
-	if p.Reason != "self-update" {
-		if p.By != "" {
-			return "Paused by " + p.By + since + "."
-		}
-		return "Paused" + since + "."
+	if p.By != "" {
+		return "Paused by " + p.By + since + "."
 	}
-	out := "Paused for self-update"
-	if p.Detail != "" {
-		out += " to " + p.Detail
-	}
-	out += since
-	switch n := len(p.Waiting); n {
-	case 0:
-		return out + ", swapping the binary."
-	case 1:
-		return out + ", waiting for 1 run (task " + shortID(p.Waiting[0].TaskID) + ")."
-	default:
-		ids := make([]string, 0, min(n, 3))
-		for _, w := range p.Waiting[:min(n, 3)] {
-			ids = append(ids, shortID(w.TaskID))
-		}
-		more := ""
-		if n > 3 {
-			more = ", …"
-		}
-		return fmt.Sprintf("%s, waiting for %d runs (tasks %s%s).", out, n, strings.Join(ids, ", "), more)
-	}
-}
-
-func shortID(id string) string {
-	if len(id) > 8 {
-		return id[:8] + "…"
-	}
-	return id
+	return "Paused" + since + "."
 }
 
 // Stats is the answer of GET /stats.
@@ -291,15 +250,10 @@ func (c *Client) Control(ctx context.Context) (ControlState, error) {
 	return out, err
 }
 
-// Pause calls POST /control/pause. reason is "owner" or "self-update" ("" = owner); detail is
-// free text about it, such as the commit being installed.
-func (c *Client) Pause(ctx context.Context, reason, detail string) (ControlState, error) {
+// Pause calls POST /control/pause.
+func (c *Client) Pause(ctx context.Context) (ControlState, error) {
 	var out ControlState
-	var body any
-	if reason != "" || detail != "" {
-		body = map[string]string{"reason": reason, "detail": detail}
-	}
-	err := c.do(ctx, http.MethodPost, "/control/pause", nil, body, &out)
+	err := c.do(ctx, http.MethodPost, "/control/pause", nil, nil, &out)
 	return out, err
 }
 
