@@ -2,7 +2,7 @@
 // so colour is never the only signal.
 
 export type Tone = 'muted' | 'info' | 'review' | 'accent' | 'ok' | 'warn' | 'danger';
-export type PillKind = 'task' | 'run' | 'deploy' | 'approval';
+export type PillKind = 'task' | 'run' | 'deploy' | 'approval' | 'goal';
 
 const TONES: Record<PillKind, Record<string, Tone>> = {
   task: {
@@ -34,6 +34,12 @@ const TONES: Record<PillKind, Record<string, Tone>> = {
     healthy: 'ok',
     failed: 'danger',
     rolled_back: 'danger',
+  },
+  goal: {
+    active: 'info',
+    paused: 'muted',
+    blocked: 'danger',
+    done: 'ok',
   },
   // The design doc does not name approval colours; these follow the same meaning as tasks.
   approval: {

@@ -73,6 +73,27 @@ export interface Task {
   goal_id?: string;
 }
 
+export type GoalStatus = 'active' | 'paused' | 'blocked' | 'done';
+
+export interface Goal {
+  id: string;
+  project: string;
+  title: string;
+  body: string;
+  status: GoalStatus;
+  conversation_id: string;
+  turns: number;
+  last_turn_at?: string;
+  summary?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GoalDetail {
+  goal: Goal;
+  tasks: Task[];
+}
+
 export interface Run {
   id: string;
   task_id: string;

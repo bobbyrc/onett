@@ -19,6 +19,8 @@ import type {
   Conversation,
   ConversationDetail,
   Deployment,
+  Goal,
+  GoalDetail,
   OnettEvent,
   Friction,
   LogLine,
@@ -174,6 +176,19 @@ export const cancelTask = (id: string) => request<void>('POST', `/tasks/${encode
 
 export const retryTask = (id: string, note = '') =>
   request<void>('POST', `/tasks/${encodeURIComponent(id)}/retry`, { body: { note } });
+
+// ---- goals ----
+
+export const listGoals = (q: { project?: string; status?: string } = {}) =>
+  request<Goal[]>('GET', withQuery('/goals', { ...q }));
+
+export const getGoal = (id: string) => request<GoalDetail>('GET', `/goals/${encodeURIComponent(id)}`);
+
+/** Pause and resume take no body; done sends a summary and block a reason. */
+export const setGoalStatus = (id: string, action: 'pause' | 'resume' | 'done' | 'block', text = '') =>
+  request<Goal>('POST', `/goals/${encodeURIComponent(id)}/${action}`, {
+    body: action === 'done' ? { summary: text } : action === 'block' ? { reason: text } : undefined,
+  });
 
 // ---- runs ----
 

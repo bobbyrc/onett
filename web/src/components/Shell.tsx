@@ -12,6 +12,7 @@ const NAV: { to: string; label: string; end?: boolean; approvals?: boolean; bloc
   { to: '/', label: 'Overview', end: true },
   { to: '/projects', label: 'Projects' },
   { to: '/chat', label: 'Chat' },
+  { to: '/goals', label: 'Goals' },
   { to: '/tasks', label: 'Tasks', blocked: true },
   { to: '/approvals', label: 'Approvals', approvals: true },
   { to: '/runs', label: 'Runs' },
