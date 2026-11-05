@@ -299,6 +299,7 @@ func (e *Engine) recover(ctx context.Context) error {
 		if e.interruptible(ctx, r) {
 			status, msg = domain.RunInterrupted, "onett restarted and the agent's shim is gone; the run resumes from its session"
 			interrupted[r.TaskID] = true
+			e.ingestStreamLog(ctx, r)
 		}
 		endedByRestart[r.ID] = true
 		now := e.d.Now().UTC()
