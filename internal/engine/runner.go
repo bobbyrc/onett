@@ -571,7 +571,11 @@ func (e *Engine) publish(ctx context.Context, t domain.Task, p *config.Project, 
 		x.PRURL = pr.URL
 		x.Risk = result.Risk
 		x.RiskReasons = result.RiskReasons
-		x.ApprovedSHA = "" // a new push invalidates any earlier review
+		if x.ApprovedSHA != pr.HeadSHA {
+			// A new push invalidates any earlier review. A run that pushed nothing leaves the
+			// head the reviewer approved, so its approval stands and the shepherd retries the merge.
+			x.ApprovedSHA = ""
+		}
 		x.PushedAt = &pushedAt
 		x.BlockedReason = ""
 		return nil
