@@ -206,6 +206,7 @@ pre,
 
 .muted {
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .small {
@@ -560,6 +561,7 @@ pre,
   margin: 12px 0;
   border-color: color-mix(in srgb, var(--lamp-stop) 55%, var(--border));
   background: color-mix(in srgb, var(--lamp-stop) 9%, var(--panel));
+  overflow-wrap: anywhere;
 }
 
 .callout-info {
@@ -595,6 +597,8 @@ pre,
   color: var(--muted);
   font-size: 12.5px;
   margin-right: 4px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .tag-danger {
@@ -1315,6 +1319,7 @@ a.board-window:hover .board-name {
   border: 1px solid var(--border);
   padding: 16px 18px;
   margin-bottom: 12px;
+  overflow-wrap: anywhere;
 }
 
 .call-item.is-stop {
@@ -2039,6 +2044,11 @@ a.board-window:hover .board-name {
     color: var(--muted);
     font-size: 13px;
     flex: none;
+  }
+
+  /* Stacked cards have a definite width, so a long unbroken value can break anywhere safely. */
+  .table td {
+    overflow-wrap: anywhere;
   }
 
   .table td:first-child {
