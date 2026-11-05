@@ -476,9 +476,9 @@ scripts/pr-shots.sh after
 ```
 
 `npm run shots:chat` builds the UI and runs `web/e2e/chat-shots.spec.ts` against `vite preview`
-with the same in-browser mock as the mobile check, so no daemon is needed. It captures four
-scenes (`chat-thread`, `chat-running`, `task-thread`, `chat-empty`) in four variants each
-(desktop 1280x800 and iPhone 390x844, light and dark): 16 PNGs in
+with the same in-browser mock as the mobile check, so no daemon is needed. It captures six
+scenes (`chat-thread`, `chat-running`, `task-thread`, `chat-empty`, `chat-error`, `chat-loading`) in four variants each
+(desktop 1280x800 and iPhone 390x844, light and dark): 24 PNGs in
 `web/e2e-results/chat-shots/<scene>-<variant>.png`. The clock is frozen and animations are off, so
 two runs of the same code give the same pixels. It is not part of `npm run test:mobile`.
 

@@ -64,18 +64,28 @@
   margin: 8vh auto 0;
 }
 
-.chat-page .chat-start-title {
-  font-family: var(--font-cond);
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: 0.01em;
-  text-transform: none;
-  margin-bottom: 10px;
+.chat-page .chat-start .chat-state {
+  margin: 0 0 var(--chat-space-5);
+  padding: 0;
 }
 
-.chat-page .chat-start > p {
-  margin: 0;
+/* Example prompts: quiet, square-cornered chips. */
+.chat-page .chat-start .chip {
+  min-height: 44px;
+  border-radius: var(--chat-radius-md);
+  border: 1px solid var(--chat-border);
+  background: var(--chat-surface);
+  color: var(--chat-fg-faint);
+  font-size: var(--chat-text-sm);
+}
+
+.chat-page .chat-start .chip:hover {
+  color: var(--chat-fg-strong);
+}
+
+.chat-page .chat-start .chip:focus-visible {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: 1px;
 }
 
 .chat-page .examples-row,
@@ -189,10 +199,6 @@
 
   .chat-page .chat-start {
     margin-top: 4vh;
-  }
-
-  .chat-page .chat-start-title {
-    font-size: 26px;
   }
 }
 

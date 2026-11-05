@@ -440,5 +440,34 @@ for (const vp of VIEWPORTS) {
       mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
       await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-activity.png` });
     });
+
+    test('chat error and loading states fit, and Retry is tappable', async ({ page }) => {
+      const vw = page.viewportSize()!.width;
+      await mockBackend(page);
+      await page.route('**/api/v1/conversations/*', (route) =>
+        route.request().method() === 'GET'
+          ? route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ error: 'The daemon could not read this conversation, and the reason is long enough to wrap onto a second line.' }) })
+          : route.fallback(),
+      );
+      await page.goto(`/chat/${CONV_ID}`);
+      await page.locator('.chat-state').waitFor();
+      const retry = page.getByRole('button', { name: 'Retry' });
+      const rb = (await retry.boundingBox())!;
+      expect(rb.height).toBeGreaterThanOrEqual(44);
+      expect(rb.x).toBeGreaterThanOrEqual(0);
+      expect(rb.x + rb.width).toBeLessThanOrEqual(vw);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
+      await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-error.png` });
+
+      // Loading: a request that never answers keeps the skeleton up.
+      await page.unroute('**/api/v1/conversations/*');
+      await page.route('**/api/v1/conversations/*', () => new Promise(() => {}));
+      await page.reload();
+      await page.locator('.chat-skel').first().waitFor();
+      await expect(page.locator('.chat-skeleton[aria-busy="true"]').first()).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-loading.png` });
+    });
   });
 }
