@@ -426,6 +426,28 @@ export function useDeleteUser() {
   });
 }
 
+// ---- secrets (owner only) ----
+
+export function useSecrets() {
+  return useQuery({ queryKey: keys.secrets, queryFn: () => api.listSecrets() });
+}
+
+export function useSetSecret() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { name: string; value: string }) => api.setSecret(vars.name, vars.value),
+    onSuccess: () => invalidate(qc, keys.secrets),
+  });
+}
+
+export function useDeleteSecret() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api.deleteSecret(name),
+    onSuccess: () => invalidate(qc, keys.secrets),
+  });
+}
+
 // ---- config editing (owner only). The document and the raw file are read fresh on demand, and
 // saves never refetch them by themselves: the editor refetches after it has handled the result. ----
 

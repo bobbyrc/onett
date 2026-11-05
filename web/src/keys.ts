@@ -35,4 +35,5 @@ export const keys = {
   runLogs: (id: string) => ['run-logs', id] as const,
   eventsHistory: ['events', 'history'] as const,
   usersAll: ['users'] as const,
+  secrets: ['secrets'] as const,
 };

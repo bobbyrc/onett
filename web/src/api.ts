@@ -37,6 +37,7 @@ import type {
   Task,
   TaskConversation,
   TaskDetail,
+  SecretList,
   User,
 } from './types';
 
@@ -125,6 +126,15 @@ export const setUserPassword = (name: string, password: string) =>
   request<void>('POST', `/users/${encodeURIComponent(name)}/password`, { body: { password } });
 
 export const deleteUser = (name: string) => request<void>('DELETE', `/users/${encodeURIComponent(name)}`);
+
+// ---- secrets (owner only) ----
+
+export const listSecrets = () => request<SecretList>('GET', '/secrets');
+
+export const setSecret = (name: string, value: string) =>
+  request<void>('PUT', `/secrets/${encodeURIComponent(name)}`, { body: { value } });
+
+export const deleteSecret = (name: string) => request<void>('DELETE', `/secrets/${encodeURIComponent(name)}`);
 
 // ---- health and events ----
 

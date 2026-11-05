@@ -21,6 +21,7 @@ import { SignIn } from './pages/SignIn';
 import { Signals } from './pages/Signals';
 import { TaskDetail } from './pages/TaskDetail';
 import { Tasks } from './pages/Tasks';
+import { Secrets } from './pages/Secrets';
 import { Users } from './pages/Users';
 
 export function App() {
@@ -77,6 +78,7 @@ export function App() {
         <Route path="/loops" element={<Loops />} />
         <Route path="/agents" element={<Agents />} />
         <Route path="/config" element={<Config />} />
+        <Route path="/secrets" element={administer ? <Secrets /> : <Navigate to="/" replace />} />
         <Route path="/users" element={administer ? <Users /> : <Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
