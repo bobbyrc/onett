@@ -264,7 +264,7 @@ func TestInterruptedChatTurnIsRunAgain(t *testing.T) {
 	assert.Contains(t, seen[1], chatInterruptedNote)
 }
 
-func TestInterruptedGoalTurnIsNeitherCountedNorBlocking(t *testing.T) {
+func TestInterruptedGoalTurnRerunIsCountedOnceAndJudged(t *testing.T) {
 	f := newChatFixture(t)
 	e1, stop1 := f.engine(time.Now)
 	f.started(e1)
@@ -274,7 +274,7 @@ func TestInterruptedGoalTurnIsNeitherCountedNorBlocking(t *testing.T) {
 	stop1()
 	require.Equal(t, 1, f.goal(g.ID).Turns)
 	_, err = f.st.UpdateGoal(context.Background(), g.ID, func(g *domain.Goal) error {
-		g.StalledTurns = 1 // a turn judged now without progress would block the goal
+		g.StalledTurns = 1 // the previous turn made no progress either
 		return nil
 	})
 	require.NoError(t, err)
@@ -285,16 +285,45 @@ func TestInterruptedGoalTurnIsNeitherCountedNorBlocking(t *testing.T) {
 	_, _ = f.engine(time.Now)
 	f.waitIdle(g.ConversationID)
 
+	// The re-run queued nothing, so the normal guard blocks the goal (it would otherwise sit idle).
+	rtWait(t, 15*time.Second, "the goal guard to judge the re-run", func() bool {
+		return f.goal(g.ID).Status == domain.GoalBlocked
+	})
 	got := f.goal(g.ID)
-	assert.Equal(t, domain.GoalActive, got.Status, "a restart does not block the goal")
-	assert.Equal(t, 0, got.Turns, "the interrupted turn is not counted")
-	assert.Equal(t, 1, got.StalledTurns)
+	assert.Equal(t, 1, got.Turns, "the interrupted turn and its re-run count once")
 	assert.Contains(t, f.seenRuns()[1], chatInterruptedNote)
 	assert.Equal(t, []string{"all done"}, f.assistantTexts(g.ConversationID))
-	// Nothing else is left running.
 	runs, err := f.st.ListRuns(context.Background(), store.RunFilter{Project: "demo", Statuses: []domain.RunStatus{domain.RunStarting, domain.RunRunning}})
 	require.NoError(t, err)
 	assert.Empty(t, runs)
+}
+
+// A conversation left busy after its turn ended (a crash between storing the reply and clearing
+// the flag) is only released: its run is over, so nothing is run again.
+func TestFinishedTurnLeftBusyIsNotRunAgain(t *testing.T) {
+	f := newChatFixture(t)
+	ctx := context.Background()
+	conv, err := f.st.CreateConversation(ctx, domain.Conversation{Title: "chat", Project: "demo"})
+	require.NoError(t, err)
+	now := time.Now().UTC()
+	run, err := f.st.CreateRun(ctx, domain.Run{
+		Project: "demo", Role: "orchestrator", Status: domain.RunSucceeded, StartedAt: now, EndedAt: &now,
+	})
+	require.NoError(t, err)
+	_, err = f.st.UpdateConversation(ctx, conv.ID, func(c *domain.Conversation) error {
+		c.Busy, c.ActiveRunID = true, run.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	e, _ := f.engine(time.Now)
+	f.started(e)
+	f.waitIdle(conv.ID)
+
+	assert.Empty(t, f.conversation(conv.ID).ActiveRunID)
+	_, err = os.Stat(f.seen)
+	assert.True(t, os.IsNotExist(err), "no agent was started")
+	assert.Empty(t, f.assistantTexts(conv.ID))
 }
 
 func mustRun(t *testing.T, f *chatFixture, id string) domain.Run {

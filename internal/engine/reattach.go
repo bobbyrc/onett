@@ -33,7 +33,7 @@ import (
 // owner messages a task run claimed are restored from the run row. A task run whose shim is gone ends
 // interrupted and resumes from its session. A chat turn whose shim is gone is not failed: recover
 // re-runs it by resuming the conversation's session with chatInterruptedNote (rerunInterrupted); an
-// interrupted goal turn is not counted and not judged.
+// interrupted goal turn is exempt from max_goal_turns, and its re-run is judged like any goal turn.
 
 // reattachRun tries to take a running run over again after a restart. It reports whether it did:
 // true means supervision continues in a goroutine and recover must leave the run and its task
@@ -221,31 +221,35 @@ func (e *Engine) resumeChat(ctx context.Context, conv domain.Conversation, agent
 
 // rerunInterrupted is recover's answer to an orchestrator turn whose agent is gone (its shim did
 // not survive, or run_shim was off): rather than lose the turn it starts a new one that resumes
-// the conversation's session with chatInterruptedNote. The conversation stays busy for it. A goal turn
-// interrupted this way is taken back out of the goal's turn count, and the re-run is not judged
-// by the goal guard, so a restart can neither use up the goal's turns nor block it. It reports
-// whether a turn was started; false leaves the conversation for recover to release.
-func (e *Engine) rerunInterrupted(ctx context.Context, c domain.Conversation) bool {
-	if c.TaskID != "" || c.ClosedAt != nil || c.ActiveRunID == "" {
+// the conversation's session with chatInterruptedNote. The conversation stays busy for it.
+// endedByRestart holds the runs recover itself just ended; a busy conversation whose run ended on
+// its own (a crash between storing the reply and clearing the flag) finished its turn, so it is
+// only released. An interrupted goal turn is exempt from max_goal_turns: the re-run takes its
+// place in the goal's count rather than adding one, and is then judged by the goal guard like any
+// goal turn. It reports whether a turn was started; false leaves the conversation for recover
+// to release.
+func (e *Engine) rerunInterrupted(ctx context.Context, c domain.Conversation, endedByRestart map[string]bool) bool {
+	if c.TaskID != "" || c.ClosedAt != nil || c.ActiveRunID == "" || !endedByRestart[c.ActiveRunID] {
 		return false
 	}
 	run, err := e.d.Store.GetRun(ctx, c.ActiveRunID)
 	if err != nil {
 		return false
 	}
+	var before map[string]time.Time
 	if run.GoalTurn {
 		g, err := e.d.Store.GetGoal(ctx, c.GoalID)
 		if err != nil || g.Status != domain.GoalActive {
 			return false // the goal moved on; nothing to resume
 		}
-		if _, err := e.d.Store.UpdateGoal(ctx, g.ID, func(g *domain.Goal) error {
-			if g.Status != domain.GoalActive {
-				return errSkip
-			}
-			g.Turns = max(g.Turns-1, 0)
-			return nil
-		}); err != nil && !errors.Is(err, errSkip) {
-			e.d.Logger.Error("recover: uncount interrupted goal turn", "goal", g.ID, "err", err)
+		// The interrupted turn was counted when it started; the re-run stands in for it.
+		tasks, err := e.d.Store.ListTasks(ctx, store.TaskFilter{GoalID: g.ID, Limit: 500})
+		if err != nil {
+			return false
+		}
+		before = make(map[string]time.Time, len(tasks))
+		for _, t := range tasks {
+			before[t.ID] = t.UpdatedAt
 		}
 	}
 	timeout := e.Config().Limits.RunTimeout.Duration
@@ -253,7 +257,9 @@ func (e *Engine) rerunInterrupted(ctx context.Context, c domain.Conversation) bo
 	return e.goTracked(func() {
 		runCtx, cancel := context.WithTimeout(base, timeout)
 		defer cancel()
-		e.chatReply(runCtx, c, chatInterruptedNote, nil, chatOpts{})
+		if e.chatReply(runCtx, c, chatInterruptedNote, nil, chatOpts{goal: run.GoalTurn}) && run.GoalTurn {
+			e.goalGuard(context.WithoutCancel(runCtx), c.GoalID, before)
+		}
 	})
 }
 
