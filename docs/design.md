@@ -367,10 +367,19 @@ attachments by id. The API and, later, the chat channels both save through `atta
   file keeps rendering and simply lists one attachment fewer (**decision:** the reference is dropped
   rather than shown as "expired", so clients need no extra state).
 
-The orchestrator's prompt for a message ends with a list of its attachments (name, type, size and
-absolute path), labelled as data. The stored message keeps only the owner's text. Task agents run
-in other worktrees, so the note tells the orchestrator to copy what a task needs into the task
-body rather than pass a path.
+The orchestrator's prompt for a message ends with a list of its attachments (name, type, size, ID
+and absolute path), labelled as data. The stored message keeps only the owner's text. Task agents
+run in other worktrees and cannot see those paths, so the note tells the orchestrator to pass an
+ID with `onett task create --attach <id>` (repeatable; `POST /tasks` `attachments`).
+
+A task keeps its attachment references in `task_attachments`, with the name, type and size copied
+in. At the start of every run (so retries and follow-ups get them too) the workspace copies each
+file into the fresh worktree at `.onett-run/attachments/<name>` (mode 0600; a repeated name gets the
+attachment ID as a prefix). That directory is inside `.onett-run/`, which git already ignores, so
+the files never reach a commit. The task agent's prompt lists them by worktree-relative and
+absolute path, and says to open them with Read. **Decision:** unlike a chat message, a task keeps
+the reference when retention deletes the file: the agent is told the file has expired and the run
+goes ahead, because a task's body may depend on it and silently dropping it would hide that.
 
 ### Goals
 

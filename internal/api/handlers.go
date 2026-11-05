@@ -46,6 +46,8 @@ type NewTask struct {
 	ParentID string          `json:"parent_id"`
 	Source   string          `json:"source"`
 	GoalID   string          `json:"goal_id"`
+	// Attachments are IDs of stored chat attachments to copy into the task agent's worktree.
+	Attachments []string `json:"attachments"`
 }
 
 // TaskDetail is the body of GET /tasks/{id}.
@@ -233,7 +235,13 @@ func (s *server) createTask(w http.ResponseWriter, r *http.Request) {
 	if p, ok := principalFrom(r.Context()); ok && p.token {
 		createdByRun = r.Header.Get(RunIDHeader)
 	}
+	atts, err := s.taskAttachments(r.Context(), in.Attachments)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
 	t, err := s.opts.Controller.CreateTask(r.Context(), domain.Task{
+		Attachments:  atts,
 		Project:      in.Project,
 		Kind:         in.Kind,
 		Title:        in.Title,
@@ -250,6 +258,37 @@ func (s *server) createTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, t)
+}
+
+// taskAttachments checks the attachment IDs a new task names and returns them as records. Any
+// conversation's attachment may be used: the orchestrator hands on files from its own chat.
+func (s *server) taskAttachments(ctx context.Context, ids []string) ([]domain.Attachment, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	if s.opts.Attachments == nil {
+		return nil, invalidf("attachments are not available")
+	}
+	if max := s.opts.Controller.Config().Chat.Attachments.MaxPerMessage; len(ids) > max {
+		return nil, invalidf("at most %d attachments per task", max)
+	}
+	seen := map[string]bool{}
+	out := make([]domain.Attachment, 0, len(ids))
+	for _, id := range ids {
+		if seen[id] {
+			return nil, invalidf("attachment %s is listed twice", id)
+		}
+		seen[id] = true
+		a, err := s.opts.Attachments.Get(ctx, id)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, invalidf("unknown attachment %s", id)
+		}
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, nil
 }
 
 // RunIDHeader names the run a request is made from. The CLI sets it from ONETT_RUN_ID.

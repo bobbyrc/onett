@@ -217,6 +217,8 @@ type NewTask struct {
 	ParentID string `json:"parent_id"`
 	Source   string `json:"source"`
 	GoalID   string `json:"goal_id,omitempty"`
+	// Attachments are IDs of chat attachments to hand to the task's agent.
+	Attachments []string `json:"attachments,omitempty"`
 }
 
 // NewGoal is the body of POST /goals.

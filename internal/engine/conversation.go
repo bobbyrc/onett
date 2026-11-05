@@ -432,6 +432,12 @@ func (e *Engine) continueConversation(ctx context.Context, rootID string) {
 
 // startFollowUp creates the child task that continues a conversation whose last task shipped.
 func (e *Engine) startFollowUp(ctx context.Context, root, newest domain.Task) {
+	var atts []domain.Attachment // the follow-up's worktree is new, so it gets the files again
+	for _, a := range root.Attachments {
+		if !a.Expired {
+			atts = append(atts, domain.Attachment{ID: a.ID})
+		}
+	}
 	if _, err := e.createTask(ctx, domain.Task{
 		Project:  root.Project,
 		Kind:     root.Kind,
@@ -442,6 +448,7 @@ func (e *Engine) startFollowUp(ctx context.Context, root, newest domain.Task) {
 		Source:   domain.SourceConversation,
 		ParentID: newest.ID,
 
+		Attachments:     atts,
 		FollowUpPending: true,
 	}); err != nil {
 		e.d.Logger.Error("continue conversation: create follow-up", "task", root.ID, "err", err)

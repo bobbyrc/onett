@@ -131,6 +131,9 @@ type Task struct {
 	// the scheduler may claim this queued task. Onett clears an entry when that task lands, and
 	// cancels this task when one of them ends without landing.
 	WaitingOn []string `json:"waiting_on,omitempty"`
+	// Attachments are the files handed to the task's agent, copied into its worktree. The store
+	// keeps them apart from the task's JSON; on create only the IDs matter.
+	Attachments []Attachment `json:"attachments,omitempty"`
 }
 
 type RunStatus string
@@ -431,6 +434,8 @@ type Attachment struct {
 	Size           int64     `json:"size"`
 	CreatedAt      time.Time `json:"created_at"`
 	Path           string    `json:"-"`
+	// Expired is set on a task's attachment whose file retention has deleted.
+	Expired bool `json:"expired,omitempty"`
 }
 
 // ChatKindInternal marks a ChatMessage as onett's own prompt to an agent, not conversation.

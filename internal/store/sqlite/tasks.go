@@ -42,23 +42,53 @@ func (s *Store) CreateTask(ctx context.Context, t domain.Task) (domain.Task, err
 	if t.UpdatedAt.IsZero() {
 		t.UpdatedAt = now
 	}
-	if err := tasks.insert(ctx, s.db, t); err != nil {
+	// The attachments live in their own table; the task's JSON keeps none of them.
+	ids := make([]string, len(t.Attachments))
+	for i, a := range t.Attachments {
+		ids[i] = a.ID
+	}
+	t.Attachments = nil
+	err := withTx(ctx, s.db, func(tx *sql.Tx) error {
+		if err := tasks.insert(ctx, tx, t); err != nil {
+			return err
+		}
+		return linkTaskAttachments(ctx, tx, t.ID, ids)
+	})
+	if err != nil {
 		return domain.Task{}, fmt.Errorf("create task: %w", err)
 	}
+	return s.withAttachments(ctx, t)
+}
+
+// withAttachments fills t.Attachments from the task_attachments table.
+func (s *Store) withAttachments(ctx context.Context, t domain.Task) (domain.Task, error) {
+	atts, err := loadTaskAttachments(ctx, s.db, t.ID)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	t.Attachments = atts
 	return t, nil
 }
 
 // GetTask returns the task with id, or ErrNotFound.
 func (s *Store) GetTask(ctx context.Context, id string) (domain.Task, error) {
-	return tasks.get(ctx, s.db, id)
+	t, err := tasks.get(ctx, s.db, id)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	return s.withAttachments(ctx, t)
 }
 
 // FindTaskBySourceRef returns the newest task in project with that source_ref, or ErrNotFound.
 func (s *Store) FindTaskBySourceRef(ctx context.Context, project, sourceRef string) (domain.Task, error) {
-	return queryOne[domain.Task](ctx, s.db,
+	t, err := queryOne[domain.Task](ctx, s.db,
 		fmt.Sprintf("task %s/%s", project, sourceRef),
 		`SELECT data FROM tasks WHERE project = ? AND source_ref = ?
 		 ORDER BY created_at DESC, id DESC LIMIT 1`, project, sourceRef)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	return s.withAttachments(ctx, t)
 }
 
 // ListTasks returns tasks matching f, newest first.
@@ -85,12 +115,21 @@ func (s *Store) ListTasks(ctx context.Context, f store.TaskFilter) ([]domain.Tas
 	if err != nil {
 		return nil, fmt.Errorf("list tasks: %w", err)
 	}
+	for i := range out {
+		if out[i], err = s.withAttachments(ctx, out[i]); err != nil {
+			return nil, fmt.Errorf("list tasks: %w", err)
+		}
+	}
 	return out, nil
 }
 
 // UpdateTask applies fn to the task with id in one transaction and returns the saved task.
 func (s *Store) UpdateTask(ctx context.Context, id string, fn func(*domain.Task) error) (domain.Task, error) {
-	return tasks.update(ctx, s.db, id, fn)
+	t, err := tasks.update(ctx, s.db, id, fn)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	return s.withAttachments(ctx, t)
 }
 
 // ClaimNextTask moves the highest-priority, oldest queued task outside busyProjects to running,
@@ -126,5 +165,5 @@ func (s *Store) ClaimNextTask(ctx context.Context, busyProjects []string, held .
 	if err != nil {
 		return domain.Task{}, fmt.Errorf("claim task: %w", err)
 	}
-	return out, nil
+	return s.withAttachments(ctx, out)
 }

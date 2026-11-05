@@ -2851,6 +2851,11 @@ components:
           items:
             type: string
           description: Tasks that must merge (or finish without a pull request) before this queued task may start. Onett clears an entry when its task lands and cancels this task when one ends blocked, failed or cancelled.
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+          description: Files handed to the task's agent. Each is copied into the agent's worktree under `.onett-run/attachments/` for every run. One that `chat.attachments.retention` has deleted stays listed with `expired` set.
         created_by_run:
           type: string
           description: The run that created this task, when an agent created it through the CLI with the API token. Set from the `X-Onett-Run-ID` request header; ignored for a signed-in user.
@@ -3234,6 +3239,9 @@ components:
         created_at:
           type: string
           format: date-time
+        expired:
+          type: boolean
+          description: Only on a task's attachment. Retention deleted the file, so the task's agent does not get it.
 
     AttachmentUpload:
       type: object
@@ -3282,6 +3290,11 @@ components:
         goal_id:
           type: string
           description: The goal this task works toward. It must exist and belong to the same project.
+        attachments:
+          type: array
+          items:
+            type: string
+          description: IDs of chat attachments (from `POST /conversations/{id}/attachments`) to hand to the task's agent. Any conversation's attachment may be used. At most `chat.attachments.max_per_message`; an unknown or repeated ID, or too many, is 400.
 
     GoalStatus:
       type: string
