@@ -167,6 +167,25 @@ for (const vp of VIEWPORTS) {
       });
     }
 
+    // Stacked cards: a title cell with a second line (the task's kind and origin) must sit under
+    // the title at full card width, not squeeze into a column beside it.
+    test('tasks: the title cell stacks its meta line under the title', async ({ page }) => {
+      await open(page, '/tasks');
+      const cell = page.locator('.table .cell-stack').first();
+      const link = await cell.locator('a').boundingBox();
+      const meta = await cell.locator('.muted.small').boundingBox();
+      expect(meta!.y).toBeGreaterThanOrEqual(link!.y + link!.height - 1);
+      expect(meta!.width).toBeGreaterThan(150);
+    });
+
+    // A goal with no controls left (done) would otherwise show a bare "Controls" label.
+    test('goals: a done goal shows no empty Controls row', async ({ page }) => {
+      await open(page, '/goals');
+      const card = page.locator('.table tbody tr').filter({ hasText: 'Short goal' });
+      await expect(card).toHaveCount(1);
+      await expect(card.locator('td[data-label="Controls"]')).toBeHidden();
+    });
+
     test('mobile menu: every nav item is reachable', async ({ page }) => {
       test.fixme(isKnown('menu', 'nav', vp.name), 'known mobile bug: see KNOWN_MOBILE_FAILURES');
       await open(page, '/');
