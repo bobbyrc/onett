@@ -63,7 +63,7 @@ type Deps struct {
 	// StartUpdater starts the self-update command and returns its PID and a function that waits
 	// for it. Default: cmd.Start and cmd.Wait. Tests replace it.
 	StartUpdater func(cmd *exec.Cmd) (pid int, wait func() error, err error)
-	// Heartbeat is woken by the heartbeat loop when its digest has a new item. Default: log it.
+	// Heartbeat is woken by the heartbeat loop when its digest has a new item. Default: a turn in the Operations conversation.
 	Heartbeat HeartbeatWaker
 	// Now defaults to time.Now.
 	Now func() time.Time
@@ -118,6 +118,8 @@ type Engine struct {
 
 	// followups tracks tasks delegated from chat; see chat_followup.go.
 	followups *chatFollowups
+	// opsMu serialises finding or creating the Operations conversation.
+	opsMu sync.Mutex
 
 	// budgetMu guards budgetDay, the local date the daily-budget notice was last sent.
 	budgetMu  sync.Mutex
@@ -180,16 +182,13 @@ func New(d Deps) (*Engine, error) {
 	if d.Notifier == nil {
 		d.Notifier = noopNotifier{}
 	}
-	if d.Heartbeat == nil {
-		d.Heartbeat = logHeartbeatWaker{d.Logger}
-	}
 	if d.Now == nil {
 		d.Now = time.Now
 	}
 	if d.SchedulerTick == 0 {
 		d.SchedulerTick = 5 * time.Second
 	}
-	return &Engine{
+	e := &Engine{
 		d:            d,
 		pre:          newPreflight(),
 		cfg:          d.Config,
@@ -200,7 +199,11 @@ func New(d Deps) (*Engine, error) {
 		projPaused:   map[string]bool{},
 		mergeRetries: map[string]int{},
 		followups:    newChatFollowups(),
-	}, nil
+	}
+	if d.Heartbeat == nil {
+		e.d.Heartbeat = operationsWaker{e}
+	}
+	return e, nil
 }
 
 // Run recovers state left by a previous process, then runs the scheduler and every loop until

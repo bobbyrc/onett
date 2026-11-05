@@ -3181,6 +3181,11 @@ components:
           description: "`agent`, `orchestrator` or `owner:<username>`."
         closed_reason:
           type: string
+        kind:
+          type: string
+          description: >-
+            `operations` for the conversation the heartbeat wakes the orchestrator in; empty for
+            an ordinary chat.
         created_at:
           type: string
           format: date-time

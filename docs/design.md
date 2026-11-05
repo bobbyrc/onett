@@ -455,9 +455,16 @@ restart does not repeat them. When the digest holds a key that is not stored, th
 `HeartbeatWaker.WakeHeartbeat`; otherwise nothing runs and no model is called. If the call fails, the
 keys are not stored and the next tick tries again. `quiet_hours` (`"22:00-07:00"`, daemon local time,
 may wrap midnight) skips the tick; what happened meanwhile is in the first digest after it. The
-loop records `next_run_at` and `item_count` in its `LoopState`. The waker is a log-only stub for now;
-the orchestrator conversation that receives the digest is a later change. The digest quotes agent-written
-text, so whatever hands it to an agent must label it data, not instructions.
+loop records `next_run_at` and `item_count` in its `LoopState`. The waker (`heartbeat_waker.go`)
+posts the digest as a hidden internal message in one "Operations" conversation, created on first
+use and found afterwards by its `kind` (`operations`), not its title, so the owner can rename it. It
+then runs an orchestrator turn there like a chat follow-up; if a turn is already running, the digest
+is queued behind it, never run beside it. The prompt (`heartbeatPrompt`) lists each item, marks new
+ones, labels the item text as data, not instructions, and limits the orchestrator to what the owner
+already asked for (retry, cancel duplicates, re-queue a dependency, file one small fix, resume a
+goal, answer an agent), ending with one `<entity id>: <action | left alone | escalate>` line per
+item. For now an `escalate:` line is only text in the conversation; notifiers and a repeat threshold
+come later.
 Not covered yet: a failed self-update is found from its system event, so it shows only while that
 event is in the project's recent events.
 
