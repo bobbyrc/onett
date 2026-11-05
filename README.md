@@ -40,8 +40,18 @@ Reining it in, per setting:
 - `paused: true` on a project, or `onett project pause NAME`; `onett pause` stops the whole
   factory. Running agents finish.
 - `loops.goals.enabled: false`: no unattended multi-step work; the orchestrator creates tasks only.
-- `loops.self_update.enabled: false`: onett never replaces its own binary (self-update is off
-  unless you enable it).
+- `loops.self_update.enabled: false`: onett never replaces its own binary.
+
+What keeps it running unattended:
+
+- **Rate limits are waited out, not failed.** When Claude Code or Codex reports a usage limit, onett
+  holds new runs on that harness until the reset time (or a growing backoff when none is given),
+  requeues the task without using an attempt, and resumes by itself. `onett status` shows the hold.
+- **Goals get a second chance.** A goal turn that makes no progress gets one explicit "change
+  approach" check-in before the goal blocks. A task that blocks inside an active goal goes to the
+  goal's orchestrator first; you hear about it only if the goal itself blocks.
+- **Self-update is on by default** for the `self_project` once its update command is known, so onett
+  keeps running its own latest release. `loops.self_update.enabled: false` turns it off.
 
 Each is described under [Safety model](#safety-model) and annotated in
 [onett.example.yaml](onett.example.yaml).
