@@ -223,7 +223,7 @@ as in `onett task create -h`.
 
 | Command | What it does |
 |---------|--------------|
-| `serve` | run the daemon: API, web UI and engine |
+| `serve [--addr HOST:PORT]` | run the daemon: API, web UI and engine; `--addr` sets the listen address in the starter config written on first run |
 | `init [--notify ntfy --ntfy-topic T] [--channel telegram\|discord --user-ids IDS]` | write a starter onett.yaml; the flags set up notifications without prompts |
 | `token` | print the API token |
 | `open` | open the web UI (sign in there) |

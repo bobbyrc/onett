@@ -21,7 +21,7 @@ import (
 func TestWriteStarterConfigCreatesOnceAndNeverOverwrites(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "conf", "onett.yaml")
 
-	created, err := writeStarterConfig(path)
+	created, err := writeStarterConfig(path, "")
 	require.NoError(t, err)
 	assert.True(t, created)
 	assert.Equal(t, initialConfig("", "", ""), readFile(t, path), "serve and init share one generator")
@@ -38,7 +38,7 @@ func TestWriteStarterConfigCreatesOnceAndNeverOverwrites(t *testing.T) {
 	assert.Empty(t, cfg.Projects)
 
 	require.NoError(t, os.WriteFile(path, []byte("server:\n  addr: 127.0.0.1:9\n"), 0o600))
-	created, err = writeStarterConfig(path)
+	created, err = writeStarterConfig(path, "")
 	require.NoError(t, err)
 	assert.False(t, created)
 	assert.Equal(t, "server:\n  addr: 127.0.0.1:9\n", readFile(t, path), "an existing file is left alone")
@@ -48,7 +48,7 @@ func TestBrokenConfigStillFailsToLoad(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "onett.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("server: [not, a, map\n"), 0o600))
 
-	created, err := writeStarterConfig(path)
+	created, err := writeStarterConfig(path, "")
 	require.NoError(t, err)
 	assert.False(t, created)
 	_, err = loadConfig(path)
@@ -59,7 +59,7 @@ func TestBrokenConfigStillFailsToLoad(t *testing.T) {
 // The starter config has no projects. The engine must start, idle and stop without errors.
 func TestEngineRunsCleanlyWithStarterConfigAndNoProjects(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "onett.yaml")
-	_, err := writeStarterConfig(path)
+	_, err := writeStarterConfig(path, "")
 	require.NoError(t, err)
 	cfg, err := loadConfig(path)
 	require.NoError(t, err)

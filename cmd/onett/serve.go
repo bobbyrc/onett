@@ -48,8 +48,14 @@ const shutdownTimeout = 10 * time.Second
 func cmdServe(e *env, args []string) error {
 	fs := newFlagSet("serve", e)
 	cfgFlag := fs.String("config", "", "config file (default $ONETT_CONFIG or ~/.config/onett/onett.yaml)")
+	addrFlag := fs.String("addr", "", "listen address for the starter config written on first run (ignored when a config exists)")
 	if _, err := parseArgs(fs, args); err != nil {
 		return err
+	}
+	if *addrFlag != "" {
+		if _, _, err := net.SplitHostPort(*addrFlag); err != nil {
+			return usagef("--addr %q: %v", *addrFlag, err)
+		}
 	}
 	path, err := configPath(*cfgFlag)
 	if err != nil {
@@ -67,7 +73,7 @@ func cmdServe(e *env, args []string) error {
 
 	// First run: no config yet. Write the starter one so the owner can finish setup in the
 	// web UI. A file that exists but is broken still fails in loadConfig.
-	starter, err := writeStarterConfig(path)
+	starter, err := writeStarterConfig(path, *addrFlag)
 	if err != nil {
 		return err
 	}
