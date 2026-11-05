@@ -20,6 +20,13 @@ need no public URL and no open port.
 - **Tokens stay secret.** The config holds only the *name* of an environment variable, never the
   token. Onett never logs the token.
 
+## Easiest: the Setup tab
+
+In the web UI open **Config**, then the **Setup** tab (an owner session is needed). It walks
+through Telegram, Discord and ntfy: how to get the bot token and your user ID, a password field for
+the token, and a **Send test** button. It saves the token and the config entry for you. The manual
+steps below do the same by hand.
+
 ## Keep the bot token in secrets.env
 
 Put the token in `~/.config/onett/secrets.env`, next to the config. Onett reads that file when
