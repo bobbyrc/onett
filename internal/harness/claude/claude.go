@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bobbyrc/onett/internal/harness"
+	"github.com/bobbyrc/onett/internal/runshim"
 )
 
 const harnessType = "claude-code"
@@ -87,34 +88,59 @@ func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session,
 }
 
 // startTurn runs spec as one turn of its conversation's long-lived process; see
-// harness.StartConvTurn. The process is a direct child of onett, not behind the run shim, and
-// outlives ctx, which ends only the turn.
+// harness.StartConvTurn. The process outlives ctx, which ends only the turn. Behind the run shim
+// (limits.run_shim) it also outlives onett, and the next turn after a restart adopts it.
 func (r *runner) startTurn(ctx context.Context, spec harness.Spec) (harness.Session, error) {
-	return harness.StartConvTurn(ctx, spec, harness.ConvStart{
+	cs := harness.ConvStart{
 		Fingerprint: r.fingerprint(spec),
 		Encode:      userLine,
-		Start: func(first []byte) (*harness.Proc, error) {
-			ps := newParser(spec.Model)
-			ps.perTurn = true
+	}
+	// procSpec is the long-lived process's spec; each use gets its own parser.
+	procSpec := func(ps *parser, proc **harness.Proc) harness.ProcSpec {
+		return harness.ProcSpec{
+			Command:       buildArgs(r.cfg, spec),
+			Dir:           spec.Workdir,
+			Env:           mergeEnv(r.cfg.Env, spec.Env),
+			InheritEnv:    r.cfg.InheritEnv,
+			KeepStdinOpen: true,
+			ParseLine:     ps.parseLine,
+			// OnExit only runs from Wait, after the process has started.
+			OnExit: func(exitCode int, _ error) (harness.Result, error) {
+				return ps.result(exitCode, (*proc).StderrTail()), nil
+			},
+		}
+	}
+	newPS := func() *parser {
+		ps := newParser(spec.Model)
+		ps.perTurn = true
+		return ps
+	}
+	shim := r.cfg.Shim
+	runID := ""
+	if shim != nil {
+		runID = harness.ConvRunID(spec.ConversationID)
+		cs.RunDir = runshim.RunDir(shim.DataDir, runID)
+		cs.Replay = func() ([]harness.Event, error) {
+			return harness.ReplayProcessLog(harness.ProcSpec{RunID: runID, Shim: shim, ParseLine: newPS().parseLine}, 0)
+		}
+		cs.Reattach = func(from int64) (*harness.Proc, error) {
 			var proc *harness.Proc
-			p, err := harness.StartProcess(context.Background(), harness.ProcSpec{
-				Command:       buildArgs(r.cfg, spec),
-				Dir:           spec.Workdir,
-				Env:           mergeEnv(r.cfg.Env, spec.Env),
-				InheritEnv:    r.cfg.InheritEnv,
-				RunID:         spec.RunID,
-				Stdin:         string(first),
-				KeepStdinOpen: true,
-				ParseLine:     ps.parseLine,
-				// OnExit only runs from Wait, after the process has started.
-				OnExit: func(exitCode int, _ error) (harness.Result, error) {
-					return ps.result(exitCode, proc.StderrTail()), nil
-				},
-			})
+			ps := procSpec(newPS(), &proc)
+			ps.RunID, ps.Shim = runID, shim
+			p, err := harness.ReattachProcess(context.Background(), ps, from)
 			proc = p
 			return p, err
-		},
-	})
+		}
+	}
+	cs.Start = func(first []byte) (*harness.Proc, error) {
+		var proc *harness.Proc
+		ps := procSpec(newPS(), &proc)
+		ps.RunID, ps.Shim, ps.Stdin = runID, shim, string(first)
+		p, err := harness.StartProcess(context.Background(), ps)
+		proc = p
+		return p, err
+	}
+	return harness.StartConvTurn(ctx, spec, cs)
 }
 
 // fingerprint is what a long-lived process is fixed to when it starts: its command line without
