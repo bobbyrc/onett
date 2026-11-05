@@ -306,6 +306,41 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   /projects:
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Add a project to the config file.
+      description: >-
+        Owner only. The same logic as `onett project add`: the new block is inserted into
+        onett.yaml as text, so comments and formatting elsewhere stay as they were. It is then
+        validated, written atomically and reloaded, as PATCH /config/document does, but with no
+        version check, because the block is inserted into whatever the file holds. Nothing is
+        cloned: an empty `path` means `<data_dir>/repos/<name>`, and the clone must exist there.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewProjectRequest'
+      responses:
+        '200':
+          description: The new project, plus the save result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedProject'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ProblemsError'
+        '500':
+          $ref: '#/components/responses/InternalError'
     get:
       operationId: listProjects
       tags: [projects]
@@ -321,6 +356,44 @@ paths:
                   $ref: '#/components/schemas/ProjectView'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /projects/{name}:
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Remove a project from the config file.
+      description: >-
+        Owner only. Removes the project's block from onett.yaml (comments elsewhere are kept) and
+        reloads. Refused with 409 while the project has queued or running tasks, unless
+        `force=true`. Nothing on disk is deleted: not the clone, the worktrees, nor the project's
+        tasks and runs in the database. When the project is `self_project`, that key is removed too.
+      parameters:
+        - $ref: '#/components/parameters/ProjectName'
+        - name: force
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Remove the project even though it has queued or running tasks.
+      responses:
+        '200':
+          description: Saved and reloaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigSaved'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ProblemsError'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -2239,6 +2312,32 @@ components:
         value:
           description: For set. Any JSON value.
 
+    NewProjectRequest:
+      type: object
+      required: [name, repo]
+      properties:
+        name:
+          type: string
+          description: Letters, digits, `.`, `_` and `-`; must not exist yet.
+        repo:
+          type: string
+          description: The GitHub repository, `owner/name`, or an absolute local path.
+        path:
+          type: string
+          description: The local clone. Default `<data_dir>/repos/<name>`. Nothing is cloned.
+        branch:
+          type: string
+          description: Written as `default_branch`. Default `main`.
+        policy:
+          type: string
+          description: Must name a configured policy. Default `default`.
+        instructions:
+          type: string
+          description: Appended to every agent prompt for this project.
+    CreatedProject:
+      allOf:
+        - $ref: '#/components/schemas/ProjectView'
+        - $ref: '#/components/schemas/ConfigSaved'
     ConfigSaved:
       type: object
       required: [version, restart_required]
