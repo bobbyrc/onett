@@ -2,6 +2,8 @@ package claude
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"os"
 	"syscall"
 	"testing"
@@ -22,6 +24,15 @@ func TestMain(m *testing.M) {
 		os.Exit(runshim.Main(os.Args[1:], os.Stderr))
 	}
 	os.Exit(m.Run())
+}
+
+// uniqueConv names a conversation for one test run. The shim's socket path depends on the run
+// ID alone, so a fixed name would collide with a shim an earlier, interrupted run left behind.
+func uniqueConv(t *testing.T) string {
+	t.Helper()
+	var b [4]byte
+	_, _ = rand.Read(b[:])
+	return t.Name() + "-" + hex.EncodeToString(b[:])
 }
 
 func newShimRunner(t *testing.T, conv string) *runner {
@@ -72,7 +83,7 @@ func shimTurn(t *testing.T, r *runner, conv, dir, prompt string) harness.Result 
 // StopConversations lets go of a process behind a shim, as a shutdown of onett does; the next
 // turn (here in the same test process, in life in the next onett) must find it again.
 func TestConversationProcessSurvivesARestart(t *testing.T) {
-	conv := t.Name()
+	conv := uniqueConv(t)
 	r := newShimRunner(t, conv)
 	dir := t.TempDir()
 
@@ -91,7 +102,7 @@ func TestConversationProcessSurvivesARestart(t *testing.T) {
 }
 
 func TestChangedSettingsReplaceTheProcessAfterARestart(t *testing.T) {
-	conv := t.Name()
+	conv := uniqueConv(t)
 	r := newShimRunner(t, conv)
 
 	first := shimTurn(t, r, conv, t.TempDir(), "one")

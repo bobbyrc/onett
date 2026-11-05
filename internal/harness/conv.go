@@ -227,17 +227,23 @@ func reattachConv(spec Spec, cs ConvStart) *convProc {
 	// Anything unreadable below counts as "not reusable", so that a shim still holding the
 	// socket is stopped rather than left to block the new one.
 	fp, _ := os.ReadFile(cs.RunDir + "/" + convFingerprintFile)
-	evs, replayErr := cs.Replay()
+	// One size for both the idle check and the reattach point: a shim still writing must not
+	// move the line between "already seen" and "for the next turn".
 	fi, statErr := os.Stat(runshim.StreamPath(cs.RunDir))
 	if statErr != nil {
 		return nil
 	}
-	p, err := cs.Reattach(fi.Size())
+	size := fi.Size()
+	evs, replayErr := cs.Replay()
+	for len(evs) > 0 && evs[len(evs)-1].Offset > size {
+		evs = evs[:len(evs)-1] // written after the snapshot
+	}
+	p, err := cs.Reattach(size)
 	if err != nil {
 		return nil // the shim is gone
 	}
 	idle := !st.Exited && replayErr == nil && len(evs) > 0 &&
-		evs[len(evs)-1].TurnResult != nil && evs[len(evs)-1].Offset == fi.Size()
+		evs[len(evs)-1].TurnResult != nil && evs[len(evs)-1].Offset == size
 	if string(fp) != cs.Fingerprint || !idle {
 		p.Cancel()
 		_, _ = p.Wait()
