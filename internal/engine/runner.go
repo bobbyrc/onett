@@ -231,24 +231,47 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 	// agent may have written, so onett's tokens (GH_TOKEN and the like) must not reach them.
 	cmdEnv := sysproc.AgentEnv(e.Config().Harness[agent.Harness].InheritEnv, env)
 
-	if len(p.Setup) > 0 {
+	// setupNote tells the agent about setup it has to deal with itself. setupOwed is set when
+	// setup did not pass before the agent started; it is run again after the agent's turn.
+	setupNote, setupOwed := "", false
+	switch {
+	case len(p.Setup) == 0:
+	case len(conflicts) > 0:
+		// Setup would run on a tree with conflict markers (npm ci fails to parse a conflicted
+		// package.json), and that is the agent's to fix first. It runs setup itself afterwards.
+		setupOwed = true
+		setupNote = setupDeferredSection(p.Setup)
+	default:
 		if f := runCommands(ctx, p.Setup, ws.Dir, cmdEnv); f != nil {
 			if stopped() {
 				return
 			}
-			// The output goes on the run for the owner, not into the task body: the next agent
-			// reads the body, and setup failures are usually infrastructure it cannot fix.
-			e.finishRun(bg, run.ID, domain.RunFailed, "setup failed: "+f.name+"\n\n"+f.context())
 			e.d.Bus.Emit(bg, domain.EvSystem, t.Project, t.ID, run.ID,
 				fmt.Sprintf("setup %s failed: %v", f.name, f.err), nil)
-			e.requeueOrBlock(bg, t.ID, "setup failed: "+f.name, "")
-			return
+			if transientFailure(f.output) {
+				// Network or registry trouble: a retry may well pass, but not in a tight loop.
+				// The run stays open while it waits, so the backoff counts between attempts.
+				select {
+				case <-time.After(setupBackoff):
+				case <-ctx.Done():
+				}
+				if stopped() {
+					return
+				}
+				e.finishRun(bg, run.ID, domain.RunFailed, "setup failed: "+f.name+"\n\n"+f.context())
+				e.requeueOrBlock(bg, t.ID, "setup failed: "+f.name, "")
+				return
+			}
+			// The same command would fail the same way on this tree, so a retry is pointless.
+			// The agent can change the tree: hand it the failure as the first thing to fix.
+			setupOwed = true
+			setupNote = setupFailedSection(f)
 		}
 	}
 
 	// Owner messages queued for this task's agent go with this run: a follow-up resumes the
 	// agent's session with just the messages; a first run gets them after the task prompt.
-	prompt := buildTaskPrompt(t, p, parent, conflicts)
+	prompt := buildTaskPrompt(t, p, parent, conflicts) + setupNote
 	resumeID := ""
 	root, claimed := e.claimOwnerMessages(bg, t)
 	if t.FollowUpPending {
@@ -261,7 +284,7 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 		fail = e.failFollowUp(claimed)
 		texts, _ := messageTexts(claimed)
 		if prev, ok := e.resumeSession(bg, root); ok {
-			prompt = ownerPrompt(texts) + "\n\n" + mergeConflictSection(p, conflicts)
+			prompt = ownerPrompt(texts) + "\n\n" + mergeConflictSection(p, conflicts) + setupNote
 			prompt = strings.TrimRight(prompt, "\n") + "\n\n" + resumeReportReminder
 			resumeID = prev.SessionID
 		} else {
@@ -368,6 +391,21 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 	case domain.ResultFailed:
 		fail(bg, t.ID, "agent reported failure", result.Summary)
 		return
+	}
+
+	// Setup the agent was asked to fix or run must pass now. If it still fails after the agent's
+	// turn, the task is blocked with the real error, not retried.
+	if setupOwed {
+		if f := runCommands(ctx, p.Setup, ws.Dir, cmdEnv); f != nil {
+			if ctx.Err() != nil {
+				stopped()
+				return
+			}
+			e.d.Bus.Emit(bg, domain.EvSystem, t.Project, t.ID, run.ID,
+				fmt.Sprintf("setup %s failed: %v", f.name, f.err), nil)
+			e.blockTask(bg, t.ID, "setup failed: "+f.name+"\n\n"+f.context())
+			return
+		}
 	}
 
 	// completed or no_changes: the project's checks gate what is committed and pushed.
