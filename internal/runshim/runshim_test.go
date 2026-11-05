@@ -391,9 +391,9 @@ func TestStartRunsDetachedShim(t *testing.T) {
 	st, err := c.Status()
 	require.NoError(t, err)
 	assert.NotEqual(t, os.Getpid(), st.ShimPID)
-	sid, err := syscall.Getsid(st.ShimPID)
+	pgid, err := syscall.Getpgid(st.ShimPID)
 	require.NoError(t, err)
-	assert.Equal(t, st.ShimPID, sid, "the shim leads its own session, detached from the caller")
+	assert.Equal(t, st.ShimPID, pgid, "the shim leads its own session (and process group), detached from the caller")
 	_, err = os.Stat(filepath.Join(spec.RunDir, specName))
 	assert.True(t, os.IsNotExist(err), "the spec file holds the environment and is removed")
 
