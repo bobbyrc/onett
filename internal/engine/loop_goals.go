@@ -107,7 +107,7 @@ func (e *Engine) goalStep(ctx context.Context, p *config.Project, g domain.Goal)
 
 	prompt := goalCheckIn(g, tasks, evidenceEnv(p))
 	msg, err := e.d.Store.AppendChatMessage(ctx, domain.ChatMessage{
-		ConversationID: conv.ID, Role: "system", Text: prompt,
+		ConversationID: conv.ID, Role: "system", Kind: domain.ChatKindInternal, Text: prompt,
 	})
 	if err != nil {
 		e.releaseConversation(ctx, conv.ID)

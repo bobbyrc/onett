@@ -168,7 +168,7 @@ func (e *Engine) chatFollowupStart(ctx context.Context, convID string, byID map[
 		return
 	}
 	msg, err := e.d.Store.AppendChatMessage(ctx, domain.ChatMessage{
-		ConversationID: conv.ID, Role: "system", Text: prompt,
+		ConversationID: conv.ID, Role: "system", Kind: domain.ChatKindInternal, Text: prompt,
 	})
 	if err != nil {
 		e.d.Logger.Error("chat followup: store prompt", "conversation", conv.ID, "err", err)

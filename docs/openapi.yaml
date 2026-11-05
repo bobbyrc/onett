@@ -3112,6 +3112,9 @@ components:
         queued:
           type: boolean
           description: True while the message waits for the agent's current run to finish.
+        kind:
+          type: string
+          description: "`internal` on a prompt onett wrote to the orchestrator itself (follow-up or goal check-in); clients hide it. Omitted otherwise."
         created_at:
           type: string
           format: date-time
