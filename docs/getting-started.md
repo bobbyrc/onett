@@ -8,6 +8,14 @@ Terms used here are defined in the [README](../README.md#terms-used-below). In s
 is a unit of work, a **run** is one agent attempt at it, a **role** picks the agent and its
 instructions, and an **approval** is a decision onett is waiting on from you.
 
+**The web UI is the easiest way through this guide.** After step 2, run `./onett serve`, open the
+link it prints, create the owner account and follow the "Finish setting up onett" card on the
+Overview: add a project on the **Projects** page, check agents and policy on the **Config** page,
+connect Telegram, Discord or ntfy on its **Setup** tab, and set secrets on its **Secrets** tab.
+The steps below show the same setup with the CLI and `onett.yaml`, which suits scripts and
+config-as-code; each step notes where the UI does it. The Config page's settings are kept in step
+with the config by [config-ui-coverage.md](config-ui-coverage.md) and a test.
+
 ## 1. Check the prerequisites
 
 - `git`, and `gh` logged in to GitHub (`gh auth status`). Onett uses `gh` to open and merge PRs.
@@ -48,6 +56,9 @@ pwd    # note this path; you will need it in step 4
 `--add-readme` gives the repository a `main` branch, which onett expects by default.
 
 ## 4. Write the config
+
+*In the UI:* skip `init`. Run `./onett serve` (step 5) and use **Projects**, **Add project**, then
+pause the new project from the same page. The rest of this step is the file-based way.
 
 ```sh
 ./onett init --project trial --repo YOUR_GITHUB_USER/onett-trial --path /absolute/path/to/onett-trial
