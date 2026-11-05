@@ -126,6 +126,7 @@ export interface Run {
   deadline_at?: string;
   start_sha?: string;
   remote_sha?: string;
+  goal_turn?: boolean;
 }
 
 export interface LogLine {
@@ -256,6 +257,8 @@ export interface ChatMessage {
   run_id?: string;
   created_at: string;
   queued?: boolean;
+  /** "internal" marks onett's own prompt to the orchestrator; the UI hides it. */
+  kind?: string;
 }
 
 export interface TaskConversation {

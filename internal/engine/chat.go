@@ -22,15 +22,40 @@ type chatTurnResult struct {
 	RunID     string // "" when no run started
 	SessionID string // the harness session to resume next turn, "" if unknown
 	Status    domain.RunStatus
+	// Detached: onett is shutting down and the agent goes on running behind its shim. The turn is
+	// not over; the next start reattaches to it (reattach.go), so nothing is stored or released.
+	Detached bool
 }
+
+// chatOpts says what kind of turn chatReply runs.
+type chatOpts struct {
+	// goal marks a goal check-in turn: the run records it so a restart can still evaluate the
+	// goal's progress when the turn ends (see finishGoalTurn).
+	goal bool
+}
+
+// chatInterruptedNote is the prompt of a turn re-run because onett restarted mid-turn and the agent
+// behind it was gone. The session resumes, so the agent has its own history.
+const chatInterruptedNote = "onett was restarted mid-turn; your previous turn was interrupted. " +
+	"Re-check state with the onett CLI before acting, since some commands may already have run."
 
 // chatReply runs one orchestrator turn and stores its reply. The caller has already marked the
 // conversation busy; this always clears the flag, even when the turn could not start. text is
 // the turn's prompt and claimed the owner messages riding in it. When the turn succeeded and
 // messages were queued meanwhile, the next turn starts with them; after any other outcome they
 // stay queued until the owner sends or flushes (a denial or a stall is terminal).
-func (e *Engine) chatReply(ctx context.Context, conv domain.Conversation, text string, claimed []string) {
-	res := e.chatTurn(ctx, conv, text, claimed)
+// It reports whether the turn ended; false means it was detached at shutdown and is still running.
+func (e *Engine) chatReply(ctx context.Context, conv domain.Conversation, text string, claimed []string, opts chatOpts) bool {
+	res := e.chatTurn(ctx, conv, text, claimed, opts)
+	return e.finishChat(ctx, conv, res, claimed)
+}
+
+// finishChat stores a turn's reply and releases the conversation. It is the end of every turn,
+// whether it ran in this process or was reattached after a restart.
+func (e *Engine) finishChat(ctx context.Context, conv domain.Conversation, res chatTurnResult, claimed []string) bool {
+	if res.Detached {
+		return false
+	}
 	reply := res.Reply
 	if reply == "" {
 		reply = "_(no reply)_"
@@ -59,7 +84,7 @@ func (e *Engine) chatReply(ctx context.Context, conv domain.Conversation, text s
 		return nil
 	}); err != nil {
 		e.d.Logger.Error("chat: release conversation", "conversation", conv.ID, "err", err)
-		return
+		return true
 	}
 	// A message queued while this turn ended may have been stored after the queue was last
 	// looked at; the busy flag is clear now, so this check cannot miss it.
@@ -68,11 +93,12 @@ func (e *Engine) chatReply(ctx context.Context, conv domain.Conversation, text s
 			e.d.Logger.Error("chat: send queued messages", "conversation", conv.ID, "err", err)
 		}
 	}
+	return true
 }
 
 // chatTurn runs the orchestrator harness for one prompt. claimed are the messages in it; once
 // the run exists they are stamped with its ID.
-func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text string, claimed []string) chatTurnResult {
+func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text string, claimed []string, opts chatOpts) chatTurnResult {
 	fail := func(err error) chatTurnResult {
 		return chatTurnResult{Reply: "I can't run: " + err.Error()}
 	}
@@ -93,11 +119,14 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 		return fail(err)
 	}
 
+	now := e.d.Now().UTC()
+	deadline := now.Add(cfg.Limits.RunTimeout.Duration)
 	// The run row is bookkeeping for a reply that is already underway, so it is written even when
 	// shutdown has cancelled ctx; otherwise the reply would fail to start and leave no run.
 	run, err := e.d.Store.CreateRun(context.WithoutCancel(ctx), domain.Run{
 		Project: conv.Project, Role: "orchestrator", Harness: agent.Harness, Model: agent.Model,
-		Status: domain.RunStarting, Workdir: dir,
+		Status: domain.RunStarting, Workdir: dir, GoalTurn: opts.goal,
+		StartedAt: now, LastOutputAt: now, DeadlineAt: &deadline,
 	})
 	if err != nil {
 		return fail(err)
@@ -107,40 +136,33 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 	// messages in this prompt name the run.
 	e.markTurnStarted(context.WithoutCancel(ctx), conv, run.ID, claimed)
 
-	runCtx, cancel := context.WithTimeout(ctx, cfg.Limits.RunTimeout.Duration)
+	// Like a task run, the turn's context does not end with ctx: at shutdown cancelAllRuns ends
+	// it, so that supervise can tell a shutdown (let the agent go on) from a cancel (kill it).
+	runCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cfg.Limits.RunTimeout.Duration)
 	defer cancel()
 	ar := e.registerRun(run.ID, "", conv.Project, cancel)
 	defer e.unregisterRun(run.ID)
 	if errors.Is(ctx.Err(), context.Canceled) {
 		// Shutdown cancelled the reply before its run was registered, so cancelRun missed it.
 		ar.reason.CompareAndSwap(nil, errStopped.Error())
+		cancel()
 	}
 
-	// The orchestrator alone gets the onett API token: it runs the onett CLI.
-	env := make(map[string]string, len(e.d.AgentEnv)+len(e.d.OrchestratorEnv)+4)
-	for k, v := range e.d.AgentEnv {
-		env[k] = v
+	// A harness that can reattach is started without the run's cancellation: supervise ends the
+	// session when the context is done, and at shutdown it detaches instead.
+	startCtx := runCtx
+	if _, ok := h.(harness.Reattacher); ok {
+		startCtx = context.WithoutCancel(runCtx)
 	}
-	for k, v := range e.d.OrchestratorEnv {
-		env[k] = v
-	}
-	env["ONETT_CONVERSATION_ID"] = conv.ID
-	env["ONETT_ROLE"] = "orchestrator"
-	env["ONETT_RUN_ID"] = run.ID
-	if conv.GoalID != "" {
-		// Tasks the orchestrator creates in a goal conversation are linked to the goal.
-		env["ONETT_GOAL"] = conv.GoalID
-	}
-
 	prompt := text + factorySnapshot(cfg)
-	sess, err := h.Start(runCtx, harness.Spec{
+	sess, err := h.Start(startCtx, harness.Spec{
 		RunID:           run.ID,
 		Workdir:         dir,
 		Prompt:          prompt,
 		Instructions:    chatInstructions(conv, base),
 		Model:           agent.Model,
 		ResumeSessionID: conv.SessionID,
-		Env:             env,
+		Env:             e.chatEnv(conv, run.ID),
 		Args:            agent.Args,
 	})
 	if err != nil {
@@ -150,7 +172,33 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 	ar.setSession(sess)
 	e.appendRunLog(ctx, run.ID, domain.LogPrompt, prompt)
 
-	res, status, reason := e.supervise(runCtx, run, sess, ar, func(ev harness.Event) {
+	return e.superviseChat(runCtx, conv, agent, run, sess, ar)
+}
+
+// chatEnv is the environment of an orchestrator turn. It alone gets the onett API token: it runs
+// the onett CLI.
+func (e *Engine) chatEnv(conv domain.Conversation, runID string) map[string]string {
+	env := make(map[string]string, len(e.d.AgentEnv)+len(e.d.OrchestratorEnv)+4)
+	for k, v := range e.d.AgentEnv {
+		env[k] = v
+	}
+	for k, v := range e.d.OrchestratorEnv {
+		env[k] = v
+	}
+	env["ONETT_CONVERSATION_ID"] = conv.ID
+	env["ONETT_ROLE"] = "orchestrator"
+	env["ONETT_RUN_ID"] = runID
+	if conv.GoalID != "" {
+		// Tasks the orchestrator creates in a goal conversation are linked to the goal.
+		env["ONETT_GOAL"] = conv.GoalID
+	}
+	return env
+}
+
+// superviseChat follows a turn's session to its end and turns the outcome into the reply to
+// store. It is the second half of chatTurn and what a reattached turn runs (resumeChat).
+func (e *Engine) superviseChat(ctx context.Context, conv domain.Conversation, agent config.Agent, run domain.Run, sess harness.Session, ar *activeRun) chatTurnResult {
+	res, status, reason := e.supervise(ctx, run, sess, ar, func(ev harness.Event) {
 		if ev.Kind != domain.LogText || ev.Text == "" {
 			return
 		}
@@ -165,6 +213,9 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 		}
 	})
 
+	if status == domain.RunRunning {
+		return chatTurnResult{Detached: true}
+	}
 	reply := res.FinalText
 	if res.RateLimit != nil && status == domain.RunCancelled {
 		// A chat turn cannot wait for the limit to lift, so the owner is told and sends again.

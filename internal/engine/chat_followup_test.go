@@ -112,6 +112,7 @@ func TestChatFollowupOneTurnAfterDebounce(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, msgs)
 	assert.Equal(t, "system", msgs[0].Role)
+	assert.Equal(t, domain.ChatKindInternal, msgs[0].Kind, "the prompt is hidden from the owner")
 	for _, m := range msgs {
 		assert.NotEqual(t, "user", m.Role)
 	}

@@ -104,6 +104,17 @@ describe('orchestratorEntries', () => {
     );
     expect(noLogs.map((x) => x.kind)).toEqual(['owner', 'text']);
   });
+  it('hides internal system prompts but shows other system messages', () => {
+    const e = orchestratorEntries(
+      [
+        msg({ id: 'a', role: 'system', kind: 'internal', text: '[onett] Tasks settled' }),
+        msg({ id: 'b', role: 'system', text: 'Run ended: denied' }),
+      ],
+      {},
+    );
+    expect(e).toHaveLength(1);
+    expect(e[0]).toMatchObject({ kind: 'system', text: 'Run ended: denied' });
+  });
   it('shows queued messages last', () => {
     const e = orchestratorEntries(
       [

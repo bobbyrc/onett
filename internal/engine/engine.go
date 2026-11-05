@@ -285,18 +285,23 @@ func (e *Engine) recover(ctx context.Context) error {
 	}
 	// reattached holds the tasks whose run was picked up again: they are still running.
 	reattached := map[string]bool{}
+	reattachedRuns := map[string]bool{} // by run ID: includes orchestrator turns, which have no task
 	// interrupted holds the tasks whose run lost its agent to the restart: they resume, for free.
 	interrupted := map[string]bool{}
+	endedByRestart := map[string]bool{} // by run ID: runs this sweep ended, as opposed to ones that had finished
 	for _, r := range runs {
 		if e.reattachRun(ctx, r) {
 			reattached[r.TaskID] = true
+			reattachedRuns[r.ID] = true
 			continue
 		}
 		status, msg := domain.RunFailed, "onett restarted during this run"
 		if e.interruptible(ctx, r) {
 			status, msg = domain.RunInterrupted, "onett restarted and the agent's shim is gone; the run resumes from its session"
 			interrupted[r.TaskID] = true
+			e.ingestStreamLog(ctx, r)
 		}
+		endedByRestart[r.ID] = true
 		now := e.d.Now().UTC()
 		if _, err := e.d.Store.UpdateRun(ctx, r.ID, func(r *domain.Run) error {
 			r.Status, r.Error, r.EndedAt = status, msg, &now
@@ -352,7 +357,15 @@ func (e *Engine) recover(ctx context.Context) error {
 		return err
 	}
 	for _, c := range convs {
+		if c.Busy && reattachedRuns[c.ActiveRunID] {
+			continue // its turn went on running behind its shim and has been taken over
+		}
 		if c.Busy {
+			// An orchestrator turn that lost its agent is run again; any other busy
+			// conversation is released.
+			if e.rerunInterrupted(ctx, c, endedByRestart) {
+				continue
+			}
 			if _, err := e.d.Store.UpdateConversation(ctx, c.ID, func(c *domain.Conversation) error {
 				c.Busy = false
 				c.ActiveRunID = ""

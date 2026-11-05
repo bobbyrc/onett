@@ -237,17 +237,19 @@ func (e *Engine) saveProgress(ctx context.Context, runID string, offset int64, l
 	}
 }
 
-// storeRunLogs appends lines to the run's log and tells subscribers.
-func (e *Engine) storeRunLogs(ctx context.Context, run domain.Run, lines []domain.LogLine) {
+// storeRunLogs appends lines to the run's log and tells subscribers. It logs a failure and also
+// returns it, for callers that must not move on past lines that were not stored.
+func (e *Engine) storeRunLogs(ctx context.Context, run domain.Run, lines []domain.LogLine) error {
 	if len(lines) == 0 {
-		return
+		return nil
 	}
 	stored, err := e.d.Store.AppendRunLogs(ctx, run.ID, lines)
 	if err != nil {
 		e.d.Logger.Error("store run log", "run", run.ID, "err", err)
-		return
+		return err
 	}
 	e.d.Bus.Emit(ctx, domain.EvRunLog, run.Project, run.TaskID, run.ID, "", stored)
+	return nil
 }
 
 // appendRunLog stores one line of kind on the run's log, as supervise does for agent output.

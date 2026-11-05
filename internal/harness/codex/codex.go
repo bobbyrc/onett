@@ -65,7 +65,16 @@ func (r *runner) Reattach(ctx context.Context, spec harness.Spec, from int64) (h
 	return p, nil
 }
 
-var _ harness.Reattacher = (*runner)(nil)
+// ReplayLog returns the output a dead shim's log holds from offset from on.
+func (r *runner) ReplayLog(spec harness.Spec, from int64) ([]harness.Event, error) {
+	ps, _ := r.procSpec(spec)
+	return harness.ReplayProcessLog(ps, from)
+}
+
+var (
+	_ harness.Reattacher  = (*runner)(nil)
+	_ harness.LogReplayer = (*runner)(nil)
+)
 
 // procSpec builds the process spec for spec, with a new parser, so a spec serves one process or
 // reattachment only. OnExit reads the Proc through the returned pointer, which the caller sets

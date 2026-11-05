@@ -1,11 +1,14 @@
 package harness
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"syscall"
 	"time"
@@ -196,4 +199,48 @@ func (p *Proc) readShim(stream *runshim.Stream, client *runshim.Client, parse fu
 		}
 	}
 	exitErr = fmt.Errorf("lost the run shim before the process exited")
+}
+
+// ReplayProcessLog parses a finished shim's stream.log without a shim to talk to: it is what is
+// left when the daemon died and the shim went with it. The whole log goes through the parser, so
+// its state is rebuilt, but only events for lines at or after from are returned, with Event.Offset
+// set on the last event of each line as in a live session. A last line without its newline was
+// cut short by the crash and is ignored. A missing log is not an error: there is nothing to replay.
+func ReplayProcessLog(p ProcSpec, from int64) ([]Event, error) {
+	if p.Shim == nil || p.RunID == "" || p.ParseLine == nil {
+		return nil, errors.New("replay log: needs a run ID, shim options and a parser")
+	}
+	f, err := os.Open(runshim.StreamPath(runshim.RunDir(p.Shim.DataDir, p.RunID)))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("replay log: %w", err)
+	}
+	defer f.Close()
+	br := bufio.NewReaderSize(f, 64<<10)
+	var out []Event
+	var off int64
+	for {
+		line, err := br.ReadString('\n')
+		if err != nil {
+			if err != io.EOF {
+				return out, fmt.Errorf("replay log: %w", err)
+			}
+			return out, nil
+		}
+		next := off + int64(len(line))
+		if text := strings.TrimRight(line, "\r\n"); text != "" {
+			evs := p.ParseLine(text)
+			if off >= from {
+				for i, ev := range evs {
+					if i == len(evs)-1 {
+						ev.Offset = next
+					}
+					out = append(out, ev)
+				}
+			}
+		}
+		off = next
+	}
 }

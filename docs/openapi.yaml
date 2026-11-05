@@ -2867,6 +2867,9 @@ components:
         remote_sha:
           type: string
           description: origin/<branch> when the agent started; empty when the branch was not on origin.
+        goal_turn:
+          type: boolean
+          description: The run is an orchestrator turn that was a goal check-in. Lets a restarted onett run the goal's after-turn check.
 
     LogLine:
       type: object
@@ -3120,6 +3123,9 @@ components:
         queued:
           type: boolean
           description: True while the message waits for the agent's current run to finish.
+        kind:
+          type: string
+          description: "`internal` on a prompt onett wrote to the orchestrator itself (follow-up or goal check-in); clients hide it. Omitted otherwise."
         created_at:
           type: string
           format: date-time
