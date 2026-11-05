@@ -25,6 +25,11 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `server.allowed_hosts.*` | string | yes |  |
 | `server.retain_events` | duration | yes |  |
 | `server.retain_run_logs` | duration | yes |  |
+| `chat` | section | yes |  |
+| `chat.attachments` | section | yes |  |
+| `chat.attachments.max_size` | string | yes |  |
+| `chat.attachments.max_per_message` | int | yes |  |
+| `chat.attachments.retention` | duration | yes |  |
 | `limits` | section | yes |  |
 | `limits.max_concurrent_runs` | int | yes |  |
 | `limits.max_runs_per_project` | int | yes |  |

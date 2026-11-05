@@ -394,6 +394,21 @@ type ChatMessage struct {
 	CreatedAt      time.Time `json:"created_at"`
 	// Queued is an owner message held until the agent's current run finishes.
 	Queued bool `json:"queued,omitempty"`
+	// Attachments are the files sent with the message. When storing a message only the IDs
+	// matter; the store fills in the rest on read. A file that retention has deleted is left out.
+	Attachments []Attachment `json:"attachments,omitempty"`
+}
+
+// Attachment is a file the owner sent in chat. The bytes live on disk under the data directory;
+// Path is that location and is never shown through the API.
+type Attachment struct {
+	ID             string    `json:"id"`
+	ConversationID string    `json:"conversation_id"`
+	Name           string    `json:"name"` // sanitised file name, not a path
+	MIME           string    `json:"mime"` // sniffed from the content, never from the client
+	Size           int64     `json:"size"`
+	CreatedAt      time.Time `json:"created_at"`
+	Path           string    `json:"-"`
 }
 
 // TaskConversation is the owner's view of a task agent: the root task, its conversation, the

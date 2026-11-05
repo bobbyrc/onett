@@ -121,7 +121,9 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /conversations` | | `[]Conversation` |
 | `POST /conversations` | `{"title":"…","project":"…"}` | `Conversation` (201) |
 | `GET /conversations/{id}` | | 404 for a task agent's conversation (use `/tasks/{id}/conversation`). `{"conversation":Conversation,"messages":[]ChatMessage}` |
-| `POST /conversations/{id}/messages` | `{"text":"…"}` | `ChatMessage` (202); 404 for a task agent's conversation. Sent while the orchestrator works, it reaches the agent at once if the harness takes input (`run_id` set), else is queued (`queued: true`) |
+| `POST /conversations/{id}/attachments` | multipart, one file in the field `file` | `{id,name,mime,size}` (201). Type is sniffed from the bytes; over `chat.attachments.max_size` is 413. 404 for a task agent's conversation. A signed-in person only (the API token gets 403) |
+| `GET /conversations/{id}/attachments/{aid}` | | The file. Images and PDFs inline, anything else as a download, always `nosniff`. 404 for another conversation's attachment or an expired one. A signed-in person only |
+| `POST /conversations/{id}/messages` | `{"text":"…","attachments":["id",…]}` (`text` may be empty with attachments; at most `chat.attachments.max_per_message`, each from this conversation, else 400) | `ChatMessage` (202, with `attachments`); 404 for a task agent's conversation. Sent while the orchestrator works, it reaches the agent at once if the harness takes input (`run_id` set), else is queued (`queued: true`) |
 | `POST /conversations/{id}/flush` | | 202; sends the queued messages now (no-op when empty or busy) |
 | `PATCH /messages/{id}` | `{"text":"…"}` | `ChatMessage`; 409 once delivered. A signed-in person only (the API token gets 403) |
 | `DELETE /messages/{id}` | | 204; 409 once delivered. A signed-in person only (the API token gets 403) |

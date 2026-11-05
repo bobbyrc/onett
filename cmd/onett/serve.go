@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/bobbyrc/onett/internal/api"
+	"github.com/bobbyrc/onett/internal/attach"
 	"github.com/bobbyrc/onett/internal/channel"
 	_ "github.com/bobbyrc/onett/internal/channel/all"
 	"github.com/bobbyrc/onett/internal/config"
@@ -136,14 +137,18 @@ func cmdServe(e *env, args []string) error {
 	var liveCfg atomic.Pointer[config.Config]
 	liveCfg.Store(cfg)
 	agentEnv, orchestratorEnv := serveEnvs(exe, cfg.Server.Addr, token)
+	attachments := attach.New(st, filepath.Join(cfg.Server.DataDir, "attachments"), func() int64 {
+		return int64(liveCfg.Load().Chat.Attachments.MaxSize)
+	})
 	eng, err := engine.New(engine.Deps{
-		Config:     cfg,
-		Store:      st,
-		Bus:        bus,
-		Notifier:   notifier,
-		Workspaces: workspace.New(filepath.Join(cfg.Server.DataDir, "worktrees")),
-		Logger:     logger,
-		SCMFor:     scmFor,
+		Config:      cfg,
+		Store:       st,
+		Bus:         bus,
+		Notifier:    notifier,
+		Workspaces:  workspace.New(filepath.Join(cfg.Server.DataDir, "worktrees")),
+		Attachments: attachments,
+		Logger:      logger,
+		SCMFor:      scmFor,
 		HarnessFor: func(name string, h config.Harness) (harness.Harness, error) {
 			return harnessWithShim(name, h, liveCfg.Load(), exe)
 		},
@@ -189,6 +194,7 @@ func cmdServe(e *env, args []string) error {
 		SecureCookies:    strings.HasPrefix(cfg.Server.PublicURL, "https://"),
 		AllowedHostsFunc: func() []string { return serveAllowedHosts(eng.Config().Server) },
 		Secrets:          secretStore,
+		Attachments:      attachments,
 		ChannelTest: func(ctx context.Context, ch config.Channel) error {
 			sup := sup.Load()
 			if sup == nil {

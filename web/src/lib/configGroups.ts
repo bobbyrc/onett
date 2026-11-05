@@ -24,6 +24,7 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   { id: 'goals', label: 'Goals', paths: ['loops.goals', 'limits.max_goal_turns'] },
   { id: 'self-update', label: 'Self-update', paths: ['loops.self_update', 'self_project'] },
   { id: 'channels', label: 'Channels & notifiers', paths: ['channels', 'notify'] },
+  { id: 'chat', label: 'Chat', paths: ['chat'] },
   { id: 'server', label: 'Server', paths: ['server'] },
   // Users are not in onett.yaml; they have their own page.
   { id: 'users', label: 'Users', paths: [], link: '/users' },

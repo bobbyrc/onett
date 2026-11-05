@@ -106,10 +106,31 @@ func (s *Store) AppendChatMessage(ctx context.Context, m domain.ChatMessage) (do
 	if m.CreatedAt.IsZero() {
 		m.CreatedAt = nowUTC()
 	}
-	if err := chatMessages.insert(ctx, s.db, m); err != nil {
+	// The row holds only the message; its attachments are links, so they can disappear on their
+	// own when retention deletes a file.
+	stored := m
+	stored.Attachments = nil
+	ids := make([]string, len(m.Attachments))
+	for i, a := range m.Attachments {
+		ids[i] = a.ID
+	}
+	err := withTx(ctx, s.db, func(tx *sql.Tx) error {
+		if err := chatMessages.insert(ctx, tx, stored); err != nil {
+			return err
+		}
+		return linkAttachments(ctx, tx, m.ID, m.ConversationID, ids)
+	})
+	if err != nil {
 		return domain.ChatMessage{}, fmt.Errorf("append chat message: %w", err)
 	}
-	return m, nil
+	if len(ids) > 0 {
+		one := []domain.ChatMessage{stored}
+		if err := hydrateAttachments(ctx, s.db, one, "l.message_id = ?", m.ID); err != nil {
+			return domain.ChatMessage{}, err
+		}
+		return one[0], nil
+	}
+	return stored, nil
 }
 
 // ListChatMessages returns a conversation's messages in ascending order.
@@ -120,16 +141,32 @@ func (s *Store) ListChatMessages(ctx context.Context, conversationID string) ([]
 	if err != nil {
 		return nil, fmt.Errorf("list chat messages %s: %w", conversationID, err)
 	}
+	err = hydrateAttachments(ctx, s.db, out,
+		"l.message_id IN (SELECT id FROM chat_messages WHERE conversation_id = ?)", conversationID)
+	if err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
 // UpdateChatMessage applies fn to the message with id in one transaction.
 func (s *Store) UpdateChatMessage(ctx context.Context, id string, fn func(*domain.ChatMessage) error) (domain.ChatMessage, error) {
-	return chatMessages.update(ctx, s.db, id, fn)
+	m, err := chatMessages.update(ctx, s.db, id, fn)
+	if err != nil {
+		return m, err
+	}
+	one := []domain.ChatMessage{m}
+	if err := hydrateAttachments(ctx, s.db, one, "l.message_id = ?", id); err != nil {
+		return domain.ChatMessage{}, err
+	}
+	return one[0], nil
 }
 
 // DeleteChatMessage removes the message with id, or returns ErrNotFound.
 func (s *Store) DeleteChatMessage(ctx context.Context, id string) error {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM chat_message_attachments WHERE message_id = ?`, id); err != nil {
+		return fmt.Errorf("delete chat message %s: %w", id, err)
+	}
 	res, err := s.db.ExecContext(ctx, `DELETE FROM chat_messages WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("delete chat message %s: %w", id, err)
@@ -158,6 +195,9 @@ func (s *Store) DeleteChatMessageIf(ctx context.Context, id string, check func(d
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `DELETE FROM chat_messages WHERE id = ?`, id); err != nil {
+			return fmt.Errorf("delete chat message %s: %w", id, err)
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM chat_message_attachments WHERE message_id = ?`, id); err != nil {
 			return fmt.Errorf("delete chat message %s: %w", id, err)
 		}
 		out = m

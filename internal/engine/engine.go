@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bobbyrc/onett/internal/attach"
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/deploy"
 	"github.com/bobbyrc/onett/internal/domain"
@@ -35,7 +36,9 @@ type Deps struct {
 	Bus        events.Bus
 	Notifier   notify.Notifier
 	Workspaces *workspace.Manager
-	Logger     *slog.Logger
+	// Attachments stores the files attached to chat. Nil turns attachments off.
+	Attachments *attach.Manager
+	Logger      *slog.Logger
 
 	SCMFor       func(p *config.Project) (scm.SCM, error)
 	HarnessFor   func(name string, h config.Harness) (harness.Harness, error)

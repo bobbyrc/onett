@@ -78,6 +78,9 @@ type Controller interface {
 	// as chat.delta events and a final chat.message event. While a reply is running the message
 	// goes straight to an agent that takes input, or else is queued for the next turn.
 	SendChat(ctx context.Context, conversationID, text string) (domain.ChatMessage, error)
+	// SendChatWith is SendChat for a message that carries attachments (IDs from the attachment
+	// upload). Text may be empty when there are any. They are stored with the message.
+	SendChatWith(ctx context.Context, conversationID, text string, attachmentIDs []string) (domain.ChatMessage, error)
 	// FlushChat starts a turn from the queued messages now. It does nothing when the queue is
 	// empty or a turn is running.
 	FlushChat(ctx context.Context, conversationID string) error

@@ -48,4 +48,23 @@ func (e *Engine) housekeep(ctx context.Context) {
 			e.d.Logger.Info("pruned old run logs", "deleted", n, "before", before)
 		}
 	}
+	e.pruneAttachments(ctx, now)
+}
+
+// pruneAttachments deletes chat attachments older than chat.attachments.retention: the files, the
+// records, and the conversation directories left empty. A message that referenced one keeps
+// rendering without it.
+func (e *Engine) pruneAttachments(ctx context.Context, now time.Time) {
+	keep := e.Config().Chat.Attachments.Retention.Duration
+	if e.d.Attachments == nil || keep <= 0 {
+		return
+	}
+	before := now.Add(-keep)
+	n, err := e.d.Attachments.Prune(ctx, before)
+	if err != nil {
+		e.d.Logger.Warn("prune attachments", "before", before, "err", err)
+	}
+	if n > 0 {
+		e.d.Logger.Info("pruned old attachments", "deleted", n, "before", before)
+	}
 }

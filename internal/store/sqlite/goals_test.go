@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -103,8 +104,17 @@ func TestTasksByGoal(t *testing.T) {
 func TestGoalMigrationKeepsExistingTasks(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
+	// Undo the goals migration and every later one (the goals migration is not the last any more).
+	goalsVersion := 0
+	for i, m := range migrations {
+		if strings.Contains(m, "CREATE TABLE goals") {
+			goalsVersion = i + 1
+		}
+	}
+	require.NotZero(t, goalsVersion)
 	_, err := s.db.ExecContext(ctx, `DROP TABLE goals; DROP INDEX tasks_goal_id; ALTER TABLE tasks DROP COLUMN goal_id;
-		DELETE FROM schema_migrations WHERE version = ?`, len(migrations))
+		DROP TABLE attachments; DROP TABLE chat_message_attachments;
+		DELETE FROM schema_migrations WHERE version >= ?`, goalsVersion)
 	require.NoError(t, err)
 	_, err = s.db.ExecContext(ctx, `INSERT INTO tasks (id, project, status, kind, priority, created_at, data)
 		VALUES ('old', 'p', 'queued', 'chore', 0, 1, '{"id":"old","project":"p","kind":"chore","title":"old","status":"queued"}')`)

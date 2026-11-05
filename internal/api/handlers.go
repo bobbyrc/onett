@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/bobbyrc/onett/internal/attach"
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
 	agentharness "github.com/bobbyrc/onett/internal/harness"
@@ -953,17 +954,33 @@ func (s *server) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Text string `json:"text"`
+		Text        string   `json:"text"`
+		Attachments []string `json:"attachments"`
 	}
 	if err := readJSON(w, r, &in); err != nil {
 		s.fail(w, err)
 		return
 	}
-	if in.Text == "" {
+	if in.Text == "" && len(in.Attachments) == 0 {
 		s.fail(w, invalidf("text is required"))
 		return
 	}
-	m, err := s.opts.Controller.SendChat(r.Context(), chi.URLParam(r, "id"), in.Text)
+	id := chi.URLParam(r, "id")
+	if len(in.Attachments) > 0 {
+		if s.opts.Attachments == nil {
+			writeErrorMsg(w, http.StatusNotImplemented, "attachments are not available")
+			return
+		}
+		max := s.opts.Controller.Config().Chat.Attachments.MaxPerMessage
+		if _, err := s.opts.Attachments.Validate(r.Context(), id, in.Attachments, max); err != nil {
+			if errors.Is(err, attach.ErrInvalid) {
+				err = invalidf("%s", strings.TrimPrefix(err.Error(), attach.ErrInvalid.Error()+": "))
+			}
+			s.fail(w, err)
+			return
+		}
+	}
+	m, err := s.opts.Controller.SendChatWith(r.Context(), id, in.Text, in.Attachments)
 	if err != nil {
 		s.fail(w, err)
 		return

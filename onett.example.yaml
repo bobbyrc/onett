@@ -16,6 +16,13 @@ server:
   retain_run_logs: 2160h               # agent run logs kept this long (default 2160h = 90 days)
   # allowed_hosts: [onett.tailnet.ts.net]   # extra Host names the API accepts (e.g. a Tailscale name); needed for remote access (default none)
 
+# Chat: the owner's conversation with the orchestrator.
+chat:
+  attachments:                         # photos and files attached to a chat message, kept under <data_dir>/attachments
+    max_size: 25MB                     # largest single file; a bigger upload is refused (default 25MB)
+    max_per_message: 10                # files one message may carry (default 10)
+    retention: 720h                    # files older than this are deleted daily; the message shows without them (default 720h = 30 days)
+
 # Limits: caps on how much runs at once and how long a run may go.
 limits:
   max_concurrent_runs: 3               # agent runs across all projects (default 3)

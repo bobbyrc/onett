@@ -47,6 +47,36 @@
       ]
     },
     {
+      "key": "chat",
+      "type": "section",
+      "fields": [
+        {
+          "key": "attachments",
+          "type": "section",
+          "fields": [
+            {
+              "key": "max_size",
+              "type": "string",
+              "help": "Max size is the largest single file accepted, such as \"25MB\" (default 25MB). A larger upload is refused with 413 and nothing is kept.",
+              "default": "25MB"
+            },
+            {
+              "key": "max_per_message",
+              "type": "int",
+              "help": "Max per message is how many files one message may carry (default 10).",
+              "default": 10
+            },
+            {
+              "key": "retention",
+              "type": "duration",
+              "help": "Retention is how long an attachment is kept; older files and their records are deleted once a day, and a message that referenced one shows without it (default 720h = 30 days).",
+              "default": "720h"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "key": "limits",
       "type": "section",
       "fields": [
