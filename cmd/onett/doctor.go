@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -265,13 +267,55 @@ func (d *doctor) checkPreflight() {
 	if err != nil {
 		return
 	}
+	volume := false
 	for _, p := range stats.Preflight {
 		if p.OK {
 			d.ok("daemon preflight " + p.Project + ": tool directories readable")
 		} else {
 			d.fail("daemon preflight "+p.Project+": cannot read "+p.Path+" ("+p.Error+")", p.Fix)
+			volume = volume || underVolumes(p.Path)
 		}
 	}
+	if volume {
+		d.checkAdhocSigning()
+	}
+}
+
+// goos is runtime.GOOS; a test replaces it.
+var goos = runtime.GOOS
+
+// underVolumes reports whether path, with symlinks resolved, is on an external volume (macOS
+// mounts them under /Volumes).
+func underVolumes(path string) bool {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		resolved = path
+	}
+	return strings.HasPrefix(resolved, "/Volumes/")
+}
+
+// isAdhocSigned reports whether `codesign -dv` output describes an ad-hoc signature. macOS
+// privacy grants for such code are tied to its hash, so every build loses them.
+func isAdhocSigned(codesignOutput string) bool {
+	return strings.Contains(codesignOutput, "Signature=adhoc")
+}
+
+// checkAdhocSigning warns when an unreadable external-volume path goes with an ad-hoc signed
+// onett binary: the likely cause is a Full Disk Access grant lost on the last update.
+func (d *doctor) checkAdhocSigning() {
+	if goos != "darwin" {
+		return
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return
+	}
+	out, _ := runExternal("codesign", "-dv", exe)
+	if !isAdhocSigned(out) {
+		return
+	}
+	d.warn(exe+" is ad-hoc signed, so macOS forgets its Full Disk Access grant whenever the binary changes",
+		"build with a stable code-signing certificate (set ONETT_CODESIGN_IDENTITY for scripts/build.sh, see the README), then grant Full Disk Access again")
 }
 
 // firstLine returns the first non-empty line of out, or of err when out has none. With a nil err

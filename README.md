@@ -194,6 +194,22 @@ terminal. The daemon checks the directories its agents read before it starts a r
 project's tasks in the queue while one is unreadable, and notifies you with the path and the fix.
 `onett doctor` shows the daemon's last result per project.
 
+macOS ties that grant to the binary's code signature. `scripts/build.sh` signs ad hoc by default,
+and an ad-hoc signature is the binary's hash, so every rebuild (including each self-update) looks
+like a new app and loses Full Disk Access. To keep the grant, sign every build with a stable
+certificate:
+
+1. In Keychain Access, choose Certificate Assistant > Create a Certificate, give it a name
+   (for example `onett-codesign`), set Identity Type to Self Signed Root and Certificate Type to
+   Code Signing.
+2. Build with `ONETT_CODESIGN_IDENTITY="onett-codesign" scripts/build.sh`. The binary is signed
+   with that certificate and the identifier `io.onett.onett`.
+3. Grant Full Disk Access to the signed binary once more (System Settings > Privacy & Security).
+   Later builds signed with the same certificate keep the grant.
+
+Without the variable, `build.sh` prints a warning on macOS, and `onett doctor` warns when an
+ad-hoc signed binary meets an unreadable external-volume path.
+
 launchd starts the daemon without your shell's environment. `service install` therefore records,
 in the plist, the `PATH` of the shell you run it from and every variable your config references
 as `${NAME}`. The plist is readable only by you, because those values can be secrets. Install

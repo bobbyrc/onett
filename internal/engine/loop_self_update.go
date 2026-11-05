@@ -261,6 +261,9 @@ func (e *Engine) reportSelfUpdate(ctx context.Context) {
 			e.selfUpd.fail(ref, selfUpdateMaxFailures)
 		}
 		msg := fmt.Sprintf("onett self-update to %s did not come up healthy; rolled back to %s", res["new"], res["old"])
+		if reason := res["reason"]; reason != "" {
+			msg = fmt.Sprintf("onett self-update to %s was rolled back to %s: %s", res["new"], res["old"], reason)
+		}
 		e.d.Bus.Emit(ctx, domain.EvSystem, cfg.SelfProject, "", "", msg, nil)
 		e.notify(ctx, notify.PriorityHigh, msg, "See "+selfUpdateLogFile+" in the data directory. It will not be tried again for this commit.", "")
 	}

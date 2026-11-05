@@ -100,6 +100,23 @@ or verified, for a `dev` build, when the daemon already runs that commit, or whi
 updater is alive (its PID is in `data/self-update.lock`). A commit whose update fails three times is
 skipped until the daemon restarts, and one that was rolled back is not tried again.
 
+### Keep macOS privacy grants across updates
+
+If the daemon needs Full Disk Access (for example a toolchain on an external drive), sign every
+build with a stable certificate. Otherwise each update replaces the binary with one macOS sees as
+a new app, and the grant is lost. Create a self-signed code-signing certificate in Keychain Access
+(Certificate Assistant > Create a Certificate, Certificate Type: Code Signing), pass its name to
+the build through the `command`, and grant Full Disk Access to the signed binary once more after
+the first signed build:
+
+```yaml
+    command: "DOGFOOD=$HOME/.local/share/onett-dogfood ONETT_CODESIGN_IDENTITY=onett-codesign mise exec -- /path/to/clone/examples/dogfood/update.sh"
+```
+
+As a safety net, `update.sh` notes whether the running daemon can read its tool directories. If the
+new daemon's first check fails where the old one passed, the script restores the previous binary,
+and the notification says the new build lost macOS privacy access. That commit is not tried again.
+
 ## Stopping
 
 - Stop new work: `onett pause`.
