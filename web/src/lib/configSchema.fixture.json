@@ -1,0 +1,1337 @@
+{
+  "key": "",
+  "type": "section",
+  "fields": [
+    {
+      "key": "server",
+      "type": "section",
+      "fields": [
+        {
+          "key": "addr",
+          "type": "string",
+          "help": "default 127.0.0.1:7777",
+          "default": "127.0.0.1:7777"
+        },
+        {
+          "key": "data_dir",
+          "type": "string",
+          "help": "default ~/.local/share/onett",
+          "default": "~/.local/share/onett"
+        },
+        {
+          "key": "public_url",
+          "type": "string",
+          "help": "for links in notifications; default http://\u003caddr\u003e",
+          "default": "http://127.0.0.1:7777"
+        },
+        {
+          "key": "allowed_hosts",
+          "type": "list",
+          "help": "Allowed hosts are extra Host header values the server accepts (DNS-rebinding guard). localhost, 127.0.0.1, ::1 and the host parts of addr and public_url are always allowed. A wildcard bind (0.0.0.0, ::) adds no name: to reach onett remotely (e.g. over Tailscale), list the name you use here, or requests get 421 Misdirected Request.",
+          "item": {
+            "key": "",
+            "type": "string"
+          }
+        },
+        {
+          "key": "retain_events",
+          "type": "duration",
+          "help": "Retain events and RetainRunLogs bound how long the event history and agent run logs are kept; older rows are deleted once a day, so a daemon that runs for months does not grow without limit. Tasks, runs, deployments and approvals are kept. Defaults 720h (30 days) and 2160h (90 days); a very large value (e.g. 876000h) keeps them in practice forever.",
+          "default": "720h"
+        },
+        {
+          "key": "retain_run_logs",
+          "type": "duration",
+          "default": "2160h"
+        }
+      ]
+    },
+    {
+      "key": "limits",
+      "type": "section",
+      "fields": [
+        {
+          "key": "max_concurrent_runs",
+          "type": "int",
+          "help": "default 3",
+          "default": 3
+        },
+        {
+          "key": "max_runs_per_project",
+          "type": "int",
+          "help": "default 1",
+          "default": 1
+        },
+        {
+          "key": "stall_timeout",
+          "type": "duration",
+          "help": "default 15m",
+          "default": "15m"
+        },
+        {
+          "key": "run_timeout",
+          "type": "duration",
+          "help": "default 2h",
+          "default": "2h"
+        },
+        {
+          "key": "max_attempts",
+          "type": "int",
+          "help": "default 3",
+          "default": 3
+        },
+        {
+          "key": "daily_budget_usd",
+          "type": "float",
+          "help": "Daily budget usd stops new task runs once today's reported agent cost reaches it (0 = no limit). Only pay-per-token runs count: runs on a flat-rate subscription (see Harness.Billing) report an API-price estimate that nobody is billed for. Chat with the orchestrator is exempt. Codex reports no cost, so it is counted only when its harness has a price."
+        },
+        {
+          "key": "max_goal_turns",
+          "type": "int",
+          "help": "Max goal turns is how many orchestrator turns one goal gets before it is blocked (default 40).",
+          "default": 40
+        }
+      ]
+    },
+    {
+      "key": "harnesses",
+      "type": "map",
+      "item": {
+        "key": "",
+        "type": "section",
+        "fields": [
+          {
+            "key": "type",
+            "type": "string"
+          },
+          {
+            "key": "command",
+            "type": "list",
+            "item": {
+              "key": "",
+              "type": "string"
+            }
+          },
+          {
+            "key": "args",
+            "type": "list",
+            "item": {
+              "key": "",
+              "type": "string"
+            }
+          },
+          {
+            "key": "env",
+            "type": "map",
+            "item": {
+              "key": "",
+              "type": "string"
+            }
+          },
+          {
+            "key": "inherit_env",
+            "type": "list",
+            "help": "Inherit env names extra variables passed through from onett's own environment. Agents otherwise get only a small allowlist (PATH, HOME, USER, LANG, TERM, TMPDIR, ...), so secrets loaded into onett (GH_TOKEN, provider tokens) do not reach them.",
+            "item": {
+              "key": "",
+              "type": "string"
+            }
+          },
+          {
+            "key": "price",
+            "type": "section",
+            "help": "Price lets onett estimate the cost of runs whose harness reports tokens but no dollar cost (codex), so limits.daily_budget_usd counts them.",
+            "fields": [
+              {
+                "key": "input_per_mtok",
+                "type": "float"
+              },
+              {
+                "key": "output_per_mtok",
+                "type": "float"
+              },
+              {
+                "key": "cached_input_per_mtok",
+                "type": "float"
+              }
+            ]
+          },
+          {
+            "key": "billing",
+            "type": "string",
+            "help": "Billing says how this harness's runs are paid for: \"auto\" (default; the adapter detects it), \"metered\" (pay per token) or \"subscription\" (flat rate). A value other than auto overrides detection for every run. Subscription runs do not count toward limits.daily_budget_usd."
+          }
+        ]
+      }
+    },
+    {
+      "key": "agents",
+      "type": "map",
+      "item": {
+        "key": "",
+        "type": "section",
+        "fields": [
+          {
+            "key": "harness",
+            "type": "string"
+          },
+          {
+            "key": "model",
+            "type": "string"
+          },
+          {
+            "key": "prompt",
+            "type": "string",
+            "help": "Prompt is \"builtin:\u003cname\u003e\" or a path to a Markdown file (relative to the config file). Set Prompt or PromptText, not both."
+          },
+          {
+            "key": "prompt_text",
+            "type": "string",
+            "help": "Prompt text is the agent's instructions written inline in the config file, for a custom agent that has no Markdown file."
+          },
+          {
+            "key": "args",
+            "type": "list",
+            "item": {
+              "key": "",
+              "type": "string"
+            }
+          },
+          {
+            "key": "description",
+            "type": "string",
+            "help": "Description is shown in the UI and given to the orchestrator so it can pick roles."
+          },
+          {
+            "key": "disabled",
+            "type": "bool",
+            "help": "Disabled removes the agent from use: no task is routed to it and it cannot be named directly. A built-in agent can be disabled this way but not deleted. Disabling is refused while a route still uses the agent, so move those routes first."
+          }
+        ]
+      }
+    },
+    {
+      "key": "routing",
+      "type": "map",
+      "help": "task kind → agent name",
+      "item": {
+        "key": "",
+        "type": "string"
+      }
+    },
+    {
+      "key": "policies",
+      "type": "map",
+      "item": {
+        "key": "",
+        "type": "section",
+        "fields": [
+          {
+            "key": "max_lines",
+            "type": "int",
+            "help": "MaxLines: a diff with more added+deleted lines than this is at least medium risk.",
+            "default": 400
+          },
+          {
+            "key": "max_files",
+            "type": "int",
+            "help": "MaxFiles: a diff touching more files than this is at least medium risk.",
+            "default": 20
+          },
+          {
+            "key": "rules",
+            "type": "list",
+            "help": "Rules replaces the built-in default rules when set (an explicit empty list means none).",
+            "item": {
+              "key": "",
+              "type": "section",
+              "fields": [
+                {
+                  "key": "paths",
+                  "type": "list",
+                  "help": "Paths are doublestar globs matched against changed file paths.",
+                  "item": {
+                    "key": "",
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "labels",
+                  "type": "list",
+                  "help": "any label matches",
+                  "item": {
+                    "key": "",
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "kinds",
+                  "type": "list",
+                  "help": "any task kind matches",
+                  "item": {
+                    "key": "",
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "sources",
+                  "type": "list",
+                  "help": "Sources matches the task source (\"followup\", \"retro\", \"github_issue\", \"signal\", ...).",
+                  "item": {
+                    "key": "",
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "risk",
+                  "type": "string"
+                },
+                {
+                  "key": "reason",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          {
+            "key": "extra_rules",
+            "type": "list",
+            "help": "Extra rules are added to Rules (or to the defaults when Rules is unset). Prefer this: it keeps the built-in protections for migrations, CI, auth and onett's own gates.",
+            "item": {
+              "key": "",
+              "type": "section",
+              "fields": [
+                {
+                  "key": "paths",
+                  "type": "list",
+                  "help": "Paths are doublestar globs matched against changed file paths.",
+                  "item": {
+                    "key": "",
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "labels",
+                  "type": "list",
+                  "help": "any label matches",
+                  "item": {
+                    "key": "",
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "kinds",
+                  "type": "list",
+                  "help": "any task kind matches",
+                  "item": {
+                    "key": "",
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "sources",
+                  "type": "list",
+                  "help": "Sources matches the task source (\"followup\", \"retro\", \"github_issue\", \"signal\", ...).",
+                  "item": {
+                    "key": "",
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "risk",
+                  "type": "string"
+                },
+                {
+                  "key": "reason",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          {
+            "key": "ci_grace",
+            "type": "duration",
+            "help": "CIGrace: after onett pushes, a PR with no checks yet counts as CI pending (not \"no CI\") for this long, so a fast review cannot merge before CI registers. Default 3m.",
+            "default": "3m"
+          },
+          {
+            "key": "require_checks",
+            "type": "bool",
+            "help": "RequireChecks: for repositories that always run CI, a PR with no checks never passes the CI gate (it waits, then blocks after 30m) instead of counting as \"no CI configured\"."
+          },
+          {
+            "key": "gates",
+            "type": "map",
+            "help": "Gates by risk level: \"low\", \"medium\", \"high\".",
+            "item": {
+              "key": "",
+              "type": "section",
+              "fields": [
+                {
+                  "key": "auto_merge",
+                  "type": "bool"
+                },
+                {
+                  "key": "require_review",
+                  "type": "bool"
+                },
+                {
+                  "key": "require_ci",
+                  "type": "bool"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": "projects",
+      "type": "map",
+      "item": {
+        "key": "",
+        "type": "section",
+        "fields": [
+          {
+            "key": "repo",
+            "type": "string",
+            "help": "owner/name on GitHub"
+          },
+          {
+            "key": "path",
+            "type": "string",
+            "help": "local clone; default \u003cdata_dir\u003e/repos/\u003cname\u003e"
+          },
+          {
+            "key": "default_branch",
+            "type": "string",
+            "help": "default main",
+            "default": "main"
+          },
+          {
+            "key": "policy",
+            "type": "string",
+            "help": "default \"default\"",
+            "default": "default"
+          },
+          {
+            "key": "instructions",
+            "type": "string",
+            "help": "Instructions are appended to every agent prompt for this project."
+          },
+          {
+            "key": "env",
+            "type": "map",
+            "help": "added to agent sessions",
+            "item": {
+              "key": "",
+              "type": "string"
+            }
+          },
+          {
+            "key": "agents",
+            "type": "map",
+            "help": "Agents overrides agent roles for this project only: set fields replace the global role's fields (Harness, Model, Prompt, Args, Description); a new name adds a role that only this project has.",
+            "item": {
+              "key": "",
+              "type": "section",
+              "fields": [
+                {
+                  "key": "harness",
+                  "type": "string"
+                },
+                {
+                  "key": "model",
+                  "type": "string"
+                },
+                {
+                  "key": "prompt",
+                  "type": "string",
+                  "help": "Prompt is \"builtin:\u003cname\u003e\" or a path to a Markdown file (relative to the config file). Set Prompt or PromptText, not both."
+                },
+                {
+                  "key": "prompt_text",
+                  "type": "string",
+                  "help": "Prompt text is the agent's instructions written inline in the config file, for a custom agent that has no Markdown file."
+                },
+                {
+                  "key": "args",
+                  "type": "list",
+                  "item": {
+                    "key": "",
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "description",
+                  "type": "string",
+                  "help": "Description is shown in the UI and given to the orchestrator so it can pick roles."
+                },
+                {
+                  "key": "disabled",
+                  "type": "bool",
+                  "help": "Disabled removes the agent from use: no task is routed to it and it cannot be named directly. A built-in agent can be disabled this way but not deleted. Disabling is refused while a route still uses the agent, so move those routes first."
+                }
+              ]
+            }
+          },
+          {
+            "key": "routing",
+            "type": "map",
+            "help": "Routing overrides the global task kind → agent routing for this project.",
+            "item": {
+              "key": "",
+              "type": "string"
+            }
+          },
+          {
+            "key": "checks",
+            "type": "list",
+            "help": "Checks run in the worktree after the agent finishes and before onett commits and pushes (formatters, linters, fast tests). A failing check fails the attempt: the task is re-queued with the check's output, like a CI failure, without spending a CI run.",
+            "item": {
+              "key": "",
+              "type": "section",
+              "fields": [
+                {
+                  "key": "name",
+                  "type": "string"
+                },
+                {
+                  "key": "run",
+                  "type": "string",
+                  "help": "Run is a shell command (sh -c) run in the worktree with the agent's environment (the allowlist, the harness's inherit_env, the project's env)."
+                },
+                {
+                  "key": "timeout",
+                  "type": "duration",
+                  "help": "Timeout defaults to 10m."
+                }
+              ]
+            }
+          },
+          {
+            "key": "setup",
+            "type": "list",
+            "help": "Setup runs in a fresh worktree before the agent starts (install dependencies, generate code), so the agent can build and test. A failing setup command fails the attempt before the agent runs: the task is re-queued with the command's output. Setup and checks run with the agent's environment, not onett's, because they execute code the agent may have written.",
+            "item": {
+              "key": "",
+              "type": "section",
+              "fields": [
+                {
+                  "key": "name",
+                  "type": "string"
+                },
+                {
+                  "key": "run",
+                  "type": "string",
+                  "help": "Run is a shell command (sh -c) run in the worktree with the agent's environment (the allowlist, the harness's inherit_env, the project's env)."
+                },
+                {
+                  "key": "timeout",
+                  "type": "duration",
+                  "help": "Timeout defaults to 10m."
+                }
+              ]
+            }
+          },
+          {
+            "key": "intake",
+            "type": "list",
+            "help": "Intake sources turn external work queues into tasks: each command prints tasks as JSON lines (see docs/plugins.md, \"Intake sources\"). Run by the exec_intake loop.",
+            "item": {
+              "key": "",
+              "type": "section",
+              "fields": [
+                {
+                  "key": "name",
+                  "type": "string"
+                },
+                {
+                  "key": "command",
+                  "type": "string",
+                  "help": "Command is a shell command (sh -c) that prints zero or more tasks, one JSON object per line: {\"id\",\"title\",\"body\",\"kind\",\"priority\",\"role\"}. id is required and dedupes."
+                },
+                {
+                  "key": "kind",
+                  "type": "string",
+                  "help": "Kind is the default task kind when a line has none (default \"feature\")."
+                },
+                {
+                  "key": "timeout",
+                  "type": "duration",
+                  "help": "Timeout for one run of Command (default 60s)."
+                }
+              ]
+            }
+          },
+          {
+            "key": "deploy",
+            "type": "section",
+            "fields": [
+              {
+                "key": "type",
+                "type": "string",
+                "enum": [
+                  "command",
+                  "noop"
+                ]
+              },
+              {
+                "key": "options",
+                "type": "variant",
+                "discriminator": "type",
+                "variants": {
+                  "command": {
+                    "key": "",
+                    "type": "section",
+                    "fields": [
+                      {
+                        "key": "deploy",
+                        "type": "string",
+                        "help": "Deploy is the shell command that releases the commit in ONETT_REF. Its last output line may be a JSON object {\"id\",\"url\",\"state\"} or a bare URL. Required."
+                      },
+                      {
+                        "key": "status",
+                        "type": "string",
+                        "help": "Status is the shell command that reports a release's state, given ONETT_DEPLOY_ID. Default: none; a deploy is then treated as finished as soon as the deploy command exits."
+                      },
+                      {
+                        "key": "rollback",
+                        "type": "string",
+                        "help": "Rollback is the shell command that restores an earlier release. Default: none, so a rollback cannot be done."
+                      },
+                      {
+                        "key": "timeout",
+                        "type": "duration",
+                        "help": "Timeout limits each of the three commands. Default 30m."
+                      }
+                    ]
+                  },
+                  "noop": {
+                    "key": "",
+                    "type": "section"
+                  }
+                }
+              },
+              {
+                "key": "health_url",
+                "type": "string",
+                "help": "Health url must answer 2xx during the verify window. Empty skips the HTTP check."
+              },
+              {
+                "key": "logs",
+                "type": "string",
+                "help": "Logs is a shell command that prints the service's recent logs (e.g. \"tail -n 200 /var/log/app.log\", \"vercel logs \u003curl\u003e\"). Its output tail is attached to incidents."
+              },
+              {
+                "key": "verify_for",
+                "type": "duration",
+                "help": "Verify for is how long a release is watched before it is called healthy. Default 10m.",
+                "default": "10m"
+              },
+              {
+                "key": "timeout",
+                "type": "duration",
+                "help": "Timeout fails a release still building after this long. Default 30m.",
+                "default": "30m"
+              },
+              {
+                "key": "auto_rollback",
+                "type": "bool",
+                "help": "Auto rollback rolls back on a failed verify window. Default true."
+              }
+            ]
+          },
+          {
+            "key": "observe",
+            "type": "list",
+            "item": {
+              "key": "",
+              "type": "section",
+              "fields": [
+                {
+                  "key": "name",
+                  "type": "string"
+                },
+                {
+                  "key": "type",
+                  "type": "string",
+                  "enum": [
+                    "exec",
+                    "sentry"
+                  ]
+                },
+                {
+                  "key": "options",
+                  "type": "variant",
+                  "discriminator": "type",
+                  "variants": {
+                    "exec": {
+                      "key": "",
+                      "type": "section",
+                      "fields": [
+                        {
+                          "key": "command",
+                          "type": "string",
+                          "help": "Command is the shell command that prints the production signals it sees, as a JSON array or JSON Lines. It receives ONETT_SINCE (RFC 3339). Required."
+                        },
+                        {
+                          "key": "timeout",
+                          "type": "duration",
+                          "help": "Timeout limits one run of the command. Default 60s."
+                        }
+                      ]
+                    },
+                    "sentry": {
+                      "key": "",
+                      "type": "section",
+                      "fields": [
+                        {
+                          "key": "org",
+                          "type": "string",
+                          "help": "Org is the Sentry organization slug. Required."
+                        },
+                        {
+                          "key": "project",
+                          "type": "string",
+                          "help": "Project is the Sentry project slug. Required."
+                        },
+                        {
+                          "key": "base_url",
+                          "type": "string",
+                          "help": "Base url is the Sentry server URL. Default https://sentry.io."
+                        },
+                        {
+                          "key": "token_env",
+                          "type": "string",
+                          "help": "Token env is the name of an environment variable that holds the Sentry API token. Default SENTRY_AUTH_TOKEN.",
+                          "secret_env": true
+                        },
+                        {
+                          "key": "query",
+                          "type": "string",
+                          "help": "Query is the Sentry issue search to run. Default is:unresolved."
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": "loops",
+            "type": "section",
+            "help": "Loops overrides the global loop settings for this project.",
+            "fields": [
+              {
+                "key": "issue_intake",
+                "type": "section",
+                "help": "Issue intake turns open issues carrying Label into tasks.",
+                "fields": [
+                  {
+                    "key": "enabled",
+                    "type": "bool"
+                  },
+                  {
+                    "key": "every",
+                    "type": "duration"
+                  },
+                  {
+                    "key": "label",
+                    "type": "string",
+                    "help": "default \"onett\""
+                  }
+                ]
+              },
+              {
+                "key": "pr_shepherd",
+                "type": "section",
+                "help": "Pr shepherd moves tasks in review through CI, review, policy and merge.",
+                "fields": [
+                  {
+                    "key": "enabled",
+                    "type": "bool"
+                  },
+                  {
+                    "key": "every",
+                    "type": "duration"
+                  }
+                ]
+              },
+              {
+                "key": "deploy_watch",
+                "type": "section",
+                "help": "Deploy watch releases merged work and verifies it.",
+                "fields": [
+                  {
+                    "key": "enabled",
+                    "type": "bool"
+                  },
+                  {
+                    "key": "every",
+                    "type": "duration"
+                  }
+                ]
+              },
+              {
+                "key": "prod_watch",
+                "type": "section",
+                "help": "Prod watch polls observers and opens incident tasks.",
+                "fields": [
+                  {
+                    "key": "enabled",
+                    "type": "bool"
+                  },
+                  {
+                    "key": "every",
+                    "type": "duration"
+                  },
+                  {
+                    "key": "min_level",
+                    "type": "string",
+                    "help": "default \"error\""
+                  },
+                  {
+                    "key": "min_count",
+                    "type": "int",
+                    "help": "default 1"
+                  }
+                ]
+              },
+              {
+                "key": "retro",
+                "type": "section",
+                "help": "Retro periodically gives an improver agent the evidence of what went wrong recently (blocked/failed tasks and their reasons, open friction, incidents, review findings) to fix the top problem, consolidate duplicate friction issues and file follow-ups. Default every 24h; enabled by default only for self_project (it spends agent time).",
+                "fields": [
+                  {
+                    "key": "enabled",
+                    "type": "bool"
+                  },
+                  {
+                    "key": "every",
+                    "type": "duration"
+                  },
+                  {
+                    "key": "lookback",
+                    "type": "duration",
+                    "help": "evidence window; default = Every"
+                  }
+                ]
+              },
+              {
+                "key": "exec_intake",
+                "type": "section",
+                "help": "Exec intake runs each project's intake sources. Default every 1m.",
+                "fields": [
+                  {
+                    "key": "enabled",
+                    "type": "bool"
+                  },
+                  {
+                    "key": "every",
+                    "type": "duration"
+                  }
+                ]
+              },
+              {
+                "key": "self_update",
+                "type": "section",
+                "help": "Self update starts Command to update the running daemon to the self project's latest release once it has been healthy on staging for MinHealthy. Off unless enabled, and it only ever applies to self_project.",
+                "fields": [
+                  {
+                    "key": "enabled",
+                    "type": "bool"
+                  },
+                  {
+                    "key": "every",
+                    "type": "duration"
+                  },
+                  {
+                    "key": "min_healthy",
+                    "type": "duration",
+                    "help": "default 10m"
+                  },
+                  {
+                    "key": "max_defer",
+                    "type": "duration",
+                    "help": "Max defer is how long after a release becomes eligible the loop waits for a quiet moment (no task run live, nothing queued) before it starts the updater anyway and drains. Default 2h."
+                  },
+                  {
+                    "key": "command",
+                    "type": "string",
+                    "help": "Command is run with sh -c, detached, with ONETT_UPDATE_REF set to the commit to run."
+                  }
+                ]
+              },
+              {
+                "key": "goals",
+                "type": "section",
+                "help": "Goals wakes the orchestrator on each active goal whose last step has settled. Default every 1m.",
+                "fields": [
+                  {
+                    "key": "enabled",
+                    "type": "bool"
+                  },
+                  {
+                    "key": "every",
+                    "type": "duration"
+                  }
+                ]
+              },
+              {
+                "key": "friction",
+                "type": "section",
+                "help": "Friction files GitHub issues for reported friction.",
+                "fields": [
+                  {
+                    "key": "enabled",
+                    "type": "bool"
+                  },
+                  {
+                    "key": "every",
+                    "type": "duration"
+                  },
+                  {
+                    "key": "auto_file",
+                    "type": "bool",
+                    "help": "default true"
+                  },
+                  {
+                    "key": "auto_queue",
+                    "type": "bool",
+                    "help": "also label the issue for intake"
+                  },
+                  {
+                    "key": "label",
+                    "type": "string",
+                    "help": "default \"friction\""
+                  },
+                  {
+                    "key": "min_count",
+                    "type": "int",
+                    "help": "reports before filing; default 1"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "paused",
+            "type": "bool",
+            "help": "Paused stops the scheduler from starting runs and the loops from creating tasks."
+          }
+        ]
+      }
+    },
+    {
+      "key": "loops",
+      "type": "section",
+      "fields": [
+        {
+          "key": "issue_intake",
+          "type": "section",
+          "help": "Issue intake turns open issues carrying Label into tasks.",
+          "fields": [
+            {
+              "key": "enabled",
+              "type": "bool"
+            },
+            {
+              "key": "every",
+              "type": "duration",
+              "default": "5m"
+            },
+            {
+              "key": "label",
+              "type": "string",
+              "help": "default \"onett\"",
+              "default": "onett"
+            }
+          ]
+        },
+        {
+          "key": "pr_shepherd",
+          "type": "section",
+          "help": "Pr shepherd moves tasks in review through CI, review, policy and merge.",
+          "fields": [
+            {
+              "key": "enabled",
+              "type": "bool"
+            },
+            {
+              "key": "every",
+              "type": "duration",
+              "default": "1m"
+            }
+          ]
+        },
+        {
+          "key": "deploy_watch",
+          "type": "section",
+          "help": "Deploy watch releases merged work and verifies it.",
+          "fields": [
+            {
+              "key": "enabled",
+              "type": "bool"
+            },
+            {
+              "key": "every",
+              "type": "duration",
+              "default": "30s"
+            }
+          ]
+        },
+        {
+          "key": "prod_watch",
+          "type": "section",
+          "help": "Prod watch polls observers and opens incident tasks.",
+          "fields": [
+            {
+              "key": "enabled",
+              "type": "bool"
+            },
+            {
+              "key": "every",
+              "type": "duration",
+              "default": "10m"
+            },
+            {
+              "key": "min_level",
+              "type": "string",
+              "help": "default \"error\"",
+              "default": "error"
+            },
+            {
+              "key": "min_count",
+              "type": "int",
+              "help": "default 1",
+              "default": 1
+            }
+          ]
+        },
+        {
+          "key": "retro",
+          "type": "section",
+          "help": "Retro periodically gives an improver agent the evidence of what went wrong recently (blocked/failed tasks and their reasons, open friction, incidents, review findings) to fix the top problem, consolidate duplicate friction issues and file follow-ups. Default every 24h; enabled by default only for self_project (it spends agent time).",
+          "fields": [
+            {
+              "key": "enabled",
+              "type": "bool"
+            },
+            {
+              "key": "every",
+              "type": "duration",
+              "default": "24h"
+            },
+            {
+              "key": "lookback",
+              "type": "duration",
+              "help": "evidence window; default = Every",
+              "default": "24h"
+            }
+          ]
+        },
+        {
+          "key": "exec_intake",
+          "type": "section",
+          "help": "Exec intake runs each project's intake sources. Default every 1m.",
+          "fields": [
+            {
+              "key": "enabled",
+              "type": "bool"
+            },
+            {
+              "key": "every",
+              "type": "duration",
+              "default": "1m"
+            }
+          ]
+        },
+        {
+          "key": "self_update",
+          "type": "section",
+          "help": "Self update starts Command to update the running daemon to the self project's latest release once it has been healthy on staging for MinHealthy. Off unless enabled, and it only ever applies to self_project.",
+          "fields": [
+            {
+              "key": "enabled",
+              "type": "bool"
+            },
+            {
+              "key": "every",
+              "type": "duration",
+              "default": "5m"
+            },
+            {
+              "key": "min_healthy",
+              "type": "duration",
+              "help": "default 10m",
+              "default": "10m"
+            },
+            {
+              "key": "max_defer",
+              "type": "duration",
+              "help": "Max defer is how long after a release becomes eligible the loop waits for a quiet moment (no task run live, nothing queued) before it starts the updater anyway and drains. Default 2h.",
+              "default": "2h"
+            },
+            {
+              "key": "command",
+              "type": "string",
+              "help": "Command is run with sh -c, detached, with ONETT_UPDATE_REF set to the commit to run."
+            }
+          ]
+        },
+        {
+          "key": "goals",
+          "type": "section",
+          "help": "Goals wakes the orchestrator on each active goal whose last step has settled. Default every 1m.",
+          "fields": [
+            {
+              "key": "enabled",
+              "type": "bool"
+            },
+            {
+              "key": "every",
+              "type": "duration",
+              "default": "1m"
+            }
+          ]
+        },
+        {
+          "key": "friction",
+          "type": "section",
+          "help": "Friction files GitHub issues for reported friction.",
+          "fields": [
+            {
+              "key": "enabled",
+              "type": "bool"
+            },
+            {
+              "key": "every",
+              "type": "duration",
+              "default": "10m"
+            },
+            {
+              "key": "auto_file",
+              "type": "bool",
+              "help": "default true"
+            },
+            {
+              "key": "auto_queue",
+              "type": "bool",
+              "help": "also label the issue for intake"
+            },
+            {
+              "key": "label",
+              "type": "string",
+              "help": "default \"friction\"",
+              "default": "friction"
+            },
+            {
+              "key": "min_count",
+              "type": "int",
+              "help": "reports before filing; default 1",
+              "default": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "notify",
+      "type": "list",
+      "item": {
+        "key": "",
+        "type": "section",
+        "fields": [
+          {
+            "key": "type",
+            "type": "string",
+            "enum": [
+              "discord",
+              "exec",
+              "log",
+              "ntfy",
+              "telegram"
+            ]
+          },
+          {
+            "key": "options",
+            "type": "variant",
+            "discriminator": "type",
+            "variants": {
+              "discord": {
+                "key": "",
+                "type": "section",
+                "fields": [
+                  {
+                    "key": "webhook_url_env",
+                    "type": "string",
+                    "help": "Webhook url env is the name of an environment variable that holds the Discord webhook URL, which contains a secret token. Required.",
+                    "secret_env": true
+                  },
+                  {
+                    "key": "username",
+                    "type": "string",
+                    "help": "Username overrides the webhook's display name. Default: the name set in Discord."
+                  }
+                ]
+              },
+              "exec": {
+                "key": "",
+                "type": "section",
+                "fields": [
+                  {
+                    "key": "command",
+                    "type": "string",
+                    "help": "Command is the shell command run for each notification. It receives ONETT_NOTIFY_TITLE, ONETT_NOTIFY_BODY, ONETT_NOTIFY_PRIORITY and ONETT_NOTIFY_URL in its environment. Required."
+                  }
+                ]
+              },
+              "log": {
+                "key": "",
+                "type": "section"
+              },
+              "ntfy": {
+                "key": "",
+                "type": "section",
+                "fields": [
+                  {
+                    "key": "server",
+                    "type": "string",
+                    "help": "Server is the ntfy server URL. Default https://ntfy.sh."
+                  },
+                  {
+                    "key": "topic",
+                    "type": "string",
+                    "help": "Topic is the ntfy topic to publish to. Required."
+                  },
+                  {
+                    "key": "token_env",
+                    "type": "string",
+                    "help": "Token env is the name of an environment variable that holds an ntfy access token, sent as a Bearer token. Optional; without it the notifier posts anonymously.",
+                    "secret_env": true
+                  }
+                ]
+              },
+              "telegram": {
+                "key": "",
+                "type": "section",
+                "fields": [
+                  {
+                    "key": "bot_token_env",
+                    "type": "string",
+                    "help": "Bot token env is the name of an environment variable that holds the Telegram bot token. Required.",
+                    "secret_env": true
+                  },
+                  {
+                    "key": "chat_id",
+                    "type": "string",
+                    "help": "Chat id is the chat to send to: a numeric ID or @channelname. Required."
+                  },
+                  {
+                    "key": "api_url",
+                    "type": "string",
+                    "help": "Api url is the Telegram Bot API base URL. Default https://api.telegram.org."
+                  },
+                  {
+                    "key": "skip_approvals",
+                    "type": "bool",
+                    "help": "Skip approvals drops approval requests, for use beside a two-way Telegram channel that already carries them. Default false."
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "key": "min_priority",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "key": "channels",
+      "type": "list",
+      "help": "two-way links such as a Telegram bot",
+      "item": {
+        "key": "",
+        "type": "section",
+        "fields": [
+          {
+            "key": "type",
+            "type": "string",
+            "enum": [
+              "discord",
+              "telegram"
+            ]
+          },
+          {
+            "key": "options",
+            "type": "variant",
+            "discriminator": "type",
+            "variants": {
+              "discord": {
+                "key": "",
+                "type": "section",
+                "fields": [
+                  {
+                    "key": "bot_token_env",
+                    "type": "string",
+                    "help": "Bot token env is the name of an environment variable that holds the Discord bot token. Required.",
+                    "secret_env": true
+                  },
+                  {
+                    "key": "allowed_user_ids",
+                    "type": "list",
+                    "help": "Allowed user ids lists the Discord user IDs onett obeys, each written as a quoted string of digits (a 64-bit ID can lose digits as a YAML number). Required: at least one.",
+                    "item": {
+                      "key": "",
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "key": "state_file",
+                    "type": "string",
+                    "help": "State file is the JSON file the bot keeps its state in. Default \u003cdata_dir\u003e/channels/discord.json."
+                  }
+                ]
+              },
+              "telegram": {
+                "key": "",
+                "type": "section",
+                "fields": [
+                  {
+                    "key": "bot_token_env",
+                    "type": "string",
+                    "help": "Bot token env is the name of an environment variable that holds the Telegram bot token. Required.",
+                    "secret_env": true
+                  },
+                  {
+                    "key": "allowed_user_ids",
+                    "type": "list",
+                    "help": "Allowed user ids lists the Telegram user IDs (whole numbers) onett obeys. Required: at least one.",
+                    "item": {
+                      "key": "",
+                      "type": "int"
+                    }
+                  },
+                  {
+                    "key": "state_file",
+                    "type": "string",
+                    "help": "State file is the JSON file the bot keeps its state in. Default \u003cdata_dir\u003e/channels/telegram.json."
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": "self_project",
+      "type": "string",
+      "help": "Self project names the project that is onett itself; factory friction is filed there."
+    }
+  ]
+}
