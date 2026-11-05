@@ -207,6 +207,7 @@ Names marked * are additions to the frozen list from the brief.
 | `--chat-field-border`* | `#6f7d76` | `#64736b` | outline of the composer input |
 | `--chat-accent` | `#1d6f3d` | `#5fd08b` | working lamp, links, selection |
 | `--chat-warning` | `#7a5800` | `#f2c230` | waiting-for-owner text |
+| `--chat-warning-bg`* | `#fbf3d4` | `#2b2308` | queued-message notice fill (text is `--chat-warning`) |
 | `--chat-danger` | `#b0251c` | `#ff7a70` | errors, blocked |
 | `--chat-diff-add-fg` / `-bg` | `#1d6f3d` / `#d3e8d9` | `#7fdca1` / `#16301f` | added lines |
 | `--chat-diff-del-fg` / `-bg` | `#a3231a` / `#f1d6d2` | `#ff9a92` / `#3a1a17` | removed lines |
@@ -237,6 +238,7 @@ Names marked * are additions to the frozen list from the brief.
 | Page layout, conversation list, composer, empty state | `web/src/pages/Chat.css` |
 | Code blocks, inline code, Markdown headings | `web/src/components/Markdown.tsx` and its styles |
 | Diff cards | the edit rows in `Transcript.tsx` |
+| Not covered | The Terminal view (`TerminalView`, `TermLine`, `TerminalTool` rules in `Transcript.css`) is exempt by design: it keeps its andon-board look on the app's `--board-*` tokens. |
 | Dark mode | the dark block of `Chat.css` folds into `chat-tokens.css` as each rule moves |
 
 ## Accessibility
@@ -257,6 +259,7 @@ on both backgrounds. Measured with the WCAG 2.x relative-luminance formula on th
 | `--chat-user-fg` on `--chat-user-bg` | 11.94 | 11.82 |
 | `--chat-accent` on `--chat-bg` / `--chat-surface` | 5.06 / 5.78 | 9.47 / 8.77 |
 | `--chat-warning` on `--chat-bg` / `--chat-surface` | 5.32 / 6.09 | 10.91 / 10.11 |
+| `--chat-warning` on `--chat-warning-bg` | 5.85 | 9.31 |
 | `--chat-danger` on `--chat-bg` / `--chat-surface` | 5.49 / 6.28 | 7.20 / 6.67 |
 | `--chat-diff-add-fg` on `--chat-diff-add-bg` | 4.81 | 8.57 |
 | `--chat-diff-del-fg` on `--chat-diff-del-bg` | 5.44 | 7.68 |

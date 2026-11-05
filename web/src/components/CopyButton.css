@@ -23,25 +23,25 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--muted);
+  border: 1px solid var(--chat-border);
+  background: var(--chat-surface);
+  color: var(--chat-fg-faint);
   cursor: pointer;
 }
 
 .copy-btn:hover {
-  color: var(--text);
+  color: var(--chat-fg-strong);
 }
 
 .copy-btn:focus-visible {
-  outline: 2px solid var(--text);
+  outline: 2px solid var(--chat-focus-ring);
   outline-offset: 1px;
 }
 
 .copy-note {
   font-size: 12px;
-  color: var(--muted);
-  background: var(--panel);
+  color: var(--chat-fg-faint);
+  background: var(--chat-surface);
   padding: 0 4px;
 }
 
