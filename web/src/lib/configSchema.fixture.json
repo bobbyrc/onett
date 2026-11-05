@@ -102,7 +102,13 @@
         "fields": [
           {
             "key": "type",
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "claude-code",
+              "codex",
+              "exec",
+              "fake"
+            ]
           },
           {
             "key": "command",

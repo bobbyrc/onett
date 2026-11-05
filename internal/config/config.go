@@ -67,6 +67,11 @@ type Limits struct {
 	MaxGoalTurns int `yaml:"max_goal_turns" json:"max_goal_turns"`
 }
 
+// HarnessTypes lists the registered harness types, sorted. config cannot import the harness
+// package, so the list is kept here for the schema's dropdown; a test compares it with
+// harness.Types().
+var HarnessTypes = []string{"claude-code", "codex", "exec", "fake"}
+
 // Harness configures one agent CLI. Type is a registered harness type: claude-code, codex,
 // exec, fake.
 type Harness struct {
