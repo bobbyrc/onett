@@ -12,6 +12,8 @@ The tokens in `web/src/chat-tokens.css` are the contract. Later PRs restyle one 
 with `var(--chat-*)`; they must not invent colours or sizes, and must not rename a token. This PR
 changes no visuals: nothing reads the tokens yet.
 
+How each item compares with Orca once built, with before/after screenshots: [chat-orca-comparison.md](chat-orca-comparison.md).
+
 Orca files cited below are under `src/renderer/src/components/native-chat/` unless a full path is
 given; styles are `src/renderer/src/assets/main.css`, rules are `docs/styleguide/native-chat.md`.
 
