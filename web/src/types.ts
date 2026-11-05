@@ -326,6 +326,9 @@ export interface LoopView {
   every: string;
   last_run_at: string;
   last_error?: string;
+  /** Only loops that report it (heartbeat) set these two. */
+  next_run_at?: string;
+  item_count?: number;
 }
 
 /** Where an agent's settings come from: the built-in definition, a built-in with changes, or a custom agent. */

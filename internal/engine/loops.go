@@ -291,6 +291,8 @@ func (e *Engine) Loops(ctx context.Context) []api.LoopView {
 				Every:     l.Every.Duration.String(),
 				LastRunAt: st.LastRunAt,
 				LastError: st.LastError,
+				NextRunAt: st.NextRunAt,
+				ItemCount: st.ItemCount,
 			})
 		}
 	}

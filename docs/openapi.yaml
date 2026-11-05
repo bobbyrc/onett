@@ -3529,6 +3529,13 @@ components:
           format: date-time
         last_error:
           type: string
+        next_run_at:
+          type: string
+          format: date-time
+          description: When the loop next runs on its schedule. Only loops that report it (heartbeat) set it.
+        item_count:
+          type: integer
+          description: How many items the loop's last run found. Only loops that report it (heartbeat) set it.
 
     ConversationDetail:
       type: object
