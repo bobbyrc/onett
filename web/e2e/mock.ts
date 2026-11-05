@@ -5,6 +5,8 @@ import * as f from './fixtures';
 
 type Json = unknown;
 
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
 /** The mocked body for a GET path (without /api/v1), or undefined when no fixture covers it. */
 export function respond(path: string): Json | undefined {
   const parts = path.split('/').filter(Boolean);
@@ -71,6 +73,19 @@ export async function mockBackend(page: Page): Promise<string[]> {
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/api\/v1/, '');
+    // Chat attachments: uploads succeed, and any download is a 1x1 PNG.
+    if (/^\/conversations\/[^/]+\/attachments(\/|$)/.test(path)) {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: `att-${Date.now()}-${Math.random()}`, name: 'x', mime: 'application/octet-stream', size: 1 }),
+        });
+      } else {
+        await route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+      }
+      return;
+    }
     const body = route.request().method() === 'GET' ? respond(path) : undefined;
     if (body === undefined) {
       unmocked.push(`${route.request().method()} ${path}`);
