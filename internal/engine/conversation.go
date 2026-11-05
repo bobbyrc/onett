@@ -264,10 +264,10 @@ func laterOf(a, b time.Time) time.Time {
 	return a
 }
 
-// SendTaskMessage sends the owner's text to the agent of the task's conversation. A live agent
-// that takes input gets it at once. Otherwise the message is stored queued and, when no run is
+// SendTaskMessage sends text to the agent of the task's conversation, from the owner (author "")
+// or the orchestrator. A live agent that takes input gets it at once. Otherwise the message is stored queued and, when no run is
 // live, a follow-up is started now; while a run is live the queue waits for that run to succeed.
-func (e *Engine) SendTaskMessage(ctx context.Context, taskID, text string) (domain.ChatMessage, error) {
+func (e *Engine) SendTaskMessage(ctx context.Context, taskID, text, author string) (domain.ChatMessage, error) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return domain.ChatMessage{}, fmt.Errorf("%w: message is empty", api.ErrInvalid)
@@ -284,7 +284,7 @@ func (e *Engine) SendTaskMessage(ctx context.Context, taskID, text string) (doma
 	if err != nil {
 		return domain.ChatMessage{}, err
 	}
-	msg := domain.ChatMessage{ConversationID: conv.ID, Role: "user", Text: text, Queued: true}
+	msg := domain.ChatMessage{ConversationID: conv.ID, Role: "user", Text: text, Queued: true, Author: author}
 	if l.live != "" {
 		switch err := e.deliverToRun(ctx, l.live, text); {
 		case err == nil:

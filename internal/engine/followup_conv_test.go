@@ -99,7 +99,7 @@ func TestMessageToBlockedTaskResumesSession(t *testing.T) {
 	first := fuWaitRuns(t, env, task.ID, 1)[0]
 	require.NotEmpty(t, first.SessionID)
 
-	msg, err := env.e.SendTaskMessage(env.ctx, task.ID, "carry on")
+	msg, err := env.e.SendTaskMessage(env.ctx, task.ID, "carry on", "")
 	require.NoError(t, err)
 	assert.True(t, msg.Queued, "stored queued until the follow-up run takes it")
 
@@ -121,7 +121,7 @@ func TestMessageDuringNonSteerableRunQueuesThenFollowsUp(t *testing.T) {
 	task := env.create(domain.Task{Body: "HOLD [fake:commit]"})
 	<-entered
 
-	msg, err := env.e.SendTaskMessage(env.ctx, task.ID, "also add tests")
+	msg, err := env.e.SendTaskMessage(env.ctx, task.ID, "also add tests", "")
 	require.NoError(t, err)
 	assert.True(t, msg.Queued)
 	assert.Empty(t, msg.RunID)
@@ -144,7 +144,7 @@ func TestQueuedMessageNotDeliveredAfterDenial(t *testing.T) {
 	env, rec, entered, release := fuEnv(t)
 	task := env.create(domain.Task{Body: "HOLD DENYLATER"})
 	<-entered
-	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "while you work")
+	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "while you work", "")
 	require.NoError(t, err)
 
 	close(release)
@@ -175,7 +175,7 @@ func TestMessageAfterMergeCreatesConversationChild(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = env.e.SendTaskMessage(env.ctx, task.ID, "one more thing [fake:commit]")
+	_, err = env.e.SendTaskMessage(env.ctx, task.ID, "one more thing [fake:commit]", "")
 	require.NoError(t, err)
 
 	var child domain.Task
@@ -209,7 +209,7 @@ func TestMessageToQuestionTaskDoneWithoutPRRequeues(t *testing.T) {
 	env.waitStatus(task.ID, domain.TaskDone)
 	first := fuWaitRuns(t, env, task.ID, 1)[0]
 
-	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "and why")
+	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "and why", "")
 	require.NoError(t, err)
 
 	runs := fuWaitRuns(t, env, task.ID, 2)
@@ -227,7 +227,7 @@ func TestMessageToNeverRunTaskJoinsFirstPrompt(t *testing.T) {
 	require.NoError(t, env.e.SetPaused(env.ctx, true))
 	task := env.create(domain.Task{Body: "make a thing"})
 
-	msg, err := env.e.SendTaskMessage(env.ctx, task.ID, "use tabs")
+	msg, err := env.e.SendTaskMessage(env.ctx, task.ID, "use tabs", "")
 	require.NoError(t, err)
 	assert.True(t, msg.Queued)
 	assert.Empty(t, rec.all())
@@ -258,11 +258,11 @@ func TestSendTaskMessageRefusals(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = env.e.SendTaskMessage(env.ctx, task.ID, "hello")
+	_, err = env.e.SendTaskMessage(env.ctx, task.ID, "hello", "")
 	require.ErrorIs(t, err, api.ErrConflict)
 	assert.Contains(t, err.Error(), "This agent has no session to continue. Retry the task instead.")
 
-	_, err = env.e.SendTaskMessage(env.ctx, task.ID, "  ")
+	_, err = env.e.SendTaskMessage(env.ctx, task.ID, "  ", "")
 	assert.ErrorIs(t, err, api.ErrInvalid)
 }
 
@@ -270,7 +270,7 @@ func TestAutoRetryDoesNotClaimQueuedMessages(t *testing.T) {
 	env, rec, entered, release := fuEnv(t)
 	task := env.create(domain.Task{Body: "HOLD [fake:fail]"})
 	<-entered
-	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "please also do this")
+	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "please also do this", "")
 	require.NoError(t, err)
 
 	close(release)
@@ -299,7 +299,7 @@ func TestFollowUpPromptRemindsAboutReport(t *testing.T) {
 	task := env.create(domain.Task{Body: "[fake:block]"})
 	env.waitStatus(task.ID, domain.TaskBlocked)
 	fuWaitRuns(t, env, task.ID, 1)
-	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "carry on")
+	_, err := env.e.SendTaskMessage(env.ctx, task.ID, "carry on", "")
 	require.NoError(t, err)
 	fuWaitRuns(t, env, task.ID, 2)
 	prompt := rec.all()[1].Prompt

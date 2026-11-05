@@ -288,8 +288,9 @@ agent. For anything beyond this task, ask the orchestrator." (the last words lin
 Close asks for a reason. A closed conversation replaces the composer with "Closed by <who>:
 <reason>", shown as plain text, and a **Reopen** button for operators and owners. When the server
 refuses a message (a 409) the composer shows its reason. Retrying a cancelled task does not reopen
-its conversation: the owner reopens it. Messaging, Send now, and editing or cancelling a queued
-message are for signed-in people only; the API token gets 403. Viewers read the thread and see a muted
+its conversation: the owner reopens it. Send now, and editing or cancelling a queued
+message are for signed-in people only; the API token gets 403. The token (the orchestrator) can
+send a message, which the thread labels "Orchestrator". Viewers read the thread and see a muted
 line, "Viewers can read conversations but not send messages.", in place of the composer.
 
 **Goals** (`/goals`) — table: status, goal (links to the detail), project, turns, updated and the

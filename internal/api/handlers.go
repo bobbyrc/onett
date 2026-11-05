@@ -248,11 +248,18 @@ func (s *server) taskConversation(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, tc)
 }
 
-// sendTaskMessage is for a person only: the API token, which the orchestrator holds, gets 403,
-// so an agent cannot speak to a task agent in the owner's voice.
+// sendTaskMessage lets a person or the API token (the orchestrator) message a task agent. The
+// token's messages are stored with author "orchestrator", so they never pass for the owner's.
+// Editing and cancelling queued messages stay for a person only.
 func (s *server) sendTaskMessage(w http.ResponseWriter, r *http.Request) {
-	if _, ok := userPrincipal(w, r); !ok {
+	p, ok := principalFrom(r.Context())
+	if !ok {
+		writeErrorMsg(w, http.StatusForbidden, "forbidden")
 		return
+	}
+	author := ""
+	if p.token {
+		author = domain.AuthorOrchestrator
 	}
 	var in struct {
 		Text string `json:"text"`
@@ -265,7 +272,7 @@ func (s *server) sendTaskMessage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, invalidf("text is required"))
 		return
 	}
-	m, err := s.opts.Controller.SendTaskMessage(r.Context(), chi.URLParam(r, "id"), in.Text)
+	m, err := s.opts.Controller.SendTaskMessage(r.Context(), chi.URLParam(r, "id"), in.Text, author)
 	if err != nil {
 		s.fail(w, err)
 		return

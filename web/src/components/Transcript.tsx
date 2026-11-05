@@ -8,6 +8,9 @@ import { MessageAttachments } from './MessageAttachments';
 import './Transcript.css';
 
 const RESULT_PREVIEW_LINES = 3;
+/** Who sent an owner-side message that the owner did not write: only the orchestrator, today. */
+const authorLabel = (author: string) => (author === 'orchestrator' ? 'Orchestrator' : author);
+
 const QUEUED_NOTE = 'Queued · sends when the agent finishes this run';
 
 type ToolEntry = Extract<Entry, { kind: 'tool' }>;
@@ -104,6 +107,7 @@ function ConversationEntry({
               {e.messageId && queuedActions ? queuedActions(e.messageId) : null}
             </span>
           ) : null}
+          {e.author ? <span className="tr-queued-note">{authorLabel(e.author)}</span> : null}
           {e.text ? <span className="tr-body">{e.text}</span> : null}
           {e.attachments?.length ? <MessageAttachments attachments={e.attachments} /> : null}
         </div>
@@ -246,6 +250,7 @@ function TerminalEntry({ entry: e, queuedActions }: { entry: Entry; queuedAction
               {e.messageId && queuedActions ? queuedActions(e.messageId) : null}
             </div>
           ) : null}
+          {e.author ? <div className="tr-queued-note">{authorLabel(e.author)}</div> : null}
           <pre>{e.text}</pre>
         </TermLine>
       );
