@@ -3196,6 +3196,9 @@ components:
           description: Files sent with the message. One that retention has deleted is left out.
           items:
             $ref: '#/components/schemas/Attachment'
+        kind:
+          type: string
+          description: "`internal` on a prompt onett wrote to the orchestrator itself (follow-up or goal check-in); clients hide it. Omitted otherwise."
         created_at:
           type: string
           format: date-time

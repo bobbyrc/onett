@@ -769,7 +769,7 @@ func (b *Bot) handleEvent(ctx context.Context, ev domain.Event) {
 }
 
 func (b *Bot) relayChat(ctx context.Context, m domain.ChatMessage) {
-	if m.Role != "assistant" && m.Role != "system" {
+	if m.Kind == domain.ChatKindInternal || (m.Role != "assistant" && m.Role != "system") {
 		return
 	}
 	b.mu.Lock()

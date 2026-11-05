@@ -255,6 +255,8 @@ export interface ChatMessage {
   queued?: boolean;
   /** Files sent with the message; one that retention deleted is left out. */
   attachments?: Attachment[];
+  /** "internal" marks onett's own prompt to the orchestrator; the UI hides it. */
+  kind?: string;
 }
 
 /** A file attached to a chat message (internal/domain). Download it from

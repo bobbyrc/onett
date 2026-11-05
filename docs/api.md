@@ -128,6 +128,11 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `PATCH /messages/{id}` | `{"text":"…"}` | `ChatMessage`; 409 once delivered. A signed-in person only (the API token gets 403) |
 | `DELETE /messages/{id}` | | 204; 409 once delivered. A signed-in person only (the API token gets 403) |
 
+`ChatMessage.kind` is `"internal"` on a prompt onett wrote to the orchestrator itself (the follow-up
+after delegated tasks settle, a goal check-in; `role` is `system`). It is omitted on every other
+message. The web UI hides internal messages and the Telegram and Discord channels never forward
+them; other `system` messages (errors, denials) stay visible. Clients that ignore `kind` still work.
+
 Which role may call each route: every `GET` needs `viewer` or better (the token included). Every
 `POST` that acts on work (tasks, approvals, pause, loops, chat, `config/reload`, projects) needs
 `operator` or better (the token included). Everything under `/users`, `/secrets`, `/notify/test`, `/channels/test`, `/restart` and `/config/file` and

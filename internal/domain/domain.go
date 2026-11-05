@@ -397,6 +397,10 @@ type ChatMessage struct {
 	// Attachments are the files sent with the message. When storing a message only the IDs
 	// matter; the store fills in the rest on read. A file that retention has deleted is left out.
 	Attachments []Attachment `json:"attachments,omitempty"`
+	// Kind is "internal" for a prompt onett wrote to the orchestrator itself (a follow-up after
+	// tasks settle, a goal check-in). Clients hide these from the owner and never forward them to a
+	// chat app. Empty for every ordinary message.
+	Kind string `json:"kind,omitempty"`
 }
 
 // Attachment is a file the owner sent in chat. The bytes live on disk under the data directory;
@@ -410,6 +414,9 @@ type Attachment struct {
 	CreatedAt      time.Time `json:"created_at"`
 	Path           string    `json:"-"`
 }
+
+// ChatKindInternal marks a ChatMessage as onett's own prompt to an agent, not conversation.
+const ChatKindInternal = "internal"
 
 // TaskConversation is the owner's view of a task agent: the root task, its conversation, the
 // follow-up tasks and runs, and the messages.

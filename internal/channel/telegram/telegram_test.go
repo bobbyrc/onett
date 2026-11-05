@@ -322,6 +322,7 @@ func TestRepliesRoutedDedupedAndSplit(t *testing.T) {
 	host.emit(domain.EvChatMessage, domain.ChatMessage{ID: "m1", ConversationID: "other", Role: "assistant", Text: "elsewhere"})
 	host.emit(domain.EvChatMessage, domain.ChatMessage{ID: "m2", ConversationID: "conv1", Role: "assistant", Text: "hello back"})
 	host.emit(domain.EvChatMessage, domain.ChatMessage{ID: "m2", ConversationID: "conv1", Role: "assistant", Text: "hello back"})
+	host.emit(domain.EvChatMessage, domain.ChatMessage{ID: "m2b", ConversationID: "conv1", Role: "system", Kind: domain.ChatKindInternal, Text: "onett prompt"})
 	long := strings.Repeat("é", 3000) + "\n" + strings.Repeat("ü", 3000)
 	host.emit(domain.EvChatMessage, domain.ChatMessage{ID: "m3", ConversationID: "conv1", Role: "system", Text: long})
 	waitFor(t, "replies", func() bool { return len(api.texts()) >= 3 })
