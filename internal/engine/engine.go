@@ -106,6 +106,11 @@ type Engine struct {
 	projMu     sync.Mutex
 	projPaused map[string]bool
 
+	// mergeRetryMu guards mergeRetries: transient merge failures seen per task and head commit
+	// (see mergeRefused). Kept in memory; a restart only grants a few more tries.
+	mergeRetryMu sync.Mutex
+	mergeRetries map[string]int
+
 	// followups tracks tasks delegated from chat; see chat_followup.go.
 	followups *chatFollowups
 
@@ -170,15 +175,16 @@ func New(d Deps) (*Engine, error) {
 		d.SchedulerTick = 5 * time.Second
 	}
 	return &Engine{
-		d:          d,
-		pre:        newPreflight(),
-		cfg:        d.Config,
-		wake:       make(chan struct{}, 1),
-		active:     map[string]*activeRun{},
-		loopLocks:  map[string]*sync.Mutex{},
-		kicks:      map[string]chan string{},
-		projPaused: map[string]bool{},
-		followups:  newChatFollowups(),
+		d:            d,
+		pre:          newPreflight(),
+		cfg:          d.Config,
+		wake:         make(chan struct{}, 1),
+		active:       map[string]*activeRun{},
+		loopLocks:    map[string]*sync.Mutex{},
+		kicks:        map[string]chan string{},
+		projPaused:   map[string]bool{},
+		mergeRetries: map[string]int{},
+		followups:    newChatFollowups(),
 	}, nil
 }
 

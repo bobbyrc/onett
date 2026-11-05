@@ -242,8 +242,40 @@ func (e *Engine) mergeRefused(ctx context.Context, s scm.SCM, t domain.Task, jud
 			"task", t.ID, "pr", t.PRNumber, "judged", judged, "head", pr.HeadSHA)
 		return nil
 	}
+	if isTransientMergeError(mergeErr) && e.noteMergeRetry(t.ID, judged) {
+		e.d.Logger.Warn("merge failed transiently; task stays in review for a retry",
+			"task", t.ID, "pr", t.PRNumber, "err", mergeErr)
+		return nil
+	}
 	e.blockTask(ctx, t.ID, "merge failed: "+mergeErr.Error())
 	return nil
+}
+
+// maxMergeRetries is how many transient merge failures at one head the shepherd absorbs before
+// it blocks the task.
+const maxMergeRetries = 3
+
+// noteMergeRetry counts a transient merge failure of task at head and reports whether the
+// shepherd may try again on its next pass.
+func (e *Engine) noteMergeRetry(taskID, head string) bool {
+	e.mergeRetryMu.Lock()
+	defer e.mergeRetryMu.Unlock()
+	key := taskID + ":" + head
+	e.mergeRetries[key]++
+	return e.mergeRetries[key] <= maxMergeRetries
+}
+
+// isTransientMergeError reports whether a merge error looks like a GitHub outage rather than a
+// refusal: a 5xx status or GraphQL's generic "Something went wrong".
+func isTransientMergeError(err error) bool {
+	msg := strings.ToLower(err.Error())
+	for _, s := range []string{"something went wrong", "http 500", "http 502", "http 503", "http 504",
+		"bad gateway", "service unavailable", "gateway timeout", "internal server error"} {
+		if strings.Contains(msg, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // ensureReview makes sure a reviewer run exists for the PR's current head commit, and waits for
