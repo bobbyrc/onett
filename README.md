@@ -4,9 +4,47 @@ Onett is a personal software factory. It is a local daemon (a background program
 running) that hands work to coding agents: Claude Code and Codex today, and any other agent CLI
 through a plugin. For each piece of work it runs the agent in its own git checkout, opens a pull
 request, waits for CI and an agent review, and applies a risk policy that decides whether the change
-may merge without you. After a merge it can deploy, check the deploy, and roll back if the check
-fails. It also watches production for errors and files the problems it finds as issues. You steer it
-by chat, from a web UI, or with the `onett` command.
+may merge. After a merge it can deploy, check the deploy, and roll back if the check fails. It also
+watches production for errors and files the problems it finds as issues. You steer it by chat, from
+a web UI, or with the `onett` command.
+
+## The CEO model
+
+Onett's default is full autonomy. You act like a CEO and the agents are the employees: you state an
+idea, and onett turns it into shipped, deployed software without further intervention. Supervision
+(approvals, caps, pauses) is opt-in configuration for people who want to rein it in. It is never the
+default.
+
+When you state an idea in chat, the orchestrator (the agent you talk to) decides how big it is. A
+single small change becomes a task. Anything with several steps becomes a **goal** (see
+[Goals](#goals-unattended-multi-step-work)), which the `goals` loop drives until it is done. Each task is
+implemented by an agent in its own checkout, reviewed by a second agent, merged once CI is green, and
+deployed if the project has a deployer. A failed health check rolls the release back. The default
+policy merges at every risk level; risk is still computed and recorded on each PR.
+
+What stops it:
+
+- **Hard limits that stay on.** A denied tool call is never retried in the same form, and a run with
+  no output for `limits.stall_timeout` stops; both block the task with the reason. Secrets never go
+  into repositories, logs or chat. The daily budget stops new runs that bill per token. A
+  preflight check holds runs that would hang, such as an unreadable directory.
+- **A real need for you.** When an agent reports that it needs a human, a task runs out of
+  `limits.max_attempts`, or a goal cannot move on, the task or goal is `blocked` and onett tells you
+  through the notifier or channel you configured (ntfy, Telegram, Discord and so on).
+
+Reining it in, per setting:
+
+- `policy: supervised` on a project: `low` risk still merges by itself, `medium` and `high` wait for
+  your approval (`onett approvals`, `onett approve`).
+- `limits.daily_budget_usd`: stop new pay-per-token runs once today's cost reaches the cap.
+- `paused: true` on a project, or `onett project pause NAME`; `onett pause` stops the whole
+  factory. Running agents finish.
+- `loops.goals.enabled: false`: no unattended multi-step work; the orchestrator creates tasks only.
+- `loops.self_update.enabled: false`: onett never replaces its own binary (self-update is off
+  unless you enable it).
+
+Each is described under [Safety model](#safety-model) and annotated in
+[onett.example.yaml](onett.example.yaml).
 
 ## Terms used below
 
@@ -26,7 +64,7 @@ by chat, from a web UI, or with the `onett` command.
 the built-in `supervised` policy holds `medium` and `high` for you.
 - **Loop**: a recurring background job, such as checking open PRs or polling production.
 - **Outbox**: a folder in each worktree where the agent writes its report, `result.json`.
-- **Approval**: a request for your decision, such as merging a `medium` or `high` risk PR under the `supervised` policy.
+- **Approval**: a request for your decision. Under the opt-in `supervised` policy, a `medium` or `high` risk PR waits for one.
 
 ## How a task flows
 
@@ -44,8 +82,8 @@ the built-in `supervised` policy holds `medium` and `high` for you.
    minutes) checks the release. A failed check rolls back, opens an `incident` task and notifies you.
 6. The task becomes `done`.
 
-What waits for you: approvals (`onett approvals`, then `onett approve`) and `blocked` tasks. A
-task is blocked when a tool call is denied, when a run stalls, when the agent reports that it needs a
+What waits for you: `blocked` tasks, and approvals (`onett approvals`, then `onett approve`) when
+you opted in to `supervised`. A task is blocked when a tool call is denied, when a run stalls, when the agent reports that it needs a
 human, or when it has used up `max_attempts`. Retry it with a note, or cancel it.
 
 ## Safety model
@@ -219,11 +257,12 @@ and then `service install` again.
 
 ### Goals: unattended multi-step work
 
-A **goal** is an objective you state once, such as "build parts 1 and 2 of X, part 2 after part 1
+The orchestrator creates a goal itself when you state a multi-step idea; you can also create one by
+hand. A **goal** is an objective you state once, such as "build parts 1 and 2 of X, part 2 after part 1
 merges". While it is active, the `goals` loop wakes the orchestrator, in the goal's own
 conversation, each time the previous step has settled: it queues the next tasks (linked to the goal
 automatically), retries a blocked one, or declares the goal done or blocked. It waits while any goal
-task is still running, in review or waiting for your approval, and does nothing when nothing changed.
+task is still running, in review or waiting for an approval, and does nothing when nothing changed.
 A turn that makes no progress, or the `limits.max_goal_turns` limit (default 40), blocks the goal
 and notifies you. The daily budget and `onett pause` stop turns too.
 

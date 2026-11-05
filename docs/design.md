@@ -2,7 +2,7 @@
 
 Onett is a personal software factory: one daemon that takes work (from chat, GitHub issues,
 production errors, its own friction reports), hands it to coding agents, and carries the result
-through PR, merge, deploy and verification with as little human involvement as the risk allows.
+through PR, merge, deploy and verification without further human involvement.
 
 Status: v0, written 2026-10-27 without a live design review. Every decision below is meant to be
 cheap to revisit; the ones most worth a second look are marked **(review)**.
@@ -45,6 +45,17 @@ paths or accounts, nothing that assumes one machine and one person) when it cost
 
 ## Principles
 
+0. **The CEO model: full autonomy by default.** The owner acts like a CEO and the agents are
+   employees. The owner states an idea; onett turns it into shipped, deployed software (goal,
+   tasks, implementation, review, merge, deploy, health check) without further intervention. The
+   built-in `default` policy therefore merges every risk level once the reviewer approves and CI
+   is green, and the orchestrator turns multi-task requests into goals and acts without asking.
+   Supervision is opt-in and never the default: the `supervised` policy, `limits`, project
+   pauses, `loops.goals.enabled: false`, and leaving self-update off. What stays on regardless are
+   the hard limits below (principles 1 and 2, secrets never leaving the machine, the daily budget
+   for pay-per-token runs, and preflight holds for runs that would hang) and a real need for the
+   owner, who is reached through a configured notifier or channel. When a decision trades
+   autonomy against caution, default to autonomy and make the caution a setting.
 1. **Agents do judgment, code does gates.** Agents write code, review diffs, triage issues and
    diagnose incidents. Deterministic Go code commits, pushes branches, opens PRs, decides risk,
    merges, deploys and rolls back. An agent can never lower a risk rating or merge its own work;
@@ -116,6 +127,7 @@ paths or accounts, nothing that assumes one machine and one person) when it cost
   instead of blocking it. Review tasks never wait for the task they review.
 - **Policy** — deterministic rules mapping a diff (paths, size, labels, task kind) to a risk
   level, and the gates per risk level (auto-merge, review required, human approval required).
+  The built-in `default` policy requires no human approval at any level.
 - **Loop** — a recurring job: issue intake, PR shepherd, deploy watch, prod watch, friction
   filing. Each can be enabled, disabled and tuned per project.
 - **Signal** — a deduplicated production problem (e.g. a Sentry issue) from an observer.
@@ -173,7 +185,7 @@ prompts (in onett's repo only); default size limit 400 changed lines. A policy's
 add to these defaults, while `rules` replaces them, so use `extra_rules` unless you mean to drop
 the built-in protections.
 Work onett assigned itself (follow-ups and retrospectives, matched by task source) is rated
-`medium` by default, so under `supervised` a human approves it.
+`medium` by default, which under `supervised` means a human approves it.
 
 ### Deploy watch
 
@@ -279,7 +291,8 @@ the goal active but queued no task, retried none and did not finish or block the
 so does reaching `limits.max_goal_turns` (default 40). Blocking, and `onett goal done`, notify the
 owner. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
 Goals add no new way to act: the orchestrator still only queues tasks, and merges still wait for
-the policy and the owner.
+the project's policy (the owner only under `supervised`). `loops.goals.enabled: false` turns the
+loop off.
 
 ### Messaging a task's agent
 
