@@ -73,6 +73,9 @@ func (s *server) apiRoutes(r chi.Router) {
 	s.administer(r, http.MethodPut, "/secrets/{name}", s.putSecret)
 	s.administer(r, http.MethodDelete, "/secrets/{name}", s.deleteSecret)
 
+	s.administer(r, http.MethodPost, "/notify/test", s.testNotifier)
+	s.administer(r, http.MethodPost, "/channels/test", s.testChannel)
+
 	s.administer(r, http.MethodGet, "/users", s.listUsers)
 	s.administer(r, http.MethodPost, "/users", s.createUser)
 	s.administer(r, http.MethodPost, "/users/{name}/role", s.setUserRole)

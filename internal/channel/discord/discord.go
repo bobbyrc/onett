@@ -34,6 +34,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/bobbyrc/onett/internal/channel"
 	"github.com/bobbyrc/onett/internal/domain"
 )
 
@@ -851,6 +852,25 @@ func (b *Bot) requestApproval(ctx context.Context, a domain.Approval) {
 		b.approvals[a.ID] = append(b.approvals[a.ID], sentMsg{c, sent.ID, text})
 		b.mu.Unlock()
 	}
+}
+
+var _ channel.Tester = (*Bot)(nil)
+
+// SendTest messages every allowed user in a direct message, opening one when there is none. It
+// reports the first failure, which carries no token.
+func (b *Bot) SendTest(ctx context.Context) error {
+	targets := b.approvalTargets(ctx)
+	if len(targets) == 0 {
+		return errors.New("discord: could not open a direct message with any allowed user (the bot must share a server with you, and your DMs must allow it)")
+	}
+	body := map[string]any{"content": channel.TestMessage, "allowed_mentions": map[string]any{"parse": []string{}}}
+	var errs []error
+	for _, c := range targets {
+		if err := b.call(ctx, http.MethodPost, "/channels/"+c+"/messages", body, nil); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // sendText sends plain text, split into Discord-sized pieces. Mentions are disabled so agent

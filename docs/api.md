@@ -64,6 +64,8 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /secrets` | | `{"secrets":[{"name","set","source","referenced_by"}]}` (owner); names the config refers to plus names in `secrets.env`; never a value or length |
 | `PUT /secrets/{name}` | `{"value"}` | `{"name","set","shadowed"}` (owner); 400 bad name or empty value; writes `secrets.env` (0600) and reloads |
 | `DELETE /secrets/{name}` | | 204 (owner); 404 when the file lacks it |
+| `POST /notify/test` | `{"index"}` | `{"ok":true}` (owner); builds notifier N of the current config and sends one labelled test notification. 404 bad index; 422 `{"ok":false,"error"}` it cannot be built; 502 delivery failed. The error never holds a secret value |
+| `POST /channels/test` | `{"index"}` | `{"ok":true}` (owner); sends one labelled message through the running bot of channel N to its allowed users. 404 bad index; 409 the bot is not running (the error says why); 501 this channel type cannot send a test; 502 delivery failed |
 | `GET /users` | | `[]User` (owner) |
 | `POST /users` | `{"username","password","role"}` | `User` (201, owner); 409 taken |
 | `POST /users/{name}/role` | `{"role"}` | `User` (owner); 409 last owner |
@@ -125,7 +127,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 
 Which role may call each route: every `GET` needs `viewer` or better (the token included). Every
 `POST` that acts on work (tasks, approvals, pause, loops, chat, `config/reload`, projects) needs
-`operator` or better (the token included). Everything under `/users`, `/secrets` and `/config/file` and
+`operator` or better (the token included). Everything under `/users`, `/secrets`, `/notify/test`, `/channels/test` and `/config/file` and
 `/config/document` needs `owner` (the token gets 403).
 
 `User` is `{"username","role","created_at","updated_at"}`. `ConfigSaved` is

@@ -3,7 +3,7 @@
 package api
 
 import (
-	"github.com/bobbyrc/onett/internal/secrets"
+	"context"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -14,7 +14,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/bobbyrc/onett/internal/auth"
+	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/events"
+	"github.com/bobbyrc/onett/internal/secrets"
 	"github.com/bobbyrc/onett/internal/store"
 )
 
@@ -46,7 +48,10 @@ type Options struct {
 	Web fs.FS
 	// Secrets is the secrets.env store behind /secrets. Nil makes those routes answer 501.
 	Secrets *secrets.Store
-	Logger  *slog.Logger
+	// ChannelTest sends a test message through the running bot of a channel entry; see
+	// channel.Supervisor.Test. Nil makes POST /channels/test answer 501.
+	ChannelTest func(ctx context.Context, ch config.Channel) error
+	Logger      *slog.Logger
 }
 
 type server struct {

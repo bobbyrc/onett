@@ -127,6 +127,7 @@ body {
   font-size: 15px;
   line-height: 1.5;
   min-height: 100vh;
+  min-height: 100dvh;
   caret-color: var(--text);
   scrollbar-color: var(--border) transparent;
 }
@@ -206,6 +207,7 @@ pre,
 
 .muted {
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .small {
@@ -258,12 +260,14 @@ pre,
   display: grid;
   grid-template-columns: 216px minmax(0, 1fr);
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .sidebar {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--board);
@@ -560,6 +564,7 @@ pre,
   margin: 12px 0;
   border-color: color-mix(in srgb, var(--lamp-stop) 55%, var(--border));
   background: color-mix(in srgb, var(--lamp-stop) 9%, var(--panel));
+  overflow-wrap: anywhere;
 }
 
 .callout-info {
@@ -595,6 +600,8 @@ pre,
   color: var(--muted);
   font-size: 12.5px;
   margin-right: 4px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .tag-danger {
@@ -1315,6 +1322,7 @@ a.board-window:hover .board-name {
   border: 1px solid var(--border);
   padding: 16px 18px;
   margin-bottom: 12px;
+  overflow-wrap: anywhere;
 }
 
 .call-item.is-stop {
@@ -1772,6 +1780,7 @@ a.board-window:hover .board-name {
 
 .connect {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 16px;
@@ -1807,6 +1816,7 @@ a.board-window:hover .board-name {
 .modal {
   width: min(560px, 100%);
   max-height: 90vh;
+  max-height: 90dvh;
   overflow: auto;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -1837,6 +1847,12 @@ a.board-window:hover .board-name {
 /* ---- narrow screens: top bar with a drawer; tables become cards ---- */
 
 @media (max-width: 759px) {
+  /* The top bar is 56px of content under the status bar/notch. The drawer starts at the same
+     value, so it can never slide under the bar. */
+  :root {
+    --topbar-h: calc(56px + env(safe-area-inset-top, 0px));
+  }
+
   .app {
     display: block;
   }
@@ -1849,8 +1865,9 @@ a.board-window:hover .board-name {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 10px 16px;
-    padding-top: max(10px, env(safe-area-inset-top));
+    box-sizing: border-box;
+    height: var(--topbar-h);
+    padding: calc(var(--topbar-h) - 56px) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
     background: var(--board);
     color: var(--board-text);
     --focus: var(--lamp-call);
@@ -1871,6 +1888,8 @@ a.board-window:hover .board-name {
   }
 
   .menu-button.btn-secondary {
+    min-height: 44px;
+    min-width: 44px;
     border-color: var(--board-muted);
     color: var(--board-text);
   }
@@ -1884,13 +1903,13 @@ a.board-window:hover .board-name {
   .sidebar {
     display: none;
     position: fixed;
-    top: 57px;
+    top: var(--topbar-h);
     left: 0;
     right: 0;
     bottom: 0;
     height: auto;
     width: auto;
-    padding-top: 8px;
+    padding: 8px env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     overflow-y: auto;
     z-index: 4;
   }
@@ -1904,12 +1923,31 @@ a.board-window:hover .board-name {
   }
 
   .nav-item {
+    box-sizing: border-box;
+    min-height: 44px;
     padding: 11px 20px;
     font-size: 16px;
   }
 
+  .sidebar-footer {
+    padding-bottom: 8px;
+  }
+
   .main {
-    padding: 16px 16px 40px;
+    padding: 16px max(16px, env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+
+  .connect {
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+
+  .modal-backdrop {
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+
+  .modal {
+    max-height: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
 
   h1 {
@@ -2039,6 +2077,11 @@ a.board-window:hover .board-name {
     color: var(--muted);
     font-size: 13px;
     flex: none;
+  }
+
+  /* Stacked cards have a definite width, so a long unbroken value can break anywhere safely. */
+  .table td {
+    overflow-wrap: anywhere;
   }
 
   .table td:first-child {
@@ -2561,3 +2604,9 @@ a.board-window:hover .board-name {
 .secret-picker .inline-form {
   max-width: 420px;
 }
+
+/* Guided channel setup and the per-entry "Send test" button on the Config page. */
+.channel-setup .segmented { margin: 0.75rem 0; }
+.setup-steps { padding-left: 1.25rem; display: grid; gap: 1rem; max-width: 46rem; }
+.setup-steps .field { margin-top: 0.5rem; }
+.send-test { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }

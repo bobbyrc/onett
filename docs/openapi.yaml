@@ -1892,6 +1892,106 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /notify/test:
+    post:
+      operationId: testNotifier
+      tags: [config]
+      summary: Send a test notification through one notifier.
+      description: >-
+        Owner only. Builds notifier `index` of the current config with the same factory the fanout uses and sends one notification labelled as a test. The error text never holds a secret value.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [index]
+              properties:
+                index:
+                  type: integer
+                  minimum: 0
+                  description: Position in the current config's list.
+      responses:
+        '200':
+          description: Delivered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResult'
+        '422':
+          description: The notifier cannot be built (a bad option, an unset token variable).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResult'
+        '502':
+          description: The notifier was built but delivery failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /channels/test:
+    post:
+      operationId: testChannel
+      tags: [config]
+      summary: Send a test message through a running chat channel.
+      description: >-
+        Owner only. Sends one labelled message through the running bot of channel `index` to its allowed users. 409 when the bot is not running (the error says why, for example an unset token variable, or that only the first channel of each type runs); 501 for a channel type that cannot send a test message.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [index]
+              properties:
+                index:
+                  type: integer
+                  minimum: 0
+                  description: Position in the current config's list.
+      responses:
+        '200':
+          description: Delivered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResult'
+        '409':
+          description: The channel is not running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResult'
+        '501':
+          description: This channel type has no test message.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResult'
+        '502':
+          description: The bot is running but delivery failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /config/file:
     get:
       operationId: getConfigFile
@@ -2153,6 +2253,15 @@ components:
             type: string
           description: Config paths that refer to the name, such as `channels[0].options.bot_token_env`.
 
+    TestResult:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+          description: Why the test failed. Never holds a secret value.
     SecretSaved:
       type: object
       required: [name, set, shadowed]

@@ -119,7 +119,7 @@ type notifySetup struct {
 func (n notifySetup) set() bool { return n.ntfyTopic != "" || n.channel != "" }
 
 // channelTokenEnv is the environment variable the bot token of a channel is read from.
-func channelTokenEnv(channel string) string { return strings.ToUpper(channel) + "_BOT_TOKEN" }
+func channelTokenEnv(channel string) string { return config.ChannelTokenEnv(channel) }
 
 // notifyFromFlags validates the --notify and --channel flags.
 func notifyFromFlags(notify, topic, server, channel, ids string) (notifySetup, error) {
