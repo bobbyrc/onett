@@ -262,6 +262,7 @@ internal/policy/  risk evaluation
 internal/deploy/  Deployer interface; command and noop deployers; HTTP health checks
 internal/observe/ Observer interface; exec and sentry observers
 internal/notify/  Notifier interface; log, ntfy, discord, telegram and exec notifiers
+internal/channel/ two-way chat channels: Telegram and Discord bots, wired in by `onett serve` from `channels:`
 internal/engine/  scheduler, supervisor, PR shepherd, loops, prompt assembly
 internal/chat/    orchestrator conversations
 internal/api/     HTTP API, SSE stream (CLI), WebSocket (web UI) and the embedded web UI

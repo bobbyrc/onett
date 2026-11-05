@@ -17,11 +17,13 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/bobbyrc/onett/internal/api"
 	"github.com/bobbyrc/onett/internal/channel"
+	"github.com/bobbyrc/onett/internal/channel/discord"
 	"github.com/bobbyrc/onett/internal/channel/telegram"
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/deploy"
@@ -91,8 +93,13 @@ func cmdServe(e *env, args []string) error {
 	}
 	bus := events.NewBus(st, logger)
 
-	// Resolve the Telegram channel before anything starts, so a missing token stops startup.
+	// Resolve the channels before anything starts, so a missing token stops startup.
 	tgChannel, err := telegramChannelOptions(cfg)
+	if err != nil {
+		_ = st.Close()
+		return err
+	}
+	dcChannel, err := discordChannelOptions(cfg)
 	if err != nil {
 		_ = st.Close()
 		return err
@@ -162,23 +169,29 @@ func cmdServe(e *env, args []string) error {
 
 	engineDone := make(chan error, 1)
 	go func() { engineDone <- eng.Run(ctx) }()
-	botDone := make(chan struct{})
-	if tgChannel == nil {
-		close(botDone)
-	} else {
-		bot, err := telegram.New(*tgChannel, &channel.Host{Controller: eng, Store: st, Bus: bus}, logger)
+	var bots sync.WaitGroup
+	host := &channel.Host{Controller: eng, Store: st, Bus: bus}
+	// startBot runs one channel's bot. A bot failure must not take the daemon down.
+	startBot := func(name string, bot interface{ Run(context.Context) error }, err error) {
 		if err != nil {
-			logger.Error("telegram channel not started", "err", err)
-			close(botDone)
-		} else {
-			go func() {
-				defer close(botDone)
-				// A bot failure must not take the daemon down.
-				if err := bot.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-					logger.Error("telegram channel stopped", "err", err)
-				}
-			}()
+			logger.Error(name+" channel not started", "err", err)
+			return
 		}
+		bots.Add(1)
+		go func() {
+			defer bots.Done()
+			if err := bot.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Error(name+" channel stopped", "err", err)
+			}
+		}()
+	}
+	if tgChannel != nil {
+		bot, err := telegram.New(*tgChannel, host, logger)
+		startBot("telegram", bot, err)
+	}
+	if dcChannel != nil {
+		bot, err := discord.New(*dcChannel, host, logger)
+		startBot("discord", bot, err)
 	}
 	serverDone := make(chan error, 1)
 	go func() { serverDone <- srv.ListenAndServe() }()
@@ -201,7 +214,7 @@ func cmdServe(e *env, args []string) error {
 		_ = srv.Close()
 	}
 	engErr := <-engineDone
-	<-botDone
+	bots.Wait()
 	closeErr := st.Close()
 
 	switch {
@@ -231,6 +244,27 @@ func telegramChannelOptions(cfg *config.Config) (*telegram.Options, error) {
 			return nil, fmt.Errorf("channel telegram: environment variable %q (bot_token_env) is empty", tc.BotTokenEnv)
 		}
 		return &telegram.Options{Token: token, AllowedUserIDs: tc.AllowedUserIDs, StateFile: tc.StateFile}, nil
+	}
+	return nil, nil
+}
+
+// discordChannelOptions returns the bot options for the configured discord channel, or nil when
+// there is none. The token is read from the environment variable the config names; an empty
+// variable is an error. Only the variable's name is ever put in a message.
+func discordChannelOptions(cfg *config.Config) (*discord.Options, error) {
+	for _, ch := range cfg.Channels {
+		if ch.Type != "discord" {
+			continue
+		}
+		dc, err := config.ParseDiscordChannel(ch, cfg.Server.DataDir)
+		if err != nil {
+			return nil, fmt.Errorf("channel discord: %w", err)
+		}
+		token := strings.TrimSpace(os.Getenv(dc.BotTokenEnv))
+		if token == "" {
+			return nil, fmt.Errorf("channel discord: environment variable %q (bot_token_env) is empty", dc.BotTokenEnv)
+		}
+		return &discord.Options{Token: token, AllowedUserIDs: dc.AllowedUserIDs, StateFile: dc.StateFile}, nil
 	}
 	return nil, nil
 }

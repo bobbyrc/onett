@@ -1,9 +1,10 @@
-// Package channel connects chat channels (see channel/telegram) to the daemon.
+// Package channel connects chat channels (see channel/telegram, channel/discord) to the daemon.
 package channel
 
 import (
 	"context"
 
+	"github.com/bobbyrc/onett/internal/channel/discord"
 	"github.com/bobbyrc/onett/internal/channel/telegram"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/events"
@@ -16,14 +17,17 @@ type Controller interface {
 	DecideApproval(ctx context.Context, id string, approve bool, note string) (domain.Approval, error)
 }
 
-// Host implements telegram.Host over the engine, the store and the event bus.
+// Host implements telegram.Host and discord.Host over the engine, the store and the event bus.
 type Host struct {
 	Controller Controller
 	Store      store.Store
 	Bus        events.Bus
 }
 
-var _ telegram.Host = (*Host)(nil)
+var (
+	_ telegram.Host = (*Host)(nil)
+	_ discord.Host  = (*Host)(nil)
+)
 
 func (h *Host) CreateConversation(ctx context.Context, title string) (domain.Conversation, error) {
 	return h.Store.CreateConversation(ctx, domain.Conversation{Title: title})

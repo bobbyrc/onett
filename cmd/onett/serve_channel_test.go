@@ -46,3 +46,27 @@ func TestNotifyConfigsSkipApprovalsOnTelegramOnly(t *testing.T) {
 	out = notifyConfigs(list, false)
 	assert.NotContains(t, out[0].Options, "skip_approvals")
 }
+
+func TestDiscordChannelOptionsResolvesTokenFromEnv(t *testing.T) {
+	cfg := &config.Config{
+		Server: config.Server{DataDir: "/d"},
+		Channels: []config.Channel{{Type: "discord", Options: map[string]any{
+			"bot_token_env": "TEST_DC_TOKEN", "allowed_user_ids": []any{"123456789012345678"},
+		}}},
+	}
+	t.Setenv("TEST_DC_TOKEN", "")
+	_, err := discordChannelOptions(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TEST_DC_TOKEN")
+
+	t.Setenv("TEST_DC_TOKEN", "sekret")
+	o, err := discordChannelOptions(cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "sekret", o.Token)
+	assert.Equal(t, []string{"123456789012345678"}, o.AllowedUserIDs)
+	assert.Equal(t, "/d/channels/discord.json", o.StateFile)
+
+	o, err = discordChannelOptions(&config.Config{})
+	require.NoError(t, err)
+	assert.Nil(t, o)
+}
