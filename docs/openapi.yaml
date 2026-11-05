@@ -3051,6 +3051,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Notifier'
+        channels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Channel'
         self_project:
           type: string
           description: The project that is onett itself. Factory friction is filed there.
@@ -3271,6 +3275,17 @@ components:
           additionalProperties: true
         min_priority:
           type: string
+
+    Channel:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          description: Only `telegram` exists.
+        options:
+          type: object
+          additionalProperties: true
 
     Loop:
       type: object

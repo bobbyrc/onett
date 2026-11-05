@@ -267,6 +267,8 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	validateChannels(c, add)
+
 	return errors.Join(errs...)
 }
 

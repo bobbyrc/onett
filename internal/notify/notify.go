@@ -15,6 +15,10 @@ const (
 	PriorityHigh   Priority = "high" // blocked work, rollbacks, approvals
 )
 
+// TagApproval marks a notification that asks the owner to approve something. A notifier
+// configured with skip_approvals drops it, because a chat channel carries approvals instead.
+const TagApproval = "approval"
+
 type Notification struct {
 	Title    string
 	Body     string

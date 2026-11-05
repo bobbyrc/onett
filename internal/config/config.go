@@ -22,6 +22,7 @@ type Config struct {
 	Projects map[string]*Project `yaml:"projects" json:"projects"`
 	Loops    Loops               `yaml:"loops" json:"loops"`
 	Notify   []Notifier          `yaml:"notify" json:"notify"`
+	Channels []Channel           `yaml:"channels" json:"channels"` // two-way links such as a Telegram bot
 	// SelfProject names the project that is onett itself; factory friction is filed there.
 	SelfProject string `yaml:"self_project" json:"self_project"`
 

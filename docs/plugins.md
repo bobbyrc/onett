@@ -429,10 +429,42 @@ Sends a plain-text message to a Telegram chat through the [Bot API](https://core
 | `bot_token_env` | yes      |                            | Name of an environment variable holding the bot token. The token itself never goes in the config. |
 | `chat_id`       | yes      |                            | The chat to send to: a numeric ID or `@channelname`.                    |
 | `api_url`       | no       | `https://api.telegram.org` | Use for a self-hosted Bot API server.                                   |
+| `skip_approvals`| no       | `false`                    | Drop "Approval needed" messages. Onett sets it for you when a `telegram` channel is configured (see below), so approvals are not sent twice. |
 
 The message is the title, then the body and the link into the web UI, each after a blank line, cut
 to Telegram's 4096-character limit. Low-priority messages are delivered without a sound. Errors never
 include the token, which Telegram puts in the request URL.
+
+## Channels
+
+A channel is a two-way link between you and onett: it carries messages to the orchestrator chat and
+brings its replies and approval requests back. A notifier only sends. Channels are listed under
+`channels` in `onett.yaml` and start and stop with `onett serve`. Changing the list needs a restart.
+
+```yaml
+channels:
+  - type: telegram
+    options:
+      bot_token_env: TELEGRAM_BOT_TOKEN
+      allowed_user_ids: [123456789]
+```
+
+### `telegram`
+
+A Telegram bot that long-polls for messages, so no public URL is needed. Only the user IDs in
+`allowed_user_ids` are obeyed, and only in private chats: an allowed user can approve merges. Each
+private chat is one orchestrator conversation.
+
+| Option             | Required | Default                           | Meaning                                                              |
+|--------------------|----------|-----------------------------------|----------------------------------------------------------------------|
+| `bot_token_env`    | yes      |                                   | Name of an environment variable holding the bot token (from @BotFather). `onett serve` refuses to start when it is empty. The token never goes in the config and is never logged. |
+| `allowed_user_ids` | yes      |                                   | Non-empty list of numeric Telegram user IDs.                         |
+| `state_file`       | no       | `<data_dir>/channels/telegram.json` | Where the bot keeps its poll offset and chat-to-conversation map.    |
+
+Approval requests reach you through the bot, with Approve and Reject buttons. While a `telegram`
+channel is configured, onett turns on `skip_approvals` for every `telegram` notifier, so the same
+request is not also sent as a plain message. Other notifiers still get it. A bot error is logged and
+never stops the daemon.
 
 ## Intake sources
 

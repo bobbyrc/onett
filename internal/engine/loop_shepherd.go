@@ -378,7 +378,7 @@ func (e *Engine) requestMergeApproval(ctx context.Context, p *config.Project, t 
 		return e.backToReview(ctx, t.ID, fmt.Errorf("create approval: %w", err))
 	}
 	e.d.Bus.Emit(ctx, domain.EvApprovalRequested, p.Name, t.ID, "", approval.Title, approval)
-	e.notify(ctx, notify.PriorityHigh, "Approval needed: "+t.Title, reason, "/approvals")
+	e.notify(ctx, notify.PriorityHigh, "Approval needed: "+t.Title, reason, "/approvals", notify.TagApproval)
 	return nil
 }
 

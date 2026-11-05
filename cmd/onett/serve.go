@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/bobbyrc/onett/internal/api"
+	"github.com/bobbyrc/onett/internal/channel"
+	"github.com/bobbyrc/onett/internal/channel/telegram"
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/deploy"
 	"github.com/bobbyrc/onett/internal/engine"
@@ -89,12 +91,13 @@ func cmdServe(e *env, args []string) error {
 	}
 	bus := events.NewBus(st, logger)
 
-	notifCfgs := make([]notify.Config, 0, len(cfg.Notify))
-	for _, n := range cfg.Notify {
-		notifCfgs = append(notifCfgs, notify.Config{
-			Type: n.Type, Options: n.Options, MinPriority: notify.Priority(n.MinPriority),
-		})
+	// Resolve the Telegram channel before anything starts, so a missing token stops startup.
+	tgChannel, err := telegramChannelOptions(cfg)
+	if err != nil {
+		_ = st.Close()
+		return err
 	}
+	notifCfgs := notifyConfigs(cfg.Notify, tgChannel != nil)
 	notifier, err := notify.NewFanout(notifCfgs, logger)
 	if err != nil {
 		_ = st.Close()
@@ -159,6 +162,24 @@ func cmdServe(e *env, args []string) error {
 
 	engineDone := make(chan error, 1)
 	go func() { engineDone <- eng.Run(ctx) }()
+	botDone := make(chan struct{})
+	if tgChannel == nil {
+		close(botDone)
+	} else {
+		bot, err := telegram.New(*tgChannel, &channel.Host{Controller: eng, Store: st, Bus: bus}, logger)
+		if err != nil {
+			logger.Error("telegram channel not started", "err", err)
+			close(botDone)
+		} else {
+			go func() {
+				defer close(botDone)
+				// A bot failure must not take the daemon down.
+				if err := bot.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+					logger.Error("telegram channel stopped", "err", err)
+				}
+			}()
+		}
+	}
 	serverDone := make(chan error, 1)
 	go func() { serverDone <- srv.ListenAndServe() }()
 
@@ -180,6 +201,7 @@ func cmdServe(e *env, args []string) error {
 		_ = srv.Close()
 	}
 	engErr := <-engineDone
+	<-botDone
 	closeErr := st.Close()
 
 	switch {
@@ -190,6 +212,45 @@ func cmdServe(e *env, args []string) error {
 	default:
 		return closeErr
 	}
+}
+
+// telegramChannelOptions returns the bot options for the configured telegram channel, or nil when
+// there is none. The token is read from the environment variable the config names; an empty
+// variable is an error. Only the variable's name is ever put in a message.
+func telegramChannelOptions(cfg *config.Config) (*telegram.Options, error) {
+	for _, ch := range cfg.Channels {
+		if ch.Type != "telegram" {
+			continue
+		}
+		tc, err := config.ParseTelegramChannel(ch, cfg.Server.DataDir)
+		if err != nil {
+			return nil, fmt.Errorf("channel telegram: %w", err)
+		}
+		token := strings.TrimSpace(os.Getenv(tc.BotTokenEnv))
+		if token == "" {
+			return nil, fmt.Errorf("channel telegram: environment variable %q (bot_token_env) is empty", tc.BotTokenEnv)
+		}
+		return &telegram.Options{Token: token, AllowedUserIDs: tc.AllowedUserIDs, StateFile: tc.StateFile}, nil
+	}
+	return nil, nil
+}
+
+// notifyConfigs converts the notify list. With a telegram channel running, every telegram
+// notifier gets skip_approvals so approvals reach the owner only through the bot.
+func notifyConfigs(list []config.Notifier, skipApprovals bool) []notify.Config {
+	out := make([]notify.Config, 0, len(list))
+	for _, n := range list {
+		opts := n.Options
+		if skipApprovals && n.Type == "telegram" {
+			opts = make(map[string]any, len(n.Options)+1)
+			for k, v := range n.Options {
+				opts[k] = v
+			}
+			opts["skip_approvals"] = true
+		}
+		out = append(out, notify.Config{Type: n.Type, Options: opts, MinPriority: notify.Priority(n.MinPriority)})
+	}
+	return out
 }
 
 // ensureToken returns the API token in dataDir, creating it (32 random bytes, hex, mode 0600)

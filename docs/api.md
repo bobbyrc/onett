@@ -124,7 +124,7 @@ Which role may call each route: every `GET` needs `viewer` or better (the token 
 
 `User` is `{"username","role","created_at","updated_at"}`. `ConfigSaved` is
 `{"version","restart_required":[...]}`: `restart_required` lists settings read only at start-up
-that changed (`server.addr`, `server.data_dir`, `server.allowed_hosts`, `notify`); they take effect
+that changed (`server.addr`, `server.data_dir`, `server.allowed_hosts`, `notify`, `channels`); they take effect
 after a restart. A save writes the file atomically and then reloads the daemon, so a 500 from a save
 means the file was written but the reload failed.
 

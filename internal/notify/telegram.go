@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"time"
 )
@@ -39,12 +40,15 @@ type telegram struct {
 	token  string // secret: it is part of the request URL, so it must never reach an error
 	chatID string
 	client *http.Client
+	// skipApprovals drops notifications tagged TagApproval (the two-way Telegram channel owns them).
+	skipApprovals bool
 }
 
 // newTelegram builds a Telegram notifier from its YAML options. A nil client uses a default
 // client with a 10 second timeout. Options: "bot_token_env" (required; the name of an
 // environment variable holding the bot token), "chat_id" (required; a numeric ID or
-// @channelname) and "api_url" (default https://api.telegram.org).
+// @channelname), "api_url" (default https://api.telegram.org) and "skip_approvals" (bool; drops
+// notifications tagged TagApproval, for use beside the two-way Telegram channel).
 func newTelegram(opts map[string]any, client *http.Client) (*telegram, error) {
 	envName := optString(opts, "bot_token_env")
 	if envName == "" {
@@ -66,15 +70,19 @@ func newTelegram(opts map[string]any, client *http.Client) (*telegram, error) {
 		client = &http.Client{Timeout: telegramTimeout}
 	}
 	return &telegram{
-		apiURL: strings.TrimRight(apiURL, "/"),
-		token:  token,
-		chatID: chatID,
-		client: client,
+		apiURL:        strings.TrimRight(apiURL, "/"),
+		token:         token,
+		chatID:        chatID,
+		client:        client,
+		skipApprovals: optBool(opts, "skip_approvals"),
 	}, nil
 }
 
 // Notify sends the notification as one plain-text message. Low priority is delivered silently.
 func (t *telegram) Notify(ctx context.Context, n Notification) error {
+	if t.skipApprovals && slices.Contains(n.Tags, TagApproval) {
+		return nil
+	}
 	return t.sendMessage(ctx, telegramText(n), effectivePriority(n.Priority) == PriorityLow)
 }
 
@@ -140,6 +148,12 @@ func (t *telegram) sendMessage(ctx context.Context, text string, silent bool) er
 		return fmt.Errorf("notify telegram: %s: %s", resp.Status, t.capped(desc))
 	}
 	return nil
+}
+
+// optBool reads a boolean option; a missing key is false.
+func optBool(opts map[string]any, key string) bool {
+	b, _ := opts[key].(bool)
+	return b
 }
 
 // unwrapURLError drops the *url.Error wrapper, whose text includes the full request URL.
