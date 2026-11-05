@@ -87,6 +87,22 @@ type Stats struct {
 	Preflight []domain.Preflight `json:"preflight"`
 	// Holds are the harnesses held for a rate limit; no new run starts on them until Until.
 	Holds []domain.HarnessHold `json:"holds"`
+	// OwnerUnreachable is true when no notifier or channel can tell the owner onett needs them.
+	OwnerUnreachable bool `json:"owner_unreachable"`
+	// BlockedGoals are the goals blocked right now, so a reader can say which ones the owner
+	// has not been told about.
+	BlockedGoals []BlockedGoal `json:"blocked_goals"`
+	// AwaitingOwner counts what waits on the owner: pending approvals, blocked tasks and
+	// blocked goals.
+	AwaitingOwner int `json:"awaiting_owner"`
+}
+
+// BlockedGoal is one blocked goal in Stats.
+type BlockedGoal struct {
+	ID      string `json:"id"`
+	Project string `json:"project"`
+	Title   string `json:"title"`
+	Reason  string `json:"reason"`
 }
 
 // PauseView is domain.PauseInfo plus, for a self-update, the task runs the pause is waiting on.
@@ -712,6 +728,15 @@ func (s *server) stats(w http.ResponseWriter, r *http.Request) {
 	if holds == nil {
 		holds = []domain.HarnessHold{}
 	}
+	goals, err := s.opts.Store.ListGoals(ctx, store.GoalFilter{Statuses: []domain.GoalStatus{domain.GoalBlocked}, Limit: 1000})
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	blockedGoals := make([]BlockedGoal, 0, len(goals))
+	for _, g := range goals {
+		blockedGoals = append(blockedGoals, BlockedGoal{ID: g.ID, Project: g.Project, Title: g.Title, Reason: g.Summary})
+	}
 	writeJSON(w, http.StatusOK, Stats{
 		TasksByStatus:            byStatus,
 		ActiveRuns:               len(active),
@@ -723,6 +748,9 @@ func (s *server) stats(w http.ResponseWriter, r *http.Request) {
 		Pause:                    s.pauseView(active),
 		Preflight:                s.opts.Controller.Preflight(),
 		Holds:                    holds,
+		OwnerUnreachable:         !s.opts.Controller.Config().OwnerReachable(),
+		BlockedGoals:             blockedGoals,
+		AwaitingOwner:            len(pending) + byStatus[string(domain.TaskBlocked)] + len(blockedGoals),
 	})
 }
 

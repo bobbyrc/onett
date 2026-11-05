@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bobbyrc/onett/internal/client"
+	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/harness"
 )
@@ -136,6 +137,13 @@ func writeStatus(w io.Writer, s statusSnapshot) error {
 
 	fmt.Fprintln(w, "Needs you:")
 	n := 0
+	if s.Stats.OwnerUnreachable {
+		fmt.Fprintln(w, "  Warning: "+config.OwnerUnreachableMessage)
+		for _, g := range s.Stats.BlockedGoals {
+			fmt.Fprintf(w, "  Goal %s is blocked and you have not been notified: %s\n", oneLine(g.ID), orDash(oneLine(g.Reason)))
+		}
+		n++
+	}
 	for _, a := range s.Approvals {
 		fmt.Fprintf(w, "  approval %s  [%s] %s: %s\n", a.ID, a.Kind, oneLine(a.Title), orDash(oneLine(a.Reason)))
 		n++

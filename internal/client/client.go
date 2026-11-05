@@ -143,6 +143,18 @@ type Stats struct {
 	Preflight                []domain.Preflight `json:"preflight"`
 	// Holds are the harnesses held for a rate limit.
 	Holds []domain.HarnessHold `json:"holds"`
+	// OwnerUnreachable is true when only the log notifier can reach the owner.
+	OwnerUnreachable bool          `json:"owner_unreachable"`
+	BlockedGoals     []BlockedGoal `json:"blocked_goals"`
+	AwaitingOwner    int           `json:"awaiting_owner"`
+}
+
+// BlockedGoal is a blocked goal listed in Stats.
+type BlockedGoal struct {
+	ID      string `json:"id"`
+	Project string `json:"project"`
+	Title   string `json:"title"`
+	Reason  string `json:"reason"`
 }
 
 // ProjectView is one entry of GET /projects: the project's settings plus its task counts.

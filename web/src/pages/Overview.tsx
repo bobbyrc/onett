@@ -18,6 +18,7 @@ import { ErrorLine } from '../components/ErrorLine';
 import { RelTime } from '../components/RelTime';
 import { RetryTaskControl, CancelTaskButton } from '../components/TaskActions';
 import { useCan } from '../auth';
+import { OwnerUnreachableBanner } from '../components/OwnerUnreachableBanner';
 import { useApprovals, useCancelRun, useRuns, useTask, useTasks } from '../queries';
 import type { OnettEvent, Run, Task } from '../types';
 
@@ -30,6 +31,7 @@ export function Overview() {
   return (
     <>
       <h1 className="sr-only">Overview</h1>
+      <OwnerUnreachableBanner />
       <AndonBoard />
       <HoldBanner />
       <div className="overview-grid">
