@@ -23,13 +23,19 @@ limits:
   stall_timeout: 15m                   # a run with no output for this long is stalled (default 15m)
   run_timeout: 2h                      # a run longer than this is stopped (default 2h)
   max_attempts: 3                      # tries per task before it is blocked until a human retries it (default 3)
-  daily_budget_usd: 20                 # task-run cost per local day (USD) before new runs stop; 0 = no limit. Codex reports no cost, so it is not counted
+  max_goal_turns: 40                   # orchestrator turns one goal gets before it is blocked (default 40)
+  daily_budget_usd: 20                 # pay-per-token task-run cost per local day (USD) before new runs stop; 0 = no limit. Subscription runs are not counted (see harnesses.*.billing). Codex reports no cost, so it is counted only with a price
 
 # Harnesses: the agent CLIs onett can drive. "claude" and "codex" are always present; you
 # only list one here to change its settings or to add another.
 harnesses:
   claude:
     type: claude-code                  # built-in harness type; default for "claude"
+    # How runs are paid for: auto (default: detected from how the CLI is signed in), metered
+    # (pay per token) or subscription (flat rate). Any value but auto overrides detection. Only
+    # metered and unknown runs count toward limits.daily_budget_usd; a subscription run's cost is
+    # an API-price estimate nobody is billed for.
+    billing: auto
   codex:
     type: codex                        # built-in harness type; default for "codex"
     # Codex reports tokens but no dollar cost. With a price, onett estimates each run's cost
@@ -240,6 +246,8 @@ loops:
     auto_queue: false                  # also label the filed issue so issue_intake picks it up (default false)
   exec_intake:
     every: 1m                          # runs each project's intake sources and creates tasks for new items (default 1m)
+  goals:
+    every: 1m                          # wakes the orchestrator on each active goal whose last step has settled (default 1m)
   retro:
     every: 24h                         # files a retrospective improve task with recent failures and friction (default 24h)
     lookback: 24h                      # evidence window; default is every

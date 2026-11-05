@@ -57,9 +57,13 @@ type Limits struct {
 	RunTimeout        Duration `yaml:"run_timeout" json:"run_timeout"`                   // default 2h
 	MaxAttempts       int      `yaml:"max_attempts" json:"max_attempts"`                 // default 3
 	// DailyBudgetUSD stops new task runs once today's reported agent cost reaches it (0 = no
-	// limit). Chat with the orchestrator is exempt. Codex reports no cost, so it is counted only
-	// when its harness has a price.
+	// limit). Only pay-per-token runs count: runs on a flat-rate subscription (see
+	// Harness.Billing) report an API-price estimate that nobody is billed for. Chat with the
+	// orchestrator is exempt. Codex reports no cost, so it is counted only when its harness has
+	// a price.
 	DailyBudgetUSD float64 `yaml:"daily_budget_usd" json:"daily_budget_usd"`
+	// MaxGoalTurns is how many orchestrator turns one goal gets before it is blocked (default 40).
+	MaxGoalTurns int `yaml:"max_goal_turns" json:"max_goal_turns"`
 }
 
 // Harness configures one agent CLI. Type is a registered harness type: claude-code, codex,
@@ -76,6 +80,11 @@ type Harness struct {
 	// Price lets onett estimate the cost of runs whose harness reports tokens but no dollar
 	// cost (codex), so limits.daily_budget_usd counts them.
 	Price *Price `yaml:"price" json:"price,omitempty"`
+	// Billing says how this harness's runs are paid for: "auto" (default; the adapter detects
+	// it), "metered" (pay per token) or "subscription" (flat rate). A value other than auto
+	// overrides detection for every run. Subscription runs do not count toward
+	// limits.daily_budget_usd.
+	Billing string `yaml:"billing" json:"billing,omitempty"`
 }
 
 // Price is USD per million tokens. Every field is optional; 0 means unknown. Cached input
@@ -253,6 +262,8 @@ type Loops struct {
 	} `yaml:"retro" json:"retro"`
 	// ExecIntake runs each project's intake sources. Default every 1m.
 	ExecIntake Loop `yaml:"exec_intake" json:"exec_intake"`
+	// Goals wakes the orchestrator on each active goal whose last step has settled. Default every 1m.
+	Goals Loop `yaml:"goals" json:"goals"`
 	// Friction files GitHub issues for reported friction.
 	Friction struct {
 		Loop      `yaml:",inline"`

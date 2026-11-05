@@ -249,6 +249,14 @@ its conversation: the owner reopens it. Messaging, Send now, and editing or canc
 message are for signed-in people only; the API token gets 403. Viewers read the thread and see a muted
 line, "Viewers can read conversations but not send messages.", in place of the composer.
 
+**Goals** (`/goals`) — table: status, goal (links to the detail), project, turns, updated and the
+controls. Filters: project and status. Controls follow the API's rules: Pause on an active goal,
+Resume on a paused or blocked one, Block on an active or paused one, Mark done on any goal not
+done. Done and Block open a text box first, because the API requires a summary or a reason. The
+controls need the operate action. **Goal detail** (`/goals/:id`): title and status, the controls,
+the project, the turn count, a link to the goal's conversation in Chat, the summary (a callout
+when blocked), the goal text and the tasks queued for it. `goal.updated` events refresh both.
+
 **Tasks** (`/tasks`) — filter bar: project select, status chips (multi-select; default
 "active" = queued, running, review, awaiting_approval, merged, deploying, blocked), kind
 select, text search (client-side over title). "New task" opens a modal: project, kind,

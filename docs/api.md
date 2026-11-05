@@ -78,7 +78,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `POST /control/pause`, `POST /control/resume` | | `{"paused":bool}` |
 | `GET /projects` | | `[]ProjectView` |
 | `POST /projects/{name}/pause`, `POST /projects/{name}/resume` | | `{"paused":bool,"paused_by":""\|"config"\|"owner"}` (409 resuming a project paused in config) |
-| `GET /tasks` | `?project=&status=queued,running&kind=&limit=` | `[]Task` |
+| `GET /tasks` | `?project=&status=queued,running&kind=&goal_id=&limit=` | `[]Task` |
 | `POST /tasks` | `NewTask` | `Task` (201) |
 | `GET /tasks/{id}` | | `TaskDetail` |
 | `GET /tasks/{id}/conversation` | | `TaskConversation`: the task agent's root task, follow-up tasks, runs across them (oldest first), messages, `live_run_id`, and `can_send` with a `reason` when false. A follow-up task id returns its root's conversation. |
@@ -89,6 +89,12 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /agent-conversations` | | `[]AgentConversation`: root tasks with a run; open ones first, then ones closed or active in the last 7 days; at most 100 |
 | `POST /tasks/{id}/cancel` | | 204; also closes the task agent's conversation (by `owner:<username>` or `orchestrator`) |
 | `POST /tasks/{id}/retry` | `{"note":"…"}` (optional) | 204 |
+| `GET /goals` | `?project=&status=active,blocked&limit=` | `[]Goal` |
+| `POST /goals` | `{"project","title","body"}` | `Goal` (201): active, with its own orchestrator conversation (`conversation_id`) |
+| `GET /goals/{id}` | | `{"goal":Goal,"tasks":[]Task}`: the tasks created with this `goal_id`, newest first |
+| `POST /goals/{id}/pause`, `POST /goals/{id}/resume` | | `Goal`; 409 unless the goal is active (pause) or paused or blocked (resume); resuming a blocked goal resets its turn count so a goal that hit `max_goal_turns` gets a fresh budget |
+| `POST /goals/{id}/done` | `{"summary":"…"}` (required) | `Goal`; notifies the owner (normal priority); 409 when already done |
+| `POST /goals/{id}/block` | `{"reason":"…"}` (required) | `Goal`; notifies the owner (high priority); 409 unless active or paused |
 | `GET /runs` | `?task_id=&project=&status=&limit=` | `[]Run` |
 | `GET /runs/{id}` | | `Run` |
 | `GET /runs/{id}/logs` | `?after=<seq>&limit=` (default 1000) | `[]LogLine` |
@@ -136,6 +142,10 @@ only when the caller is the API token; the header is ignored for a signed-in use
 it with the value of `ONETT_RUN_ID` when that variable is set, which onett sets for every agent
 run, so a task an agent creates names the run that created it.
 
+`POST /tasks` accepts `goal_id` to link the task to a goal (400 when the goal does not exist or
+belongs to another project). The `goal.updated` event carries the `Goal` whenever one is created,
+takes a turn or changes status.
+
 `POST /tasks` rejects `"kind":"review"` with 400, since onett creates review tasks itself. An
 empty `kind` is stored as `feature`. A `risk` field is not part of `NewTask`, so it is rejected
 with 400 like any unknown field.
@@ -169,7 +179,7 @@ case the approval is recorded as rejected and the task goes back to review so on
 
 // Stats
 {"tasks_by_status":{"queued":3,...},"active_runs":1,"approvals_pending":0,
- "cost_today_usd":1.23,"daily_budget_usd":25,"paused":false,
+ "cost_today_usd":1.23,"subscription_cost_today_usd":38.47,"daily_budget_usd":25,"paused":false,
  "preflight":[{"project":"onett","ok":true,"checked_at":"…"}]}
 
 // LoopView

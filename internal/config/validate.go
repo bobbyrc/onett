@@ -33,6 +33,11 @@ func (c *Config) Validate() error {
 		if h.Type == "" {
 			add("harnesses.%s.type: must not be empty", name)
 		}
+		switch h.Billing {
+		case "", "auto", "metered", "subscription":
+		default:
+			add("harnesses.%s.billing: must be auto, metered or subscription, got %q", name, h.Billing)
+		}
 		if p := h.Price; p != nil && (!validPrice(p.InputPerMTok) || !validPrice(p.OutputPerMTok) || !validPrice(p.CachedInputPerMTok)) {
 			add("harnesses.%s.price: prices must be finite numbers, 0 (unknown) or greater", name)
 		}
@@ -209,6 +214,9 @@ func (c *Config) Validate() error {
 	}
 	if l.MaxAttempts <= 0 {
 		add("limits.max_attempts: must be greater than 0")
+	}
+	if l.MaxGoalTurns <= 0 {
+		add("limits.max_goal_turns: must be greater than 0")
 	}
 	if c.Loops.Retro.Lookback.Duration < 0 {
 		add("loops.retro.lookback: must be 0 (default = every) or greater")

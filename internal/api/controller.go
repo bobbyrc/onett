@@ -21,6 +21,13 @@ type Controller interface {
 	// A non-empty note is appended to the task body as human guidance.
 	RetryTask(ctx context.Context, id, note string) error
 	CancelRun(ctx context.Context, id string) error
+	// CreateGoal validates the project, creates the goal and its conversation, and returns the
+	// active goal. Its first orchestrator turn happens on the goals loop's next tick.
+	CreateGoal(ctx context.Context, g domain.Goal) (domain.Goal, error)
+	// SetGoalStatus moves a goal to paused, active (resume), done or blocked. text is the summary
+	// for done or the reason for blocked, and is required for both. ErrConflict when the move is
+	// not allowed from the goal's current status. Done and blocked notify the owner.
+	SetGoalStatus(ctx context.Context, id string, status domain.GoalStatus, text string) (domain.Goal, error)
 	// TaskConversation returns the task agent conversation that taskID belongs to: the root
 	// task, follow-up tasks, the agent's runs, messages, and whether the owner can message it.
 	TaskConversation(ctx context.Context, taskID string) (domain.TaskConversation, error)

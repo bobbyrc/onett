@@ -269,6 +269,13 @@ func (c *Config) LoopsFor(project string) Loops {
 	if ov.ExecIntake.Every.Duration != 0 {
 		out.ExecIntake.Every = ov.ExecIntake.Every
 	}
+
+	if ov.Goals.Enabled != nil {
+		out.Goals.Enabled = ov.Goals.Enabled
+	}
+	if ov.Goals.Every.Duration != 0 {
+		out.Goals.Every = ov.Goals.Every
+	}
 	return out
 }
 

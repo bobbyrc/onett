@@ -77,6 +77,31 @@ export function useTask(id: string) {
   });
 }
 
+export function useGoals(filters: { project?: string; status?: string }) {
+  return useQuery({
+    queryKey: keys.goalList(filters),
+    queryFn: () => api.listGoals(filters),
+    refetchInterval: LIST_REFRESH_MS,
+  });
+}
+
+export function useGoal(id: string) {
+  return useQuery({
+    queryKey: keys.goal(id),
+    queryFn: () => api.getGoal(id),
+    enabled: id !== '',
+  });
+}
+
+export function useSetGoalStatus(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { action: 'pause' | 'resume' | 'done' | 'block'; text?: string }) =>
+      api.setGoalStatus(id, vars.action, vars.text),
+    onSuccess: () => invalidate(qc, keys.goalsAll, keys.goal(id)),
+  });
+}
+
 export function useRuns(filters: RunFilters) {
   return useQuery({
     queryKey: keys.runList(filters),

@@ -327,7 +327,7 @@ export function keysFor(ev: OnettEvent): QueryKey[] {
   const runId = ev.run_id || undefined;
 
   if (ev.type.startsWith('task.')) {
-    add(keys.tasksAll, keys.stats);
+    add(keys.tasksAll, keys.stats, keys.goalsDetailAll);
     if (taskId) add(keys.task(taskId));
   } else if (ev.type === 'run.updated') {
     add(keys.runsAll, keys.stats);
@@ -339,6 +339,10 @@ export function keysFor(ev: OnettEvent): QueryKey[] {
     if (taskId) add(keys.task(taskId));
   } else if (ev.type === 'deploy.updated') {
     add(keys.deploymentsAll);
+  } else if (ev.type === 'goal.updated') {
+    add(keys.goalsAll);
+    const data = ev.data as { id?: unknown } | undefined;
+    if (typeof data?.id === 'string') add(keys.goal(data.id));
   } else if (ev.type === 'signal.new') {
     add(keys.signalsAll);
   } else if (ev.type === 'friction.reported' || ev.type === 'issue.filed') {

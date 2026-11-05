@@ -9,6 +9,8 @@ import { Approvals } from './pages/Approvals';
 import { Chat } from './pages/Chat';
 import { Config } from './pages/Config';
 import { Deploys } from './pages/Deploys';
+import { GoalDetail } from './pages/GoalDetail';
+import { Goals } from './pages/Goals';
 import { Friction } from './pages/Friction';
 import { Loops } from './pages/Loops';
 import { Projects } from './pages/Projects';
@@ -62,6 +64,8 @@ export function App() {
         <Route path="/chat" element={<Chat />} />
         <Route path="/chat/task/:taskId" element={<Chat />} />
         <Route path="/chat/:id" element={<Chat />} />
+        <Route path="/goals" element={<Goals />} />
+        <Route path="/goals/:id" element={<GoalDetail />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/tasks/:id" element={<TaskDetail />} />
         <Route path="/runs" element={<Runs />} />

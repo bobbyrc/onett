@@ -70,6 +70,28 @@ export interface Task {
   created_at: string;
   updated_at: string;
   created_by_run?: string;
+  goal_id?: string;
+}
+
+export type GoalStatus = 'active' | 'paused' | 'blocked' | 'done';
+
+export interface Goal {
+  id: string;
+  project: string;
+  title: string;
+  body: string;
+  status: GoalStatus;
+  conversation_id: string;
+  turns: number;
+  last_turn_at?: string;
+  summary?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GoalDetail {
+  goal: Goal;
+  tasks: Task[];
 }
 
 export interface Run {
@@ -89,6 +111,7 @@ export interface Run {
   exit_code: number;
   cost_usd: number;
   cost_estimated?: boolean;
+  billing?: "metered" | "subscription";
   input_tokens: number;
   output_tokens: number;
   summary?: string;
@@ -293,6 +316,7 @@ export interface Stats {
   active_runs: number;
   approvals_pending: number;
   cost_today_usd: number;
+  subscription_cost_today_usd: number;
   paused: boolean;
   preflight: Preflight[];
 }
@@ -377,6 +401,7 @@ export interface LimitsConfig {
   stall_timeout: string;
   run_timeout: string;
   max_attempts: number;
+  max_goal_turns: number;
 }
 
 export interface Harness {
@@ -447,6 +472,7 @@ export interface LoopSettings {
 export interface Loops {
   issue_intake: LoopSettings & { label: string };
   exec_intake: LoopSettings;
+  goals: LoopSettings;
   pr_shepherd: LoopSettings;
   deploy_watch: LoopSettings;
   prod_watch: LoopSettings & { min_level: string; min_count: number };

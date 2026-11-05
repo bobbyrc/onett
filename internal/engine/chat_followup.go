@@ -136,7 +136,8 @@ func (e *Engine) chatFollowupStart(ctx context.Context, convID string, byID map[
 		}
 		return
 	}
-	if cur.TaskID != "" || cur.ClosedAt != nil {
+	// A goal's conversation is woken by the goals loop, not here.
+	if cur.TaskID != "" || cur.GoalID != "" || cur.ClosedAt != nil {
 		drop()
 		return
 	}

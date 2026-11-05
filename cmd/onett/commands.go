@@ -12,6 +12,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/client"
 	"github.com/bobbyrc/onett/internal/domain"
+	"github.com/bobbyrc/onett/internal/harness"
 )
 
 // Timings for the commands that wait on the server. They are variables so tests can shorten
@@ -99,6 +100,9 @@ func costToday(s client.Stats) string {
 		if s.CostTodayUSD >= s.DailyBudgetUSD {
 			out += " (budget reached — no new runs until midnight)"
 		}
+	}
+	if s.SubscriptionCostTodayUSD > 0 {
+		out += fmt.Sprintf(" (+$%.2f estimated on subscriptions, not billed)", s.SubscriptionCostTodayUSD)
 	}
 	return out
 }
@@ -307,6 +311,7 @@ func taskCreate(e *env, args []string) error {
 	priority := fs.Int("priority", 0, "higher runs first")
 	parent := fs.String("parent", "", "parent task ID")
 	source := fs.String("source", "", "task source (default: chat:<id> inside an orchestrator chat turn, else api)")
+	goal := fs.String("goal", os.Getenv("ONETT_GOAL"), "goal this task works toward (default: $ONETT_GOAL)")
 	jsonOut := fs.Bool("json", false, "print the created task as JSON")
 	positional, err := parseArgs(fs, args)
 	if err != nil {
@@ -335,7 +340,7 @@ func taskCreate(e *env, args []string) error {
 	}
 	task, err := c.CreateTask(context.Background(), client.NewTask{
 		Project: *project, Kind: *kind, Title: *title, Body: text, Role: *role,
-		Priority: *priority, ParentID: *parent, Source: taskSource(*source, os.Getenv("ONETT_CONVERSATION_ID")),
+		Priority: *priority, ParentID: *parent, Source: taskSource(*source, os.Getenv("ONETT_CONVERSATION_ID")), GoalID: *goal,
 	})
 	if err != nil {
 		return err
@@ -679,7 +684,11 @@ func runShow(e *env, args []string) error {
 	if r.CostEstimated {
 		approx = "~"
 	}
-	fmt.Fprintf(e.out, "Exit:     %d   Cost: %s$%.4f   Tokens in/out: %d/%d\n", r.ExitCode, approx, r.CostUSD, r.InputTokens, r.OutputTokens)
+	sub := ""
+	if r.Billing == harness.BillingSubscription {
+		sub = " (subscription estimate)"
+	}
+	fmt.Fprintf(e.out, "Exit:     %d   Cost: %s$%.4f%s   Tokens in/out: %d/%d\n", r.ExitCode, approx, r.CostUSD, sub, r.InputTokens, r.OutputTokens)
 	if r.Summary != "" {
 		fmt.Fprintf(e.out, "Summary:  %s\n", cleanText(r.Summary))
 	}
