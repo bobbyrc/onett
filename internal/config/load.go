@@ -288,6 +288,12 @@ func (c *Config) LoopsFor(project string) Loops {
 	if ov.SelfUpdate.Command != "" {
 		out.SelfUpdate.Command = ov.SelfUpdate.Command
 	}
+	if ov.Goals.Enabled != nil {
+		out.Goals.Enabled = ov.Goals.Enabled
+	}
+	if ov.Goals.Every.Duration != 0 {
+		out.Goals.Every = ov.Goals.Every
+	}
 	return out
 }
 

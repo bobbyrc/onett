@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/bobbyrc/onett/internal/auth"
+	"github.com/bobbyrc/onett/internal/domain"
 )
 
 // apiRoutes mounts the routes that need a principal. Each route names the action it needs
@@ -36,6 +37,14 @@ func (s *server) apiRoutes(r chi.Router) {
 	s.operate(r, http.MethodPost, "/tasks/{id}/conversation/reopen", s.reopenTaskConversation)
 	s.operate(r, http.MethodPost, "/tasks/{id}/cancel", s.cancelTask)
 	s.operate(r, http.MethodPost, "/tasks/{id}/retry", s.retryTask)
+
+	s.read(r, "/goals", s.listGoals)
+	s.operate(r, http.MethodPost, "/goals", s.createGoal)
+	s.read(r, "/goals/{id}", s.getGoal)
+	s.operate(r, http.MethodPost, "/goals/{id}/pause", s.goalStatus(domain.GoalPaused))
+	s.operate(r, http.MethodPost, "/goals/{id}/resume", s.goalStatus(domain.GoalActive))
+	s.operate(r, http.MethodPost, "/goals/{id}/done", s.goalStatus(domain.GoalDone))
+	s.operate(r, http.MethodPost, "/goals/{id}/block", s.goalStatus(domain.GoalBlocked))
 
 	s.read(r, "/runs", s.listRuns)
 	s.read(r, "/runs/{id}", s.getRun)

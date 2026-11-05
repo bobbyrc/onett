@@ -140,6 +140,20 @@ type NewTask struct {
 	Priority int    `json:"priority"`
 	ParentID string `json:"parent_id"`
 	Source   string `json:"source"`
+	GoalID   string `json:"goal_id,omitempty"`
+}
+
+// NewGoal is the body of POST /goals.
+type NewGoal struct {
+	Project string `json:"project"`
+	Title   string `json:"title"`
+	Body    string `json:"body"`
+}
+
+// GoalDetail is the answer of GET /goals/{id}.
+type GoalDetail struct {
+	Goal  domain.Goal   `json:"goal"`
+	Tasks []domain.Task `json:"tasks"`
 }
 
 // TaskDetail is the answer of GET /tasks/{id}.
@@ -266,6 +280,38 @@ func (c *Client) ListTasks(ctx context.Context, f TaskFilter) ([]domain.Task, er
 func (c *Client) CreateTask(ctx context.Context, t NewTask) (domain.Task, error) {
 	var out domain.Task
 	err := c.do(ctx, http.MethodPost, "/tasks", nil, t, &out)
+	return out, err
+}
+
+// CreateGoal calls POST /goals.
+func (c *Client) CreateGoal(ctx context.Context, g NewGoal) (domain.Goal, error) {
+	var out domain.Goal
+	err := c.do(ctx, http.MethodPost, "/goals", nil, g, &out)
+	return out, err
+}
+
+// ListGoals calls GET /goals. Zero fields are not sent.
+func (c *Client) ListGoals(ctx context.Context, project string, status []string) ([]domain.Goal, error) {
+	q := url.Values{}
+	setIf(q, "project", project)
+	setIf(q, "status", strings.Join(status, ","))
+	var out []domain.Goal
+	err := c.do(ctx, http.MethodGet, "/goals", q, nil, &out)
+	return out, err
+}
+
+// GetGoal calls GET /goals/{id}.
+func (c *Client) GetGoal(ctx context.Context, id string) (GoalDetail, error) {
+	var out GoalDetail
+	err := c.do(ctx, http.MethodGet, "/goals/"+url.PathEscape(id), nil, nil, &out)
+	return out, err
+}
+
+// GoalAction calls POST /goals/{id}/{action} for pause, resume, done or block. body is the
+// request body: {"summary"} for done, {"reason"} for block, nil otherwise.
+func (c *Client) GoalAction(ctx context.Context, id, action string, body any) (domain.Goal, error) {
+	var out domain.Goal
+	err := c.do(ctx, http.MethodPost, "/goals/"+url.PathEscape(id)+"/"+action, nil, body, &out)
 	return out, err
 }
 

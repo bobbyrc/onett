@@ -39,6 +39,8 @@ tags:
   - name: projects
   - name: agents
   - name: tasks
+  - name: goals
+    description: Objectives the orchestrator works toward unattended, one step at a time.
   - name: runs
   - name: approvals
   - name: deployments
@@ -693,6 +695,208 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /goals:
+    get:
+      operationId: listGoals
+      tags: [goals]
+      summary: List goals.
+      description: Newest first. The default limit is 200.
+      parameters:
+        - name: project
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Comma-separated list of statuses, such as `active,blocked`.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/GoalStatus'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Matching goals.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createGoal
+      tags: [goals]
+      summary: Create a goal.
+      description: |
+        The goal starts `active` and gets its own orchestrator conversation. The goals loop runs
+        its first turn on its next tick. Tasks created with `goal_id` are linked to it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewGoal'
+      responses:
+        '201':
+          description: The created goal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /goals/{id}:
+    get:
+      operationId: getGoal
+      tags: [goals]
+      summary: Get one goal with its tasks.
+      parameters:
+        - $ref: '#/components/parameters/GoalId'
+      responses:
+        '200':
+          description: The goal and the tasks linked to it, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /goals/{id}/pause:
+    post:
+      operationId: pauseGoal
+      tags: [goals]
+      summary: Pause an active goal.
+      description: The goals loop starts no turns for a paused goal. Only an `active` goal can be paused; any other status returns 409.
+      parameters:
+        - $ref: '#/components/parameters/GoalId'
+      responses:
+        '200':
+          description: The updated goal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /goals/{id}/resume:
+    post:
+      operationId: resumeGoal
+      tags: [goals]
+      summary: Resume a paused or blocked goal.
+      description: Moves the goal to `active`. A goal blocked for using up `limits.max_goal_turns` is blocked again on its next tick unless the limit was raised. Any other status returns 409.
+      parameters:
+        - $ref: '#/components/parameters/GoalId'
+      responses:
+        '200':
+          description: The updated goal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /goals/{id}/done:
+    post:
+      operationId: finishGoal
+      tags: [goals]
+      summary: Mark a goal done.
+      description: Notifies the owner at normal priority. A goal that is already `done` returns 409.
+      parameters:
+        - $ref: '#/components/parameters/GoalId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoalSummaryRequest'
+      responses:
+        '200':
+          description: The updated goal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /goals/{id}/block:
+    post:
+      operationId: blockGoal
+      tags: [goals]
+      summary: Block a goal.
+      description: Stops the goal until the owner resumes it, and notifies the owner at high priority. Only an `active` or `paused` goal can be blocked.
+      parameters:
+        - $ref: '#/components/parameters/GoalId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoalReasonRequest'
+      responses:
+        '200':
+          description: The updated goal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /runs:
     get:
       operationId: listRuns
@@ -992,7 +1196,7 @@ paths:
       summary: Run one loop now.
       description: |
         `name` is one of `issue_intake`, `exec_intake`, `pr_shepherd`, `deploy_watch`,
-        `prod_watch`, `friction`, `retro` or `self_update`. An unknown name, or an unknown project, returns 400. The run is
+        `prod_watch`, `friction`, `retro`, `self_update` or `goals`. An unknown name, or an unknown project, returns 400. The run is
         asynchronous, so the response carries no body.
       parameters:
         - name: name
@@ -1645,6 +1849,13 @@ components:
       description: Task ID.
       schema:
         type: string
+    GoalId:
+      name: id
+      in: path
+      required: true
+      description: Goal ID.
+      schema:
+        type: string
     RunId:
       name: id
       in: path
@@ -2111,6 +2322,9 @@ components:
           description: The latest agent summary.
         blocked_reason:
           type: string
+        goal_id:
+          type: string
+          description: The goal this task works toward, when it was queued for one.
         created_by_run:
           type: string
           description: The run that created this task, when an agent created it through the CLI with the API token. Set from the `X-Onett-Run-ID` request header; ignored for a signed-in user.
@@ -2471,6 +2685,91 @@ components:
         source:
           type: string
           default: api
+        goal_id:
+          type: string
+          description: The goal this task works toward. It must exist and belong to the same project.
+
+    GoalStatus:
+      type: string
+      enum: [active, paused, blocked, done]
+
+    Goal:
+      type: object
+      description: An objective the owner stated once, which the orchestrator works toward unattended.
+      required: [id, project, title, body, status, conversation_id, turns, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        project:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        status:
+          $ref: '#/components/schemas/GoalStatus'
+        conversation_id:
+          type: string
+          description: The orchestrator conversation the goal's turns run in.
+        turns:
+          type: integer
+          description: Orchestrator turns started so far; capped by `limits.max_goal_turns`.
+        last_turn_at:
+          type: string
+          format: date-time
+        summary:
+          type: string
+          description: Why the goal is done or blocked.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    NewGoal:
+      type: object
+      description: Body of `POST /goals`.
+      additionalProperties: false
+      required: [project, title]
+      properties:
+        project:
+          type: string
+          description: A configured project name.
+        title:
+          type: string
+        body:
+          type: string
+          description: What the goal is and what done looks like.
+
+    GoalDetail:
+      type: object
+      required: [goal, tasks]
+      properties:
+        goal:
+          $ref: '#/components/schemas/Goal'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+
+    GoalSummaryRequest:
+      type: object
+      additionalProperties: false
+      required: [summary]
+      properties:
+        summary:
+          type: string
+          description: What was achieved.
+
+    GoalReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          description: Why only the owner can unblock the goal.
 
     TaskDetail:
       type: object
@@ -2779,7 +3078,7 @@ components:
 
     Limits:
       type: object
-      required: [max_concurrent_runs, max_runs_per_project, stall_timeout, run_timeout, max_attempts, daily_budget_usd]
+      required: [max_concurrent_runs, max_runs_per_project, stall_timeout, run_timeout, max_attempts, max_goal_turns, daily_budget_usd]
       properties:
         max_concurrent_runs:
           type: integer
@@ -2791,6 +3090,9 @@ components:
           $ref: '#/components/schemas/Duration'
         max_attempts:
           type: integer
+        max_goal_turns:
+          type: integer
+          description: Orchestrator turns one goal gets before it is blocked. Default 40.
         daily_budget_usd:
           type: number
           description: New task runs stop once today's reported cost reaches this. 0 means no limit.
@@ -2982,7 +3284,7 @@ components:
 
     Loops:
       type: object
-      required: [issue_intake, exec_intake, pr_shepherd, deploy_watch, prod_watch, friction, retro, self_update]
+      required: [issue_intake, exec_intake, pr_shepherd, deploy_watch, prod_watch, friction, retro, self_update, goals]
       properties:
         issue_intake:
           description: Turns open issues carrying `label` into tasks.
@@ -2998,6 +3300,11 @@ components:
           description: >-
             Runs each project's intake sources (their commands print tasks as JSON lines) and
             creates a task for each new id. Default every `1m`.
+          $ref: '#/components/schemas/Loop'
+        goals:
+          description: >-
+            Wakes the orchestrator on each active goal whose last step has settled. Default every
+            `1m`.
           $ref: '#/components/schemas/Loop'
         pr_shepherd:
           description: Moves tasks in review through CI, review, policy and merge.

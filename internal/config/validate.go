@@ -218,6 +218,9 @@ func (c *Config) Validate() error {
 	if l.MaxAttempts <= 0 {
 		add("limits.max_attempts: must be greater than 0")
 	}
+	if l.MaxGoalTurns <= 0 {
+		add("limits.max_goal_turns: must be greater than 0")
+	}
 	if c.Loops.Retro.Lookback.Duration < 0 {
 		add("loops.retro.lookback: must be 0 (default = every) or greater")
 	}

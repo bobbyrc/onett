@@ -163,6 +163,9 @@ func applyLimitDefaults(c *Config) {
 	if l.MaxAttempts == 0 {
 		l.MaxAttempts = 3
 	}
+	if l.MaxGoalTurns == 0 {
+		l.MaxGoalTurns = 40
+	}
 }
 
 func applyHarnessDefaults(c *Config) {
@@ -430,6 +433,9 @@ func applyLoopDefaults(c *Config) {
 	}
 	if l.SelfUpdate.MinHealthy.Duration == 0 {
 		l.SelfUpdate.MinHealthy.Duration = 10 * time.Minute
+	}
+	if l.Goals.Every.Duration == 0 {
+		l.Goals.Every.Duration = time.Minute
 	}
 }
 

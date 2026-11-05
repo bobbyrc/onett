@@ -140,7 +140,7 @@ To use the web UI on a phone, add it to the home screen; see [docs/ui.md](docs/u
 
 ### Commands
 
-Run `onett <command> -h` for a command's flags. For `task`, `run` and `project`, put the verb first,
+Run `onett <command> -h` for a command's flags. For `task`, `goal`, `run` and `project`, put the verb first,
 as in `onett task create -h`.
 
 | Command | What it does |
@@ -155,6 +155,7 @@ as in `onett task create -h`.
 | `agents [--all]` | list agent roles; `--all` also shows removed (disabled) ones |
 | `config` | print the redacted config, or `--reload` it |
 | `task` | create, list, show, cancel and retry tasks; `task close-conversation ID --reason R` closes a task agent's conversation |
+| `goal` | create, list, show, pause, resume and finish goals the orchestrator works on unattended |
 | `run` | list, show, cancel and print logs of agent runs |
 | `deploys` | list releases, or show one with its log |
 | `approvals` | list approvals waiting for a decision |
@@ -198,6 +199,29 @@ in the plist, the `PATH` of the shell you run it from and every variable your co
 as `${NAME}`. The plist is readable only by you, because those values can be secrets. Install
 from a shell where `onett serve` works. To change a recorded value, run `service uninstall`
 and then `service install` again.
+
+### Goals: unattended multi-step work
+
+A **goal** is an objective you state once, such as "build parts 1 and 2 of X, part 2 after part 1
+merges". While it is active, the `goals` loop wakes the orchestrator, in the goal's own
+conversation, each time the previous step has settled: it queues the next tasks (linked to the goal
+automatically), retries a blocked one, or declares the goal done or blocked. It waits while any goal
+task is still running, in review or waiting for your approval, and does nothing when nothing changed.
+A turn that makes no progress, or the `limits.max_goal_turns` limit (default 40), blocks the goal
+and notifies you. The daily budget and `onett pause` stop turns too.
+
+```sh
+onett goal create --project P --title "Ship X" --body-file goal.md   # prints the goal ID
+onett goal list [--status active,blocked]
+onett goal show ID                 # the goal and its tasks
+onett goal pause ID                # and: onett goal resume ID
+onett goal done ID --summary "what was achieved"
+onett goal block ID --reason "what only you can unblock"
+```
+
+`onett task create --goal ID` links a task to a goal; it defaults to `$ONETT_GOAL`, which onett
+sets for the orchestrator in a goal conversation. You can chat in that conversation to steer the
+goal. The web UI shows the conversation as a normal chat; it has no goals page yet.
 
 ### Retro loop and friction
 
