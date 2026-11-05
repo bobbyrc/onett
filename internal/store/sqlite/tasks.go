@@ -95,7 +95,7 @@ func (s *Store) UpdateTask(ctx context.Context, id string, fn func(*domain.Task)
 
 // ClaimNextTask moves the highest-priority, oldest queued task outside busyProjects to running,
 // increments its Attempts, and returns it. ErrNotFound when no task is eligible.
-func (s *Store) ClaimNextTask(ctx context.Context, busyProjects []string) (domain.Task, error) {
+func (s *Store) ClaimNextTask(ctx context.Context, busyProjects []string, held ...store.ProjectRole) (domain.Task, error) {
 	var out domain.Task
 	err := withTx(ctx, s.db, func(tx *sql.Tx) error {
 		var c cond
@@ -104,6 +104,9 @@ func (s *Store) ClaimNextTask(ctx context.Context, busyProjects []string) (domai
 		c.add("COALESCE(json_array_length(json_extract(data, '$.waiting_on')), 0) = 0")
 		if len(busyProjects) > 0 {
 			c.in("project", true, toAny(busyProjects))
+		}
+		for _, h := range held {
+			c.add("NOT (project = ? AND COALESCE(json_extract(data, '$.role'), '') = ?)", h.Project, h.Role)
 		}
 		t, err := queryOne[domain.Task](ctx, tx, "queued task",
 			"SELECT data FROM tasks"+c.where()+

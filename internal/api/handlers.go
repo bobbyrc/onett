@@ -85,6 +85,8 @@ type Stats struct {
 	Pause *PauseView `json:"pause"`
 	// Preflight is the daemon's last tool-directory check per project; see the engine.
 	Preflight []domain.Preflight `json:"preflight"`
+	// Holds are the harnesses held for a rate limit; no new run starts on them until Until.
+	Holds []domain.HarnessHold `json:"holds"`
 }
 
 // PauseView is domain.PauseInfo plus, for a self-update, the task runs the pause is waiting on.
@@ -706,6 +708,10 @@ func (s *server) stats(w http.ResponseWriter, r *http.Request) {
 			cost += run.CostUSD
 		}
 	}
+	holds := s.opts.Controller.Holds()
+	if holds == nil {
+		holds = []domain.HarnessHold{}
+	}
 	writeJSON(w, http.StatusOK, Stats{
 		TasksByStatus:            byStatus,
 		ActiveRuns:               len(active),
@@ -716,6 +722,7 @@ func (s *server) stats(w http.ResponseWriter, r *http.Request) {
 		Paused:                   s.opts.Controller.Paused(),
 		Pause:                    s.pauseView(active),
 		Preflight:                s.opts.Controller.Preflight(),
+		Holds:                    holds,
 	})
 }
 

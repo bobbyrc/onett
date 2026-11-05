@@ -218,9 +218,9 @@ type ctGateStore struct {
 	claimOnce sync.Once
 }
 
-func (s *ctGateStore) ClaimNextTask(ctx context.Context, busy []string) (domain.Task, error) {
+func (s *ctGateStore) ClaimNextTask(ctx context.Context, busy []string, held ...store.ProjectRole) (domain.Task, error) {
 	s.claimOnce.Do(func() { close(s.claimed) })
-	return s.Store.ClaimNextTask(ctx, busy)
+	return s.Store.ClaimNextTask(ctx, busy, held...)
 }
 
 func (s *ctGateStore) CreateRun(ctx context.Context, r domain.Run) (domain.Run, error) {

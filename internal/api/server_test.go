@@ -131,6 +131,7 @@ func (f *fakeCtl) ReloadConfig(context.Context) error {
 }
 
 func (f *fakeCtl) Preflight() []domain.Preflight { return nil }
+func (f *fakeCtl) Holds() []domain.HarnessHold   { return nil }
 
 func (f *fakeCtl) Paused() bool {
 	f.mu.Lock()

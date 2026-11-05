@@ -336,6 +336,14 @@ export interface Stats {
   paused: boolean;
   pause: PauseView | null;
   preflight: Preflight[];
+  holds: HarnessHold[];
+}
+
+export interface HarnessHold {
+  harness: string;
+  until: string;
+  message?: string;
+  hits: number;
 }
 
 export interface Preflight {

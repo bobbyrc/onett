@@ -73,6 +73,9 @@ type Engine struct {
 
 	selfUpd selfUpdateState // loop_self_update.go
 
+	// holds are the harnesses held for a rate limit; see hold.go.
+	holds holdTable
+
 	paused atomic.Bool
 	// pauseInfo is why the factory is paused (nil when running or when the pause predates
 	// reasons). Persisted as LoopState {Name: pauseReasonLoop}.

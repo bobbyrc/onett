@@ -81,6 +81,9 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 	if err != nil {
 		return fail(err)
 	}
+	if hold, ok := e.holds.held(agent.Harness, e.d.Now()); ok {
+		return fail(errors.New(holdSummary(hold, e.d.Now()) + ". Send your message again after that"))
+	}
 	dir := filepath.Join(cfg.Server.DataDir, "chat", conv.ID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fail(err)
@@ -162,6 +165,12 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 	})
 
 	reply := res.FinalText
+	if res.RateLimit != nil && status == domain.RunCancelled {
+		// A chat turn cannot wait for the limit to lift, so the owner is told and sends again.
+		h := e.noteRateLimit(ctx, agent.Harness, *res.RateLimit)
+		return chatTurnResult{Reply: "_(The " + agent.Harness + " harness hit its rate limit: " + holdSummary(h, e.d.Now()) +
+			". Send your message again after that.)_", RunID: run.ID, SessionID: res.SessionID, Status: status}
+	}
 	if status != domain.RunSucceeded {
 		note := "_(The orchestrator run ended: " + string(status)
 		if reason != "" {
