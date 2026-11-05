@@ -183,6 +183,14 @@ role that uses it until the reset time plus a minute. With no reset time the hol
 resumes by itself when the hold ends. Holds are saved as loop state, so a restart keeps them. `onett status` lists each hold. An orchestrator chat turn on a held harness is
 not queued: the chat is told the limit and when it lifts.
 
+#### Pre-approved `onett` calls for the orchestrator
+
+Claude Code's auto permission mode runs a classifier over risky tool calls, and it once refused
+the orchestrator's `onett task cancel`. Orchestrator runs (chat and goal turns) therefore start
+with `--allowedTools "Bash(onett:*)"`, an allow rule for the `onett` command and nothing else.
+Other roles get no such rule. Repeated `--allowedTools` flags add up, so an owner's own
+`--allowedTools` in a harness's `args` is kept next to it rather than replacing it.
+
 #### The owner's Claude setup and the prompt cache (`harnesses.<name>.isolate`, off by default)
 
 Claude Code's prompt cache works on a prefix: the tool list, the system prompt, then the
@@ -218,9 +226,14 @@ message then starts a new process with `--resume <session>`, which is what every
 before. A denial, a stall or a timeout kills the process (a denial is terminal), and so does a
 process that dies mid-turn, which fails that turn as a failed run does; the next message resumes
 in a new one. A negative `session_idle_timeout` turns the feature off. Two things to know:
-these processes are direct children of onett, not behind the run shim, so a restart of onett ends
-them (an interrupted turn is re-run by resuming its session, as when a shim is gone; making them
-survive a restart belongs with the run shim work); and the environment is fixed when a process
+with the run shim on (`limits.run_shim`) each of these processes runs behind its own shim, named
+`conv-<conversation id>`, so a restart of onett does not end it. The first turn after the restart
+finds the shim, replays its log through a fresh parser (which rebuilds the session id and the
+cost total) and writes to the same process. It does so only when the process was idle between
+turns and was started with the same settings (the harness records the fingerprint in the shim's
+directory); a process that was answering when onett went away, or whose settings changed, is
+stopped and the conversation resumes its session in a new one. Without the shim they are direct
+children of onett and a restart ends them. And the environment is fixed when a process
 starts, so `ONETT_RUN_ID` names the run of the turn that started it, and a task created in a
 later turn is attributed to that earlier run. `ONETT_CONVERSATION_ID` does not change.
 

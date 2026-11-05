@@ -247,6 +247,12 @@ A sent message shows its files under the text: an image as a thumbnail, anything
 the name and size, each opening the file in a new tab. If the file is gone (retention deleted it),
 the thumbnail falls back to the plain chip.
 
+Scrolling: a thread follows new messages and a streaming reply only while you are within 80px of the
+end of the page. Scroll up and it stays put; a **Jump to latest** pill (with "N new" for the entries
+that arrived meanwhile) floats above the composer, and clicking it scrolls to the end. Sending a
+message, opening a conversation and switching conversations always go to the end. With
+`prefers-reduced-motion` the jump is instant instead of smooth.
+
 The 260px sidebar has a "+ New conversation" button (always the orchestrator; operators only), an
 **Orchestrator** section of conversations (title, RelTime), then a quieter **Agents** section from
 `GET /agent-conversations`. Each task with an agent shows its title, and under it a row with a lamp,

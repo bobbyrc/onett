@@ -47,6 +47,8 @@ import { PageHeader } from '../components/PageHeader';
 import { Transcript, ViewToggle } from '../components/Transcript';
 import { PendingChips, useAttachmentUploads, type AttachmentUploads } from '../components/ComposerAttachments';
 import { DEFAULT_MAX_PER_MESSAGE } from '../lib/attachments';
+import { useStickToBottom, type StickToBottom } from '../lib/useStickToBottom';
+import { JumpToLatest } from '../components/JumpToLatest';
 
 const EXAMPLES = ["What's running right now?", 'Fix the flaky test in …', 'Triage open issues in …'];
 
@@ -566,29 +568,36 @@ function ComposerArea(props: {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   label: string;
   attach?: AttachmentUploads;
+  /** The reader's position in the transcript, for the Jump to latest pill. */
+  stick?: StickToBottom;
 }) {
   const { state } = props;
   if (!state.enabled) return state.note ? <p className="muted small">{state.note}</p> : null;
   return (
-    <Composer
-      textareaRef={props.textareaRef}
-      draft={props.draft}
-      onDraft={props.onDraft}
-      onSend={props.onSend}
-      disabled={false}
-      sendDisabled={
-        props.sending || !!props.attach?.uploading || (props.draft.trim() === '' && !props.attach?.ids.length)
-      }
-      attach={props.attach}
-      placeholder={state.placeholder}
-      label={props.label}
-      onEscape={props.working ? props.onEscape : undefined}
-      hint={
-        props.working
-          ? 'Enter to send · Shift+Enter for a new line · Esc stops the current turn'
-          : 'Enter to send · Shift+Enter for a new line'
-      }
-    />
+    <div className="composer-dock">
+      {props.stick && !props.stick.atBottom ? (
+        <JumpToLatest unread={props.stick.unread} onClick={props.stick.jumpToLatest} />
+      ) : null}
+      <Composer
+        textareaRef={props.textareaRef}
+        draft={props.draft}
+        onDraft={props.onDraft}
+        onSend={props.onSend}
+        disabled={false}
+        sendDisabled={
+          props.sending || !!props.attach?.uploading || (props.draft.trim() === '' && !props.attach?.ids.length)
+        }
+        attach={props.attach}
+        placeholder={state.placeholder}
+        label={props.label}
+        onEscape={props.working ? props.onEscape : undefined}
+        hint={
+          props.working
+            ? 'Enter to send · Shift+Enter for a new line · Esc stops the current turn'
+            : 'Enter to send · Shift+Enter for a new line'
+        }
+      />
+    </div>
   );
 }
 
@@ -626,7 +635,6 @@ function OrchestratorThread({
   const [draft, setDraft] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
   const canOperate = useCan('operate');
   const autoSent = useRef(false);
 
@@ -643,9 +651,7 @@ function OrchestratorThread({
   const working = !!conv?.busy;
   const byId = Object.fromEntries(messages.map((m) => [m.id, m]));
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' });
-  }, [entries.length, working]);
+  const stick = useStickToBottom(entries.length, conversationId);
 
   const config = useConfig();
   const attach = useAttachmentUploads(
@@ -656,6 +662,7 @@ function OrchestratorThread({
   const sendText = async (text: string, attachments: string[] = []) => {
     setSendError(null);
     try {
+      stick.followNow();
       await send.mutateAsync({ text, attachments });
       setDraft('');
       attach.clear();
@@ -705,7 +712,7 @@ function OrchestratorThread({
   return (
     <>
       <ThreadHead who="Orchestrator" sub={sub} view={view} onView={onView} />
-      <div className="messages">
+      <div className="messages" ref={stick.contentRef}>
         {entries.length === 0 && canOperate ? (
           <div className="examples">
             <p className="muted">Ask anything, or try one of these:</p>
@@ -744,9 +751,9 @@ function OrchestratorThread({
         {canOperate && queued > 0 && !working ? (
           <SendNow pending={flush.isPending} onClick={() => flush.mutate({ conversationId })} />
         ) : null}
-        <div ref={endRef} />
       </div>
       <ComposerArea
+        stick={stick}
         state={state}
         working={working}
         draft={draft}
@@ -793,7 +800,6 @@ function TaskThread({
   const [sendError, setSendError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
 
   const conv = query.data;
   const liveRunId = conv?.live_run_id || undefined;
@@ -806,9 +812,7 @@ function TaskThread({
   const queued = messages.filter((m) => m.queued && m.role === 'user').length;
   const byId = Object.fromEntries(messages.map((m) => [m.id, m]));
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' });
-  }, [entries.length, liveRunId]);
+  const stick = useStickToBottom(entries.length, taskId);
 
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.status === 404) {
@@ -851,6 +855,7 @@ function TaskThread({
   const sendText = async (text: string) => {
     setSendError(null);
     try {
+      stick.followNow();
       await send.mutateAsync(text);
       setDraft('');
     } catch (err) {
@@ -869,7 +874,7 @@ function TaskThread({
   return (
     <>
       <ThreadHead who={capitalise(role)} sub={sub} extra={closeButton} view={view} onView={onView} />
-      <div className="messages">
+      <div className="messages" ref={stick.contentRef}>
         <Transcript
           entries={entries}
           view={view}
@@ -889,7 +894,6 @@ function TaskThread({
         {canOperate && queued > 0 && !liveRunId && !closed ? (
           <SendNow pending={flush.isPending} onClick={() => flush.mutate({ taskId })} />
         ) : null}
-        <div ref={endRef} />
       </div>
       {closed ? (
         <div className="closed-note">
@@ -911,6 +915,7 @@ function TaskThread({
             </div>
           ) : null}
           <ComposerArea
+            stick={stick}
             state={state}
             working={!!liveRunId}
             draft={draft}

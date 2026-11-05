@@ -100,6 +100,46 @@
   margin: 0 0 4px;
 }
 
+/* The dock pins the composer to the bottom of the screen and carries the Jump to latest pill, which
+   floats just above it whatever height the composer has. */
+.chat-page .composer-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.chat-page .jump-latest {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  max-width: calc(100% - 16px);
+  padding: 0 16px;
+  border: 1px solid var(--field);
+  border-radius: 22px;
+  background: var(--input);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+}
+
+.chat-page .jump-latest:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.chat-page .jump-count {
+  font-weight: 600;
+}
+
 /* Composer: one sheet with the field and, under it, the hint and Send. */
 .chat-page .composer {
   display: flex;
@@ -107,8 +147,6 @@
   gap: 0;
   margin-top: 12px;
   padding: 0;
-  position: sticky;
-  bottom: 0;
   background: var(--input);
   border: 1px solid var(--field);
   border-radius: 0;
@@ -225,7 +263,7 @@
   /* The page draws under the iPhone home indicator (viewport-fit=cover), and a sticky box pins to
      the screen edge, so lift the composer by the inset. --composer-inset is a test hook:
      Chromium reports the inset as 0, so the mobile e2e check sets it to 34px. */
-  .chat-page .composer {
+  .chat-page .composer-dock {
     bottom: var(--composer-inset, env(safe-area-inset-bottom, 0px));
   }
 

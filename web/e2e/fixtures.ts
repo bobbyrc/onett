@@ -432,3 +432,12 @@ chatMessages.push({
   text: logs[logs.length - 1].text,
   created_at: NOW,
 });
+
+/** A long conversation (40 turns), for scroll behaviour in the chat. */
+export const longChatMessages: ChatMessage[] = Array.from({ length: 40 }, (_, n) => ({
+  id: id(100 + n),
+  conversation_id: CONV_ID,
+  role: n % 2 ? ('assistant' as const) : ('user' as const),
+  text: `Message ${n + 1}. ${'Some words to fill a few lines of a phone screen. '.repeat(3)}`,
+  created_at: NOW,
+}));
