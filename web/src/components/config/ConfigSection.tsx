@@ -9,7 +9,6 @@ import {
   emptyValue,
   envRefName,
   getAt,
-  hasProblemUnder,
   humanizeKey,
   singularize,
   splitOptionsForVariant,
@@ -255,10 +254,19 @@ function FieldRow({
             value={value}
             invalid={issues.length > 0}
             enumValues={node.enum}
+            defaultValue={node.default}
             onChange={onChange}
           />
         )}
+        {node.default !== undefined && value !== undefined ? (
+          <button type="button" className="link-button config-reset" onClick={() => ctx.clearValue(path)}>
+            Reset to default ({String(node.default)})
+          </button>
+        ) : null}
       </div>
+      {node.default !== undefined && value === undefined && node.type === 'bool' ? (
+        <p className="muted config-env">Default: {node.default ? 'on' : 'off'}.</p>
+      ) : null}
       {pending ? (
         <p className="config-env" role="alert">
           Changing to {pending.next || '(not set)'} drops the options it does not use:{' '}
@@ -635,9 +643,4 @@ function ListEditor({ node, path, ctx }: { node: SchemaNode; path: Path; ctx: Ed
       </button>
     </section>
   );
-}
-
-/** True when a problem sits in the section (or under it). Marks the section in the list on the left. */
-export function sectionHasProblems(problemPaths: Iterable<string>, key: string): boolean {
-  return hasProblemUnder(problemPaths, [key]);
 }

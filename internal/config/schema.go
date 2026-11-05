@@ -6,9 +6,11 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Help text is read from the comments of these source files, so the UI's help can never drift
@@ -37,6 +39,11 @@ type SchemaNode struct {
 	SecretEnv bool `json:"secret_env,omitempty"`
 	// Discriminator (variant only) is the sibling key whose value picks the variant: "type".
 	Discriminator string `json:"discriminator,omitempty"`
+	// Default is the value the setting has when the file leaves it out: a string, a number, true
+	// or a duration such as "15m". It is read from ApplyDefaults, so it cannot drift from the
+	// code. Absent when the default is empty or zero, depends on context (an agent's harness)
+	// or is a list or map.
+	Default any `json:"default,omitempty"`
 	// Variants (variant only) maps each value of the discriminator to a section of its options.
 	Variants map[string]SchemaNode `json:"variants,omitempty"`
 }
@@ -58,9 +65,81 @@ func Schema() SchemaNode {
 			}
 		}
 		b := schemaBuilder{help: help}
-		schemaRoot = SchemaNode{Type: "section", Fields: b.structNode(reflect.TypeOf(Config{}), "Config").Fields}
+		schemaRoot = SchemaNode{Type: "section", Fields: b.structNode(reflect.TypeOf(Config{}), "Config", defaultsConfig()).Fields}
 	})
 	return schemaRoot
+}
+
+// sampleName is the one map key the defaults config uses, so the defaults a project or policy
+// gets can be read from it. Other maps (agents, harnesses) have no such key and show no defaults.
+const sampleName = "x"
+
+// defaultsConfig is an empty Config run through ApplyDefaults, with one project and one policy
+// entry so the defaults applied to every entry show up too.
+func defaultsConfig() reflect.Value {
+	c := Config{
+		Projects: map[string]*Project{sampleName: {Deploy: &Deploy{}}},
+		Policies: map[string]Policy{sampleName: {}},
+	}
+	ApplyDefaults(&c)
+	// A project's path depends on its name, so it is not a default worth showing.
+	c.Projects[sampleName].Path = ""
+	// Show "~" as the file would, not the home directory of the machine that built the schema.
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		c.Server.DataDir = strings.Replace(c.Server.DataDir, home, "~", 1)
+	}
+	return reflect.ValueOf(c)
+}
+
+// defaultOf returns the default a scalar value v stands for, or nil when v is unknown, zero or
+// not a scalar. A duration is written as in the file: "15m", not "15m0s".
+func defaultOf(v reflect.Value) any {
+	if !v.IsValid() || v.IsZero() {
+		return nil
+	}
+	if v.Type() == durationType {
+		return shortDuration(v.Interface().(Duration).Duration)
+	}
+	switch v.Kind() {
+	case reflect.String:
+		return v.String()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int()
+	case reflect.Float32, reflect.Float64:
+		return v.Float()
+	case reflect.Bool:
+		return v.Bool()
+	}
+	return nil
+}
+
+// shortDuration formats d without the zero units time.Duration.String adds: "15m", "2h", "30s".
+func shortDuration(d time.Duration) string {
+	s := d.String()
+	if strings.HasSuffix(s, "m0s") {
+		s = strings.TrimSuffix(s, "0s")
+	}
+	if strings.HasSuffix(s, "h0m") {
+		s = strings.TrimSuffix(s, "0m")
+	}
+	return s
+}
+
+// fieldValue returns the value of struct field i of v, or an invalid Value when v is unknown or
+// a nil pointer.
+func fieldValue(v reflect.Value, i int) reflect.Value {
+	if !v.IsValid() {
+		return reflect.Value{}
+	}
+	return v.Field(i)
+}
+
+// itemValue returns the sample entry of a map value, or an invalid Value when there is none.
+func itemValue(v reflect.Value) reflect.Value {
+	if !v.IsValid() || v.Kind() != reflect.Map {
+		return reflect.Value{}
+	}
+	return v.MapIndex(reflect.ValueOf(sampleName))
 }
 
 // durationType is config.Duration, which is written as "15m" and is not an ordinary struct.
@@ -72,7 +151,8 @@ type schemaBuilder struct {
 
 // structNode builds a section from t's fields. base names the struct for help lookups; an
 // anonymous struct has no name of its own, so its caller passes one such as "Loops.IssueIntake".
-func (b schemaBuilder) structNode(t reflect.Type, base string) SchemaNode {
+// v is the defaults config's value of the struct, or invalid when it has no uniform defaults.
+func (b schemaBuilder) structNode(t reflect.Type, base string, v reflect.Value) SchemaNode {
 	if t.Name() != "" {
 		base = t.Name()
 	}
@@ -90,14 +170,14 @@ func (b schemaBuilder) structNode(t reflect.Type, base string) SchemaNode {
 			if sf.Type.Kind() != reflect.Struct {
 				panic(fmt.Sprintf("config schema: %s.%s is inline but not a struct", base, sf.Name))
 			}
-			fields = append(fields, b.structNode(sf.Type, base).Fields...)
+			fields = append(fields, b.structNode(sf.Type, base, fieldValue(v, i)).Fields...)
 			continue
 		}
 		if name == "" {
 			name = strings.ToLower(sf.Name)
 		}
 		helpKey := base + "." + sf.Name
-		node := b.typeNode(sf.Type, helpKey)
+		node := b.typeNode(sf.Type, helpKey, fieldValue(v, i))
 		if kind, ok := optionKindByStruct[t.Name()]; ok && name == "options" && node.Type == "any" && len(optionTypes[kind]) > 0 {
 			node = b.variantNode(kind)
 		}
@@ -127,22 +207,25 @@ func (b schemaBuilder) structNode(t reflect.Type, base string) SchemaNode {
 func (b schemaBuilder) variantNode(kind string) SchemaNode {
 	variants := map[string]SchemaNode{}
 	for name, t := range optionTypes[kind] {
-		variants[name] = b.structNode(t, t.Name())
+		variants[name] = b.structNode(t, t.Name(), reflect.Value{})
 	}
 	return SchemaNode{Type: "variant", Discriminator: "type", Variants: variants}
 }
 
 // typeNode builds the schema for a field, map value or list element of type t. helpKey is the
 // owner and field of the setting, used when t is an anonymous struct.
-func (b schemaBuilder) typeNode(t reflect.Type, helpKey string) SchemaNode {
+func (b schemaBuilder) typeNode(t reflect.Type, helpKey string, v reflect.Value) SchemaNode {
 	if t == durationType {
-		return SchemaNode{Type: "duration"}
+		return SchemaNode{Type: "duration", Default: defaultOf(v)}
 	}
 	switch t.Kind() {
 	case reflect.Pointer:
-		return b.typeNode(t.Elem(), helpKey)
+		if v.IsValid() {
+			v = v.Elem() // a nil pointer gives an invalid Value: no defaults below it
+		}
+		return b.typeNode(t.Elem(), helpKey, v)
 	case reflect.Struct:
-		return b.structNode(t, helpKey)
+		return b.structNode(t, helpKey, v)
 	case reflect.Interface:
 		return SchemaNode{Type: "any"}
 	case reflect.Map:
@@ -153,19 +236,19 @@ func (b schemaBuilder) typeNode(t reflect.Type, helpKey string) SchemaNode {
 		if t.Key().Kind() != reflect.String {
 			panic(fmt.Sprintf("config schema: %s has a map key type %s, want string", helpKey, t.Key()))
 		}
-		item := b.typeNode(t.Elem(), helpKey)
+		item := b.typeNode(t.Elem(), helpKey, itemValue(v))
 		return SchemaNode{Type: "map", Item: &item}
 	case reflect.Slice:
-		item := b.typeNode(t.Elem(), helpKey)
+		item := b.typeNode(t.Elem(), helpKey, reflect.Value{})
 		return SchemaNode{Type: "list", Item: &item}
 	case reflect.String:
-		return SchemaNode{Type: "string"}
+		return SchemaNode{Type: "string", Default: defaultOf(v)}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return SchemaNode{Type: "int"}
+		return SchemaNode{Type: "int", Default: defaultOf(v)}
 	case reflect.Float32, reflect.Float64:
-		return SchemaNode{Type: "float"}
+		return SchemaNode{Type: "float", Default: defaultOf(v)}
 	case reflect.Bool:
-		return SchemaNode{Type: "bool"}
+		return SchemaNode{Type: "bool", Default: defaultOf(v)}
 	}
 	panic(fmt.Sprintf("config schema: %s has unsupported type %s", helpKey, t))
 }

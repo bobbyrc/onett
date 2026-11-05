@@ -566,6 +566,8 @@ export interface SchemaNode {
   fields?: SchemaNode[];
   /** Maps: the schema of each value. Lists: the schema of each element. */
   item?: SchemaNode;
+  /** Scalars: the value the setting has when the file leaves it out; absent when empty or context-dependent. */
+  default?: string | number | boolean;
   /** Strings: the allowed values, shown as a dropdown. */
   enum?: string[];
   /** Strings: the value is the NAME of an environment variable that holds a secret. */

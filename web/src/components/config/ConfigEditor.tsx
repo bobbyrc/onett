@@ -2,14 +2,16 @@
 // fields on the right. Edits go into a change list; the draft shown is the file with those
 // changes applied. Save sends the list in one request; nothing is written before that.
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useSaveConfigDocument } from '../../queries';
 import type { ConfigChange, ConfigDocument, ConfigProblem } from '../../types';
-import { addChange, applyChanges, clearChange, humanizeKey, problemsByPath } from '../../lib/configDoc';
+import { addChange, applyChanges, clearChange, problemsByPath } from '../../lib/configDoc';
 import { cx } from '../../lib/format';
+import { CONFIG_GROUPS, groupOfPath, groupSections, resolveGroup } from '../../lib/configGroups';
 import { useParamState } from '../../useParamState';
 import { Empty } from '../Empty';
 import { ConfigNotes, SaveBar } from './SaveBar';
-import { NodeEditor, sectionHasProblems, type EditContext } from './ConfigSection';
+import { NodeEditor, type EditContext } from './ConfigSection';
 import { classifySaveFailure } from './saveFailure';
 
 const SAVED_MS = 4_000;
@@ -54,8 +56,9 @@ export function ConfigEditor({
 
   const draft = useMemo(() => applyChanges(doc.document, changes), [doc.document, changes]);
   const problemMap = useMemo(() => problemsByPath(problems), [problems]);
-  const sections = doc.schema.fields ?? [];
-  const active = sections.find((section) => section.key === sectionKey) ?? sections[0];
+  // ?section= names a group, or a top-level key from before the nav was grouped.
+  const active = resolveGroup(sectionKey);
+  const activeSections = useMemo(() => groupSections(active, doc.schema), [active, doc.schema]);
 
   const ctx: EditContext = {
     draft,
@@ -121,23 +124,30 @@ export function ConfigEditor({
     <div className="config-editor">
       <div className="config-layout">
         <nav className="config-nav" aria-label="Config sections">
-          {sections.map((section) => {
-            const on = section.key === active?.key;
-            const unsaved = changes.some((change) => change.path[0] === section.key);
-            const broken = sectionHasProblems(problemMap.keys(), section.key);
+          {CONFIG_GROUPS.map((group) => {
+            if (group.link) {
+              return (
+                <Link key={group.id} to={group.link} className="config-nav-item">
+                  <span>{group.label}</span>
+                </Link>
+              );
+            }
+            const on = group.id === active.id;
+            const unsaved = changes.some((change) => groupOfPath(change.path)?.id === group.id);
+            const broken = [...problemMap.keys()].some((p) => groupOfPath(p.split('.'))?.id === group.id);
             const notes = [unsaved && 'unsaved changes', broken && 'has problems'].filter(Boolean).join(', ');
             return (
               <button
-                key={section.key}
+                key={group.id}
                 type="button"
                 className={cx('config-nav-item', on && 'active')}
                 aria-current={on ? 'true' : undefined}
                 onClick={() => {
-                  setSectionKey(section.key);
+                  setSectionKey(group.id);
                   if (entryKey) setEntryKey('');
                 }}
               >
-                <span>{humanizeKey(section.key)}</span>
+                <span>{group.label}</span>
                 {unsaved ? <span className="config-lamp lamp-call" aria-hidden="true" /> : null}
                 {broken ? <span className="config-lamp lamp-stop" aria-hidden="true" /> : null}
                 {notes ? <span className="sr-only"> ({notes})</span> : null}
@@ -152,8 +162,10 @@ export function ConfigEditor({
             onDismissRestart={() => setRestart([])}
             onLoadLatest={() => void loadLatest()}
           />
-          {active ? (
-            <NodeEditor node={active} path={[active.key]} ctx={ctx} nested={false} />
+          {activeSections.length > 0 ? (
+            activeSections.map(({ path, node }) => (
+              <NodeEditor key={path.join('.')} node={node} path={path} ctx={ctx} nested={false} />
+            ))
           ) : (
             <Empty>The schema has no sections.</Empty>
           )}
