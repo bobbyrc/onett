@@ -8,7 +8,7 @@
 // Run with `npm run test:mobile`. Screenshots of every route land in e2e-results/screenshots.
 import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { CHAT_TASK_ID, CONV_ID, GOAL_ID, RUN_ID, TASK_ID } from './fixtures';
+import { CHAT_TASK_ID, CONV_ID, GOAL_ID, RUN_ID, TASK_ID, conversations, longChatMessages } from './fixtures';
 import { mockBackend } from './mock';
 
 const VIEWPORTS = [
@@ -233,6 +233,44 @@ for (const vp of VIEWPORTS) {
       const vh = page.viewportSize()!.height;
       expect(box, 'composer is rendered').not.toBeNull();
       expect(vh - (box!.y + box!.height), `composer bottom is ${box!.y + box!.height}px in a ${vh}px viewport`).toBeGreaterThanOrEqual(33.5);
+    });
+
+    // A long chat opens at the end. Scrolling up shows the Jump to latest pill: inside the screen,
+    // clear of the composer, 44px tall; tapping it returns to the end and hides it.
+    test('chat Jump to latest pill is visible, tappable and returns to the bottom', async ({ page }) => {
+      // Same steps as open(), with the long conversation routed after the mock so it wins.
+      await mockBackend(page);
+      await page.route(`**/api/v1/conversations/${CONV_ID}`, (route) =>
+        route.fulfill({ json: { conversation: conversations[0], messages: longChatMessages } }),
+      );
+      await page.goto(`/chat/${CONV_ID}`);
+      await page.locator('main.main').waitFor();
+      await page.waitForLoadState('networkidle');
+      const distanceFromEnd = () =>
+        page.evaluate(() => {
+          const r = document.documentElement;
+          return r.scrollHeight - r.scrollTop - window.innerHeight;
+        });
+      await expect.poll(distanceFromEnd).toBeLessThan(2);
+      const pill = page.getByRole('button', { name: /jump to latest/i });
+      await expect(pill).toHaveCount(0);
+
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await expect(pill).toBeVisible();
+      const box = (await pill.boundingBox())!;
+      const composer = (await page.locator('.chat-page .composer').boundingBox())!;
+      const vw = page.viewportSize()!.width;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(vw);
+      expect(box.y + box.height).toBeLessThanOrEqual(composer.y);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
+      mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
+      await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-jump-to-latest.png` });
+
+      await pill.tap();
+      await expect.poll(distanceFromEnd).toBeLessThan(2);
+      await expect(pill).toHaveCount(0);
     });
   });
 }
