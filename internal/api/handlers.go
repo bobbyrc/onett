@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -163,7 +164,11 @@ type AgentView struct {
 	Disabled    bool               `json:"disabled"`
 	Harness     string             `json:"harness"`
 	HarnessType string             `json:"harness_type"`
-	Model       string             `json:"model"`
+	// HarnessCLIFound is false when the harness's CLI (claude, codex, an exec command) is not
+	// on onett's PATH, so a run on this agent would fail to start. It is true for a harness
+	// that runs no external program.
+	HarnessCLIFound bool   `json:"harness_cli_found"`
+	Model           string `json:"model"`
 	// Prompt is the reference the agent was configured with: "builtin:<name>" or a file path,
 	// and "" when the instructions are written inline.
 	Prompt string `json:"prompt"`
@@ -648,18 +653,19 @@ func (s *server) listAgents(w http.ResponseWriter, r *http.Request) {
 		sort.Strings(kinds)
 		ownBuiltin := a.Prompt == "builtin:"+name && a.PromptText == ""
 		v := AgentView{
-			Name:          name,
-			Origin:        a.Origin,
-			Disabled:      a.Disabled,
-			Harness:       a.Harness,
-			HarnessType:   cfg.Harness[a.Harness].Type,
-			Model:         a.Model,
-			Prompt:        a.Prompt,
-			PromptUpdates: strings.HasPrefix(a.Prompt, "builtin:") && a.PromptText == "",
-			Description:   a.Description,
-			Args:          nonNil(a.Args),
-			Kinds:         nonNil(kinds),
-			Uses:          nonNil(uses[name]),
+			Name:            name,
+			Origin:          a.Origin,
+			Disabled:        a.Disabled,
+			Harness:         a.Harness,
+			HarnessType:     cfg.Harness[a.Harness].Type,
+			HarnessCLIFound: harnessCLIFound(cfg.Harness[a.Harness]),
+			Model:           a.Model,
+			Prompt:          a.Prompt,
+			PromptUpdates:   strings.HasPrefix(a.Prompt, "builtin:") && a.PromptText == "",
+			Description:     a.Description,
+			Args:            nonNil(a.Args),
+			Kinds:           nonNil(kinds),
+			Uses:            nonNil(uses[name]),
 		}
 		// Inline text comes from the redacted copy; a file is read from its raw path.
 		if a.PromptText != "" {
@@ -677,6 +683,27 @@ func (s *server) listAgents(w http.ResponseWriter, r *http.Request) {
 		out = append(out, v)
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// harnessCLIFound reports whether the CLI a harness runs is on PATH. It only looks the program
+// up (onett doctor also runs it with --version), so GET /agents stays cheap.
+func harnessCLIFound(h config.Harness) bool {
+	var cli string
+	switch h.Type {
+	case "claude-code":
+		cli = "claude"
+	case "codex":
+		cli = "codex"
+	case "exec":
+		if len(h.Command) == 0 {
+			return false
+		}
+		cli = h.Command[0]
+	default:
+		return true
+	}
+	_, err := exec.LookPath(cli)
+	return err == nil
 }
 
 func (s *server) stats(w http.ResponseWriter, r *http.Request) {
