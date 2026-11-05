@@ -237,6 +237,17 @@ succeeded. A turn that was cancelled, denied, stalled, timed out or failed leave
 alone, as does any other terminal outcome (invariant 4); only an explicit owner send or flush
 starts the next turn. A queued message can be edited or cancelled until a turn takes it.
 
+The orchestrator also follows up on its own. `onett task create` run inside a chat turn (it sees
+`ONETT_CONVERSATION_ID`) gives the task the source `chat:<conversation id>`; `--source` overrides
+that. A loop in the engine (`chat_followup.go`) watches those tasks. When one reaches done,
+blocked, awaiting approval, cancelled or failed, it is held for two minutes so that tasks settling
+together share a turn; then, if the conversation is open and idle and neither the factory nor the
+conversation's project is paused, one orchestrator turn runs with a `system` message that lists
+each task's status, PR, blocked reason and summary (redacted, marked as data) and asks for one to
+three sentences, plus action only on what the owner already asked for. A conversation gets at most
+one such turn per two minutes. The pending list is in memory: a restart forgets it and starts from
+the tasks' current statuses, so nothing is reported twice.
+
 ### Goals
 
 A goal (`domain.Goal`) is an objective the owner states once for one project; it gets its own

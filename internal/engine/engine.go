@@ -95,6 +95,9 @@ type Engine struct {
 	projMu     sync.Mutex
 	projPaused map[string]bool
 
+	// followups tracks tasks delegated from chat; see chat_followup.go.
+	followups *chatFollowups
+
 	// budgetMu guards budgetDay, the local date the daily-budget notice was last sent.
 	budgetMu  sync.Mutex
 	budgetDay string
@@ -164,6 +167,7 @@ func New(d Deps) (*Engine, error) {
 		loopLocks:  map[string]*sync.Mutex{},
 		kicks:      map[string]chan string{},
 		projPaused: map[string]bool{},
+		followups:  newChatFollowups(),
 	}, nil
 }
 
@@ -188,7 +192,8 @@ func (e *Engine) Run(ctx context.Context) error {
 		defer e.wg.Done()
 		e.runScheduler(ctx) // scheduler.go
 	}()
-	e.startLoops(ctx) // loops.go
+	e.startLoops(ctx)                               // loops.go
+	e.goTracked(func() { e.chatFollowupLoop(ctx) }) // chat_followup.go
 	<-ctx.Done()
 	e.lifeMu.Lock()
 	e.stopped = true
