@@ -105,8 +105,9 @@ func cmdInit(e *env, args []string) error {
 
 // writeStarterConfig writes the starter config (no project, no notifier beyond the log) to
 // path for a first `onett serve`. It creates the directory (0700) and the file (0600), and
-// never overwrites: created is false when the file already exists.
-func writeStarterConfig(path string) (created bool, err error) {
+// never overwrites: created is false when the file already exists. A non-empty addr replaces
+// the default listen address in the new file.
+func writeStarterConfig(path, addr string) (created bool, err error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return false, fmt.Errorf("create config dir: %w", err)
 	}
@@ -117,7 +118,11 @@ func writeStarterConfig(path string) (created bool, err error) {
 	if err != nil {
 		return false, fmt.Errorf("create %s: %w", path, err)
 	}
-	_, werr := f.WriteString(initialConfig("", "", ""))
+	body := initialConfig("", "", "")
+	if addr != "" {
+		body = strings.Replace(body, "  addr: "+starterAddr+" ", "  addr: "+strconv.Quote(addr)+" ", 1)
+	}
+	_, werr := f.WriteString(body)
 	if cerr := f.Close(); werr == nil {
 		werr = cerr
 	}
@@ -243,12 +248,15 @@ func askNotify(e *env) (notifySetup, error) {
 	return n, nil
 }
 
+// starterAddr is the listen address the starter config names.
+const starterAddr = "127.0.0.1:7777"
+
 func initialConfigWith(project, repo, dir string, n notifySetup) string {
 	var b strings.Builder
 	b.WriteString("# onett.yaml: the daemon's settings. Every key is optional; unset keys take the\n")
 	b.WriteString("# defaults. onett.example.yaml in the onett repository lists every option.\n\n")
 	b.WriteString("server:\n")
-	b.WriteString("  addr: 127.0.0.1:7777      # where the API and web UI listen\n")
+	b.WriteString("  addr: " + starterAddr + "      # where the API and web UI listen\n")
 	b.WriteString("  # data_dir defaults to ~/.local/share/onett (database, token, clones, worktrees)\n\n")
 	b.WriteString("notify:\n")
 	b.WriteString("  - type: log               # write notifications to the daemon log\n")
