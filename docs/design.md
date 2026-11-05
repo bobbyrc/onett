@@ -291,7 +291,7 @@ internal/scm/         SCM interface; scm/github (gh CLI)
 internal/policy/      risk evaluation
 internal/deploy/      Deployer interface; command deployer; HTTP health checks
 internal/observe/     Observer interface; exec observer; sentry observer
-internal/notify/      Notifier interface; ntfy, exec, log
+internal/notify/      Notifier interface; ntfy, discord, exec, log
 internal/engine/      scheduler, supervisor, shepherd, loops, prompt assembly
 internal/chat/        orchestrator conversations
 internal/api/         chi HTTP API + SSE + WebSocket + embedded web UI

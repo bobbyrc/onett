@@ -8,7 +8,7 @@ you pick one per harness, project or notifier by its `type` in `onett.yaml`:
 - **Deployers** release a project after a merge. Built in: `command` (shell commands) and `noop`.
   Deployers have no `exec` type; the `command` type plays that role.
 - **Observers** report production problems. Built in: `sentry`. Any program: the `exec` type.
-- **Notifiers** tell you about things that need attention. Built in: `log`, `ntfy`. Any program: the
+- **Notifiers** tell you about things that need attention. Built in: `log`, `ntfy`, `discord`. Any program: the
   `exec` type.
 - **Intake sources** turn an external queue of work into tasks. There are no built-in types: any
   program that prints JSON lines can be one. See [Intake sources](#intake-sources).
@@ -378,6 +378,21 @@ Publishes to a topic on [ntfy](https://ntfy.sh) for push notifications on your p
 
 Priority maps to ntfy's scale: `low` is 2, `normal` is 3 and `high` is 5. The notification's title
 and click URL (a link into the web UI) travel as headers.
+
+### `discord`
+
+Posts to a Discord channel through a [webhook](https://support.discord.com/hc/en-us/articles/228383668).
+Outbound only: there is no bot and onett reads nothing back.
+
+| Option            | Required | Default | Meaning                                                                 |
+|-------------------|----------|---------|-------------------------------------------------------------------------|
+| `webhook_url_env` | yes      |         | Name of an environment variable holding the webhook URL. The URL contains a secret token, so it never goes in `onett.yaml`, and onett keeps it out of logs and errors. |
+| `username`        | no       |         | Overrides the webhook's display name.                                   |
+
+Each notification is one embed: the title (cut to 256 characters), the body as the description (cut
+to 4096) and the click URL as the title's link. The side colour follows priority: `high` is red,
+`normal` blue and `low` grey. Discord's rate limit (HTTP 429) and any other non-2xx answer is an
+error with the status and the start of the response body.
 
 ### `exec`
 
