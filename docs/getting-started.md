@@ -418,6 +418,8 @@ never enable it themselves; if a task cannot be verified without it, report it a
   tool call was refused. Fix the cause (for example, a missing permission or a path outside the
   checkout) and retry with a note.
 
+To get alerts and approve merges from your phone, set up a Telegram or Discord bot: see [`channels.md`](channels.md).
+
 ## Next: run onett on itself
 
 `examples/dogfood/` shows a full loop: issues labelled `onett` become tasks, agents open PRs against a `dogfood` branch, and low-risk PRs merge on their own. Each merge is released to a staging copy on port 7798 and verified, and a failed release rolls back and opens an incident. See [`examples/dogfood/README.md`](../examples/dogfood/README.md) for the steps.
