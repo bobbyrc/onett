@@ -958,6 +958,11 @@
                     "key": "stale_queued",
                     "type": "duration",
                     "help": "Stale queued is how long a task may sit queued before it counts as stuck; default 4h."
+                  },
+                  {
+                    "key": "escalate_after",
+                    "type": "int",
+                    "help": "Escalate after is how many heartbeats in a row an item may stay unresolved before the owner is notified once, at high priority; default 3."
                   }
                 ]
               },
@@ -1205,6 +1210,12 @@
               "type": "duration",
               "help": "Stale queued is how long a task may sit queued before it counts as stuck; default 4h.",
               "default": "4h"
+            },
+            {
+              "key": "escalate_after",
+              "type": "int",
+              "help": "Escalate after is how many heartbeats in a row an item may stay unresolved before the owner is notified once, at high priority; default 3.",
+              "default": 3
             }
           ]
         },

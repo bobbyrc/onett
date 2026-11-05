@@ -482,6 +482,9 @@ func applyLoopDefaults(c *Config) {
 	if l.Heartbeat.StaleQueued.Duration == 0 {
 		l.Heartbeat.StaleQueued.Duration = 4 * time.Hour
 	}
+	if l.Heartbeat.EscalateAfter == 0 {
+		l.Heartbeat.EscalateAfter = 3
+	}
 }
 
 // expandHome replaces a leading "~" with the user's home directory. If the home directory is
