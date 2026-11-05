@@ -459,6 +459,7 @@ export interface Loops {
     min_count: number;
   };
   retro: LoopSettings & { lookback: string };
+  self_update: LoopSettings & { min_healthy: string; command: string };
 }
 
 export interface Config {

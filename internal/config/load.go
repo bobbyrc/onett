@@ -187,6 +187,12 @@ func (l Loops) RetroOn(project, selfProject string) bool {
 	return selfProject != "" && project == selfProject
 }
 
+// SelfUpdateOn reports whether the self_update loop runs for project: only when it is explicitly
+// enabled, and only for selfProject, because the loop replaces the running daemon.
+func (l Loops) SelfUpdateOn(project, selfProject string) bool {
+	return l.SelfUpdate.Enabled != nil && *l.SelfUpdate.Enabled && selfProject != "" && project == selfProject
+}
+
 // LoopsFor returns the loop settings that apply to project: the global Loops with each
 // field the project overrides applied on top. Unset override fields keep the global value.
 func (c *Config) LoopsFor(project string) Loops {
@@ -268,6 +274,19 @@ func (c *Config) LoopsFor(project string) Loops {
 	}
 	if ov.ExecIntake.Every.Duration != 0 {
 		out.ExecIntake.Every = ov.ExecIntake.Every
+	}
+
+	if ov.SelfUpdate.Enabled != nil {
+		out.SelfUpdate.Enabled = ov.SelfUpdate.Enabled
+	}
+	if ov.SelfUpdate.Every.Duration != 0 {
+		out.SelfUpdate.Every = ov.SelfUpdate.Every
+	}
+	if ov.SelfUpdate.MinHealthy.Duration != 0 {
+		out.SelfUpdate.MinHealthy = ov.SelfUpdate.MinHealthy
+	}
+	if ov.SelfUpdate.Command != "" {
+		out.SelfUpdate.Command = ov.SelfUpdate.Command
 	}
 	return out
 }
