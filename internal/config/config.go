@@ -34,6 +34,9 @@ type Config struct {
 	// Path is the file this config was loaded from (not part of the file).
 	Path string `yaml:"-" json:"path"`
 
+	// Warnings lists notices from loading, such as a retired key that was ignored. The daemon logs them.
+	Warnings []string `yaml:"-" json:"-"`
+
 	expanded []string `yaml:"-" json:"-"` // values substituted for ${NAME} references at load time; redacted wherever they appear
 	// defaultRoutes records the task kinds whose routing was filled from the built-in defaults.
 	defaultRoutes map[string]bool `yaml:"-" json:"-"`
@@ -316,10 +319,6 @@ type Loops struct {
 	SelfUpdate struct {
 		Loop       `yaml:",inline"`
 		MinHealthy Duration `yaml:"min_healthy" json:"min_healthy"` // default 10m
-		// MaxDefer is how long after a release becomes eligible the loop waits for a quiet
-		// moment (no task run live, nothing queued) before it starts the updater anyway and
-		// drains. Default 2h.
-		MaxDefer Duration `yaml:"max_defer" json:"max_defer"`
 		// Command is run with sh -c, detached, with ONETT_UPDATE_REF set to the commit to run.
 		Command string `yaml:"command" json:"command"`
 	} `yaml:"self_update" json:"self_update"`

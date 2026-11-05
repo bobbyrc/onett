@@ -1110,11 +1110,6 @@ func setPaused(e *env, args []string, pause bool) error {
 		name = "pause"
 	}
 	fs := newFlagSet(name, e)
-	var reason, detail *string
-	if pause {
-		reason = fs.String("reason", "", `why: "owner" (default) or "self-update" (used by the updater script)`)
-		detail = fs.String("detail", "", "one line about the reason, e.g. the commit being installed")
-	}
 	positional, err := parseArgs(fs, args)
 	if err != nil {
 		return err
@@ -1128,7 +1123,7 @@ func setPaused(e *env, args []string, pause bool) error {
 	}
 	ctx := context.Background()
 	if pause {
-		_, err = c.Pause(ctx, *reason, *detail)
+		_, err = c.Pause(ctx)
 		fmt.Fprintln(e.out, "paused: no new runs start; release verification/rollback and production watching continue (`onett resume` to continue)")
 	} else {
 		_, err = c.Resume(ctx)

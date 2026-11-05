@@ -913,11 +913,6 @@
                     "help": "default 10m"
                   },
                   {
-                    "key": "max_defer",
-                    "type": "duration",
-                    "help": "Max defer is how long after a release becomes eligible the loop waits for a quiet moment (no task run live, nothing queued) before it starts the updater anyway and drains. Default 2h."
-                  },
-                  {
                     "key": "command",
                     "type": "string",
                     "help": "Command is run with sh -c, detached, with ONETT_UPDATE_REF set to the commit to run."
@@ -1134,12 +1129,6 @@
               "type": "duration",
               "help": "default 10m",
               "default": "10m"
-            },
-            {
-              "key": "max_defer",
-              "type": "duration",
-              "help": "Max defer is how long after a release becomes eligible the loop waits for a quiet moment (no task run live, nothing queued) before it starts the updater anyway and drains. Default 2h.",
-              "default": "2h"
             },
             {
               "key": "command",

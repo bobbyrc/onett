@@ -2613,31 +2613,17 @@ components:
       type: object
       nullable: true
       description: Why the factory is paused; null while it runs.
-      required: [reason, by, detail, since, waiting]
+      required: [reason, by, since]
       properties:
         reason:
           type: string
-          enum: [owner, self-update]
+          enum: [owner]
         by:
           type: string
           description: The signed-in user, or "api token".
-        detail:
-          type: string
-          description: For a self-update, the commit being installed.
         since:
           type: string
           format: date-time
-        waiting:
-          type: array
-          description: Live task runs. Chat and goal turns are not listed.
-          items:
-            type: object
-            required: [run_id, task_id]
-            properties:
-              run_id:
-                type: string
-              task_id:
-                type: string
 
     ProjectPauseState:
       type: object

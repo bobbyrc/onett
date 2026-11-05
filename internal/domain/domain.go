@@ -472,16 +472,13 @@ type LoopState struct {
 
 // Pause reasons: why the factory is paused.
 const (
-	PauseOwner      = "owner"       // a person (or their CLI) pressed pause
-	PauseSelfUpdate = "self-update" // the updater is draining runs to swap the binary
+	PauseOwner = "owner" // a person (or their CLI) pressed pause
 )
 
-// PauseInfo says why the global pause switch is on, who set it and since when. Detail is
-// reason-specific: for a self-update, the commit being installed.
+// PauseInfo says why the global pause switch is on, who set it and since when.
 type PauseInfo struct {
 	Reason string    `json:"reason"`
 	By     string    `json:"by,omitempty"`
-	Detail string    `json:"detail,omitempty"`
 	Since  time.Time `json:"since"`
 }
 

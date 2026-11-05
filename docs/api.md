@@ -81,7 +81,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /events/history` | `?after=&project=&task_id=&limit=` (default 500) | `[]Event` |
 | `GET /stats` | | `Stats` |
 | `GET /control` | | `{"paused":bool,"pause":PauseView\|null}` |
-| `POST /control/pause` | optional `{"reason":"owner"\|"self-update","detail":"one line"}` | `{"paused":bool,"pause":PauseView\|null}`; the reason defaults to `owner` |
+| `POST /control/pause` | | `{"paused":bool,"pause":PauseView\|null}` |
 | `POST /control/resume` | | `{"paused":false,"pause":null}`; clears the reason |
 | `GET /projects` | | `[]ProjectView` |
 | `POST /projects` | `{"name","repo","path"?,"branch"?,"policy"?,"instructions"?}` | `ProjectView` plus `ConfigSaved` fields (owner); same insertion as `onett project add`, comments kept; no clone is made; 409 name taken; 422 `problems` |
@@ -210,10 +210,7 @@ case the approval is recorded as rejected and the task goes back to review so on
  "awaiting_owner":2}
 
 // PauseView: why the factory is paused. "by" is the signed-in user, or "api token" for the CLI.
-// "waiting" lists the task runs still live (chat and goal turns are not listed); for a
-// self-update drain these are what the updater waits on. "detail" is the commit for a self-update.
-{"reason":"self-update","by":"api token","detail":"69f1660","since":"2026-11-04T22:36:00Z",
- "waiting":[{"run_id":"…","task_id":"…"}]}
+{"reason":"owner","by":"api token","since":"2026-11-04T22:36:00Z"}
 
 // LoopView
 {"name":"pr_shepherd","project":"onett","enabled":true,"every":"1m",

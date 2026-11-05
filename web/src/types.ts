@@ -339,13 +339,11 @@ export interface AgentUse {
   description: string;
 }
 
-/** Why the factory is paused. `waiting` lists the task runs a self-update drain is waiting on. */
+/** Why the factory is paused, who paused it and since when. */
 export interface PauseView {
-  reason: 'owner' | 'self-update' | string;
+  reason: 'owner' | string;
   by: string;
-  detail: string;
   since: string;
-  waiting: { run_id: string; task_id: string }[];
 }
 
 export interface Control {
