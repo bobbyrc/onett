@@ -78,6 +78,16 @@
   font-size: var(--chat-text-sm);
 }
 
+.chat-page .composer-model {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--chat-fg-faint);
+  font-size: var(--chat-text-sm);
+}
+
 /* Send and Stop: one round 32px button filled with the strong text colour; the icon says which,
    and aria-label carries the word. */
 .chat-page .composer-send {
