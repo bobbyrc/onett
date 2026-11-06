@@ -99,6 +99,7 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 	events := sess.Events()
 	var batch []domain.LogLine
 	savedSession := false
+	var liveContext int64
 	for events != nil {
 		select {
 		case ev, ok := <-events:
@@ -117,6 +118,18 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 					r.SessionID = ev.SessionID
 					return nil
 				})
+			}
+			if ev.Kind == "" && ev.ContextTokens > 0 {
+				// A live prompt size, not a log line: keep it on the run so the chat's context
+				// ring moves during the turn. Only a change is written.
+				if ev.ContextTokens != liveContext {
+					liveContext = ev.ContextTokens
+					e.updateRun(bg, run.ID, func(r *domain.Run) error {
+						r.ContextTokens = ev.ContextTokens
+						return nil
+					})
+				}
+				continue
 			}
 			if ev.Kind == domain.LogDenial {
 				ar.reason.CompareAndSwap(nil, "denied: "+ev.Text)
@@ -210,7 +223,9 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 		r.OutputTokens = res.OutputTokens
 		r.CachedInputTokens = res.CachedInputTokens
 		r.CacheWriteTokens = res.CacheWriteTokens
-		r.ContextTokens = res.ContextTokens
+		if res.ContextTokens > 0 { // else keep the live value the stream reported
+			r.ContextTokens = res.ContextTokens
+		}
 		r.ContextWindow = res.ContextWindow
 		if res.SessionID != "" {
 			r.SessionID = res.SessionID
