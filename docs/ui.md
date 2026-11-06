@@ -260,7 +260,7 @@ item. Choices come from `GET /conversations/{id}/settings` (the harness's own li
 named in the agents config); a pick is saved at once and applies from the next turn. Choosing a
 permission mode that skips safety checks (Claude's `bypassPermissions`, Codex's
 `dangerously-bypass-approvals-and-sandbox`) asks for confirmation first, once per conversation. The
-ring is the last run's input tokens over the model's context window (turns amber at 70% and red at
+ring is the last run's context size (the prompt of its final model request, not the input tokens summed over the run) over the model's context window (turns amber at 70% and red at
 90%); it is hidden when the window is unknown. On a phone the permission picker shows only its icon.
 In a task agent's thread the same pickers appear once the task has a conversation, next to the
 agent's role; before that, and for people who cannot operate, the footer shows the role, model,

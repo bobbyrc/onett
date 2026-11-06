@@ -29,6 +29,7 @@ type streamLine struct {
 	IsError           bool            `json:"is_error"`
 	TotalCostUSD      float64         `json:"total_cost_usd"`
 	Usage             *usage          `json:"usage"`
+	ParentToolUseID   string          `json:"parent_tool_use_id"`
 	PermissionDenials []denial        `json:"permission_denials"`
 	APIErrorStatus    int             `json:"api_error_status"`
 	RateLimitInfo     *rateLimitInfo  `json:"rate_limit_info"`
@@ -53,6 +54,7 @@ type usage struct {
 
 type message struct {
 	Content json.RawMessage `json:"content"`
+	Usage   *usage          `json:"usage"`
 }
 
 // block is one content block of an assistant or user message.
@@ -93,6 +95,10 @@ type parser struct {
 	// cacheRead and cacheWrite are the cached parts of inputTokens, summed the same way.
 	cacheRead  int64
 	cacheWrite int64
+	// contextTokens is the prompt size of the latest model request of the turn (input plus cache
+	// reads and writes): what the context window holds now. The result line's usage sums every
+	// request of the turn, so it cannot say that.
+	contextTokens int64
 	// onResult, if set, runs after each result line is parsed.
 	onResult func()
 	// perTurn is set for a long-lived process that answers many turns (see harness.StartConvTurn):
@@ -137,6 +143,7 @@ func (p *parser) parseLine(line string) []harness.Event {
 			events = append(events, event(domain.LogSystem, text))
 		}
 	case "assistant":
+		p.noteContext(sl)
 		events = p.assistantEvents(sl.Message)
 	case "user":
 		events = toolResultEvents(sl.Message)
@@ -167,6 +174,22 @@ func (p *parser) attach(events []harness.Event) []harness.Event {
 		p.announced = true
 	}
 	return events
+}
+
+// noteContext remembers the prompt size of an assistant message. A sub-agent's messages carry a
+// parent_tool_use_id and have a window of their own, so they are skipped.
+func (p *parser) noteContext(sl streamLine) {
+	if sl.ParentToolUseID != "" {
+		return
+	}
+	var msg message
+	if json.Unmarshal(sl.Message, &msg) != nil || msg.Usage == nil {
+		return
+	}
+	u := msg.Usage
+	if n := u.InputTokens + u.CacheCreationInputTokens + u.CacheReadInputTokens; n > 0 {
+		p.contextTokens = n
+	}
 }
 
 func (p *parser) assistantEvents(raw json.RawMessage) []harness.Event {
@@ -255,7 +278,7 @@ func (p *parser) endTurn() {
 	p.lastText = ""
 	p.denials = nil
 	p.rejected = nil
-	p.inputTokens, p.outputTokens, p.cacheRead, p.cacheWrite = 0, 0, 0, 0
+	p.inputTokens, p.outputTokens, p.cacheRead, p.cacheWrite, p.contextTokens = 0, 0, 0, 0, 0
 	p.announced = false // the next turn's first event names the session again
 }
 
@@ -278,6 +301,7 @@ func (p *parser) result(exitCode int, stderrTail []string) harness.Result {
 		res.InputTokens = p.inputTokens
 		res.CachedInputTokens = p.cacheRead
 		res.CacheWriteTokens = p.cacheWrite
+		res.ContextTokens = p.contextTokens
 		res.OutputTokens = p.outputTokens
 		if f.Result != "" {
 			res.FinalText = f.Result

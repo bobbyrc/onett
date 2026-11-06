@@ -184,10 +184,13 @@ type Run struct {
 	// CachedInputTokens and CacheWriteTokens are the parts of InputTokens read from and
 	// written to the prompt cache, when the harness reports them. Their ratio to InputTokens
 	// is the cache hit rate; see CacheHitRate.
-	CachedInputTokens int64  `json:"cached_input_tokens,omitempty"`
-	CacheWriteTokens  int64  `json:"cache_write_tokens,omitempty"`
-	Summary           string `json:"summary,omitempty"`
-	Error             string `json:"error,omitempty"`
+	CachedInputTokens int64 `json:"cached_input_tokens,omitempty"`
+	CacheWriteTokens  int64 `json:"cache_write_tokens,omitempty"`
+	// ContextTokens is the prompt size of the run's last model request: how full the context
+	// window ended up. Unlike InputTokens it is not summed over requests. 0 when unknown.
+	ContextTokens int64  `json:"context_tokens,omitempty"`
+	Summary       string `json:"summary,omitempty"`
+	Error         string `json:"error,omitempty"`
 
 	// The next five let a restarted onett pick the run up again (limits.run_shim). They live in
 	// the run's JSON document, so they need no schema change.
