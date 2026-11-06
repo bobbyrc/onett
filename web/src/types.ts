@@ -135,6 +135,7 @@ export interface Run {
   start_sha?: string;
   remote_sha?: string;
   goal_turn?: boolean;
+  conversation_id?: string;
 }
 
 export interface LogLine {

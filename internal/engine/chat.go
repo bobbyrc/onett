@@ -143,7 +143,7 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 	run, err := e.d.Store.CreateRun(context.WithoutCancel(ctx), domain.Run{
 		Project: conv.Project, Role: chatAgentName, Harness: agent.Harness, Model: settings.Model,
 		Effort: settings.Effort, PermissionMode: settings.PermissionMode,
-		Status: domain.RunStarting, Workdir: dir, GoalTurn: opts.goal,
+		Status: domain.RunStarting, Workdir: dir, GoalTurn: opts.goal, ConversationID: conv.ID,
 		StartedAt: now, LastOutputAt: now, DeadlineAt: &deadline,
 	})
 	if err != nil {
