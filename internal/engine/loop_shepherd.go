@@ -203,7 +203,7 @@ func (e *Engine) shepherdTask(ctx context.Context, s scm.SCM, p *config.Project,
 				return err
 			}
 			e.requeueOrBlock(ctx, t.ID, "CI failed: "+strings.Join(pr.FailingCI, ", "),
-				"```\n"+log+"\n```")
+				ciFailureContext(log, evidenceEnv(p)))
 			return nil
 		}
 	}
@@ -225,6 +225,20 @@ func (e *Engine) shepherdTask(ctx context.Context, s scm.SCM, p *config.Project,
 		return nil
 	}
 	return e.requestMergeApproval(ctx, p, t, pr, d)
+}
+
+// ciFailureContext renders a CI log tail as the body of a re-queue note, so the next attempt (and
+// the retro) can tell a gofmt diff from a vet error or a flaky test. The log is redacted, headed
+// by evidenceNote and fenced so a backtick run inside it cannot close the fence. An empty log is
+// said outright: gh cannot read the log of a run that is still going, which happens when one job
+// has failed while another has not finished.
+func ciFailureContext(log string, env []string) string {
+	log = strings.TrimSpace(redactSecrets(log, env))
+	if log == "" {
+		return "No failed-step log was available (the failing run may still be in progress). Read the failing checks' logs on the PR."
+	}
+	fence := strings.Repeat("`", max(3, longestBacktickRun(log)+1))
+	return evidenceNote + "\n\n" + fence + "\n" + log + "\n" + fence
 }
 
 // mergeRefused handles a failed auto-merge at judged, the head the shepherd evaluated. A push to
