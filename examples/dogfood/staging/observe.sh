@@ -100,14 +100,33 @@ with open(LOG, "r", encoding="utf-8", errors="replace") as f:
         g["first"] = min(g["first"], when)
         g["last"] = max(g["last"], when)
 
+TITLE_MAX = 120
+
+
+def short_title(message):
+    """One line, at most TITLE_MAX characters, cut at a word boundary with an ellipsis."""
+    s = " ".join(message.split())
+    if len(s) <= TITLE_MAX:
+        return s
+    cut = s[:TITLE_MAX - 1]
+    i = cut.rfind(" ")
+    if i > TITLE_MAX // 2:
+        cut = cut[:i]
+    return cut.rstrip(" .,;:!?-") + "\u2026"
+
+
 for fp in order:
     g = groups[fp]
+    title = short_title(g["message"])
+    full = " ".join(g["message"].split())
     print(json.dumps({
         "fingerprint": fp,
-        "title": g["message"][:120],
+        "title": title,
         "level": g["level"],
         "count": g["count"],
         "first_seen": fmt(g["first"]),
         "last_seen": fmt(g["last"]),
+        # The title is shortened; the full message stays available here.
+        **({"culprit": full} if title != full else {}),
     }, ensure_ascii=False))
 PYEOF
