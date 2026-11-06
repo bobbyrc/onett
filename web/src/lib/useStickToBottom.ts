@@ -84,6 +84,7 @@ export function useStickToBottom(count: number, resetKey: string): StickToBottom
     setUnread(0);
     scrollEnd(false);
     // count is read once per key on purpose: later growth is handled below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey, scrollEnd]);
 
   useEffect(() => {

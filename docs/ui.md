@@ -499,6 +499,11 @@ to chat bots and notifiers. "Reload from file" makes the daemon read the file ag
 
 ## Screenshots for UI PRs
 
+Every PR that touches `web/` shows before and after screenshots at desktop and phone width, and
+the author (and the reviewer) looks at them. The two Playwright configs for the mocked checks
+(`playwright.config.ts`, `playwright.shots.config.ts`) each pick a free port when they start, so
+runs in parallel worktrees never collide; set `ONETT_MOBILE_PORT` or `ONETT_SHOTS_PORT` to pin one.
+
 Every chat UI PR shows before and after screenshots. One command takes them, one script
 publishes them:
 
@@ -522,3 +527,27 @@ Markdown table with permanent `raw.githubusercontent.com/<repo>/<commit-sha>/...
 Paste the `before` and `after` tables into the PR description. Your own branch and working tree
 are not touched, and the worktree is removed when the script exits. Never merge a `pr-assets`
 branch.
+
+### Real-app shots: `scripts/shoot-live.mjs`
+
+`npm run shots:chat` shows mocked data. To see the real app with real data, point
+`web/scripts/shoot-live.mjs` at a running daemon:
+
+```sh
+cd web
+ONETT_API=http://127.0.0.1:7777 ONETT_TOKEN="$(onett token)" node scripts/shoot-live.mjs
+```
+
+It writes `<route>-<desktop|phone>-<dark|light>.png` to `web/e2e-results/live-shots/` (`--out DIR`
+to change it): 1440x900 and 390x844, in both colour schemes. The default routes are every route
+in `src/App.tsx`, plus one detail page each (task, run, goal, chat) using the first id the API
+returns; a detail page with no data is skipped with a note. `--routes /tasks,/runs` picks
+routes, and `--full` captures the whole scrolling page instead of the first screen.
+
+It cannot change anything: the browser aborts every request that is not a GET. It sends
+`Authorization: Bearer $ONETT_TOKEN` on API calls and never prints the token. A token is not a
+session, so `GET /api/v1/auth/state` is answered locally with a signed-in owner; pages that need
+a real owner session (Agents, Config, Users) therefore show `forbidden` for their data. It needs
+Chromium from `npx playwright install chromium` (or the cache Playwright already has). Worker
+agents hold no API token, so they use `shots:chat`; use this against your own daemon, never a
+shared one you do not own.
