@@ -10,7 +10,7 @@ import { useNow } from '../lib/clock';
 import { orchestratorEntries, taskEntries } from '../lib/transcript';
 import { readTranscriptView, writeTranscriptView, type TranscriptView } from '../lib/transcriptView';
 import { useRunLogsMap } from '../runLogs';
-import type { AgentConversation, ChatMessage, LogLine, Task } from '../types';
+import type { AgentConversation, ChatMessage, LogLine, Run, Task } from '../types';
 import {
   useAgentConversations,
   useCancelMessage,
@@ -45,6 +45,9 @@ import { useStickToBottom } from '../lib/useStickToBottom';
 import { useDraft } from '../lib/useDraft';
 
 const EXAMPLES = ["What's running right now?", 'Fix the flaky test in …', 'Triage open issues in …'];
+
+/** Input + output tokens per run id, for the tool-row metadata. */
+const tokensByRun = (runs: Run[]) => Object.fromEntries(runs.map((r) => [r.id, r.input_tokens + r.output_tokens]));
 
 const capitalise = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
@@ -542,6 +545,7 @@ function OrchestratorThread({
           afterRun={createdBy}
           queuedActions={canOperate ? (mid) => <QueuedActions message={byId[mid]} /> : undefined}
           liveRunId={liveRunId}
+          runTokens={tokensByRun(Object.values(runs))}
         />
         <TurnActivity
           runId={liveRunId ?? lastRunId}
@@ -696,6 +700,7 @@ function TaskThread({
           agentLabel={capitalise(role)}
           queuedActions={canOperate ? (mid) => <QueuedActions message={byId[mid]} /> : undefined}
           liveRunId={liveRunId}
+          runTokens={tokensByRun(conv?.runs ?? [])}
         />
         <TurnActivity
           runId={liveRunId ?? conv?.runs?.[conv.runs.length - 1]?.id}
