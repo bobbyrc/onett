@@ -83,6 +83,10 @@ export function AgentCard({
         {agent.harness} ({agent.harness_type}) · {agent.model || 'harness default model'}
       </p>
       <dl className="kv">
+        <dt>Effort</dt>
+        <dd>{agent.effort || 'harness default'}</dd>
+        <dt>Permissions</dt>
+        <dd>{agent.permission_mode || 'harness default'}</dd>
         <dt>Used for</dt>
         <dd>
           {(agent.uses ?? []).length > 0 ? (

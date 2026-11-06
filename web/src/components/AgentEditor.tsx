@@ -146,6 +146,16 @@ export function AgentEditor({
         <Field label="Model" hint="Leave empty for the harness default.">
           <input type="text" value={form.model} onChange={(event) => update({ model: event.target.value })} />
         </Field>
+        <Field label="Effort" hint="Reasoning effort, in the harness's words. Empty for its default.">
+          <input type="text" value={form.effort} onChange={(event) => update({ effort: event.target.value })} />
+        </Field>
+        <Field label="Permission mode" hint="Permission mode or sandbox, in the harness's words. Empty for its default.">
+          <input
+            type="text"
+            value={form.permissionMode}
+            onChange={(event) => update({ permissionMode: event.target.value })}
+          />
+        </Field>
       </div>
 
       <div className="agent-editor-row">

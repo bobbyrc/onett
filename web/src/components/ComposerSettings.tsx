@@ -125,7 +125,7 @@ export function ComposerSettings({ conversationId, side }: { conversationId: str
               <Group
                 title="Permissions"
                 list={view.choices.permission_modes}
-                value={view.settings.permission_mode}
+                value={view.settings.permission_mode || view.defaults.permission_mode}
                 onPick={(c) =>
                   needsDangerConfirm(view, c.value)
                     ? setPending(c)
@@ -164,7 +164,7 @@ export function ComposerSettings({ conversationId, side }: { conversationId: str
           <Group
             title="Effort"
             list={view.choices.efforts}
-            value={view.settings.effort}
+            value={view.settings.effort || view.defaults.effort}
             onPick={(c) => save({ ...view.settings, effort: c.value }, close)}
           />
           <ResetItem onClick={() => save({ ...view.settings, model: '', effort: '' }, close)} />
