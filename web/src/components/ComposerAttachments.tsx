@@ -108,6 +108,57 @@ export function useAttachmentUploads(conversationId: string, max: number): Attac
   };
 }
 
+/**
+ * Files chosen before the conversation exists (the start screen). Nothing is uploaded yet: each file
+ * shows as ready, and `files()` hands them to the conversation, which uploads them with the first message.
+ */
+export function useLocalAttachments(max: number): AttachmentUploads & { files: () => File[] } {
+  const [items, setItems] = useState<PendingFile[]>([]);
+  const itemsRef = useRef<PendingFile[]>([]);
+  const seq = useRef(0);
+  itemsRef.current = items;
+
+  const revoke = (it: PendingFile) => {
+    if (it.preview) URL.revokeObjectURL(it.preview);
+  };
+  const add = useCallback(
+    (files: File[]) => {
+      let slots = max - itemsRef.current.filter((it) => it.status !== 'error').length;
+      const fresh = files.map((file): PendingFile => {
+        const key = `l${++seq.current}`;
+        const preview = isImage(file.type) ? URL.createObjectURL(file) : undefined;
+        if (slots <= 0) {
+          return { key, file, preview, status: 'error', progress: 0, error: `Only ${max} files fit in one message` };
+        }
+        slots--;
+        return { key, file, preview, status: 'done', progress: 1, id: key };
+      });
+      if (fresh.length > 0) setItems((all) => [...all, ...fresh]);
+    },
+    [max],
+  );
+  const remove = useCallback((key: string) => {
+    const gone = itemsRef.current.find((it) => it.key === key);
+    if (gone) revoke(gone);
+    setItems((all) => all.filter((it) => it.key !== key));
+  }, []);
+  const clear = useCallback(() => {
+    itemsRef.current.forEach(revoke);
+    setItems([]);
+  }, []);
+  useEffect(() => () => itemsRef.current.forEach(revoke), []);
+
+  return {
+    items,
+    add,
+    remove,
+    clear,
+    uploading: false,
+    ids: items.flatMap((it) => (it.status === 'done' && it.id ? [it.id] : [])),
+    files: () => items.filter((it) => it.status === 'done').map((it) => it.file),
+  };
+}
+
 /** The chips above the field: a thumbnail or icon, the name, progress or an error, and Remove. */
 export function PendingChips({ uploads }: { uploads: AttachmentUploads }) {
   if (uploads.items.length === 0) return null;

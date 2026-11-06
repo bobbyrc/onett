@@ -982,6 +982,16 @@ func (s *server) getConversationSettings(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, v)
 }
 
+// newConversationSettings is what the start screen shows before a conversation exists.
+func (s *server) newConversationSettings(w http.ResponseWriter, r *http.Request) {
+	v, err := s.opts.Controller.ConversationSettings(r.Context(), "")
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, v)
+}
+
 // putConversationSettings is for a person only: the permission mode decides what the agent may do
 // without asking, so the agent holding the API token must not be able to widen its own.
 func (s *server) putConversationSettings(w http.ResponseWriter, r *http.Request) {

@@ -57,8 +57,12 @@ func (e *Engine) settingsChoices(agent config.Agent) harness.Choices {
 }
 
 // ConversationSettings returns a conversation's settings with the role's defaults and the choices
-// its harness accepts.
+// its harness accepts. An empty id means a conversation not yet created (the chat start screen):
+// the orchestrator's defaults and choices, with no overrides.
 func (e *Engine) ConversationSettings(ctx context.Context, id string) (api.SettingsView, error) {
+	if id == "" {
+		return e.settingsView(ctx, domain.Conversation{})
+	}
 	conv, err := e.d.Store.GetConversation(ctx, id)
 	if err != nil {
 		return api.SettingsView{}, err

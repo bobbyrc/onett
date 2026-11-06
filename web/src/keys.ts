@@ -29,6 +29,7 @@ export const keys = {
   configFile: ['config', 'file'] as const,
   conversationsAll: ['conversations'] as const,
   conversation: (id: string) => ['conversation', id] as const,
+  newConversationSettings: ['new-conversation', 'settings'] as const,
   conversationSettings: (id: string) => ['conversation', id, 'settings'] as const,
   agentConversations: ['agent-conversations'] as const,
   taskConversationsAll: ['task-conversation'] as const,
