@@ -402,7 +402,14 @@ pre,
   color: var(--board-muted);
 }
 
-.pause-switch .error-line {
+.pause-switch .cell-note {
+  margin-top: 4px;
+  font-size: 0.9em;
+  max-width: 48ch;
+  overflow-wrap: anywhere;
+}
+
+.error-line {
   flex-basis: 100%;
   color: #ff8a80;
 }

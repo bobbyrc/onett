@@ -148,6 +148,7 @@ const SCENES: Scene[] = [
   // Extra shots for data shapes and empty states the plain routes do not show.
   { route: `/runs/${d.IDS.chatRun}`, variant: 'default' },
   { route: `/chat/${d.IDS.goalChat}`, variant: 'default' },
+  { route: `/goals/${d.IDS.doneGoal}`, variant: 'default' },
   { route: '/', variant: 'oneProject', name: 'overview_one_project' },
   { route: '/tasks', variant: 'emptyTasks', name: 'tasks_empty' },
   { route: '/runs', variant: 'emptyRuns', name: 'runs_empty' },
