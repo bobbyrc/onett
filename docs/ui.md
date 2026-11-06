@@ -424,9 +424,9 @@ asks for confirmation. "Add user" opens a sheet above the table with username, p
 role (default operator) and "Create user" or "Cancel". The server's message is shown under the
 table when it refuses a change, such as demoting or removing the last owner.
 
-**Agents** (`/agents`) — card grid of the configured roles. Each card shows the name, a badge
+**Agents** (`/agents`) — card grid of the configured roles. Each card shows the title (or the name when it has none, with the name beneath), a badge
 (`built-in`, `edited`, `custom` or `removed`: where its settings come from, or that it is switched
-off), the description, the harness and its type, the model, effort and permission mode (each "harness default" when unset), and **Used for**:
+off), the description, its **Context** files and **Tools** rules when set, the harness and its type, the model, effort and permission mode (each "harness default" when unset), and **Used for**:
 one line per task kind or route that uses the agent, with the project when one is named. The prompt
 shows its first 8 lines with "Show full prompt" to expand it. An edited built-in that no longer
 receives onett's prompt updates says so, and "Compare with built-in" puts the built-in text beside

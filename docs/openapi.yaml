@@ -3622,6 +3622,19 @@ components:
           description: For a built-in whose instructions the config replaces, the built-in prompt for comparison.
         description:
           type: string
+        title:
+          type: string
+          description: The role's job title, such as `Senior Engineer`. Omitted when unset.
+        context:
+          type: array
+          description: Files the agent reads before it starts. Omitted when unset.
+          items:
+            type: string
+        tools:
+          type: array
+          description: Tool permission rules the agent's runs are pre-approved for. Omitted when unset.
+          items:
+            type: string
         args:
           type: array
           items:

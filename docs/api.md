@@ -228,10 +228,11 @@ case the approval is recorded as rejected and the task goes back to review so on
 // "quiet_now":true while its quiet hours are on
 
 // AgentView
-{"name":"implementer","origin":"builtin","disabled":false,"harness":"codex","harness_type":"codex",
- "harness_cli_found":true,"model":"","prompt":"builtin:implementer",
+{"name":"senior-engineer","title":"Senior Engineer","origin":"builtin","disabled":false,
+ "harness":"codex","harness_type":"codex",
+ "harness_cli_found":true,"model":"","prompt":"builtin:senior-engineer",
  "prompt_text":"# Role: implementer…","prompt_updates":true,
- "description":"…","args":[],"kinds":["feature","bugfix"],
+ "description":"…","context":["AGENTS.md"],"tools":["Bash(go test:*)"],"args":[],"kinds":["feature","bugfix"],
  "uses":[{"kind":"feature","description":"builds features"}]}
 ```
 
@@ -242,7 +243,12 @@ agent runs with, resolved from `prompt` or the inline text; when a file cannot b
 `prompt_error` says why and `prompt_text` is empty. `prompt_updates` is true when the agent runs
 the built-in prompt of its own name. For an `edited` built-in, `builtin_prompt_text` holds that
 built-in prompt so the two can be compared. Anyone who can read this route sees these prompts in
-full, because every run is given them verbatim, so a prompt must never hold a secret.
+full, because every run is given them verbatim, so a prompt must never hold a secret. `title` is the
+role's job title (such as "Senior Engineer"); `context` lists files the agent reads first and
+`tools` the tool permission rules its runs are pre-approved for. Each is omitted when unset. The
+built-in names are `chief-of-staff`, `senior-engineer`, `code-reviewer`, `tech-lead`, `sre` and
+`platform-engineer`; the old names (`orchestrator`, `implementer`, `reviewer`, `triager`,
+`improver`) still work in config and are renamed on load.
 
 ## Event stream
 
