@@ -3,7 +3,7 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Run } from '../types';
-import { ActivityLine, spokenDuration } from './ActivityLine';
+import { ActivityLine, WorkedToggle, spokenDuration } from './ActivityLine';
 
 const T0 = Date.parse('2026-01-01T12:00:00Z');
 const iso = (ms: number) => new Date(T0 + ms).toISOString();
@@ -89,13 +89,10 @@ describe('ActivityLine', () => {
     expect(status().getAttribute('aria-live')).toBe('polite');
   });
 
-  it('shows Worked for after success, with spoken text and no lamp', () => {
+  it('shows no tail line after success: the transcript owns the Worked for toggle', () => {
     const run = makeRun({ status: 'succeeded', ended_at: iso(100_000) });
     const { container } = render(view({ run, working: false }));
-    expect(spoken()).toContain('Worked for 1m 40s');
-    expect(spoken()).toContain('1 minute 40 seconds');
-    expect(container.querySelector('.activity-lamp')).toBeNull();
-    expect(container.querySelector('.activity-worked')).not.toBeNull();
+    expect(container.textContent).toBe('');
   });
 
   it('says Stopped after for a cancelled run and Failed after for a failed one', () => {
@@ -111,6 +108,19 @@ describe('ActivityLine', () => {
   it('renders nothing for a finished run with no end time', () => {
     const { container } = render(view({ run: makeRun({ status: 'succeeded' }), working: false }));
     expect(container.textContent).toBe('');
+  });
+});
+
+describe('WorkedToggle', () => {
+  it('reads Worked for with the duration, flips aria-expanded and calls back', () => {
+    const onToggle = vi.fn();
+    const { rerender } = render(<WorkedToggle duration="1m 40s" open={false} onToggle={onToggle} />);
+    const button = screen.getByRole('button', { name: 'Worked for 1m 40s' });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    button.click();
+    expect(onToggle).toHaveBeenCalledOnce();
+    rerender(<WorkedToggle open onToggle={onToggle} />);
+    expect(screen.getByRole('button', { name: 'Worked' }).getAttribute('aria-expanded')).toBe('true');
   });
 });
 

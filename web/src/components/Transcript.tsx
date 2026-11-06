@@ -1,14 +1,15 @@
 import { Fragment, useId, useState, type ReactNode } from 'react';
 import { cx, formatClock } from '../lib/format';
-import { parseTime } from '../lib/time';
+import { formatDuration, parseTime } from '../lib/time';
 import { clipLines, type Entry } from '../lib/transcript';
 import type { TranscriptView } from '../lib/transcriptView';
+import { WorkedToggle } from './ActivityLine';
 import { CopyButton } from './CopyButton';
 import { Markdown } from './Markdown';
 import { MessageAttachments } from './MessageAttachments';
 import { RelTime } from './RelTime';
 import { ToolLine, ToolRun } from './ToolRun';
-import { groupToolRuns, type ToolEntry } from './toolRuns';
+import { groupToolRuns, turnWork, type ToolEntry } from './toolRuns';
 import './Transcript.css';
 
 const RESULT_PREVIEW_LINES = 3;
@@ -74,6 +75,9 @@ function runEnd(entries: Entry[], i: number, afterRun: TranscriptProps['afterRun
 
 function ConversationView({ entries, agentLabel, afterRun, queuedActions, liveRunId }: TranscriptProps) {
   const blocks = groupToolRuns(entries);
+  const turns = turnWork(entries, liveRunId);
+  // Turns the reader has flipped. A finished turn starts collapsed; its toggle is keyed by its first work entry.
+  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
   // Index in `entries` of each block's last entry, so afterRun and the agent label see the same neighbours.
   let end = -1;
   return (
@@ -81,19 +85,48 @@ function ConversationView({ entries, agentLabel, afterRun, queuedActions, liveRu
       {blocks.map((b, bi) => {
         const start = end + 1;
         end += b.type === 'run' ? b.calls.length : 1;
-        const labelled = start === 0 || !(isAgentKind(b.type === 'run' ? b.calls[0] : b.entry) && isAgentKind(entries[start - 1]));
+        const first = b.type === 'run' ? b.calls[0] : b.entry;
+        const turn = turns.find((t) => t.ids.has(first.id));
+        const open = turn ? flipped[turn.key] === true : true;
+        const toggle = turn && turn.key === first.id ? (
+          <WorkedToggle
+            duration={turn.ms >= 1000 ? formatDuration(turn.ms) : undefined}
+            open={open}
+            onToggle={() => setFlipped({ ...flipped, [turn.key]: !open })}
+          />
+        ) : null;
+        if (turn && !open) {
+          // Collapsed work: only the toggle (at the turn's first entry) and any "created task" slot remain.
+          return (
+            <Fragment key={b.type === 'run' ? b.id : b.entry.id}>
+              {toggle}
+              {runEnd(entries, end, afterRun)}
+            </Fragment>
+          );
+        }
+        const labelled = start === 0 || !(isAgentKind(first) && isAgentKind(entries[start - 1]));
+        const until = entries[end + 1]?.time;
         return (
           <Fragment key={b.type === 'run' ? b.id : b.entry.id}>
+            {toggle}
             {b.type === 'run' ? (
               <div className="tr-ai tr-ai-tool">
                 {labelled ? <div className="tr-lbl">{agentLabel}</div> : null}
                 <ToolRun
                   calls={b.calls}
+                  until={until}
                   active={bi === blocks.length - 1 && (liveRunId === undefined || b.calls[b.calls.length - 1].runId === liveRunId)}
                 />
               </div>
             ) : (
-              <ConversationEntry entry={b.entry} agentLabel={agentLabel} queuedActions={queuedActions} labelled={isAgentKind(b.entry) && labelled} />
+              <ConversationEntry
+                entry={b.entry}
+                agentLabel={agentLabel}
+                queuedActions={queuedActions}
+                labelled={isAgentKind(b.entry) && labelled}
+                live={bi === blocks.length - 1 && (liveRunId === undefined || b.entry.runId === liveRunId)}
+                until={until}
+              />
             )}
             {runEnd(entries, end, afterRun)}
           </Fragment>
@@ -108,8 +141,12 @@ function ConversationEntry({
   labelled,
   agentLabel,
   queuedActions,
+  live = false,
+  until,
 }: {
   entry: Entry;
+  live?: boolean;
+  until?: string;
   labelled: boolean;
   agentLabel: string;
   queuedActions: TranscriptProps['queuedActions'];
@@ -148,13 +185,13 @@ function ConversationEntry({
       return (
         <div className="tr-ai tr-ai-tool">
           {labelled ? <div className="tr-lbl">{agentLabel}</div> : null}
-          <ToolLine entry={e} />
+          <ToolLine entry={e} live={live} until={until} />
         </div>
       );
     case 'denial':
       return (
         <div className="tr-note tr-denial">
-          <span className="tr-denied">DENIED</span>
+          <span className="tr-denied">Denied</span>
           <pre>{e.text}</pre>
         </div>
       );
@@ -297,7 +334,7 @@ function TerminalEntry({ entry: e, queuedActions }: { entry: Entry; queuedAction
     case 'denial':
       return (
         <TermLine time={e.time} marker="●" className="k-denial">
-          <span className="tr-denied">DENIED</span> <pre>{e.text}</pre>
+          <span className="tr-denied">Denied</span> <pre>{e.text}</pre>
         </TermLine>
       );
     case 'error':

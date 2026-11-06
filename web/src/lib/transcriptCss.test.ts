@@ -15,10 +15,10 @@ describe('transcript layout rules', () => {
     expect(rule('.tr-you')).toContain('max-width: min(72ch, 85%)');
   });
   it('ellipses a long tool argument instead of widening the row', () => {
-    const arg = rule('.tl-arg,\n.tl-summary', toolCss);
-    for (const decl of ['flex: 1', 'min-width: 0', 'overflow: hidden', 'white-space: nowrap', 'text-overflow: ellipsis']) {
-      expect(arg).toContain(decl);
-    }
+    const decls = ['min-width: 0', 'overflow: hidden'];
+    for (const decl of [...decls, 'white-space: nowrap']) expect(rule('.tl-text', toolCss)).toContain(decl);
+    for (const decl of [...decls, 'text-overflow: ellipsis']) expect(rule('.tl-arg', toolCss)).toContain(decl);
+    for (const decl of [...decls, 'white-space: nowrap', 'text-overflow: ellipsis']) expect(rule('.tl-summary', toolCss)).toContain(decl);
   });
   it('wraps expanded results and terminal lines', () => {
     expect(rule('.tl-body pre', toolCss)).toContain('overflow-wrap: anywhere');

@@ -1,32 +1,35 @@
 /* Tool runs and tool lines: docs/design/chat-visual.md, "Tool runs and tool lines". */
 .tl {
   min-width: 0;
-  font-size: var(--chat-text-md);
+  font-size: var(--chat-text-sm);
 }
 
 .tl-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--chat-space-2);
+  column-gap: var(--chat-space-2);
   width: 100%;
   min-height: 26px;
   border: 0;
   background: none;
   padding: 0 var(--chat-space-1);
   font: inherit;
+  font-size: var(--chat-text-sm);
   color: var(--chat-fg-faint);
   text-align: left;
   cursor: pointer;
 }
 
 .tl-row:hover {
-  color: var(--chat-fg-strong);
+  color: var(--chat-fg);
 }
 
 /* Inset, so a scroll container never clips the ring. */
 .tl-row:focus-visible {
   outline: 2px solid var(--chat-focus-ring);
   outline-offset: -2px;
+  border-radius: var(--chat-radius-sm);
 }
 
 /* The pointer is not precise on touch: the row grows to a 44px target there. */
@@ -36,11 +39,30 @@
   }
 }
 
+/* A small chevron after the text, drawn with borders so it follows the text colour. */
 .tl-chev {
   flex: none;
-  width: 10px;
-  font-family: var(--chat-font-mono);
-  font-size: var(--chat-text-sm);
+  width: 6px;
+  height: 6px;
+  margin: 0 var(--chat-space-1);
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.tl-chev.open {
+  transform: rotate(45deg);
+}
+
+.tl-text {
+  /* Leaves room for the lamp and chevron on the same line; the metadata wraps instead. */
+  max-width: calc(100% - 3rem);
+  display: inline-flex;
+  gap: var(--chat-space-2);
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .tl-name {
@@ -48,31 +70,69 @@
   font-weight: 500;
 }
 
-.tl-arg,
+.tl-arg {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--chat-font-mono);
+  font-size: var(--chat-text-code);
+}
+
 .tl-summary {
-  flex: 1;
+  max-width: calc(100% - 3rem);
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.tl-arg {
-  font-family: var(--chat-font-mono);
-  font-size: var(--chat-text-code);
-}
-
 .tl-summary.live {
   color: var(--chat-fg);
 }
 
-/* Status is a lamp square plus the "Running ..." words; the square never carries it alone. */
+/* Right-aligned and faint: "completed · 1m 44s". It wraps under the label on a narrow screen, and
+   the duration drops first there, so a row never overflows. */
+.tl-meta {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--chat-text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tl-meta-danger {
+  color: var(--chat-danger);
+}
+
+@media (max-width: 480px) {
+  .tl-meta-more {
+    display: none;
+  }
+}
+
+/* onett's lamp: a small square that switches rather than fades. The state is also in the words. */
 .tl-lamp {
   flex: none;
   width: 8px;
   height: 8px;
   background: var(--chat-accent);
+}
+
+.tl-lamp-live {
   animation: tl-lamp 1.2s steps(1, end) infinite;
+}
+
+.tl-lamp-done {
+  background: var(--lamp-done);
+}
+
+.tl-lamp-failed {
+  background: var(--chat-danger);
+}
+
+.tl-lamp-off {
+  background: var(--lamp-off-light);
 }
 
 @keyframes tl-lamp {
@@ -82,16 +142,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tl-lamp {
+  .tl-lamp-live {
     animation: none;
   }
-}
-
-.tl-err {
-  flex: none;
-  font-size: var(--chat-text-sm);
-  font-weight: 600;
-  color: var(--chat-danger);
 }
 
 .tl-total {
@@ -103,14 +156,9 @@
 
 .tl-diff {
   flex: none;
-  margin-left: auto;
   font-family: var(--chat-font-mono);
   font-size: var(--chat-text-sm);
   white-space: nowrap;
-}
-
-.tl-total .tl-diff {
-  margin-left: 0;
 }
 
 .tl-diff .a {
@@ -154,23 +202,30 @@
   font-family: var(--chat-font-mono);
 }
 
+/* Expanded detail: one radius-lg surface with a hairline; the input and result share it. */
 .tl-body {
   margin: var(--chat-space-1) 0 var(--chat-space-2);
   min-width: 0;
+  background: var(--chat-code-bg);
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius-lg);
+  overflow: hidden;
 }
 
 .tl-body pre {
-  margin: 0 0 var(--chat-space-1);
-  background: var(--chat-code-bg);
+  margin: 0;
+  background: none;
   color: var(--chat-fg);
-  border: 1px solid var(--chat-border);
-  border-radius: var(--chat-radius-md);
   padding: var(--chat-space-2) var(--chat-space-3);
   font: var(--chat-text-code) / 1.45 var(--chat-font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-height: 16rem;
   overflow: auto;
+}
+
+.tl-body pre + pre {
+  border-top: 1px solid var(--chat-border);
 }
 
 .tl-body pre:focus-visible {

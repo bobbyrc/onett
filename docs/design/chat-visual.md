@@ -172,8 +172,10 @@ a spinner or shimmer, naming what the agent is doing now; the verb is normal ton
 
 **Adaptation.** One line at the tail of the transcript: a lamp (`--chat-accent` when working,
 `--chat-warning` when waiting for the owner, `--chat-danger` when stopped), then a text label
-("Working", "Waiting for you", "Blocked") in `--chat-text-md`. While a turn runs the label also
-shows elapsed time ("Working · 1m 12s"); once it finishes the line reads "Worked for 1m 40s".
+("Working", "Waiting for you", "Blocked") in `--chat-text-sm`. While a turn runs the label also
+shows elapsed time ("Working · 1m 12s"); once it succeeds, the transcript shows a faint
+"Worked for 1m 40s ›" toggle with a hairline after it, above the answer, which folds that turn's work
+(closed once the turn is done, open while it runs).
 "Waiting for you" and "Blocked" carry no timer. The lamp switches in two steps like
 every onett lamp. No spinner. Errors are one line in `--chat-danger`, as Orca's `text-destructive/80`
 row, but at full strength to pass 4.5:1.

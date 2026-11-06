@@ -97,13 +97,23 @@ const json = (page: Page, glob: string, body: unknown) =>
       : route.fallback(),
   );
 
-type Scene = { name: string; path: string; setup: (page: Page) => Promise<void>; ready: string; /** Scroll up before the shot, so the Jump to latest pill shows. */ away?: boolean };
+type Scene = { name: string; path: string; setup: (page: Page) => Promise<void>; ready: string; /** Scroll up before the shot, so the Jump to latest pill shows. */ away?: boolean; /** Open every "Worked for" fold and the first tool run, so the quiet tool lines show. */ open?: boolean };
 
 const SCENES: Scene[] = [
   {
     name: 'chat-thread',
     path: `/chat/${CONV_ID}`,
     ready: '.composer',
+    setup: async (page) => {
+      await json(page, '**/api/v1/conversations/*', { conversation: conv({}), messages: THREAD });
+      await json(page, '**/api/v1/runs/*/logs*', THREAD_LOGS);
+    },
+  },
+  {
+    name: 'chat-thread-open',
+    path: `/chat/${CONV_ID}`,
+    ready: '.composer',
+    open: true,
     setup: async (page) => {
       await json(page, '**/api/v1/conversations/*', { conversation: conv({}), messages: THREAD });
       await json(page, '**/api/v1/runs/*/logs*', THREAD_LOGS);
@@ -136,6 +146,20 @@ const SCENES: Scene[] = [
     name: 'task-thread',
     path: `/chat/task/${CHAT_TASK_ID}`,
     ready: '.composer',
+    setup: async (page) => {
+      await json(page, '**/api/v1/tasks/*/conversation*', taskConv);
+      await json(page, '**/api/v1/runs/*/logs*', [
+        log(1, 'prompt', 'Cap the shepherd backoff at 10 minutes and add a test.', T1),
+        ...THREAD_LOGS.slice(0, 6),
+        log(7, 'text', 'Done: `backoff` now returns `min(d, 10*time.Minute)`, with `TestBackoffCapped` covering it.', T3),
+      ]);
+    },
+  },
+  {
+    name: 'task-thread-open',
+    path: `/chat/task/${CHAT_TASK_ID}`,
+    ready: '.composer',
+    open: true,
     setup: async (page) => {
       await json(page, '**/api/v1/tasks/*/conversation*', taskConv);
       await json(page, '**/api/v1/runs/*/logs*', [
@@ -203,6 +227,15 @@ for (const v of VARIANTS) {
         await page.addStyleTag({
           content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}',
         });
+        if (scene.open) {
+          await page.getByRole('button', { name: /^Worked/ }).first().waitFor();
+          for (const fold of await page.getByRole('button', { name: /^Worked/ }).all()) {
+            // The task fixture lists one run twice, so two folds share a key: open each only if still shut.
+            if ((await fold.getAttribute('aria-expanded')) === 'false') await fold.click();
+          }
+          const head = page.locator('.tl-head').first();
+          if (await head.count()) await head.click();
+        }
         // Threads open at the bottom; make sure of it before the shot.
         await page.evaluate(() => {
           for (const el of document.querySelectorAll<HTMLElement>('*')) {

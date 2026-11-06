@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { cx } from '../lib/format';
+import { formatDuration, parseTime } from '../lib/time';
 import { changedFiles, isLiveRun, liveLabel, summarizeRun, type ToolEntry } from './toolRuns';
 import './ToolRun.css';
 
@@ -9,21 +10,56 @@ const Diff = ({ added, removed }: { added: number; removed: number }) => (
   </span>
 );
 
+/** The state a tool lamp shows: blinking while live, then done or failed in onett's lamp colours. */
+type LampState = 'live' | 'done' | 'failed' | 'off';
+
+const lampLabel: Record<LampState, string> = { live: 'Running', done: 'Completed', failed: 'Failed', off: 'No result' };
+
+/** The lamp sits before the text. The status words ride in the metadata, so the lamp never carries it alone. */
+const Lamp = ({ state }: { state: LampState }) => <span className={cx('tl-lamp', `tl-lamp-${state}`)} aria-hidden="true" />;
+
+const Chevron = ({ open }: { open: boolean }) => <span className={cx('tl-chev', open && 'open')} aria-hidden="true" />;
+
+/** "1m 44s" between two entry times, or nothing when either is unknown or under a second. */
+export function spanLabel(from: string, until?: string): string | undefined {
+  const a = parseTime(from);
+  const b = parseTime(until);
+  if (!a || !b) return undefined;
+  const ms = b.getTime() - a.getTime();
+  return ms >= 1000 ? formatDuration(ms) : undefined;
+}
+
+/** Right-aligned metadata: status · duration. Only what is known; there is no per-call token count in the log. */
+function Meta({ status, danger, duration }: { status: string; danger?: boolean; duration?: string }) {
+  return (
+    <span className="tl-meta">
+      <span className={cx(danger && 'tl-meta-danger')}>{status}</span>
+      {duration ? <span className="tl-meta-more"> · {duration}</span> : null}
+    </span>
+  );
+}
+
 /** One tool call: verb, main argument, `+n −m` for edits. Opens to its input and output. */
-export function ToolLine({ entry }: { entry: ToolEntry }) {
+export function ToolLine({ entry, live = false, until }: { entry: ToolEntry; live?: boolean; /** Time of whatever came next, to say how long the call took. */ until?: string }) {
   const [open, setOpen] = useState(false);
   const { tool } = entry;
   const hasDiff = tool.added !== undefined || tool.removed !== undefined;
+  const lamp: LampState = entry.resultError ? 'failed' : entry.result !== undefined ? 'done' : live ? 'live' : 'off';
   return (
     <div className="tl">
       <button type="button" className="tl-row" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="tl-chev" aria-hidden="true">
-          {open ? '▾' : '▸'}
+        <Lamp state={lamp} />
+        <span className="tl-text">
+          <span className="tl-name">{tool.name}</span>
+          {tool.arg ? <span className="tl-arg">{tool.arg}</span> : null}
         </span>
-        <span className="tl-name">{tool.name}</span>
-        <span className="tl-arg">{tool.arg}</span>
-        {entry.resultError ? <span className="tl-err">error</span> : null}
+        <Chevron open={open} />
         {hasDiff ? <Diff added={tool.added ?? 0} removed={tool.removed ?? 0} /> : null}
+        <Meta
+          status={lampLabel[lamp].toLowerCase()}
+          danger={lamp === 'failed'}
+          duration={lamp === 'live' ? undefined : spanLabel(entry.time, until)}
+        />
       </button>
       {open ? (
         <div className="tl-body">
@@ -43,25 +79,23 @@ export function ToolLine({ entry }: { entry: ToolEntry }) {
  * Two or more consecutive tool calls as one line. While the run is live the line names the latest
  * call; once it settles it reads as a sentence about what was done. Open, it lists the calls.
  */
-export function ToolRun({ calls, active }: { calls: ToolEntry[]; active: boolean }) {
+export function ToolRun({ calls, active, until }: { calls: ToolEntry[]; active: boolean; /** Time of the entry after the run, to say how long it took. */ until?: string }) {
   const [open, setOpen] = useState(false);
   const live = active && isLiveRun(calls);
   const files = changedFiles(calls);
   const added = files.reduce((n, f) => n + f.added, 0);
   const removed = files.reduce((n, f) => n + f.removed, 0);
   const errors = calls.filter((c) => c.resultError).length;
+  const lamp: LampState = live ? 'live' : errors > 0 ? 'failed' : 'done';
   return (
     <div className="tl tl-run">
       <button type="button" className="tl-row tl-head" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="tl-chev" aria-hidden="true">
-          {open ? '▾' : '▸'}
-        </span>
-        {live ? <span className="tl-lamp" aria-hidden="true" /> : null}
+        <Lamp state={lamp} />
         {/* Polite, and only the text changes: a new call or the settled summary is announced, a repeat is not. */}
         <span className={cx('tl-summary', live && 'live')} aria-live="polite" aria-atomic="true">
           {live ? liveLabel(calls[calls.length - 1]) : summarizeRun(calls)}
         </span>
-        {errors > 0 ? <span className="tl-err">{errors === 1 ? '1 error' : `${errors} errors`}</span> : null}
+        <Chevron open={open} />
         {files.length > 0 ? (
           <span className="tl-total">
             <Diff added={added} removed={removed} />
@@ -70,6 +104,11 @@ export function ToolRun({ calls, active }: { calls: ToolEntry[]; active: boolean
             </span>
           </span>
         ) : null}
+        <Meta
+          status={live ? 'running' : errors > 0 ? (errors === 1 ? '1 error' : `${errors} errors`) : 'completed'}
+          danger={!live && errors > 0}
+          duration={live ? undefined : spanLabel(calls[0].time, until)}
+        />
       </button>
       {open ? (
         <div className="tl-calls">
@@ -83,8 +122,8 @@ export function ToolRun({ calls, active }: { calls: ToolEntry[]; active: boolean
               ))}
             </ul>
           ) : null}
-          {calls.map((c) => (
-            <ToolLine key={c.id} entry={c} />
+          {calls.map((c, i) => (
+            <ToolLine key={c.id} entry={c} live={live && c === calls[calls.length - 1]} until={calls[i + 1]?.time ?? until} />
           ))}
         </div>
       ) : null}
