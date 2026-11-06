@@ -58,6 +58,9 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
 - **RiskBadge**: condensed caps on one fixed ramp, the same everywhere: low outlined, medium on
   call yellow, high on stop red, unrated as quiet muted text.
 - **RelTime**: "3m ago", full timestamp in `title`.
+- **Agent names**: wherever the UI shows an agent or role as text it uses `agentLabel` (`web/src/lib/agentLabel.ts`):
+  the agent's title, else its key in Title Case ("implementer-claude" → "Implementer Claude", "sre" → "SRE").
+  URLs, form values, config, the API and the CLI keep the raw key; each Agents page card shows it as a small mono line.
 - **IdChip**: last 8 chars of an ID in monospace (IDs are UUIDv7, whose leading chars are a
   timestamp shared by IDs created close together), copies the full ID on click.
 - **Empty**: muted centred line in a dashed rule saying what would appear here and why it is
@@ -435,7 +438,9 @@ one line per task kind or route that uses the agent, with the project when one i
 shows its first 8 lines with "Show full prompt" to expand it. An edited built-in that no longer
 receives onett's prompt updates says so, and "Compare with built-in" puts the built-in text beside
 the customised one (stacked on a phone). Enabled agents come first; removed ones sit under a
-"Removed" heading. Anyone can read the page. An owner also sees:
+"Removed" heading. When the config file's routing (global or a project's) names an agent, its card says
+before Remove which routes go with it and which agent each kind then uses; Remove drops those routes
+in the same save, since the server refuses routing that names a missing or disabled agent. Anyone can read the page. An owner also sees:
 "New agent", which opens a sheet with name (refused when taken), description, harness (the
 configured harnesses), model, effort, permission mode, args (one per line), and the prompt, either a reference such as
 `builtin:triager` or a path, or text written here. "Start from" copies another agent's settings

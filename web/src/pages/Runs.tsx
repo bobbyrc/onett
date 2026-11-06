@@ -14,7 +14,7 @@ import { ErrorLine } from '../components/ErrorLine';
 import { formatCost } from '../lib/format';
 import { elapsedMs, formatDuration, parseTime } from '../lib/time';
 import { useNow } from '../lib/clock';
-import { roleName } from '../lib/roleNames';
+import { agentLabel } from '../lib/agentLabel';
 import './Runs.css';
 
 const STATUS_OPTIONS: [string, string][] = [
@@ -75,7 +75,7 @@ export function Runs() {
   const columns: Column<Run>[] = [
     { key: 'status', header: 'Status', cell: (r) => <StatusPill kind="run" status={r.status} /> },
     { key: 'task', header: 'Task', cell: (r) => <TaskCell run={r} /> },
-    { key: 'role', header: 'Role', cell: (r) => roleName(r.role) },
+    { key: 'role', header: 'Role', cell: (r) => agentLabel(r.role) },
     {
       key: 'harness',
       header: 'Harness · model',

@@ -17,7 +17,7 @@ import { CancelTaskButton, RetryTaskControl } from '../components/TaskActions';
 import { formatCost, safeHref } from '../lib/format';
 import { elapsedMs, formatDuration, parseTime } from '../lib/time';
 import { useNow } from '../lib/clock';
-import { roleName } from '../lib/roleNames';
+import { agentLabel } from '../lib/agentLabel';
 import './TaskDetail.css';
 
 const TERMINAL_NO_CANCEL = ['done', 'failed', 'cancelled'];
@@ -38,7 +38,7 @@ export function TaskDetail() {
   const pendingApprovals = approvals.filter((a) => a.status === 'pending');
   const decidedApprovals = approvals.filter((a) => a.status !== 'pending');
   const needsYou = task.status === 'blocked' || queuedInPausedProject || pendingApprovals.length > 0;
-  const kicker = [task.kind, task.project, roleName(task.role), `from ${task.source}`].filter(Boolean).join(' · ');
+  const kicker = [task.kind, task.project, agentLabel(task.role), `from ${task.source}`].filter(Boolean).join(' · ');
   const actions = (
     <>
       {canCancel ? <CancelTaskButton taskId={task.id} /> : null}
@@ -115,7 +115,7 @@ export function TaskDetail() {
                     { key: 'status', header: 'Status', cell: (t) => <StatusPill status={t.status} /> },
                     { key: 'title', header: 'Title', cell: (t) => <Link to={`/tasks/${t.id}`}>{t.title}</Link> },
                     { key: 'kind', header: 'Kind', cell: (t) => t.kind },
-                    { key: 'role', header: 'Role', cell: (t) => roleName(t.role) || '—' },
+                    { key: 'role', header: 'Role', cell: (t) => agentLabel(t.role) || '—' },
                   ]}
                   rows={children}
                   rowKey={(t) => t.id}
@@ -161,7 +161,7 @@ export function TaskDetail() {
           <SpecItem label="Attempts">{`${task.attempts} of ${task.max_attempts}`}</SpecItem>
           <SpecItem label="Project">{task.project}</SpecItem>
           <SpecItem label="Kind">{task.kind}</SpecItem>
-          {task.role ? <SpecItem label="Role">{roleName(task.role)}</SpecItem> : null}
+          {task.role ? <SpecItem label="Role">{agentLabel(task.role)}</SpecItem> : null}
           <SpecItem label="Source">
             {task.source}
             {task.source_ref ? <div className="mono spec-sub">{task.source_ref}</div> : null}

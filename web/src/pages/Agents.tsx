@@ -13,7 +13,10 @@ import {
   formFromAgent,
   formFromEntry,
   hasEntry,
+  fileRouting,
   removeChanges,
+  routeDropNote,
+  routesNaming,
   resetChanges,
   restoreChanges,
   type AgentEntry,
@@ -36,6 +39,7 @@ export function Agents() {
 
   const doc = owner ? configDoc.data : undefined;
   const fileAgents: Record<string, AgentEntry> = (doc?.document as { agents?: Record<string, AgentEntry> } | undefined)?.agents ?? {};
+  const routing = fileRouting(doc?.document);
   const apply = (name: string, changes: ConfigChange[]) => {
     if (!doc) return;
     setFailure(null);
@@ -63,8 +67,9 @@ export function Agents() {
     if (!owner) return undefined;
     return {
       busy: !doc || save.isPending,
+      removeNote: ((refs) => (refs.length > 0 ? routeDropNote(refs) : undefined))(routesNaming(agent.name, routing)),
       onEdit: () => setEditing({ mode: 'edit', agent }),
-      onRemove: () => apply(agent.name, removeChanges(agent, fileAgents)),
+      onRemove: () => apply(agent.name, removeChanges(agent, fileAgents, routing)),
       onReset: () => apply(agent.name, resetChanges(agent.name, fileAgents)),
       onRestore: () => apply(agent.name, restoreChanges(agent.name, fileAgents)),
     };

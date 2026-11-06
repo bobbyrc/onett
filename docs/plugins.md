@@ -43,10 +43,10 @@ A role that names `mytool` as its harness runs through this plugin:
 
 ```yaml
 agents:
-  implementer:
+  senior-engineer:
     harness: mytool
     model: fast-model        # passed to the plugin as ONETT_MODEL
-    prompt: builtin:implementer
+    prompt: builtin:senior-engineer
 ```
 
 ### What onett gives the plugin
@@ -437,7 +437,7 @@ include the token, which Telegram puts in the request URL.
 
 ## Channels
 
-A channel is a two-way link between you and onett: it carries messages to the orchestrator chat and
+A channel is a two-way link between you and onett: it carries messages to the chief of staff chat and
 brings its replies and approval requests back. A notifier only sends. Channels are listed under
 `channels` in `onett.yaml` and start and stop with `onett serve`. Changing the list takes effect on the next config reload: changed bots restart, others keep running.
 
@@ -453,7 +453,7 @@ channels:
 
 A Telegram bot that long-polls for messages, so no public URL is needed. Only the user IDs in
 `allowed_user_ids` are obeyed, and only in private chats: an allowed user can approve merges. Each
-private chat is one orchestrator conversation.
+private chat is one chief-of-staff conversation.
 
 | Option             | Required | Default                           | Meaning                                                              |
 |--------------------|----------|-----------------------------------|----------------------------------------------------------------------|
@@ -470,7 +470,7 @@ never stops the daemon.
 
 A Discord bot that connects out to the Discord Gateway (a websocket), so no public URL is needed.
 Only the user IDs in `allowed_user_ids` are obeyed, and only in direct messages: an allowed user can
-approve merges. Each DM channel is one orchestrator conversation. Create the bot in the Discord
+approve merges. Each DM channel is one chief-of-staff conversation. Create the bot in the Discord
 developer portal; it needs no privileged intents.
 
 | Option             | Required | Default                           | Meaning                                                              |

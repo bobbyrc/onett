@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { AgentView } from '../types';
 import { AgentSaveFailure } from './AgentSaveFailure';
+import { agentLabel } from '../lib/agentLabel';
 import { Button } from './Button';
 
 /** The first lines of a prompt shown before "Show full prompt". */
@@ -14,6 +15,8 @@ const CHIEF_OF_STAFF = 'chief-of-staff';
 export interface AgentControls {
   /** True while a save is in flight: every control is disabled. */
   busy: boolean;
+  /** Says which routes Remove also drops, shown before the click; absent when none name the agent. */
+  removeNote?: string;
   onEdit: () => void;
   /** Takes the agent out of use: a built-in or edited agent is disabled, a custom one is deleted. */
   onRemove: () => void;
@@ -72,10 +75,10 @@ export function AgentCard({
   return (
     <article className={wide ? 'card agent-card agent-card--wide' : 'card agent-card'}>
       <div className="card-head">
-        <h3>{agent.title || agent.name}</h3>
+        <h3>{agentLabel(agent)}</h3>
         <span className="tag">{agentBadge(agent)}</span>
       </div>
-      {agent.title ? <p className="agent-key mono small muted">{agent.name}</p> : null}
+      <p className="agent-key mono small muted">{agent.name}</p>
       <p className="muted">{agent.description || 'No description.'}</p>
       <AgentList label="Context" items={agent.context} mono />
       <AgentList label="Tools" items={agent.tools} mono />
@@ -145,6 +148,7 @@ export function AgentCard({
         </>
       )}
 
+      {controls?.removeNote && !agent.disabled ? <p className="muted small agent-route-note">{controls.removeNote}</p> : null}
       {controls ? (
         <div className="agent-actions users-actions">
           {agent.disabled ? (

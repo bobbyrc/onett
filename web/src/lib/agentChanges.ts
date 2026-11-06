@@ -125,17 +125,100 @@ function deleteEntry(name: string, fileAgents: Record<string, AgentEntry>): Conf
   return onlyEntry ? { op: 'delete', path: ['agents'] } : { op: 'delete', path: ['agents', name] };
 }
 
+/** The built-in route for each task kind, which a kind falls back to when the file's route is dropped. */
+const DEFAULT_ROUTES: Record<string, string> = {
+  feature: 'senior-engineer',
+  bugfix: 'senior-engineer',
+  issue: 'senior-engineer',
+  chore: 'senior-engineer',
+  incident: 'sre',
+  review: 'code-reviewer',
+  improve: 'platform-engineer',
+  question: 'tech-lead',
+};
+
+/** The routing the file writes: the global `routing:` and each project's own `routing:`. */
+export interface FileRouting {
+  routing: Record<string, string>;
+  projects: Record<string, Record<string, string>>;
+}
+
+/** One route in the file that names an agent, and what the kind uses once it is dropped. */
+export interface RouteRef {
+  kind: string;
+  /** The project whose routing holds it; undefined for the global routing. */
+  project?: string;
+  /** The agent the kind falls back to: the built-in default, or the global route for a project. */
+  fallback: string;
+}
+
+/** The routing in a config document (`document.routing` and `document.projects.<p>.routing`). */
+export function fileRouting(document: unknown): FileRouting {
+  const doc = (document ?? {}) as { routing?: Record<string, string>; projects?: Record<string, { routing?: Record<string, string> }> };
+  const projects: Record<string, Record<string, string>> = {};
+  for (const [name, p] of Object.entries(doc.projects ?? {})) {
+    if (p?.routing && Object.keys(p.routing).length > 0) projects[name] = p.routing;
+  }
+  return { routing: doc.routing ?? {}, projects };
+}
+
+/** Every route in the file that names `agent`. Removing the agent has to drop these too. */
+export function routesNaming(agent: string, file: FileRouting): RouteRef[] {
+  const refs: RouteRef[] = [];
+  for (const [kind, target] of Object.entries(file.routing)) {
+    if (target === agent) refs.push({ kind, fallback: DEFAULT_ROUTES[kind] ?? '' });
+  }
+  for (const [project, routes] of Object.entries(file.projects)) {
+    for (const [kind, target] of Object.entries(routes)) {
+      if (target !== agent) continue;
+      const global = file.routing[kind];
+      refs.push({ kind, project, fallback: global && global !== agent ? global : (DEFAULT_ROUTES[kind] ?? '') });
+    }
+  }
+  return refs;
+}
+
+/** The sentence the card shows before Remove/Delete when routes name the agent. */
+export function routeDropNote(refs: RouteRef[]): string {
+  const parts = refs.map((r) => `${r.kind}${r.project ? ` in ${r.project}` : ''}${r.fallback ? ` → ${r.fallback}` : ''}`);
+  return `Routing names this agent for ${parts.join(', ')}. Removing it also drops these routes; each kind then uses the agent after the arrow.`;
+}
+
+/** Deletes the routes in `refs`; a mapping left with no entries is deleted whole, as for `agents`. */
+function dropRouteChanges(refs: RouteRef[], file: FileRouting): ConfigChange[] {
+  const changes: ConfigChange[] = [];
+  const groups = new Map<string | undefined, string[]>();
+  for (const r of refs) groups.set(r.project, [...(groups.get(r.project) ?? []), r.kind]);
+  for (const [project, kinds] of groups) {
+    const routes = project === undefined ? file.routing : file.projects[project];
+    const base = project === undefined ? [] : ['projects', project];
+    if (kinds.length >= Object.keys(routes).length) {
+      changes.push({ op: 'delete', path: [...base, 'routing'] });
+    } else {
+      for (const kind of kinds) changes.push({ op: 'delete', path: [...base, 'routing', kind] });
+    }
+  }
+  return changes;
+}
+
 /**
  * Takes an agent out of use. A custom agent is deleted, since nothing would bring it back. A
  * built-in with no file entry gets an entry that only disables it; an edited one keeps its
- * entry and gets `disabled` set, so its changes survive a restore.
+ * entry and gets `disabled` set, so its changes survive a restore. Routes in the file that name
+ * the agent are dropped in the same change: the server refuses a config whose routing names an
+ * unknown or disabled agent, and those kinds then fall back to the default routing.
  */
-export function removeChanges(a: AgentView, fileAgents: Record<string, AgentEntry>): ConfigChange[] {
-  if (a.origin === 'custom') return [deleteEntry(a.name, fileAgents)];
+export function removeChanges(
+  a: AgentView,
+  fileAgents: Record<string, AgentEntry>,
+  routing: FileRouting = { routing: {}, projects: {} },
+): ConfigChange[] {
+  const drops = dropRouteChanges(routesNaming(a.name, routing), routing);
+  if (a.origin === 'custom') return [...drops, deleteEntry(a.name, fileAgents)];
   if (!hasEntry(fileAgents, a.name)) {
-    return [{ op: 'set', path: ['agents', a.name], value: { disabled: true } }];
+    return [...drops, { op: 'set', path: ['agents', a.name], value: { disabled: true } }];
   }
-  return [{ op: 'set', path: ['agents', a.name, 'disabled'], value: true }];
+  return [...drops, { op: 'set', path: ['agents', a.name, 'disabled'], value: true }];
 }
 
 /**

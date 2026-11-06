@@ -1,6 +1,12 @@
 # Customizable agents with strong defaults
 
-Status: proposal, for the owner's approval. Two phases; phase 2 builds on phase 1.
+Status: implemented. Phase 1 shipped, with persona role keys (`chief-of-staff`, `senior-engineer`,
+`code-reviewer`, `tech-lead`, `sre`, `platform-engineer`, plus `product-designer` and
+`visual-designer`), the `title`, `context` and `tools` agent fields, and the old names kept as
+aliases (#267, #271, #272, #273).
+
+The role names in the body below (`orchestrator`, `implementer`, `reviewer`, `triager`, `improver`)
+predate that rename and are kept as written.
 
 ## Why
 

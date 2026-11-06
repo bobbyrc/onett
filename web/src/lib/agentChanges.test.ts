@@ -4,7 +4,10 @@ import {
   blankForm,
   formFromAgent,
   formFromEntry,
+  fileRouting,
   removeChanges,
+  routeDropNote,
+  routesNaming,
   resetChanges,
   restoreChanges,
   saveChanges,
@@ -242,5 +245,56 @@ describe('title, context and tools', () => {
     expect(formFromAgent(v)).toMatchObject({ title: 'Docs writer', context: ['README.md'], tools: ['Read'] });
     expect(formFromAgent(view({}))).toMatchObject({ title: '', context: [], tools: [] });
     expect(formFromEntry('docs', { title: 'T', context: ['a'], tools: ['b'] }, v)).toMatchObject({ title: 'T', context: ['a'], tools: ['b'] });
+  });
+});
+
+describe('removeChanges with routes naming the agent', () => {
+  const custom = view({ name: 'implementer-claude', origin: 'custom' });
+  const files = { 'implementer-claude': { harness: 'claude' }, other: { harness: 'claude' } };
+
+  it('drops only the routes that name it, then deletes the agent', () => {
+    const routing = fileRouting({
+      routing: { feature: 'implementer-claude', bugfix: 'implementer-claude', review: 'other' },
+    });
+    expect(removeChanges(custom, files, routing)).toEqual([
+      { op: 'delete', path: ['routing', 'feature'] },
+      { op: 'delete', path: ['routing', 'bugfix'] },
+      { op: 'delete', path: ['agents', 'implementer-claude'] },
+    ]);
+  });
+
+  it('deletes the whole routing mapping when every route names it, and project routing too', () => {
+    const routing = fileRouting({
+      routing: { feature: 'implementer-claude' },
+      projects: { onett: { routing: { chore: 'implementer-claude' } }, other: { routing: { chore: 'x' } } },
+    });
+    expect(removeChanges(custom, files, routing)).toEqual([
+      { op: 'delete', path: ['routing'] },
+      { op: 'delete', path: ['projects', 'onett', 'routing'] },
+      { op: 'delete', path: ['agents', 'implementer-claude'] },
+    ]);
+  });
+
+  it('drops routes before disabling a built-in', () => {
+    const routing = fileRouting({ routing: { bugfix: 'reviewer', feature: 'x' } });
+    expect(removeChanges(view({ name: 'reviewer', origin: 'builtin' }), {}, routing)).toEqual([
+      { op: 'delete', path: ['routing', 'bugfix'] },
+      { op: 'set', path: ['agents', 'reviewer'], value: { disabled: true } },
+    ]);
+  });
+
+  it('names each route and where its kind falls back to', () => {
+    const routing = fileRouting({
+      routing: { feature: 'implementer-claude' },
+      projects: { onett: { routing: { feature: 'implementer-claude', chore: 'implementer-claude' } } },
+    });
+    const refs = routesNaming('implementer-claude', routing);
+    expect(refs).toEqual([
+      { kind: 'feature', fallback: 'senior-engineer' },
+      { kind: 'feature', project: 'onett', fallback: 'senior-engineer' },
+      { kind: 'chore', project: 'onett', fallback: 'senior-engineer' },
+    ]);
+    expect(routeDropNote(refs)).toContain('feature → senior-engineer');
+    expect(routeDropNote(refs)).toContain('chore in onett → senior-engineer');
   });
 });
