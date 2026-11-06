@@ -865,7 +865,45 @@ func (s *server) listConversations(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	s.backfillTitles(r.Context(), out)
 	writeJSON(w, http.StatusOK, nonNil(out))
+}
+
+// backfillTitles names conversations that were created untitled and never renamed, from their
+// first owner message, and stores the title so the work happens once. A conversation with no
+// message yet stays as it is. A failure leaves that conversation's title alone.
+func (s *server) backfillTitles(ctx context.Context, convs []domain.Conversation) {
+	for i, c := range convs {
+		if !c.Untitled() {
+			continue
+		}
+		msgs, err := s.opts.Store.ListChatMessages(ctx, c.ID)
+		if err != nil {
+			continue
+		}
+		for _, m := range msgs {
+			if m.Role != "user" {
+				continue
+			}
+			name := ""
+			if len(m.Attachments) > 0 {
+				name = m.Attachments[0].Name
+			}
+			title := domain.TitleFromMessage(m.Text, name)
+			if title == "" {
+				continue
+			}
+			if _, err := s.opts.Store.UpdateConversation(ctx, c.ID, func(c *domain.Conversation) error {
+				if c.Untitled() {
+					c.Title = title
+				}
+				return nil
+			}); err == nil {
+				convs[i].Title = title
+			}
+			break
+		}
+	}
 }
 
 func (s *server) createConversation(w http.ResponseWriter, r *http.Request) {
