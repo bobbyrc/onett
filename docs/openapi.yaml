@@ -3034,7 +3034,7 @@ components:
         context_tokens:
           type: integer
           format: int64
-          description: Prompt size of the run's last model request, how full the context window is. Absent when unknown.
+          description: Prompt size of the run's last model request, how full the context window is. Updated while the run is going, as each model request starts. Absent when unknown.
         context_window:
           type: integer
           format: int64

@@ -49,16 +49,16 @@ func TestContextWindowUnknownWithoutModelUsage(t *testing.T) {
 	assert.Zero(t, p.result(0, nil).ContextWindow)
 }
 
-// Each assistant message with usage yields a log-less event carrying the prompt size, so a
-// caller can follow the context during a turn; a sub-agent's message does not.
-func TestAssistantUsageEmitsContextEvent(t *testing.T) {
+// Each assistant message announces its prompt size as a log-less event, so the context ring can
+// follow the turn while it runs.
+func TestAssistantMessageEmitsLiveContext(t *testing.T) {
 	p := &parser{}
 	evs := p.parseLine(`{"type":"assistant","message":{"content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":5,"cache_read_input_tokens":1000}}}`)
 	if assert.Len(t, evs, 2) {
-		assert.Equal(t, int64(1005), evs[0].ContextTokens)
-		assert.Empty(t, evs[0].Kind)
-		assert.Equal(t, "hi", evs[1].Text)
+		assert.Equal(t, "hi", evs[0].Text)
+		assert.Empty(t, evs[1].Kind)
+		assert.Equal(t, int64(1005), evs[1].ContextTokens)
 	}
-	sub := p.parseLine(`{"type":"assistant","parent_tool_use_id":"t","message":{"content":[],"usage":{"input_tokens":9}}}`)
-	assert.Empty(t, sub)
+	sub := p.parseLine(`{"type":"assistant","parent_tool_use_id":"toolu_1","message":{"content":[],"usage":{"input_tokens":9}}}`)
+	assert.Empty(t, sub, "a sub-agent's window is not the session's")
 }

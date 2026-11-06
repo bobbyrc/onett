@@ -62,9 +62,9 @@ type Event struct {
 	// TurnResult marks the end of one turn of a long-lived process (see Spec.ConversationID):
 	// it is set on a final event that carries no log line, and holds that turn's result.
 	TurnResult *Result
-	// ContextTokens, when set, marks an event that carries no log line: the prompt size of the
-	// model request that just began answering, so a caller can show how full the context is
-	// during a turn rather than only after it. Same meaning as Result.ContextTokens.
+	// ContextTokens is set on a log-less event (empty Kind) that reports the prompt size of the
+	// model request just made, so a caller can show the context filling during the turn rather
+	// than only after it. Same meaning as Result.ContextTokens.
 	ContextTokens int64
 }
 

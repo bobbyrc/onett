@@ -179,10 +179,11 @@ func (p *parser) parseLine(line string) []harness.Event {
 			events = append(events, event(domain.LogSystem, text))
 		}
 	case "assistant":
-		if n := p.noteContext(sl); n > 0 {
+		n := p.noteContext(sl)
+		events = p.assistantEvents(sl.Message)
+		if n > 0 {
 			events = append(events, harness.Event{ContextTokens: n})
 		}
-		events = append(events, p.assistantEvents(sl.Message)...)
 	case "user":
 		events = toolResultEvents(sl.Message)
 	case "result":
@@ -214,9 +215,9 @@ func (p *parser) attach(events []harness.Event) []harness.Event {
 	return events
 }
 
-// noteContext remembers the prompt size of an assistant message. A sub-agent's messages carry a
-// parent_tool_use_id and have a window of their own, so they are skipped. It returns the new
-// size, or 0 when the message carries none.
+// noteContext remembers the prompt size of an assistant message and returns it (0 if the message
+// has none). A sub-agent's messages carry a parent_tool_use_id and have a window of their own,
+// so they are skipped.
 func (p *parser) noteContext(sl streamLine) int64 {
 	if sl.ParentToolUseID != "" {
 		return 0

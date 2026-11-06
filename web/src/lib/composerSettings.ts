@@ -53,8 +53,9 @@ export function contextFraction(run: ContextRun | undefined, model?: string): nu
 }
 
 /**
- * The fill of the newest run that has one. A run in progress reports context_tokens live, but its
- * window is known only at its end, so where the name table has none the ring keeps the previous run's value.
+ * The fill of the newest run that has one. A run in progress reports context_tokens as each
+ * model request starts, so the ring follows the live turn; before the first one it keeps the
+ * previous run's value instead of going blank.
  */
 export function latestContextFraction(runs: Array<ContextRun | undefined>): number | null {
   for (let i = runs.length - 1; i >= 0; i--) {
