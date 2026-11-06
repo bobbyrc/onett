@@ -44,6 +44,7 @@ function makeColumns(paused: string[]): Column<Task>[] {
     {
       key: 'title',
       header: 'Title',
+      wide: true,
       cell: (t) => (
         <div className="cell-stack">
           <Link to={`/tasks/${t.id}`}>{t.title}</Link>

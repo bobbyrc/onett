@@ -13,7 +13,7 @@ import { Table, type Column } from '../components/Table';
 
 const columns: Column<Task>[] = [
   { key: 'status', header: 'Status', cell: (t) => <StatusPill status={t.status} /> },
-  { key: 'title', header: 'Task', cell: (t) => <Link to={`/tasks/${t.id}`}>{t.title}</Link> },
+  { key: 'title', header: 'Task', wide: true, cell: (t) => <Link to={`/tasks/${t.id}`}>{t.title}</Link> },
   { key: 'kind', header: 'Kind', cell: (t) => t.kind },
   { key: 'updated', header: 'Updated', cell: (t) => <RelTime value={t.updated_at} /> },
 ];

@@ -527,6 +527,40 @@ two runs of the same code give the same pixels. It is not part of `npm run test:
 Markdown table with permanent `raw.githubusercontent.com/<repo>/<commit-sha>/...` image links.
 Paste the `before` and `after` tables into the PR description.
 
+### Any other page: `npm run shots`
+
+`npm run shots:chat` covers only the Chat page. For every other page (Overview, Projects, Goals,
+Tasks, Runs, Approvals, Deploys, Signals, Friction, Loops, Agents, Config, Users, and a task, run
+and goal detail page), use the same mocked approach, which needs no daemon and no token:
+
+```sh
+cd web && npm run shots
+```
+
+It builds the UI and runs `web/e2e/page-shots.spec.ts` (config: `playwright.page-shots.config.ts`,
+free port, pin it with `ONETT_PAGE_SHOTS_PORT`). The spec reads the routes from `src/App.tsx`, so a new
+page is shot without editing it, except that a route with a `:param` needs an id in its `PARAMS` table.
+It signs in as an owner, so Agents, Config and Users show data. Each page is shot at desktop
+(1440x900) and phone (390x844), dark and light, into
+`web/e2e-results/shots/<route>-<desktop|phone>-<dark|light>.png`; `/` is `overview`, and a detail
+route carries its id, for example `tasks_<id>-phone-light.png`. Extra shots show an empty Tasks and
+Runs page (`tasks_empty`, `runs_empty`), an Overview with one project (`overview_one_project`),
+a chat run with no task (`runs_<id>`) and a goal check-in conversation (`chat_<id>`).
+
+The data is `web/e2e/page-fixtures.ts`: the shapes a real daemon holds (chat runs with a
+conversation and no task, goal check-ins started by the daemon, 60+ character branch names, long
+role names, an image attachment, timestamps from minutes to days old, done, blocked and active
+goals, deploys with and without notes, snake_case loop names, multi-paragraph agent prompts). Add
+a case there when a page breaks on a data shape the fixtures do not have. `fixtures.ts` is the
+opposite, layout-stress data for `npm run test:mobile`.
+
+The clock is frozen, the timezone is UTC, animations are off and the browser rasterises in software,
+so two runs of the same code give identical PNGs, and it can run at the same time as
+`npm run test:mobile`. Take the shots on the base commit and on your head, look at the pages you
+changed, and copy those PNGs to `$ONETT_OUTBOX/shots/before/` and `.../after/` (see below; at most
+48 files, so only touched pages). `shoot-live.mjs` shows the same pages with real data but needs
+an API token that worker agents do not hold.
+
 Worker agents hold no GitHub access and cannot run the script. They copy the PNGs into
 `$ONETT_OUTBOX/shots/before/` and `$ONETT_OUTBOX/shots/after/` instead. When onett publishes a
 run, it pushes each label directory (only plain `*.png` files, at most 48 of 8 MB, no symlinks)

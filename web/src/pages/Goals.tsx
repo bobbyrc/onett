@@ -15,7 +15,7 @@ const STATUSES = ['active', 'paused', 'blocked', 'done'];
 
 const columns: Column<Goal>[] = [
   { key: 'status', header: 'Status', cell: (g) => <StatusPill kind="goal" status={g.status} /> },
-  { key: 'title', header: 'Goal', cell: (g) => <Link to={`/goals/${g.id}`}>{g.title}</Link> },
+  { key: 'title', header: 'Goal', wide: true, cell: (g) => <Link to={`/goals/${g.id}`}>{g.title}</Link> },
   { key: 'project', header: 'Project', cell: (g) => g.project },
   { key: 'turns', header: 'Turns', cell: (g) => g.turns },
   { key: 'updated', header: 'Updated', cell: (g) => <RelTime value={g.updated_at} /> },

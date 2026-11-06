@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e",
     "test:mobile": "npm run build && playwright test",
+    "shots": "npm run build && playwright test -c playwright.page-shots.config.ts",
     "shots:chat": "npm run build && playwright test -c playwright.shots.config.ts",
     "test:daemon": "npm run build && playwright test -c playwright.daemon.config.ts"
   },

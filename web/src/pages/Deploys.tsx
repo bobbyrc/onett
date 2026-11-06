@@ -26,6 +26,7 @@ export function Deploys() {
     {
       key: 'url',
       header: 'URL',
+      wide: true,
       cell: (d) =>
         safeHref(d.url) ? (
           <a href={safeHref(d.url)} target="_blank" rel="noopener noreferrer">
@@ -42,7 +43,7 @@ export function Deploys() {
     },
     { key: 'started', header: 'Started', cell: (d) => <RelTime value={d.started_at} /> },
     { key: 'updated', header: 'Updated', cell: (d) => <RelTime value={d.updated_at} /> },
-    { key: 'notes', header: 'Notes', cell: (d) => d.notes || '—' },
+    { key: 'notes', header: 'Notes', wide: true, cell: (d) => d.notes || '—' },
     {
       key: 'log',
       header: 'Log',

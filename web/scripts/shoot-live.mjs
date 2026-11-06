@@ -79,7 +79,8 @@ async function defaultRoutes() {
     '/runs/:id': await first('/runs'),
   };
   const routes = [];
-  for (const r of appRoutes()) {
+  // App.tsx guards /users with a redirect on the same line, so appRoutes() skips it.
+  for (const r of [...appRoutes(), '/users']) {
     if (!r.includes(':')) routes.push(r);
     else if (ids[r]) routes.push(r.replace(/:\w+/, ids[r]));
     else console.error(`note: no data for ${r}, skipped`);
