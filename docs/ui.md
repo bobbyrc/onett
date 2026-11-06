@@ -570,9 +570,6 @@ goals, deploys with and without notes, snake_case loop names, multi-paragraph ag
 a case there when a page breaks on a data shape the fixtures do not have. `fixtures.ts` is the
 opposite, layout-stress data for `npm run test:mobile`.
 
-Shots are one viewport tall; set `ONETT_SHOTS_FULL_PAGE=1` to capture the whole page (long lists,
-cards that run below the fold).
-
 The clock is frozen, the timezone is UTC, animations are off and the browser rasterises in software,
 so two runs of the same code give identical PNGs, and it can run at the same time as
 `npm run test:mobile`. Take the shots on the base commit and on your head, look at the pages you

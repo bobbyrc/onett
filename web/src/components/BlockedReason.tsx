@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
+import { Callout } from './Callout';
 
 /**
  * A blocked task's reason in a danger box. Agents write long, multi-line reasons (CLI flags,
@@ -20,9 +21,8 @@ export function BlockedReason({ title, children }: { title?: string; children: s
   }, [children, open]);
 
   return (
-    <div className="callout callout-danger blocked-reason" role="alert">
+    <Callout title={title}>
       <div ref={body} className={open ? 'blocked-reason-text' : 'blocked-reason-text is-clamped'}>
-        {title ? <strong>{title}. </strong> : null}
         {children}
       </div>
       {overflows || open ? (
@@ -30,6 +30,6 @@ export function BlockedReason({ title, children }: { title?: string; children: s
           {open ? 'Show less' : 'Show more'}
         </button>
       ) : null}
-    </div>
+    </Callout>
   );
 }

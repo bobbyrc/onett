@@ -204,7 +204,7 @@ for (const vp of VIEWPORTS) {
           mkdirSync(OUT, { recursive: true });
           // A few pixels of anti-aliasing can still settle after the first paint, so shoot until
           // two consecutive frames are byte-identical.
-          const shoot = () => page.screenshot({ animations: 'disabled', fullPage: process.env.ONETT_SHOTS_FULL_PAGE === '1' });
+          const shoot = () => page.screenshot({ animations: 'disabled' });
           let png = await shoot();
           for (let i = 0; i < 8; i++) {
             await page.waitForTimeout(150);
