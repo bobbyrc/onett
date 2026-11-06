@@ -1794,6 +1794,10 @@ a.board-window:hover .board-name {
   margin-top: 12px;
 }
 
+.agent-route-note {
+  margin: 12px 0 0;
+}
+
 /* A card showing its full prompt or the compare view takes the whole grid row. */
 .agent-card--wide {
   grid-column: 1 / -1;

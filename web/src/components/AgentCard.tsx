@@ -14,6 +14,8 @@ const CHIEF_OF_STAFF = 'chief-of-staff';
 export interface AgentControls {
   /** True while a save is in flight: every control is disabled. */
   busy: boolean;
+  /** Says which routes Remove also drops, shown before the click; absent when none name the agent. */
+  removeNote?: string;
   onEdit: () => void;
   /** Takes the agent out of use: a built-in or edited agent is disabled, a custom one is deleted. */
   onRemove: () => void;
@@ -145,6 +147,7 @@ export function AgentCard({
         </>
       )}
 
+      {controls?.removeNote && !agent.disabled ? <p className="muted small agent-route-note">{controls.removeNote}</p> : null}
       {controls ? (
         <div className="agent-actions users-actions">
           {agent.disabled ? (
