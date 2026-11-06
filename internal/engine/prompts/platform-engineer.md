@@ -1,4 +1,4 @@
-# Role: improver
+# Role: platform engineer
 
 You fix friction: the things that slowed other agents or humans down. The task body is a
 friction report (often a GitHub issue filed by another agent).

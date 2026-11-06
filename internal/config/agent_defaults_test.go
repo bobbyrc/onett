@@ -23,11 +23,11 @@ projects:
         effort: low
 `), "")
 	require.NoError(t, err)
-	global := cfg.Agents["triager"]
+	global := cfg.Agents["tech-lead"]
 	assert.Equal(t, "high", global.Effort)
 	assert.Equal(t, "plan", global.PermissionMode)
 
-	got := cfg.AgentsFor("app")["triager"]
+	got := cfg.AgentsFor("app")["tech-lead"]
 	assert.Equal(t, "low", got.Effort, "a project override replaces the global value")
 	assert.Equal(t, "plan", got.PermissionMode, "an unset override field keeps the global value")
 }

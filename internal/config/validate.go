@@ -43,14 +43,17 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	for _, msg := range c.nameConflicts {
+		add("%s", msg)
+	}
 	for name, a := range c.Agents {
 		if _, ok := c.Harness[a.Harness]; !ok {
 			add("agents.%s.harness: unknown harness %q", name, a.Harness)
 		}
 		addPromptProblem(add, "agents."+name, a)
 	}
-	if a, ok := c.Agents["orchestrator"]; ok && a.Disabled {
-		add("agents.orchestrator.disabled: %s", orchestratorDisableMsg)
+	if a, ok := c.Agents["chief-of-staff"]; ok && a.Disabled {
+		add("agents.chief-of-staff.disabled: %s", orchestratorDisableMsg)
 	}
 
 	for kind, agent := range c.Routing {
@@ -120,8 +123,8 @@ func (c *Config) Validate() error {
 			if ov.Prompt != "" && ov.PromptText != "" {
 				add("%s.agents.%s: set prompt or prompt_text, not both", prefix, role)
 			}
-			if role == "orchestrator" && ov.Disabled {
-				add("%s.agents.orchestrator.disabled: %s", prefix, orchestratorDisableMsg)
+			if role == "chief-of-staff" && ov.Disabled {
+				add("%s.agents.chief-of-staff.disabled: %s", prefix, orchestratorDisableMsg)
 			}
 		}
 		for kind, role := range p.Routing {
@@ -292,8 +295,8 @@ func (c *Config) Validate() error {
 	return errors.Join(errs...)
 }
 
-// orchestratorDisableMsg explains why the orchestrator cannot be turned off. Chat talks to it.
-const orchestratorDisableMsg = "chat needs the orchestrator; edit it instead of removing it"
+// orchestratorDisableMsg explains why the chief of staff cannot be turned off. Chat talks to it.
+const orchestratorDisableMsg = "chat needs the chief-of-staff; edit it instead of removing it"
 
 // addPromptProblem reports a role whose instructions are missing or doubled. path is the role's
 // settings path, such as "agents.docs".

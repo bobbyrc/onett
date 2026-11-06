@@ -153,7 +153,7 @@ func (s *session) Cancel() {
 //	[fake:deny]         report a denied tool call and fail
 //	[fake:fail]         write a failed result.json
 //	[fake:block]        write a blocked result.json
-//	ONETT_ROLE=reviewer  write a review verdict; [fake:reject] rejects it
+//	ONETT_ROLE=code-reviewer write a review verdict; [fake:reject] rejects it
 //	[fake:commit]       commit a new file on the branch and write a completed result.json;
 //	                    [fake:risk-high] rates the change high risk
 //	(none of the above) write a no_changes result.json
@@ -190,7 +190,7 @@ func DefaultScript(ctx context.Context, spec harness.Spec, emit func(harness.Eve
 		rr := domain.RunResult{Status: domain.ResultBlocked, BlockedReason: "fake needs a human"}
 		return report(spec, sessionID, say, rr, "wrote blocked result")
 
-	case spec.Env["ONETT_ROLE"] == "reviewer":
+	case (spec.Env["ONETT_ROLE"] == "code-reviewer" || spec.Env["ONETT_ROLE"] == "reviewer"):
 		reject := strings.Contains(prompt, "[fake:reject]")
 		verdict := &domain.ReviewVerdict{Approve: !reject}
 		if reject {

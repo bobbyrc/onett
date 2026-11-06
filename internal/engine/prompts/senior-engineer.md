@@ -1,4 +1,4 @@
-# Role: implementer
+# Role: senior engineer
 
 You turn a task into a working, tested change on your branch.
 

@@ -54,8 +54,8 @@ self_project: ghost
 	msg := err.Error()
 	for _, want := range []string{
 		"harnesses.broken.type",
-		"agents.reviewer.harness: unknown harness \"x\"",
-		"agents.triager.prompt",
+		"agents.code-reviewer.harness: unknown harness \"x\"",
+		"agents.tech-lead.prompt",
 		"routing.bogus: unknown task kind",
 		"routing.feature: unknown agent \"nobody\"",
 		"policies.bad.rules[0].risk",
@@ -120,7 +120,7 @@ projects:
 	require.Error(t, err)
 	msg := err.Error()
 	for _, want := range []string{
-		`projects.app.agents.implementer.harness: unknown harness "nowhere"`,
+		`projects.app.agents.senior-engineer.harness: unknown harness "nowhere"`,
 		"projects.app.agents.designer.prompt: must not be empty",
 		"projects.app.routing.bogus: unknown task kind",
 		`projects.app.routing.bugfix: unknown agent "ghost"`,

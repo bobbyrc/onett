@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/bobbyrc/onett/internal/config"
@@ -15,7 +16,7 @@ var promptFS embed.FS
 
 // BuiltinPrompt returns the embedded prompts/<name>.md, or an error for an unknown name.
 func (e *Engine) BuiltinPrompt(name string) (string, error) {
-	b, err := promptFS.ReadFile("prompts/" + name + ".md")
+	b, err := promptFS.ReadFile("prompts/" + config.CanonicalAgentName(name) + ".md")
 	if err != nil {
 		return "", fmt.Errorf("unknown builtin prompt %q", name)
 	}
@@ -61,6 +62,31 @@ func (e *Engine) buildInstructions(agent config.Agent, p *config.Project) (strin
 		out += "\n\n## Project instructions\n\n" + p.Instructions
 	}
 	return out, nil
+}
+
+// contextSection lists the agent's context files that exist in the worktree, as a "Read these
+// first" section. A path the worktree lacks is skipped; "" when none exist.
+func contextSection(paths []string, dir string) string {
+	var found []string
+	for _, p := range paths {
+		clean := filepath.Clean(p)
+		if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+			continue // context paths are repo-relative
+		}
+		if _, err := os.Stat(filepath.Join(dir, clean)); err == nil {
+			found = append(found, p)
+		}
+	}
+	if len(found) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("## Read these first\n\n")
+	for _, p := range found {
+		fmt.Fprintf(&b, "- %s\n", p)
+	}
+	b.WriteString("\n")
+	return b.String()
 }
 
 // buildTaskPrompt is the user turn for a run: the task's facts and body. For a review task it

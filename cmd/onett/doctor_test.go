@@ -140,7 +140,7 @@ func TestDoctorFailsWhenUsedHarnessIsMissing(t *testing.T) {
 	code, out, _ := runCLI("doctor", "--config", f.cfg)
 	assert.Equal(t, 1, code)
 	assertLine(t, out, "FAIL", "harness codex: codex not runnable")
-	assertLine(t, out, "FAIL", "agents implementer, improver use it")
+	assertLine(t, out, "FAIL", "agents platform-engineer, senior-engineer use it")
 	assertLine(t, out, "FAIL", "fix: install codex and make sure it is on PATH")
 }
 

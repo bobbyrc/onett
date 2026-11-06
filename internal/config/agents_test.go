@@ -11,7 +11,7 @@ import (
 func TestBuiltinNotInFileHasBuiltinOrigin(t *testing.T) {
 	cfg, err := Parse([]byte("agents:\n"), "")
 	require.NoError(t, err)
-	assert.Equal(t, OriginBuiltin, cfg.Agents["reviewer"].Origin)
+	assert.Equal(t, OriginBuiltin, cfg.Agents["code-reviewer"].Origin)
 }
 
 func TestBuiltinOverrideIsEditedAndReplacesWhole(t *testing.T) {
@@ -22,7 +22,7 @@ agents:
     prompt: builtin:reviewer
 `), "")
 	require.NoError(t, err)
-	reviewer := cfg.Agents["reviewer"]
+	reviewer := cfg.Agents["code-reviewer"]
 	assert.Equal(t, OriginEdited, reviewer.Origin)
 	assert.Empty(t, reviewer.Model, "an override replaces the built-in, it does not merge with it")
 }
@@ -36,10 +36,10 @@ routing:
   improve: implementer
 `), "")
 	require.NoError(t, err)
-	improver := cfg.Agents["improver"]
+	improver := cfg.Agents["platform-engineer"]
 	assert.True(t, improver.Disabled)
 	assert.Equal(t, "codex", improver.Harness)
-	assert.Equal(t, "builtin:improver", improver.Prompt)
+	assert.Equal(t, "builtin:platform-engineer", improver.Prompt)
 	assert.Equal(t, OriginBuiltin, improver.Origin)
 	assert.NoError(t, cfg.Validate())
 }
@@ -88,13 +88,13 @@ projects:
 func TestDisablingOrchestratorIsError(t *testing.T) {
 	_, err := Parse([]byte("agents:\n  orchestrator:\n    disabled: true\n"), "")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "agents.orchestrator.disabled: chat needs the orchestrator; edit it instead of removing it")
+	assert.Contains(t, err.Error(), "agents.chief-of-staff.disabled: chat needs the chief-of-staff; edit it instead of removing it")
 }
 
 func TestDisabledAgentOnDefaultRouteIsError(t *testing.T) {
 	_, err := Parse([]byte("agents:\n  reviewer:\n    disabled: true\n"), "")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "agents.reviewer.disabled: routing.review (built-in default) still uses it (reviews every pull request before merge); route review to another agent first")
+	assert.Contains(t, err.Error(), "agents.code-reviewer.disabled: routing.review (built-in default) still uses it (reviews every pull request before merge); route review to another agent first")
 }
 
 func TestDisabledAgentOnExplicitRouteIsError(t *testing.T) {
@@ -121,7 +121,7 @@ projects:
         disabled: true
 `), "")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "projects.app.agents.reviewer.disabled: routing.review (built-in default) still uses it (reviews every pull request before merge); set projects.app.routing.review to another agent first")
+	assert.Contains(t, err.Error(), "projects.app.agents.code-reviewer.disabled: routing.review (built-in default) still uses it (reviews every pull request before merge); set projects.app.routing.review to another agent first")
 }
 
 func TestProjectDisableAllowedWhenRerouted(t *testing.T) {
@@ -165,7 +165,7 @@ projects:
         prompt_text: "x"
 `), "")
 	require.NoError(t, err)
-	reviewer := cfg.AgentsFor("app")["reviewer"]
+	reviewer := cfg.AgentsFor("app")["code-reviewer"]
 	assert.Equal(t, "x", reviewer.PromptText)
 	assert.Empty(t, reviewer.Prompt)
 }
@@ -198,19 +198,19 @@ agents:
 	require.NoError(t, err)
 	uses := cfg.AgentUses("")
 
-	assert.Equal(t, AgentUse{Description: "the agent you chat with"}, uses["orchestrator"][0])
-	assert.Contains(t, uses["reviewer"], AgentUse{Kind: "review", Description: "reviews every pull request before merge"})
+	assert.Equal(t, AgentUse{Description: "the agent you chat with"}, uses["chief-of-staff"][0])
+	assert.Contains(t, uses["code-reviewer"], AgentUse{Kind: "review", Description: "reviews every pull request before merge"})
 
 	for name, a := range cfg.Agents {
-		if a.Disabled || name == "orchestrator" {
+		if a.Disabled || name == "chief-of-staff" {
 			continue
 		}
 		list := uses[name]
 		require.NotEmpty(t, list, name)
-		assert.Equal(t, AgentUse{Description: "the orchestrator may also hand it work by name"}, list[len(list)-1], name)
+		assert.Equal(t, AgentUse{Description: "the chief of staff may also hand it work by name"}, list[len(list)-1], name)
 	}
 
-	assert.Equal(t, []AgentUse{{Description: "the orchestrator may also hand it work by name"}}, uses["docs"],
+	assert.Equal(t, []AgentUse{{Description: "the chief of staff may also hand it work by name"}}, uses["docs"],
 		"an agent with no routes has only the delegation use")
 	assert.Empty(t, uses["scratch"], "a disabled agent has no uses")
 }
@@ -234,10 +234,10 @@ projects:
 
 	app := cfg.AgentUses("app")
 	assert.Contains(t, app["docs"], feature)
-	for _, u := range app["implementer"] {
+	for _, u := range app["senior-engineer"] {
 		assert.NotEqual(t, "feature", u.Kind, "the project routes feature elsewhere, so implementer has no feature use")
 	}
-	assert.Contains(t, app["reviewer"], AgentUse{Kind: "review", Description: "reviews every pull request before merge"},
+	assert.Contains(t, app["code-reviewer"], AgentUse{Kind: "review", Description: "reviews every pull request before merge"},
 		"an inherited route has no project mark")
 }
 

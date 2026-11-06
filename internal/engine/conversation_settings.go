@@ -14,7 +14,7 @@ import (
 // settingsAgent finds the agent profile whose defaults a conversation's settings override: the
 // orchestrator for a chat, the root task's role for a task agent's conversation.
 func (e *Engine) settingsAgent(ctx context.Context, conv domain.Conversation) (config.Agent, error) {
-	project, role := conv.Project, "orchestrator"
+	project, role := conv.Project, chatAgentName
 	if conv.TaskID != "" {
 		t, err := e.d.Store.GetTask(ctx, conv.TaskID)
 		if err != nil {
@@ -22,7 +22,7 @@ func (e *Engine) settingsAgent(ctx context.Context, conv domain.Conversation) (c
 		}
 		project, role = t.Project, t.Role
 	}
-	a, ok := e.Config().AgentsFor(project)[role]
+	a, ok := e.Config().AgentsFor(project)[config.CanonicalAgentName(role)]
 	if !ok {
 		return config.Agent{}, fmt.Errorf("%w: unknown agent %q", api.ErrInvalid, role)
 	}

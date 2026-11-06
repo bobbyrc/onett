@@ -35,7 +35,7 @@ func TestPromptTextAcceptsBareDollarName(t *testing.T) {
 	doc := "agents:\n  reviewer:\n    harness: claude\n    prompt_text: \"Scratch files go in $HOME/tmp.\"\n"
 	cfg, err := Parse([]byte(doc), "")
 	require.NoError(t, err)
-	assert.Equal(t, "Scratch files go in $HOME/tmp.", cfg.Agents["reviewer"].PromptText)
+	assert.Equal(t, "Scratch files go in $HOME/tmp.", cfg.Agents["code-reviewer"].PromptText)
 }
 
 func TestProjectPromptTextRefusesEnvReferenceWithProjectPrefix(t *testing.T) {

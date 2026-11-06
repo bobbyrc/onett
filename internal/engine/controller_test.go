@@ -132,7 +132,7 @@ func TestControllerCreateTaskRoutesAndZeroesClientFields(t *testing.T) {
 	assert.Empty(t, task.ApprovedSHA)
 	assert.Empty(t, task.MergeSHA)
 	assert.Equal(t, "api", task.Source)
-	assert.Equal(t, "implementer", task.Role, "bugfix routes to the implementer by default")
+	assert.Equal(t, "senior-engineer", task.Role, "bugfix routes to the senior engineer by default")
 	assert.Equal(t, r.cfg.Limits.MaxAttempts, task.MaxAttempts)
 
 	stored, err := r.st.GetTask(ctx, task.ID)

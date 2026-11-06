@@ -685,7 +685,7 @@ func TestRunnerProjectAgentOverrideRunsOnItsHarness(t *testing.T) {
 	env.waitStatus(task.ID, domain.TaskReview)
 	runs := env.runs(task.ID)
 	require.Len(t, runs, 1)
-	assert.Equal(t, "implementer", runs[0].Role)
+	assert.Equal(t, "senior-engineer", runs[0].Role)
 	assert.Equal(t, "alt", runs[0].Harness, "the project's implementer override picks the harness")
 }
 
@@ -695,11 +695,11 @@ func TestCreateTaskRoutesByProjectRouting(t *testing.T) {
 	}})
 
 	routed := env.create(domain.Task{Kind: domain.KindChore, Title: "Tidy"})
-	assert.Equal(t, "reviewer", routed.Role, "the project's routing wins over the global one")
-	assert.Equal(t, "reviewer", env.task(routed.ID).Role)
+	assert.Equal(t, "code-reviewer", routed.Role, "the project's routing wins over the global one")
+	assert.Equal(t, "code-reviewer", env.task(routed.ID).Role)
 
 	global := env.create(domain.Task{Kind: domain.KindBugfix, Title: "Fix it"})
-	assert.Equal(t, "implementer", global.Role, "kinds the project does not route use the global routing")
+	assert.Equal(t, "senior-engineer", global.Role, "kinds the project does not route use the global routing")
 }
 
 // Publishing records when onett pushed the branch, for the CI grace period.

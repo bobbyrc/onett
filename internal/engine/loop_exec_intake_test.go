@@ -70,8 +70,8 @@ echo '{"id":"a","title":"First again"}'
 	if !ok {
 		t.Fatalf("no task for intake:inbox:b; refs = %v", byRef)
 	}
-	if b.Kind != domain.KindBugfix || b.Priority != 2 || b.Role != "implementer" {
-		t.Fatalf("task b = kind %s priority %d role %s, want bugfix / 2 / implementer", b.Kind, b.Priority, b.Role)
+	if b.Kind != domain.KindBugfix || b.Priority != 2 || b.Role != "senior-engineer" {
+		t.Fatalf("task b = kind %s priority %d role %s, want bugfix / 2 / senior-engineer", b.Kind, b.Priority, b.Role)
 	}
 
 	env.run(loopExecIntake)

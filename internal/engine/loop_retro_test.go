@@ -59,8 +59,8 @@ func TestLoopRetroFilesOneTaskPerDay(t *testing.T) {
 		t.Fatalf("got %d retro tasks, want 1", len(got))
 	}
 	task := got[0]
-	if task.Kind != domain.KindImprove || task.Role != "improver" || task.Priority != -1 {
-		t.Fatalf("task = kind %s role %q priority %d, want improve/improver/-1", task.Kind, task.Role, task.Priority)
+	if task.Kind != domain.KindImprove || task.Role != "platform-engineer" || task.Priority != -1 {
+		t.Fatalf("task = kind %s role %q priority %d, want improve/platform-engineer/-1", task.Kind, task.Role, task.Priority)
 	}
 	if want := "retro:demo:" + day; task.SourceRef != want {
 		t.Fatalf("source_ref = %q, want %q", task.SourceRef, want)

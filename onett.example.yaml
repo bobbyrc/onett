@@ -71,22 +71,26 @@ harnesses:
     inherit_env: ["MY_AGENT_API_KEY"]
 
 # Agents: roles. Each role runs on one harness with one model and one set of instructions.
-# The six built-in roles (orchestrator, implementer, reviewer, triager, sre, improver) are
-# always present with the defaults shown in the comments below. Redefine any of them here.
+# The eight built-in roles (chief-of-staff, senior-engineer, code-reviewer, tech-lead, sre,
+# platform-engineer, product-designer, visual-designer) are always present with the defaults
+# shown in the comments below. Redefine any of them here. The old names orchestrator,
+# implementer, reviewer, triager and improver still work as aliases of the first five.
+# A role may also set title (its job title), context (repo-relative files it reads first) and
+# tools (tool permission rules pre-approved for its runs; claude-code only).
 agents:
-  orchestrator:
+  chief-of-staff:
     harness: claude                    # default: claude, model opus
     model: opus
-    prompt: builtin:orchestrator       # "builtin:<name>" or a Markdown file path
+    prompt: builtin:chief-of-staff     # "builtin:<name>" or a Markdown file path
     description: The agent you chat with. Turns what you ask for into tasks for the other agents.
 
-  # Override the implementer to run on Claude instead of Codex.
-  implementer:
+  # Override the senior-engineer to run on Claude instead of Codex.
+  senior-engineer:
     harness: claude                    # default: codex
     model: sonnet                      # the model name the harness understands; empty = harness default
     effort: high                       # reasoning effort, in the harness's words; empty = harness default
     permission_mode: auto              # permission mode or sandbox, in the harness's words; empty = harness default
-    prompt: builtin:implementer
+    prompt: builtin:senior-engineer
     description: Writes and tests the code change for a feature, bug fix, issue or chore.
 
   # A custom role. Its prompt is a Markdown file; a relative path is relative to this file.
@@ -109,23 +113,23 @@ agents:
 
   # Turn a built-in role off with disabled: true. Its settings are kept, so it can be turned back
   # on. Disabling is refused while a route still uses the role; route those kinds elsewhere
-  # first. The orchestrator cannot be disabled.
-  # improver:
+  # first. The chief of staff cannot be disabled.
+  # platform-engineer:
   #   disabled: true
   # Disabling it also moves its route to another role, in routing below:
-  #   improve: implementer
+  #   improve: senior-engineer
 
 # Routing: which role handles each kind of task. Kinds: feature, bugfix, issue, incident,
 # review, chore, improve, question. Defaults shown; a role name here must exist above.
 routing:
-  feature: implementer                 # default: implementer
-  bugfix: implementer                  # default: implementer
-  issue: implementer                   # default: implementer
-  chore: implementer                   # default: implementer
-  incident: sre                        # default: sre
-  review: reviewer                     # default: reviewer
-  improve: improver                    # default: improver
-  question: triager                    # default: triager
+  feature: senior-engineer         # default: senior-engineer
+  bugfix: senior-engineer          # default: senior-engineer
+  issue: senior-engineer           # default: senior-engineer
+  chore: senior-engineer           # default: senior-engineer
+  incident: sre                    # default: sre
+  review: code-reviewer            # default: code-reviewer
+  improve: platform-engineer       # default: platform-engineer
+  question: tech-lead              # default: tech-lead
 
 # Policies: deterministic rules that decide how risky a change is and whether it can merge
 # on its own. A project refers to one by name; the one named "default" applies otherwise.
