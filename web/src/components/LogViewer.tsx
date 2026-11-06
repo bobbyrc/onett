@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRunLogLines } from '../runLogs';
 import { formatClock, cx } from '../lib/format';
 import { parseTime } from '../lib/time';
+import { isRawStreamEvent, parseTool } from '../lib/transcript';
 import type { LogKind, LogLine } from '../types';
 import { ErrorLine } from './ErrorLine';
 
@@ -9,7 +10,9 @@ const TOOL_RESULT_PREVIEW_LINES = 3;
 
 /** A run's output; the paging, live stream and polling live in `useRunLogLines`. */
 export function LogViewer({ runId, active }: { runId: string; active: boolean }) {
-  const { lines, loading, error } = useRunLogLines(runId, active);
+  const { lines: all, loading, error } = useRunLogLines(runId, active);
+  // Raw agent stream events (tool_progress heartbeats and the like) mean nothing to a reader.
+  const lines = useMemo(() => all.filter((l) => !(l.kind === 'system' && isRawStreamEvent(l.text))), [all]);
   const loaded = !loading && !error;
   const [follow, setFollow] = useState(true);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set());
@@ -71,8 +74,20 @@ function Chevron() {
 function LogRow({ line, expanded, onToggle }: { line: LogLine; expanded: boolean; onToggle: () => void }) {
   const kind: LogKind = line.kind;
   const textLines = line.text.split('\n');
-  const collapsible = kind === 'tool_result' && textLines.length > TOOL_RESULT_PREVIEW_LINES;
-  const shown = collapsible && !expanded ? textLines.slice(0, TOOL_RESULT_PREVIEW_LINES).join('\n') : line.text;
+  // A tool call reads as "Name: main argument", as in the chat transcript; "show more" gives the full input.
+  const tool = kind === 'tool_use' ? parseTool(line.text) : undefined;
+  const summary = tool && tool.arg ? `${tool.name}: ${tool.arg}` : line.text;
+  const base = expanded ? line.text : summary;
+  const baseLines = summary.split('\n');
+  const collapsible =
+    (kind === 'tool_result' && textLines.length > TOOL_RESULT_PREVIEW_LINES) ||
+    (tool !== undefined && (summary !== line.text || baseLines.length > TOOL_RESULT_PREVIEW_LINES));
+  const shown =
+    collapsible && !expanded && kind === 'tool_result'
+      ? textLines.slice(0, TOOL_RESULT_PREVIEW_LINES).join('\n')
+      : collapsible && !expanded
+        ? baseLines.slice(0, TOOL_RESULT_PREVIEW_LINES).join('\n')
+        : base;
   const time = parseTime(line.time);
   const text = <pre>{shown}</pre>;
 
