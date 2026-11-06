@@ -150,7 +150,7 @@ export function RunItem({ run, scale, now }: { run: Run; scale: number; now: num
   return (
     <li className="run-item">
       <div className="run-item-head">
-        <Link to={`/runs/${run.id}`}>
+        <Link to={!run.task_id && run.conversation_id ? `/chat/${run.conversation_id}` : `/runs/${run.id}`}>
           {run.task_id ? (task.data?.task.title ?? 'Loading task…') : `Chat with ${agentLabel(run.role)}`}
         </Link>
         {canOperate ? (

@@ -7,12 +7,15 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Run } from '../types';
 
-const api = vi.hoisted(() => ({ listRuns: vi.fn(), getTask: vi.fn(), listProjects: vi.fn() }));
+const api = vi.hoisted(() => ({ listRuns: vi.fn(), getTask: vi.fn(), listProjects: vi.fn(), getRun: vi.fn() }));
+vi.mock('../components/LogViewer', () => ({ LogViewer: () => null }));
 vi.mock('../api', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api')>()), ...api }));
 vi.mock('../auth', async (importOriginal) => ({ ...(await importOriginal<typeof import('../auth')>()), useCan: () => true }));
 
 import { Runs } from './Runs';
 import { RunItem } from './Overview';
+import { RunDetail } from './RunDetail';
+import { Route, Routes } from 'react-router-dom';
 
 const base = {
   id: 'run-1', task_id: '', project: 'onett', role: 'chief-of-staff', harness: 'claude', status: 'running',
@@ -72,5 +75,37 @@ describe('Overview live run', () => {
     expect(screen.getByText('Loading task…')).toBeTruthy();
     await waitFor(() => expect(screen.getByRole('link', { name: 'Fix the thing' })).toBeTruthy());
     expect(document.querySelector('.run-item-meta span')?.textContent).toMatch(/ · onett$/);
+  });
+});
+
+describe('chat run links to its conversation', () => {
+  const chatRun: Run = { ...base, conversation_id: 'conv-1' };
+
+  it('Runs links the label to the conversation', async () => {
+    api.listRuns.mockResolvedValue([chatRun]);
+    wrap(<Runs />);
+    const link = await screen.findByRole('link', { name: 'Chat with Chief of Staff' });
+    expect(link.getAttribute('href')).toBe('/chat/conv-1');
+  });
+
+  it('Overview links the label to the conversation', () => {
+    wrap(<RunItem run={chatRun} scale={600000} now={Date.parse('2026-11-05T10:01:00Z')} />);
+    expect(screen.getByRole('link', { name: 'Chat with Chief of Staff' }).getAttribute('href')).toBe('/chat/conv-1');
+  });
+
+  it('RunDetail shows a Conversation link only when conversation_id is set', async () => {
+    api.getRun.mockResolvedValue(chatRun);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/runs/run-1']}>
+          <Routes>
+            <Route path="/runs/:id" element={<RunDetail />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const link = await screen.findByRole('link', { name: 'Conversation' });
+    expect(link.getAttribute('href')).toBe('/chat/conv-1');
   });
 });

@@ -40,7 +40,7 @@ function TaskCell({ run }: { run: Run }) {
   if (!run.task_id) {
     return (
       <div className="run-task">
-        <Link className="run-task-title" to={`/runs/${run.id}`}>
+        <Link className="run-task-title" to={run.conversation_id ? `/chat/${run.conversation_id}` : `/runs/${run.id}`}>
           Chat with {agentLabel(run.role)}
         </Link>
         <span className="run-task-meta">{run.project}</span>

@@ -55,6 +55,11 @@ export function RunDetail() {
                 {' · '}
                 <Link to={`/chat/task/${r.task_id}`}>Open conversation</Link>
               </>
+            ) : r.conversation_id ? (
+              <>
+                {' · '}
+                <Link to={`/chat/${r.conversation_id}`}>Conversation</Link>
+              </>
             ) : null}
           </p>
         </div>
