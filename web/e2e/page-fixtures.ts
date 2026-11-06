@@ -71,6 +71,7 @@ export const tasks: Task[] = [
   task(0, {
     id: IDS.task,
     title: 'Show elapsed time on running tool rows from tool_progress',
+    source: 'chat:01a1af1c-27cc-7007-a8b8-d595656c8f28',
     body: 'The agent emits a `tool_progress` heartbeat while a tool call runs. Show the elapsed seconds on the running row in the chat transcript.\n\n- Only for calls still running\n- Update at most once a second',
     status: 'awaiting_approval',
     risk: 'medium',

@@ -234,3 +234,16 @@
     order: 3;
   }
 }
+
+/* On a phone the seven stations share the width, with tighter labels, instead of scrolling. */
+@media (max-width: 520px) {
+  .task-line {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    min-width: 0;
+  }
+
+  .task-station-label {
+    font-size: 10px;
+    letter-spacing: 0.02em;
+  }
+}
