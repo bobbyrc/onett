@@ -32,6 +32,7 @@ export function Deploys() {
     {
       key: 'url',
       header: 'URL',
+      wide: true,
       cell: (d) =>
         safeHref(d.url) ? (
           <a href={safeHref(d.url)} target="_blank" rel="noopener noreferrer">
