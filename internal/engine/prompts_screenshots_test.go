@@ -11,8 +11,8 @@ import (
 func TestBuiltinPromptsRequireUIScreenshots(t *testing.T) {
 	e := &Engine{}
 	for name, want := range map[string][]string{
-		"senior-engineer": {"shots:chat", "shoot-live", "390x844"},
-		"visual-designer": {"shots:chat", "shoot-live", "390x844"},
+		"senior-engineer": {"shots:chat", "npm run shots`", "shoot-live", "390x844"},
+		"visual-designer": {"shots:chat", "npm run shots`", "shoot-live", "390x844"},
 		"code-reviewer":   {"shots:chat", "screenshots", "major"},
 	} {
 		got, err := e.BuiltinPrompt(name)
