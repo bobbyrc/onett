@@ -124,6 +124,10 @@ export function AgentEditor({
         </div>
       ) : null}
 
+      <Field label="Title" hint="A readable name for the role, shown above the key. Optional.">
+        <input type="text" value={form.title} onChange={(event) => update({ title: event.target.value })} />
+      </Field>
+
       <Field label="Description">
         <input type="text" value={form.description} onChange={(event) => update({ description: event.target.value })} />
       </Field>
@@ -141,6 +145,15 @@ export function AgentEditor({
         </Field>
         <Field label="Model" hint="Leave empty for the harness default.">
           <input type="text" value={form.model} onChange={(event) => update({ model: event.target.value })} />
+        </Field>
+      </div>
+
+      <div className="agent-editor-row">
+        <Field label="Context" hint="Files the agent reads, one path per line.">
+          <textarea rows={3} spellCheck={false} className="mono" value={form.context.join('\n')} onChange={(event) => update({ context: event.target.value.split('\n') })} />
+        </Field>
+        <Field label="Tools" hint="Tool rules the agent may use, one per line.">
+          <textarea rows={3} spellCheck={false} className="mono" value={form.tools.join('\n')} onChange={(event) => update({ tools: event.target.value.split('\n') })} />
         </Field>
       </div>
 

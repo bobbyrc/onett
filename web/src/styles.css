@@ -1707,6 +1707,39 @@ a.board-window:hover .board-name {
   font-size: 17px;
 }
 
+.agent-card .agent-key {
+  margin: -4px 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.agent-list {
+  margin: 0 0 10px;
+}
+
+.agent-list-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.agent-list ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.agent-list li {
+  margin: 0 0 2px;
+  overflow-wrap: anywhere;
+}
+
+.agent-runs-with {
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+
 .agent-card .agent-uses {
   list-style: none;
   margin: 0;
