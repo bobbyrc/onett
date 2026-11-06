@@ -2543,7 +2543,7 @@ components:
 
     ConfigDocument:
       type: object
-      required: [path, version, document, schema]
+      required: [path, version, document, schema, default_routing]
       properties:
         path:
           type: string
@@ -2551,6 +2551,11 @@ components:
           type: string
         document:
           description: The file as a JSON-compatible tree; references such as `${NAME}` stay as text.
+        default_routing:
+          type: object
+          additionalProperties:
+            type: string
+          description: The built-in agent for each task kind, used when the file does not route that kind.
         schema:
           type: object
           description: Every setting, with its key, type, help text, fields (sections) or item (maps and lists).

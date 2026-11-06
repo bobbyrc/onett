@@ -39,7 +39,7 @@ export function Agents() {
 
   const doc = owner ? configDoc.data : undefined;
   const fileAgents: Record<string, AgentEntry> = (doc?.document as { agents?: Record<string, AgentEntry> } | undefined)?.agents ?? {};
-  const routing = fileRouting(doc?.document);
+  const routing = fileRouting(doc?.document, doc?.default_routing);
   const apply = (name: string, changes: ConfigChange[]) => {
     if (!doc) return;
     setFailure(null);

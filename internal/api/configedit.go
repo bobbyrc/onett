@@ -27,6 +27,9 @@ type configDocument struct {
 	Version  string            `json:"version"`
 	Document any               `json:"document"`
 	Schema   config.SchemaNode `json:"schema"`
+	// DefaultRouting is the built-in agent for each task kind, which a kind falls back to when
+	// the file drops its route.
+	DefaultRouting map[string]string `json:"default_routing"`
 }
 
 // configSaved is the body of PUT /config/file and PATCH /config/document.
@@ -70,6 +73,8 @@ func (s *server) getConfigDocument(w http.ResponseWriter, r *http.Request) {
 		Version:  config.Version(text),
 		Document: doc,
 		Schema:   config.Schema(),
+
+		DefaultRouting: config.DefaultRouting(),
 	})
 }
 

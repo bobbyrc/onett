@@ -74,7 +74,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `DELETE /users/{name}` | | 204 (owner); 409 last owner |
 | `GET /config/file` | | `{"path","version","text"}` (owner) |
 | `PUT /config/file` | `{"version","text"}` | `ConfigSaved` (owner); 409 stale version; 422 `problems` |
-| `GET /config/document` | | `{"path","version","document","schema"}` (owner) |
+| `GET /config/document` | | `{"path","version","document","schema","default_routing"}` (owner); `default_routing` maps each task kind to its built-in agent |
 | `PATCH /config/document` | `{"version","changes":[{"op":"set"\|"delete","path":[...],"value"}]}` | `ConfigSaved` (owner); keeps comments |
 | `GET /events` | `?after=<id>&token=` | SSE stream (below) |
 | `GET /ws` | `?after=<id>` | WebSocket stream for the web UI (below) |

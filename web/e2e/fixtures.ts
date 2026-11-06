@@ -393,6 +393,7 @@ export const config: Config = {
 export const configDocument: ConfigDocument = {
   path: config.path,
   version: 'v1',
+  default_routing: { feature: 'senior-engineer', incident: 'sre' },
   document: {
     server: { addr: '127.0.0.1:7777', data_dir: config.server.data_dir },
     limits: { max_concurrent_runs: 2, stall_timeout: '15m' },
