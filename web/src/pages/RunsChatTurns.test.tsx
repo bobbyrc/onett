@@ -93,19 +93,44 @@ describe('chat run links to its conversation', () => {
     expect(screen.getByRole('link', { name: 'Chat with Chief of Staff' }).getAttribute('href')).toBe('/chat/conv-1');
   });
 
-  it('RunDetail shows a Conversation link only when conversation_id is set', async () => {
+  const legacyRun: Run = { ...base };
+
+  it('Runs falls back to the run page without a conversation_id', async () => {
+    api.listRuns.mockResolvedValue([legacyRun]);
+    wrap(<Runs />);
+    const link = await screen.findByRole('link', { name: 'Chat with Chief of Staff' });
+    expect(link.getAttribute('href')).toBe('/runs/run-1');
+  });
+
+  it('Overview falls back to the run page without a conversation_id', () => {
+    wrap(<RunItem run={legacyRun} scale={600000} now={Date.parse('2026-11-05T10:01:00Z')} />);
+    expect(screen.getByRole('link', { name: 'Chat with Chief of Staff' }).getAttribute('href')).toBe('/runs/run-1');
+  });
+
+  it('RunDetail shows no Conversation link without a conversation_id', async () => {
+    api.getRun.mockResolvedValue(legacyRun);
+    renderDetail();
+    await screen.findByText(/chief-of-staff|Chief of Staff/i);
+    expect(screen.queryByRole('link', { name: 'Conversation' })).toBeNull();
+  });
+
+  it('RunDetail shows a Conversation link when conversation_id is set', async () => {
     api.getRun.mockResolvedValue(chatRun);
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/runs/run-1']}>
-          <Routes>
-            <Route path="/runs/:id" element={<RunDetail />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    renderDetail();
     const link = await screen.findByRole('link', { name: 'Conversation' });
     expect(link.getAttribute('href')).toBe('/chat/conv-1');
   });
 });
+
+function renderDetail() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/runs/run-1']}>
+        <Routes>
+          <Route path="/runs/:id" element={<RunDetail />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
