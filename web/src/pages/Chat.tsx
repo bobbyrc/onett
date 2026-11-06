@@ -568,6 +568,7 @@ function OrchestratorThread({
   return (
     <>
       <ThreadHead who="Orchestrator" sub={sub} view={view} onView={onView} />
+      <div className="messages-scroll">
       <div className="messages" ref={stick.contentRef}>
         {entries.length === 0 && canOperate ? (
           <div className="examples">
@@ -605,6 +606,7 @@ function OrchestratorThread({
         {canOperate && queued > 0 && !working ? (
           <SendNow pending={flush.isPending} onClick={() => flush.mutate({ conversationId })} />
         ) : null}
+      </div>
       </div>
       <ComposerArea
         stick={stick}
@@ -717,7 +719,7 @@ function TaskThread({
     <>
       {[lastRun?.harness, lastRun?.model].filter(Boolean).join(' · ')}
       {lastRun ? ' · ' : ''}task <Link to={`/tasks/${task.id}`}>{task.title}</Link>
-      {task.branch ? <> · branch <span className="mono">{task.branch}</span></> : null}
+      {task.branch ? <> · branch <span className="mono thread-branch" title={task.branch}>{task.branch}</span></> : null}
       {' · '}
       {taskLamp(task.status).label}
     </>
@@ -753,6 +755,7 @@ function TaskThread({
   return (
     <>
       <ThreadHead who={capitalise(role)} sub={sub} extra={closeButton} view={view} onView={onView} />
+      <div className="messages-scroll">
       <div className="messages" ref={stick.contentRef}>
         <Transcript
           entries={entries}
@@ -772,6 +775,7 @@ function TaskThread({
         {canOperate && queued > 0 && !liveRunId && !closed ? (
           <SendNow pending={flush.isPending} onClick={() => flush.mutate({ taskId })} />
         ) : null}
+      </div>
       </div>
       {closed ? (
         <div className="closed-note">

@@ -1,9 +1,5 @@
 /* Chat page. Every rule sits under .chat-page so it outranks the older chat rules in styles.css. */
 
-.chat-page {
-  min-width: 0;
-}
-
 /* Buttons on the page (New conversation, Close, Retry) take Orca's control radius. */
 .chat-page .btn {
   border-radius: var(--chat-radius-md);
@@ -15,42 +11,46 @@
   min-width: 0;
 }
 
-/* On desktop the thread is at least a screen tall, so the composer sits at the bottom of the
-   window when the transcript is short, and stays pinned there (sticky) when it is long. */
-@media (min-width: 760px) {
-  .chat-page .thread {
-    min-height: calc(100vh - 190px);
-    min-height: calc(100dvh - 190px);
-  }
-
-  /* The list must not set the page's height. A grid row is as tall as its tallest cell and cells
-     stretch, so a long list (every task agent has a row) once stretched the thread to its height:
-     the transcript sat at the top, the page opened scrolled to the bottom of the stretched thread,
-     and all that showed was blank space. Each column is its own height now, and the list scrolls
-     inside the window, pinned beside the thread. */
-  .chat-page .chat-layout {
-    align-items: start;
-  }
-
-  .chat-page .chat-layout > .conv-list {
-    position: sticky;
-    top: var(--chat-space-4, 16px);
-    max-height: calc(100vh - 2 * var(--chat-space-4, 16px));
-    max-height: calc(100dvh - 2 * var(--chat-space-4, 16px));
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
+/* The page is exactly one screen tall (the .main padding is taken off), so the document never
+   scrolls: the thread header and the sidebar's "New conversation" stay put, and only the message
+   list and the sidebar list scroll inside it. */
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: calc(100vh - 76px);
+  height: calc(100dvh - 76px);
 }
 
 .chat-page .chat-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 28px;
-  /* The min-height below must not stretch the rows: a short thread would pull the phone's chip
-     row tall. */
-  align-content: start;
-  min-height: 60vh;
-  min-height: 60dvh;
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-page .chat-layout > .conv-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.chat-page .thread {
+  min-height: 0;
+}
+
+/* The only scrolling part of a thread (useStickToBottom finds it as the scrolling ancestor). */
+.chat-page .messages-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.chat-page .thread-head {
+  flex: none;
 }
 
 .chat-page .chat-layout.no-list {
@@ -210,8 +210,15 @@
 
 /* Phone: the list becomes a row of chips above an open thread; the full list shows otherwise. */
 @media (max-width: 759px) {
+  /* Under the top bar and the page's 16px / 40px padding (plus the home-indicator inset). */
+  .chat-page {
+    height: calc(100vh - (56px + env(safe-area-inset-top, 0px)) - 56px - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - (56px + env(safe-area-inset-top, 0px)) - 56px - env(safe-area-inset-bottom, 0px));
+  }
+
   .chat-page .chat-layout {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 16px;
   }
 
@@ -336,8 +343,22 @@
   margin: 0 0 var(--chat-space-1);
 }
 
+.chat-page .thread-who {
+  min-width: 0;
+}
+
 .chat-page .thread-sub {
   overflow-wrap: anywhere;
+}
+
+/* A long branch name stays on one line and ends in an ellipsis; its title shows the whole name. */
+.chat-page .thread-branch {
+  display: inline-block;
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .chat-page .thread-tools {

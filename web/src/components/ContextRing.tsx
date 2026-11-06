@@ -1,6 +1,7 @@
 /** A small ring showing how full the model's context window is; hidden when the fraction is unknown. */
 export function ContextRing({ fraction }: { fraction: number | null }) {
-  if (fraction == null) return null;
+  // No data (or a number that is not a usable fraction) draws nothing: an empty ring would read as a warning.
+  if (fraction == null || !Number.isFinite(fraction) || fraction <= 0) return null;
   const pct = Math.round(fraction * 100);
   const r = 7;
   const c = 2 * Math.PI * r;

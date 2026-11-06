@@ -377,8 +377,13 @@
   color: var(--chat-danger);
 }
 
+/* Neutral by default; amber and red only as the window fills (the ring's data-level). */
 .chat-page .context-ring {
   display: inline-flex;
+  color: var(--chat-fg-faint);
+}
+
+.chat-page .context-ring[data-level='ok'] {
   color: var(--chat-fg-faint);
 }
 
