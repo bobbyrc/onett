@@ -155,6 +155,17 @@ func TestDoctorWarnsWhenUnusedHarnessIsMissing(t *testing.T) {
 	assertLine(t, out, "warn", "no agent uses it")
 }
 
+func TestDoctorWarnsForHarnessWithFullAccess(t *testing.T) {
+	healthyDaemon(t)
+	f := newDoctorFixture(t, "  codex:\n    type: codex\n    codex:\n      full_access: true\n")
+	toolRunner(t, nil)
+
+	code, out, _ := runCLI("doctor", "--config", f.cfg)
+	assert.Equal(t, 0, code, out)
+	assertLine(t, out, "warn", "harness codex runs with full access: no sandbox, no permission prompts")
+	assert.NotContains(t, out, "harness claude runs with full access")
+}
+
 func TestDoctorFailsOnUnknownHarnessType(t *testing.T) {
 	healthyDaemon(t)
 	f := newDoctorFixture(t, "  weird:\n    type: nope\n")

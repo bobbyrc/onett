@@ -17,6 +17,9 @@ const harnessType = "claude-code"
 // Claude Code's auto mode reviews risky actions; its refusals surface as denials.
 const defaultPermissionMode = "auto"
 
+// fullAccessPermissionMode replaces the default when the harness has claude.full_access on.
+const fullAccessPermissionMode = "bypassPermissions"
+
 // isolationArgs keep an agent from loading the owner's personal Claude Code setup. Without them
 // every session connects the owner's MCP connectors and plugins, whose tools come and go between
 // turns: that changes the cached prompt prefix and costs the whole history a cache miss, and it
@@ -278,9 +281,18 @@ func buildArgs(cfg harness.Config, spec harness.Spec) []string {
 	case spec.PermissionMode != "":
 		args = append(args, "--permission-mode", spec.PermissionMode)
 	case !hasPermissionFlag(cfg.Args, spec.Args):
-		args = append(args, "--permission-mode", defaultPermissionMode)
+		args = append(args, "--permission-mode", defaultMode(cfg))
 	}
 	return args
+}
+
+// defaultMode is the permission mode used when nothing else chooses one: bypassPermissions with
+// full_access, else the built-in default.
+func defaultMode(cfg harness.Config) string {
+	if cfg.FullAccess {
+		return fullAccessPermissionMode
+	}
+	return defaultPermissionMode
 }
 
 // hasPermissionFlag reports whether any extra argument already chooses a permission mode.
@@ -314,7 +326,7 @@ func mergeEnv(maps ...map[string]string) map[string]string {
 func liveSettings(cfg harness.Config, spec harness.Spec) string {
 	mode := spec.PermissionMode
 	if mode == "" && !hasPermissionFlag(cfg.Args, spec.Args) {
-		mode = defaultPermissionMode
+		mode = defaultMode(cfg)
 	}
 	b, _ := json.Marshal(struct{ Model, Mode string }{spec.Model, mode})
 	return string(b)

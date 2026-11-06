@@ -146,6 +146,10 @@ func (d *doctor) checkHarnesses(cfg *config.Config) {
 				"use one of: "+strings.Join(known, ", "))
 			continue
 		}
+		if h.Type == "claude-code" && h.ClaudeFullAccess() || h.Type == "codex" && h.CodexFullAccess() {
+			d.warn(fmt.Sprintf("harness %s runs with full access: no sandbox, no permission prompts", name),
+				"set harnesses."+name+"."+providerSection(h.Type)+".full_access to false to restore the default")
+		}
 		var cli string
 		var runErr error
 		var out string
@@ -178,6 +182,14 @@ func (d *doctor) checkHarnesses(cfg *config.Config) {
 		}
 		d.ok(fmt.Sprintf("harness %s: %s (%s)", name, cli, firstLine(out, nil)))
 	}
+}
+
+// providerSection is the harness config section that holds a type's own options.
+func providerSection(typ string) string {
+	if typ == "claude-code" {
+		return "claude"
+	}
+	return typ
 }
 
 // missingHarness reports a harness whose CLI cannot run.

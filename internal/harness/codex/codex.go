@@ -141,7 +141,9 @@ func buildArgs(cfg harness.Config, spec harness.Spec) []string {
 		// A mode chosen for the conversation replaces the default and wins over the profile's.
 		args = append(args, permissionArgs(spec.PermissionMode, resume)...)
 	} else if !hasSandboxFlag(cfg.Args, spec.Args) {
-		if resume {
+		if cfg.FullAccess {
+			args = append(args, permissionArgs(permBypass, resume)...)
+		} else if resume {
 			args = append(args, "-c", resumeSandboxOverride)
 		} else {
 			args = append(args, defaultSandboxArgs...)

@@ -214,6 +214,32 @@
             "type": "bool",
             "help": "Isolate runs the agent without the owner's personal Claude Code setup (their MCP connectors, plugins, hooks and user-level settings). Default false: agents use the owner's setup. Set true to drop it, for example when connectors that come and go between turns keep breaking the prompt cache. Only claude-code has such a setup; other harness types ignore it. Read it with IsolateOn.",
             "default": false
+          },
+          {
+            "key": "claude",
+            "type": "section",
+            "help": "Claude holds options that only the claude-code harness has. It is an error on any other harness type. Provider-specific settings go in a section like this one, not at the top level of the harness.",
+            "fields": [
+              {
+                "key": "full_access",
+                "type": "bool",
+                "help": "Run Claude Code with no sandbox and no permission prompts (--permission-mode bypassPermissions). Off: it runs in auto permission mode, where a classifier approves safe actions and blocks the rest. A permission mode chosen for the conversation or the agent, or one already in the harness args, wins over this.",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "codex",
+            "type": "section",
+            "help": "Codex holds options that only the codex harness has. It is an error on any other harness type. Provider-specific settings go in a section like this one.",
+            "fields": [
+              {
+                "key": "full_access",
+                "type": "bool",
+                "help": "Run Codex with no sandbox and no permission prompts (--dangerously-bypass-approvals-and-sandbox). Off: it runs in the workspace-write sandbox with approvals reviewed automatically (--approve-for-me), which blocks network access and local listeners. A permission mode chosen for the conversation or the agent, or a sandbox flag already in the harness args, wins over this.",
+                "default": false
+              }
+            ]
           }
         ]
       }

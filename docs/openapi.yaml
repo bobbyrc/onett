@@ -3949,6 +3949,20 @@ components:
         isolate:
           type: boolean
           description: "claude-code only: run agents without the owner's MCP servers, plugins, hooks and user-level settings. Default true."
+        claude:
+          type: object
+          description: "Options only a claude-code harness has; an error on other types."
+          properties:
+            full_access:
+              type: boolean
+              description: "Run Claude Code with no permission prompts (bypassPermissions) instead of auto mode. Default false."
+        codex:
+          type: object
+          description: "Options only a codex harness has; an error on other types."
+          properties:
+            full_access:
+              type: boolean
+              description: "Run Codex with no sandbox and no approval prompts instead of the workspace-write sandbox. Default false."
 
     Agent:
       type: object

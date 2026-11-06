@@ -355,11 +355,23 @@ func containsString(list []string, s string) bool {
 	return false
 }
 
+// fullAccess reports whether the harness's provider section asks for full access.
+func fullAccess(h config.Harness) bool {
+	switch h.Type {
+	case "claude-code":
+		return h.ClaudeFullAccess()
+	case "codex":
+		return h.CodexFullAccess()
+	}
+	return false
+}
+
 // harnessFor builds the harness for one configured harness block.
 func harnessFor(name string, h config.Harness) (harness.Harness, error) {
 	return harness.New(harness.Config{
 		Name: name, Type: h.Type, Command: h.Command, Args: h.Args, Env: h.Env,
 		InheritEnv: h.InheritEnv, Billing: h.Billing, Isolate: h.IsolateOn(),
+		FullAccess: fullAccess(h),
 	})
 }
 
@@ -369,6 +381,7 @@ func harnessWithShim(name string, h config.Harness, cfg *config.Config, exe stri
 	hc := harness.Config{
 		Name: name, Type: h.Type, Command: h.Command, Args: h.Args, Env: h.Env,
 		InheritEnv: h.InheritEnv, Billing: h.Billing, Isolate: h.IsolateOn(),
+		FullAccess: fullAccess(h),
 	}
 	if cfg != nil && cfg.Limits.RunShimOn() {
 		hc.Shim = &harness.ShimOptions{

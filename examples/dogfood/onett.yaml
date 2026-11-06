@@ -13,13 +13,24 @@ limits:
   run_timeout: 90m
   max_attempts: 3
   daily_budget_usd: 25
+# full_access turns off each agent CLI's sandbox and permission prompts, so this repo's tests
+# can bind localhost. The agents here work in throwaway worktrees; see docs/getting-started.md.
+harnesses:
+  claude:
+    type: claude-code
+    claude:
+      full_access: true
+  codex:
+    type: codex
+    codex:
+      full_access: true
 agents:
   implementer-claude:
     harness: claude
     model: sonnet
     prompt: builtin:implementer
     description: Implementer on Claude Code (dogfood comparison with the Codex implementer).
-# Codex's sandbox cannot bind localhost (this repo's tests need it), so code tasks go to Claude.
+# Code tasks go to Claude, so the dogfood comparison with Codex stays like for like.
 routing:
   feature: implementer-claude
   bugfix: implementer-claude

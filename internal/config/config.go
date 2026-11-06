@@ -136,7 +136,39 @@ type Harness struct {
 	// between turns keep breaking the prompt cache. Only claude-code has such a setup; other
 	// harness types ignore it. Read it with IsolateOn.
 	Isolate *bool `yaml:"isolate" json:"isolate,omitempty" default:"false"`
+	// Claude holds options that only the claude-code harness has. It is an error on any other
+	// harness type. Provider-specific settings go in a section like this one, not at the top
+	// level of the harness.
+	Claude *ClaudeOptions `yaml:"claude" json:"claude,omitempty"`
+	// Codex holds options that only the codex harness has. It is an error on any other harness
+	// type. Provider-specific settings go in a section like this one.
+	Codex *CodexOptions `yaml:"codex" json:"codex,omitempty"`
 }
+
+// ClaudeOptions are the options of a `type: claude-code` harness.
+type ClaudeOptions struct {
+	// Run Claude Code with no sandbox and no permission prompts
+	// (--permission-mode bypassPermissions). Off: it runs in auto permission mode, where a
+	// classifier approves safe actions and blocks the rest. A permission mode chosen for the
+	// conversation or the agent, or one already in the harness args, wins over this.
+	FullAccess bool `yaml:"full_access" json:"full_access" default:"false"`
+}
+
+// CodexOptions are the options of a `type: codex` harness.
+type CodexOptions struct {
+	// Run Codex with no sandbox and no permission prompts
+	// (--dangerously-bypass-approvals-and-sandbox). Off: it runs in the workspace-write sandbox
+	// with approvals reviewed automatically (--approve-for-me), which blocks network access and
+	// local listeners. A permission mode chosen for the conversation or the agent, or a sandbox
+	// flag already in the harness args, wins over this.
+	FullAccess bool `yaml:"full_access" json:"full_access" default:"false"`
+}
+
+// ClaudeFullAccess reports whether the harness's claude section turns full access on.
+func (h Harness) ClaudeFullAccess() bool { return h.Claude != nil && h.Claude.FullAccess }
+
+// CodexFullAccess reports whether the harness's codex section turns full access on.
+func (h Harness) CodexFullAccess() bool { return h.Codex != nil && h.Codex.FullAccess }
 
 // IsolateOn reports whether the harness's agents run isolated: false unless isolate is true.
 func (h Harness) IsolateOn() bool { return h.Isolate != nil && *h.Isolate }
