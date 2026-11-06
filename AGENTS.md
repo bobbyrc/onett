@@ -30,7 +30,7 @@ Before you report a change as done, run what CI runs and see it pass:
 mise exec -- go vet ./...
 test -z "$(mise exec -- gofmt -l internal cmd)"
 mise exec -- go test -race -count=1 ./...
-cd web && npm ci && npm run typecheck && npm test && npm run build
+cd web && npm ci && npm run lint && npm run typecheck && npm test && npm run build
 ```
 
 A Go-only change needs only the first three; a change under `web/` needs the last line too. To

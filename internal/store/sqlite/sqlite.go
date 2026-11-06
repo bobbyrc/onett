@@ -249,12 +249,6 @@ func (e entity[T]) get(ctx context.Context, ex execer, id string) (T, error) {
 // update loads the row, applies fn to a copy, stamps it, and saves it, all in one transaction.
 // fn cannot change the ID. An error from fn aborts the update.
 func (e entity[T]) update(ctx context.Context, db *sql.DB, id string, fn func(*T) error) (T, error) {
-	return e.updateStamped(ctx, db, id, fn, true)
-}
-
-// updateStamped is update with a choice: stamp false keeps the row's UpdatedAt, for housekeeping
-// edits that must not make an old row look freshly changed.
-func (e entity[T]) updateStamped(ctx context.Context, db *sql.DB, id string, fn func(*T) error, stamp bool) (T, error) {
 	var out T
 	err := withTx(ctx, db, func(tx *sql.Tx) error {
 		v, err := e.get(ctx, tx, id)
@@ -265,7 +259,7 @@ func (e entity[T]) updateStamped(ctx context.Context, db *sql.DB, id string, fn 
 			return fmt.Errorf("update %s %s: %w", e.name, id, err)
 		}
 		*e.id(&v) = id
-		if stamp && e.stamp != nil {
+		if e.stamp != nil {
 			e.stamp(&v, nowUTC())
 		}
 		if err := e.save(ctx, tx, v); err != nil {

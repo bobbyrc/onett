@@ -98,12 +98,6 @@ func (s *Store) UpdateConversation(ctx context.Context, id string, fn func(*doma
 	return conversations.update(ctx, s.db, id, fn)
 }
 
-// UpdateConversationQuiet is UpdateConversation without touching UpdatedAt, so a background fix
-// such as a title backfill does not re-sort old conversations to the top of the list.
-func (s *Store) UpdateConversationQuiet(ctx context.Context, id string, fn func(*domain.Conversation) error) (domain.Conversation, error) {
-	return conversations.updateStamped(ctx, s.db, id, fn, false)
-}
-
 // AppendChatMessage stores m, assigning ID and CreatedAt when empty.
 func (s *Store) AppendChatMessage(ctx context.Context, m domain.ChatMessage) (domain.ChatMessage, error) {
 	if m.ID == "" {

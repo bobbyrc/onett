@@ -164,6 +164,8 @@ export function AnyInput({
   useEffect(() => {
     setText(value === undefined ? '' : JSON.stringify(value, null, 2));
     setError(null);
+    // Keyed on valueKey so typing is not overwritten by an equal value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valueKey]);
 
   return (
