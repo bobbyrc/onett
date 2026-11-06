@@ -97,7 +97,7 @@ const json = (page: Page, glob: string, body: unknown) =>
       : route.fallback(),
   );
 
-type Scene = { name: string; path: string; setup: (page: Page) => Promise<void>; ready: string };
+type Scene = { name: string; path: string; setup: (page: Page) => Promise<void>; ready: string; /** Scroll up before the shot, so the Jump to latest pill shows. */ away?: boolean };
 
 const SCENES: Scene[] = [
   {
@@ -106,6 +106,18 @@ const SCENES: Scene[] = [
     ready: '.composer',
     setup: async (page) => {
       await json(page, '**/api/v1/conversations/*', { conversation: conv({}), messages: THREAD });
+      await json(page, '**/api/v1/runs/*/logs*', THREAD_LOGS);
+    },
+  },
+  {
+    // A long thread read from the top: the Jump to latest pill floats above the composer.
+    name: 'chat-jump',
+    path: `/chat/${CONV_ID}`,
+    ready: '.composer',
+    away: true,
+    setup: async (page) => {
+      const long = Array.from({ length: 6 }, (_, i) => msg(20 + i, CONV_ID, 'user', `Question ${i + 1}: ${THREAD[0].text}`, T1));
+      await json(page, '**/api/v1/conversations/*', { conversation: conv({}), messages: [...long, ...THREAD] });
       await json(page, '**/api/v1/runs/*/logs*', THREAD_LOGS);
     },
   },
@@ -197,6 +209,15 @@ for (const v of VARIANTS) {
             if (el.scrollHeight > el.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowY)) el.scrollTop = el.scrollHeight;
           }
         });
+        if (scene.away) {
+          await page.evaluate(() => {
+            for (const el of document.querySelectorAll<HTMLElement>('*')) {
+              if (el.scrollHeight > el.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowY)) el.scrollTop = 0;
+            }
+            window.scrollTo(0, 0);
+          });
+          await page.locator('.jump-latest').waitFor();
+        }
         mkdirSync(OUT, { recursive: true });
         await page.screenshot({ path: `${OUT}/${scene.name}-${v.name}.png`, animations: 'disabled' });
       });

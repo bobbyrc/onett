@@ -137,7 +137,7 @@ export function PendingChips({ uploads }: { uploads: AttachmentUploads }) {
             )}
           </span>
           <button type="button" className="att-remove" aria-label={`Remove ${it.file.name}`} onClick={() => uploads.remove(it.key)}>
-            ×
+            <span aria-hidden="true">×</span>
           </button>
         </li>
       ))}
