@@ -4,6 +4,7 @@ package codex
 
 import (
 	"context"
+	"os"
 	"strings"
 	"time"
 
@@ -82,10 +83,11 @@ var (
 func (r *runner) procSpec(spec harness.Spec) (harness.ProcSpec, **harness.Proc) {
 	ps := newParser()
 	proc := new(*harness.Proc)
+	env := mergeEnv(r.cfg.Env, spec.Env)
 	return harness.ProcSpec{
 		Command:    buildArgs(r.cfg, spec),
 		Dir:        spec.Workdir,
-		Env:        mergeEnv(r.cfg.Env, spec.Env),
+		Env:        env,
 		InheritEnv: r.cfg.InheritEnv,
 		RunID:      spec.RunID,
 		Shim:       r.cfg.Shim,
@@ -97,10 +99,25 @@ func (r *runner) procSpec(spec harness.Spec) (harness.ProcSpec, **harness.Proc) 
 				tail = (*proc).StderrTail()
 			}
 			res := ps.result(exitCode, tail)
+			res.ContextWindow = sessionContextWindow(r.codexHome(env), res.SessionID)
 			res.Billing = r.billing(spec)
 			return res, nil
 		},
 	}, proc
+}
+
+// codexHome is the CODEX_HOME the session ran with: set in the config or spec, or passed through
+// from onett's environment. Empty means the default, ~/.codex.
+func (r *runner) codexHome(env map[string]string) string {
+	if h := env["CODEX_HOME"]; h != "" {
+		return h
+	}
+	for _, k := range r.cfg.InheritEnv {
+		if k == "CODEX_HOME" {
+			return os.Getenv(k)
+		}
+	}
+	return ""
 }
 
 // stdinText is the prompt as codex receives it: instructions first, when there are any.
