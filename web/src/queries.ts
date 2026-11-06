@@ -348,6 +348,10 @@ export function useConversationSettings(conversationId: string) {
   });
 }
 
+export function useNewConversationSettings() {
+  return useQuery({ queryKey: keys.newConversationSettings, queryFn: api.getNewConversationSettings });
+}
+
 export function useUpdateConversationSettings(conversationId: string) {
   const qc = useQueryClient();
   return useMutation({

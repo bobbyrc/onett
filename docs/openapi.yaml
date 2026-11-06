@@ -1575,6 +1575,27 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /new-conversation/settings:
+    get:
+      operationId: getNewConversationSettings
+      tags: [conversations]
+      summary: Read the settings choices for a conversation that does not exist yet.
+      description: |
+        What the chat start screen shows before the first message: the orchestrator's defaults and
+        the choices its harness accepts. `settings` is always empty. The client creates the
+        conversation, replaces its settings, then sends the message.
+      responses:
+        '200':
+          description: The defaults and choices.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationSettingsView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /conversations/{id}/settings:
     get:
       operationId: getConversationSettings

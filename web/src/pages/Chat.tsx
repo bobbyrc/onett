@@ -1,7 +1,7 @@
 import './Chat.css';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ApiError } from '../api';
+import { ApiError, putConversationSettings } from '../api';
 import { useCan } from '../auth';
 import { cx, errorMessage } from '../lib/format';
 import { agentLamp, composerState, taskLamp, type ChatLampState } from '../lib/chatState';
@@ -10,7 +10,7 @@ import { useNow } from '../lib/clock';
 import { orchestratorEntries, taskEntries } from '../lib/transcript';
 import { readTranscriptView, writeTranscriptView, type TranscriptView } from '../lib/transcriptView';
 import { useRunLogsMap } from '../runLogs';
-import type { AgentConversation, ChatMessage, LogLine, Run, Task } from '../types';
+import type { AgentConversation, ChatMessage, ConversationSettings, LogLine, Run, Task } from '../types';
 import {
   useAgentConversations,
   useCancelMessage,
@@ -39,10 +39,10 @@ import { PageHeader } from '../components/PageHeader';
 import { Transcript, ViewToggle } from '../components/Transcript';
 import { MessageRail } from '../components/MessageRail';
 import { Composer, ComposerArea } from '../components/Composer';
-import { ComposerSettings } from '../components/ComposerSettings';
+import { ComposerSettings, DraftComposerSettings } from '../components/ComposerSettings';
 import { ContextRing } from '../components/ContextRing';
 import { contextFraction } from '../lib/composerSettings';
-import { useAttachmentUploads } from '../components/ComposerAttachments';
+import { useAttachmentUploads, useLocalAttachments } from '../components/ComposerAttachments';
 import { DEFAULT_MAX_PER_MESSAGE } from '../lib/attachments';
 import { useStickToBottom } from '../lib/useStickToBottom';
 import { useDraft } from '../lib/useDraft';
@@ -81,9 +81,24 @@ export function Chat() {
   const showList = open || hasConversations;
 
   // A new chat started from the composer: create it, then open it with the message to send.
-  const startFromComposer = async (text: string) => {
-    const conversation = await create.mutateAsync('New chat');
-    navigate(`/chat/${conversation.id}`, { state: { message: text } });
+  // The chosen settings are stored before the message goes, so its first turn runs with them. A
+  // failed start keeps the conversation it created, so a retry does not leave a second empty one.
+  const created = useRef<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
+  const startFromComposer = async (start: StartRequest) => {
+    setStartError(null);
+    try {
+      created.current ??= (await create.mutateAsync('New chat')).id;
+      const hasSettings = Object.values(start.settings).some(Boolean);
+      // The picker already asked the owner to confirm a dangerous mode.
+      if (hasSettings) await putConversationSettings(created.current, start.settings, true);
+      const conversationId = created.current;
+      created.current = null;
+      navigate(`/chat/${conversationId}`, { state: { message: start.text, files: start.files } });
+    } catch (err) {
+      setStartError(errorMessage(err));
+      throw err;
+    }
   };
 
   let noneOpen = null;
@@ -110,7 +125,11 @@ export function Chat() {
   return (
     <div className="chat-page">
       <PageHeader title="Chat" />
-      <ErrorLine error={create.error} />
+      {startError ? (
+        <p className="error-line" role="alert">
+          {startError}
+        </p>
+      ) : null}
       <ErrorLine error={conversations.error} />
       <div className={cx('chat-layout', !showList && 'no-list')}>
         {showList ? (
@@ -211,15 +230,25 @@ function ConvTime({ value }: { value: string }) {
 }
 
 /** The start of a new chat: the heading, the composer and the example prompts. */
-function StartChat({ starting, onStart }: { starting: boolean; onStart: (text: string) => Promise<void> }) {
+interface StartRequest {
+  text: string;
+  settings: ConversationSettings;
+  /** Files to upload to the new conversation along with the message. */
+  files: File[];
+}
+
+function StartChat({ starting, onStart }: { starting: boolean; onStart: (start: StartRequest) => Promise<void> }) {
   const [draft, setDraft, clearDraft] = useDraft('new');
+  const [settings, setSettings] = useState<ConversationSettings>({});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const config = useConfig();
+  const attach = useLocalAttachments(config.data?.chat?.attachments?.max_per_message || DEFAULT_MAX_PER_MESSAGE);
 
   const submit = async () => {
     const text = draft.trim();
-    if (!text || starting) return;
+    if ((!text && attach.ids.length === 0) || starting) return;
     try {
-      await onStart(text);
+      await onStart({ text, settings, files: attach.files() });
       clearDraft();
     } catch {
       // The error is shown in the line above the page; the draft stays for another try.
@@ -238,9 +267,12 @@ function StartChat({ starting, onStart }: { starting: boolean; onStart: (text: s
         onDraft={setDraft}
         onSend={() => void submit()}
         disabled={starting}
-        sendDisabled={starting || draft.trim() === ''}
+        sendDisabled={starting || (draft.trim() === '' && attach.ids.length === 0)}
+        attach={attach}
         placeholder="Message the orchestrator…"
         label="Message the orchestrator"
+        leftControls={<DraftComposerSettings side="permission" settings={settings} onChange={setSettings} />}
+        rightControls={<DraftComposerSettings side="model" settings={settings} onChange={setSettings} />}
         autoFocus
       />
       <div className="examples-row">
@@ -477,19 +509,32 @@ function OrchestratorThread({
     }
   };
 
-  // A message handed over by StartChat is sent once, when this conversation first opens.
-  // The draft stays in the composer if the send fails.
+  // A message handed over by StartChat is sent once, when this conversation first opens. Its files
+  // upload first and the send waits for them. The draft stays in the composer if the send fails.
+  const handover = useRef(location.state as { message?: string; files?: File[] } | null);
+  const [handoverPending, setHandoverPending] = useState(!!handover.current?.message || !!handover.current?.files?.length);
   useEffect(() => {
-    const message = (location.state as { message?: string } | null)?.message;
-    if (!message || autoSent.current) return;
+    const first = handover.current;
+    if (!first || autoSent.current) return;
     autoSent.current = true;
     // Drop the handed-over message from history so a reload does not send it again.
     navigate(location.pathname, { replace: true, state: null });
-    setDraft(message);
-    void sendText(message);
+    if (first.message) setDraft(first.message);
+    if (first.files?.length) attach.add(first.files);
+    else if (first.message) void sendText(first.message);
+    else setHandoverPending(false);
     // Runs once per mount: sendText changes every render and the ref guards the rest.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.state]);
+  }, []);
+  useEffect(() => {
+    const first = handover.current;
+    if (!handoverPending || !first?.files?.length || attach.items.length === 0 || attach.uploading) return;
+    setHandoverPending(false);
+    // A file that failed to upload stays as a chip with its error; nothing is sent until it is dealt with.
+    if (attach.items.some((it) => it.status === 'error')) return;
+    void sendText(first.message ?? '', attach.ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoverPending, attach.uploading, attach.items]);
 
   if (conversation.isError) {
     // The API answers 404 for an id that was deleted or never existed: say so, and offer a fresh start.

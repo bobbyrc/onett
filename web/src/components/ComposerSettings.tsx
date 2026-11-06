@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { MenuPopover } from './MenuPopover';
-import { useConversationSettings, useUpdateConversationSettings } from '../queries';
+import { useConversationSettings, useNewConversationSettings, useUpdateConversationSettings } from '../queries';
 import { modelEffortLabel, needsDangerConfirm, permissionLabel } from '../lib/composerSettings';
-import type { ConversationSettings, SettingsChoice } from '../types';
+import type { ConversationSettings, ConversationSettingsView, SettingsChoice } from '../types';
 
 function Chevron() {
   return (
@@ -71,14 +71,62 @@ function ResetItem({ onClick }: { onClick: () => void }) {
 export function ComposerSettings({ conversationId, side }: { conversationId: string; side: 'permission' | 'model' }) {
   const query = useConversationSettings(conversationId);
   const update = useUpdateConversationSettings(conversationId);
+  if (!query.data) return null;
+  return (
+    <SettingsPicker
+      view={query.data}
+      side={side}
+      error={update.error?.message}
+      onSave={(settings, close, confirmDangerous) =>
+        update.mutate({ settings, confirmDangerous }, { onSuccess: close })
+      }
+    />
+  );
+}
+
+/**
+ * The same pickers before a conversation exists (the start screen). The choices are kept by the
+ * caller in `settings` and applied to the conversation the first message creates.
+ */
+export function DraftComposerSettings({
+  settings,
+  onChange,
+  side,
+}: {
+  settings: ConversationSettings;
+  onChange: (settings: ConversationSettings) => void;
+  side: 'permission' | 'model';
+}) {
+  const query = useNewConversationSettings();
+  if (!query.data) return null;
+  return (
+    <SettingsPicker
+      view={{ ...query.data, settings }}
+      side={side}
+      onSave={(next, close) => {
+        onChange(next);
+        close();
+      }}
+    />
+  );
+}
+
+function SettingsPicker({
+  view,
+  side,
+  onSave,
+  error,
+}: {
+  view: ConversationSettingsView;
+  side: 'permission' | 'model';
+  onSave: (settings: ConversationSettings, close: () => void, confirmDangerous: boolean) => void;
+  error?: string;
+}) {
   // The dangerous mode waiting for the owner's confirmation, if any.
   const [pending, setPending] = useState<SettingsChoice | null>(null);
-  const view = query.data;
-  if (!view) return null;
-
   const save = (settings: ConversationSettings, close: () => void, confirmDangerous = false) =>
-    update.mutate({ settings, confirmDangerous }, { onSuccess: close });
-  const failure = update.error ? <p className="menu-pop-error small" role="alert">{update.error.message}</p> : null;
+    onSave(settings, close, confirmDangerous);
+  const failure = error ? <p className="menu-pop-error small" role="alert">{error}</p> : null;
 
   if (side === 'permission') {
     const label = permissionLabel(view);

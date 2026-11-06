@@ -231,8 +231,12 @@ on disk is deleted. Other roles see neither control. The sidebar gets **Projects
 **Chat** (`/chat`, `/chat/:id`, `/chat/task/:taskId`) — talk to the orchestrator or to any task
 agent, and read what an agent did as it works. With no conversation open, a centred block 640px
 wide sits 8vh from the top: the heading "Talk to the orchestrator", a muted line on what it can and
-cannot do, the composer, and three example prompts as chips. Sending creates a conversation and
-opens it with the message already sent.
+cannot do, the composer, and three example prompts as chips. The composer is the thread's: the
+same attach button and permission and model pickers (no context ring yet). Choices come from
+`GET /new-conversation/settings` and are held in the page, as are attached files, until you send.
+Sending creates a conversation, stores the chosen settings on it, opens it, uploads the files and
+only then sends the message, so the first turn runs with what you picked. If storing the settings
+fails the draft stays and a retry reuses the conversation just created.
 
 **Composer.** The field grows with what you type up to 40% of the screen height (`40dvh`, so the
 phone keyboard is counted), then scrolls inside itself, and shrinks again after a send. Below it,

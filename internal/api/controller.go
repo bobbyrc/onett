@@ -94,7 +94,8 @@ type Controller interface {
 	// upload). Text may be empty when there are any. They are stored with the message.
 	SendChatWith(ctx context.Context, conversationID, text string, attachmentIDs []string) (domain.ChatMessage, error)
 	// ConversationSettings returns a conversation's model, effort and permission mode, the role's
-	// defaults, and the choices its harness accepts.
+	// defaults, and the choices its harness accepts. An empty id gives the orchestrator's defaults
+	// and choices for a conversation not created yet.
 	ConversationSettings(ctx context.Context, id string) (SettingsView, error)
 	// UpdateConversationSettings replaces the settings, which apply from the next turn. Values
 	// outside the harness's choices are ErrInvalid, as is a dangerous permission mode (one that

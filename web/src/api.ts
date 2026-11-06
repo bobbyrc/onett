@@ -279,6 +279,9 @@ export const sendMessage = (id: string, text: string, attachments: string[] = []
 export const getConversationSettings = (id: string) =>
   request<ConversationSettingsView>('GET', `/conversations/${encodeURIComponent(id)}/settings`);
 
+/** The defaults and choices for a conversation that does not exist yet (the start screen). */
+export const getNewConversationSettings = () => request<ConversationSettingsView>('GET', '/new-conversation/settings');
+
 /** Replaces the settings; they apply from the next turn. A dangerous permission mode needs confirmDangerous. */
 export const putConversationSettings = (id: string, settings: ConversationSettings, confirmDangerous = false) =>
   request<ConversationSettingsView>('PUT', `/conversations/${encodeURIComponent(id)}/settings`, {

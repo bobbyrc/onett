@@ -68,3 +68,13 @@ func TestConversationSettingsRefuseToken(t *testing.T) {
 	rec = x.call(t, http.MethodGet, "/api/v1/conversations/c1/settings", "")
 	assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 }
+
+func TestNewConversationSettingsRoute(t *testing.T) {
+	x := newHarness(t)
+	person := x.newUserSession(t, "alice", domain.RoleOperator)
+	rec := x.authReq(t, http.MethodGet, "/api/v1/new-conversation/settings", "", withCookie(person))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var v SettingsView
+	decode(t, rec, &v)
+	assert.Equal(t, "claude", v.Harness)
+}
