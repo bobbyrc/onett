@@ -184,7 +184,7 @@ function Sidebar({
         {orchestrator.map((conversation) => (
           <li key={conversation.id}>
             <Link to={`/chat/${conversation.id}`} className={cx('conv-item', conversation.id === activeId && 'active')}>
-              <span className="conv-title" title={conversation.title}>{conversation.title || 'Untitled'}</span>
+              <span className="conv-title" title={conversation.title || 'Untitled'}>{conversation.title || 'Untitled'}</span>
               <span className="conv-meta muted small">
                 {conversation.busy ? 'working · ' : ''}
                 <ConvTime value={conversation.updated_at} />
