@@ -57,6 +57,8 @@ export interface TranscriptProps {
   queuedActions?: (messageId: string) => ReactNode;
   /** The run that is producing output now. Without it, a trailing call with no result counts as live. */
   liveRunId?: string;
+  /** Tokens each run used (input + output). The log has no per-call counts, so the total shows on the run's last tool row. */
+  runTokens?: Record<string, number>;
 }
 
 /** A run of agent entries, or an owner's turn, laid out as a conversation or as terminal lines. */
@@ -73,9 +75,13 @@ function runEnd(entries: Entry[], i: number, afterRun: TranscriptProps['afterRun
   return afterRun(runId);
 }
 
-function ConversationView({ entries, agentLabel, afterRun, queuedActions, liveRunId }: TranscriptProps) {
+function ConversationView({ entries, agentLabel, afterRun, queuedActions, liveRunId, runTokens }: TranscriptProps) {
   const blocks = groupToolRuns(entries);
   const turns = turnWork(entries, liveRunId);
+  // Each run's last tool entry: only there does the run's token total show, once.
+  const lastToolOf = new Map<string, string>();
+  for (const e of entries) if (e.kind === 'tool' && e.runId) lastToolOf.set(e.runId, e.id);
+  const tokensEndingAt = (e: ToolEntry) => (e.runId && lastToolOf.get(e.runId) === e.id ? runTokens?.[e.runId] : undefined);
   // Turns the reader has flipped. A finished turn starts collapsed; its toggle is keyed by its first work entry.
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
   // Index in `entries` of each block's last entry, so afterRun and the agent label see the same neighbours.
@@ -115,6 +121,7 @@ function ConversationView({ entries, agentLabel, afterRun, queuedActions, liveRu
                 <ToolRun
                   calls={b.calls}
                   until={until}
+                  tokens={tokensEndingAt(b.calls[b.calls.length - 1])}
                   active={bi === blocks.length - 1 && (liveRunId === undefined || b.calls[b.calls.length - 1].runId === liveRunId)}
                 />
               </div>
@@ -126,6 +133,7 @@ function ConversationView({ entries, agentLabel, afterRun, queuedActions, liveRu
                 labelled={isAgentKind(b.entry) && labelled}
                 live={bi === blocks.length - 1 && (liveRunId === undefined || b.entry.runId === liveRunId)}
                 until={until}
+                tokens={b.entry.kind === 'tool' ? tokensEndingAt(b.entry) : undefined}
               />
             )}
             {runEnd(entries, end, afterRun)}
@@ -143,10 +151,12 @@ function ConversationEntry({
   queuedActions,
   live = false,
   until,
+  tokens,
 }: {
   entry: Entry;
   live?: boolean;
   until?: string;
+  tokens?: number;
   labelled: boolean;
   agentLabel: string;
   queuedActions: TranscriptProps['queuedActions'];
@@ -185,7 +195,7 @@ function ConversationEntry({
       return (
         <div className="tr-ai tr-ai-tool">
           {labelled ? <div className="tr-lbl">{agentLabel}</div> : null}
-          <ToolLine entry={e} live={live} until={until} />
+          <ToolLine entry={e} live={live} until={until} tokens={tokens} />
         </div>
       );
     case 'denial':
