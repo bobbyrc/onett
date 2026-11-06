@@ -175,6 +175,10 @@ as a fallback.
   `owner_unreachable` in `/stats`; `/config?mode=setup`), Secrets set (every secret the config
   refers to is set, from `/secrets`; `/config?mode=secrets`). It hides itself when all are done
   and has a Dismiss button (remembered in the browser). Logic is in `src/lib/setupChecklist.ts`.
+- **Blocked reason** (`BlockedReason`, used by the Needs you cards and the task page): the reason
+  is clamped to three lines with a Show more / Show less toggle (only when it overflows), keeps
+  the agent's line breaks and wraps long flags and paths inside the box, so Retry and Cancel stay
+  in view.
 - **Owner-unreachable banner**: above the board, a red callout "Nobody will be told" while
   `/stats` says `owner_unreachable` (only the log notifier, no channel). It names the fix (set
   up Telegram, Discord or ntfy) and lists each blocked goal as "Goal X is blocked and you have
@@ -563,6 +567,9 @@ role names, an image attachment, timestamps from minutes to days old, done, bloc
 goals, deploys with and without notes, snake_case loop names, multi-paragraph agent prompts). Add
 a case there when a page breaks on a data shape the fixtures do not have. `fixtures.ts` is the
 opposite, layout-stress data for `npm run test:mobile`.
+
+Shots are one viewport tall; set `ONETT_SHOTS_FULL_PAGE=1` to capture the whole page (long lists,
+cards that run below the fold).
 
 The clock is frozen, the timezone is UTC, animations are off and the browser rasterises in software,
 so two runs of the same code give identical PNGs, and it can run at the same time as

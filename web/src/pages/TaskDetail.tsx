@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { Approval, Run, Task } from '../types';
 import { usePausedProjects, useTask } from '../queries';
 import { ApprovalCard } from '../components/ApprovalCard';
+import { BlockedReason } from '../components/BlockedReason';
 import { Callout } from '../components/Callout';
 import { ErrorLine } from '../components/ErrorLine';
 import { IdChip } from '../components/IdChip';
@@ -81,7 +82,7 @@ export function TaskDetail() {
             <Section title="Needs you" className="task-needs">
               {task.status === 'blocked' ? (
                 <>
-                  <Callout title="Blocked">{task.blocked_reason || 'No reason was recorded.'}</Callout>
+                  <BlockedReason title="Blocked">{task.blocked_reason || 'No reason was recorded.'}</BlockedReason>
                   <div className="task-needs-actions">{actions}</div>
                 </>
               ) : null}
