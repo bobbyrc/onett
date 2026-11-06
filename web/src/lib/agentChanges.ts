@@ -12,6 +12,8 @@ export interface AgentForm {
   description: string;
   harness: string;
   model: string;
+  effort: string;
+  permissionMode: string;
   args: string[];
   promptMode: 'ref' | 'text';
   promptRef: string;
@@ -26,6 +28,8 @@ export function formFromAgent(a: AgentView): AgentForm {
     description: a.description,
     harness: a.harness,
     model: a.model,
+    effort: a.effort ?? '',
+    permissionMode: a.permission_mode ?? '',
     args: [...a.args],
     promptMode: inline ? 'text' : 'ref',
     promptRef: inline ? '' : a.prompt,
@@ -46,6 +50,8 @@ export function formFromEntry(name: string, entry: AgentEntry, view: AgentView |
     description: text('description'),
     harness: text('harness'),
     model: text('model'),
+    effort: text('effort'),
+    permissionMode: text('permission_mode'),
     args: Array.isArray(entry.args) ? entry.args.map(String) : [],
     promptMode: inline ? 'text' : 'ref',
     promptRef: text('prompt'),
@@ -60,6 +66,8 @@ export function blankForm(): AgentForm {
     description: '',
     harness: '',
     model: '',
+    effort: '',
+    permissionMode: '',
     args: [],
     promptMode: 'text',
     promptRef: '',
@@ -71,6 +79,8 @@ export function blankForm(): AgentForm {
 export function saveChanges(form: AgentForm): ConfigChange[] {
   const value: Record<string, unknown> = { harness: form.harness.trim() };
   if (form.model.trim()) value.model = form.model.trim();
+  if (form.effort.trim()) value.effort = form.effort.trim();
+  if (form.permissionMode.trim()) value.permission_mode = form.permissionMode.trim();
   if (form.description.trim()) value.description = form.description.trim();
   if (form.args.length > 0) value.args = form.args;
   if (form.promptMode === 'text') {

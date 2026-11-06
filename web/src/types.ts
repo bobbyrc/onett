@@ -375,6 +375,9 @@ export interface AgentView {
   /** False when the harness CLI is not on onett's PATH. */
   harness_cli_found: boolean;
   model: string;
+  /** The role's default effort and permission mode; empty is the harness's own. */
+  effort?: string;
+  permission_mode?: string;
   prompt: string;
   prompt_text: string;
   prompt_error?: string;
@@ -524,6 +527,8 @@ export interface Harness {
 export interface Agent {
   harness: string;
   model?: string;
+  effort?: string;
+  permission_mode?: string;
   prompt: string;
   prompt_text?: string;
   args?: string[];

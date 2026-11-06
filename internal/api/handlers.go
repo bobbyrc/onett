@@ -138,6 +138,9 @@ type AgentView struct {
 	// that runs no external program.
 	HarnessCLIFound bool   `json:"harness_cli_found"`
 	Model           string `json:"model"`
+	// Effort and PermissionMode are the role's defaults; empty is the harness's own.
+	Effort         string `json:"effort,omitempty"`
+	PermissionMode string `json:"permission_mode,omitempty"`
 	// Prompt is the reference the agent was configured with: "builtin:<name>" or a file path,
 	// and "" when the instructions are written inline.
 	Prompt string `json:"prompt"`
@@ -658,6 +661,8 @@ func (s *server) listAgents(w http.ResponseWriter, r *http.Request) {
 			HarnessType:     cfg.Harness[a.Harness].Type,
 			HarnessCLIFound: found,
 			Model:           a.Model,
+			Effort:          a.Effort,
+			PermissionMode:  a.PermissionMode,
 			Prompt:          a.Prompt,
 			PromptUpdates:   strings.HasPrefix(a.Prompt, "builtin:") && a.PromptText == "",
 			Description:     a.Description,

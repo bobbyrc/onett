@@ -424,14 +424,14 @@ table when it refuses a change, such as demoting or removing the last owner.
 
 **Agents** (`/agents`) — card grid of the configured roles. Each card shows the name, a badge
 (`built-in`, `edited`, `custom` or `removed`: where its settings come from, or that it is switched
-off), the description, the harness and its type, the model (or "harness default"), and **Used for**:
+off), the description, the harness and its type, the model, effort and permission mode (each "harness default" when unset), and **Used for**:
 one line per task kind or route that uses the agent, with the project when one is named. The prompt
 shows its first 8 lines with "Show full prompt" to expand it. An edited built-in that no longer
 receives onett's prompt updates says so, and "Compare with built-in" puts the built-in text beside
 the customised one (stacked on a phone). Enabled agents come first; removed ones sit under a
 "Removed" heading. Anyone can read the page. An owner also sees:
 "New agent", which opens a sheet with name (refused when taken), description, harness (the
-configured harnesses), model, args (one per line), and the prompt, either a reference such as
+configured harnesses), model, effort, permission mode, args (one per line), and the prompt, either a reference such as
 `builtin:triager` or a path, or text written here. "Start from" copies another agent's settings
 into the sheet, or starts blank. An enabled card has "Edit"; "Remove" (a built-in or edited agent is
 switched off, a custom one is deleted); and "Reset to built-in" (an edited one). Remove and reset ask

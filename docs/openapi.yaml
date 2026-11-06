@@ -1583,7 +1583,7 @@ paths:
       description: |
         Works for the orchestrator's conversations and for a task agent's. `settings` are the
         owner's overrides (an empty field means the role's default); `defaults` is the role's
-        model; `choices` is what the conversation's harness accepts, built in one place per
+        model, effort and permission mode; `choices` is what the conversation's harness accepts, built in one place per
         harness (the models named in the agents config are added).
       parameters:
         - $ref: '#/components/parameters/ConversationId'
@@ -3599,6 +3599,12 @@ components:
             external program.
         model:
           type: string
+        effort:
+          type: string
+          description: The role's default reasoning effort; empty is the harness's own.
+        permission_mode:
+          type: string
+          description: The role's default permission mode; empty is the harness's own.
         prompt:
           type: string
           description: "`builtin:<name>` or a path to a Markdown file; empty when the instructions are inline."
@@ -3909,6 +3915,10 @@ components:
         harness:
           type: string
         model:
+          type: string
+        effort:
+          type: string
+        permission_mode:
           type: string
         prompt:
           type: string

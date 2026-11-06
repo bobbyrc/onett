@@ -37,6 +37,8 @@ function form(overrides: Partial<AgentForm>): AgentForm {
     description: '',
     harness: 'claude',
     model: '',
+    effort: '',
+    permissionMode: '',
     args: [],
     promptMode: 'text',
     promptRef: '',
@@ -52,6 +54,8 @@ describe('blankForm', () => {
       description: '',
       harness: '',
       model: '',
+    effort: '',
+    permissionMode: '',
       args: [],
       promptMode: 'text',
       promptRef: '',
@@ -141,6 +145,11 @@ describe('saveChanges', () => {
     expect(value).not.toHaveProperty('args');
   });
 
+  it('writes effort and permission_mode when set', () => {
+    const value = saveChanges(form({ effort: ' high ', permissionMode: 'plan' }))[0].value as Record<string, unknown>;
+    expect(value).toMatchObject({ effort: 'high', permission_mode: 'plan' });
+  });
+
   it('writes a reference as prompt and drops prompt_text', () => {
     const changes = saveChanges(
       form({ promptMode: 'ref', promptRef: 'builtin:triager', promptText: 'stale copy', description: 'Sorts.', model: 'fast', args: ['--x'] }),
@@ -201,6 +210,8 @@ describe('formFromEntry', () => {
       description: '',
       harness: '',
       model: '',
+    effort: '',
+    permissionMode: '',
       args: [],
       promptMode: 'ref',
       promptRef: '',
