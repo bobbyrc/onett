@@ -89,6 +89,14 @@ type ConvStart struct {
 	// arguments, environment). A turn whose fingerprint differs from the live process's replaces
 	// the process.
 	Fingerprint string
+	// Live identifies the settings that can change while the process runs (the model, the
+	// permission mode). A turn whose Live differs from the process's calls Retune instead of
+	// replacing the process, which keeps its prompt cache.
+	Live string
+	// Retune returns the input that moves a process whose Live was prev to this turn's Live, or
+	// false when that cannot be done in place and the process must be replaced. Nil means every
+	// change needs a new process.
+	Retune func(prev string) ([]byte, bool)
 	// Encode turns a prompt into the bytes written to the process's stdin.
 	Encode func(prompt string) ([]byte, error)
 	// Start starts the process with first (an encoded prompt) as its first input, keeping stdin
@@ -121,10 +129,14 @@ func ConvRunID(conversationID string) string {
 // convFingerprintFile records the fingerprint a shim-backed process started with.
 const convFingerprintFile = "conv.fp"
 
+// convLiveFile records the Live settings of a shim-backed process, which change as it is retuned.
+const convLiveFile = "conv.live"
+
 // convProc is one live process and the turn it is answering, if any.
 type convProc struct {
 	key    string
 	fp     string
+	live   string // guarded by mu
 	proc   *Proc
 	encode func(string) ([]byte, error)
 
@@ -173,14 +185,24 @@ func StartConvTurn(ctx context.Context, spec Spec, cs ConvStart) (Session, error
 			}
 		}
 		if c != nil {
-			t, err := c.beginTurn(spec, cs)
+			t, pre, err := c.beginTurn(spec, cs)
 			switch {
 			case err == nil:
-				if werr := c.write(t, spec.Prompt); werr != nil {
+				werr := error(nil)
+				if len(pre) > 0 {
+					werr = c.proc.WriteStdin(pre)
+				}
+				if werr == nil {
+					werr = c.write(t, spec.Prompt)
+				}
+				if werr != nil {
 					c.abandon(t)
 					c.stop()
 					convs.remove(spec.ConversationID, c)
 					continue
+				}
+				if len(pre) > 0 && cs.RunDir != "" {
+					_ = os.WriteFile(cs.RunDir+"/"+convLiveFile, []byte(cs.Live), 0o600)
 				}
 				return t.watch(ctx), nil
 			case errors.Is(err, errConvBusy):
@@ -201,8 +223,9 @@ func StartConvTurn(ctx context.Context, spec Spec, cs ConvStart) (Session, error
 		if cs.RunDir != "" {
 			// Best effort: without it a restarted onett will not reuse this process.
 			_ = os.WriteFile(cs.RunDir+"/"+convFingerprintFile, []byte(cs.Fingerprint), 0o600)
+			_ = os.WriteFile(cs.RunDir+"/"+convLiveFile, []byte(cs.Live), 0o600)
 		}
-		c = &convProc{key: spec.ConversationID, fp: cs.Fingerprint, proc: p, encode: cs.Encode}
+		c = &convProc{key: spec.ConversationID, fp: cs.Fingerprint, live: cs.Live, proc: p, encode: cs.Encode}
 		t := newConvTurn(c, spec.KeepAlive)
 		c.turn = t // before the router runs, so the first events have a turn to go to
 		convs.mu.Lock()
@@ -254,7 +277,8 @@ func reattachConv(spec Spec, cs ConvStart) *convProc {
 		}
 		return nil
 	}
-	c := &convProc{key: spec.ConversationID, fp: cs.Fingerprint, proc: p, encode: cs.Encode}
+	live, _ := os.ReadFile(cs.RunDir + "/" + convLiveFile)
+	c := &convProc{key: spec.ConversationID, fp: cs.Fingerprint, live: string(live), proc: p, encode: cs.Encode}
 	c.idle = time.AfterFunc(spec.KeepAlive, c.stopIfIdle)
 	return c
 }
@@ -265,14 +289,27 @@ func newConvTurn(c *convProc, keepAlive time.Duration) *convTurn {
 
 // beginTurn claims the process for a turn. It fails with errConvBusy while a turn runs, and with
 // another error when the process cannot be reused.
-func (c *convProc) beginTurn(spec Spec, cs ConvStart) (*convTurn, error) {
+func (c *convProc) beginTurn(spec Spec, cs ConvStart) (*convTurn, []byte, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch {
 	case c.turn != nil:
-		return nil, errConvBusy
+		return nil, nil, errConvBusy
 	case c.stopping || c.fp != cs.Fingerprint:
-		return nil, errors.New("process cannot be reused")
+		return nil, nil, errors.New("process cannot be reused")
+	}
+	// Settings that can change in place are sent ahead of the prompt, on the same stdin, so the
+	// process applies them before it reads the message.
+	var pre []byte
+	if c.live != cs.Live {
+		ok := false
+		if cs.Retune != nil {
+			pre, ok = cs.Retune(c.live)
+		}
+		if !ok {
+			return nil, nil, errors.New("process cannot be retuned")
+		}
+		c.live = cs.Live
 	}
 	if c.idle != nil {
 		c.idle.Stop()
@@ -280,7 +317,7 @@ func (c *convProc) beginTurn(spec Spec, cs ConvStart) (*convTurn, error) {
 	}
 	t := newConvTurn(c, spec.KeepAlive)
 	c.turn = t
-	return t, nil
+	return t, pre, nil
 }
 
 func (c *convProc) write(t *convTurn, prompt string) error {

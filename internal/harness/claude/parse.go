@@ -32,6 +32,9 @@ type streamLine struct {
 	PermissionDenials []denial        `json:"permission_denials"`
 	APIErrorStatus    int             `json:"api_error_status"`
 	RateLimitInfo     *rateLimitInfo  `json:"rate_limit_info"`
+	Response          *struct {
+		Subtype string `json:"subtype"`
+	} `json:"response"`
 }
 
 // rateLimitInfo is the payload of a rate_limit_event. Status is "allowed", "allowed_warning" or
@@ -144,6 +147,12 @@ func (p *parser) parseLine(line string) []harness.Event {
 		// the result can say the run stopped on the limit.
 		if ri := sl.RateLimitInfo; ri != nil && ri.Status == "rejected" {
 			p.rejected = ri
+		}
+	case "control_response":
+		// The answer to a set_model or set_permission_mode request. Only a refusal is worth
+		// showing: the conversation then goes on with the old setting.
+		if sl.Response != nil && sl.Response.Subtype == "error" {
+			events = append(events, event(domain.LogSystem, harness.Truncate(line, maxRawChars)))
 		}
 	default:
 		events = append(events, event(domain.LogSystem, harness.Truncate(line, maxRawChars)))
