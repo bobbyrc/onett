@@ -113,7 +113,7 @@ export function TaskDetail() {
                 <Table<Task>
                   columns={[
                     { key: 'status', header: 'Status', cell: (t) => <StatusPill status={t.status} /> },
-                    { key: 'title', header: 'Title', cell: (t) => <Link to={`/tasks/${t.id}`}>{t.title}</Link> },
+                    { key: 'title', header: 'Title', wide: true, cell: (t) => <Link to={`/tasks/${t.id}`}>{t.title}</Link> },
                     { key: 'kind', header: 'Kind', cell: (t) => t.kind },
                     { key: 'role', header: 'Role', cell: (t) => agentLabel(t.role) || '—' },
                   ]}

@@ -24,7 +24,7 @@ function matchesIssueFilter(f: Friction, filter: string): boolean {
 
 const columns: Column<Friction>[] = [
   { key: 'project', header: 'Project', cell: (f) => f.project },
-  { key: 'title', header: 'Title', cell: (f) => f.title },
+  { key: 'title', header: 'Title', wide: true, cell: (f) => f.title },
   { key: 'count', header: 'Count', cell: (f) => f.count },
   {
     key: 'issue',

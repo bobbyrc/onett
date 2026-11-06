@@ -5,6 +5,9 @@ export interface Column<T> {
   key: string;
   header: string;
   cell: (row: T) => ReactNode;
+  /** A free-text column (a title, notes, a URL). It takes the width the other cells leave and may
+   * wrap; every other cell stays on one line. */
+  wide?: boolean;
 }
 
 /**
@@ -29,7 +32,7 @@ export function Table<T>({
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column.key} scope="col">
+              <th key={column.key} scope="col" className={column.wide ? 'cell-wide' : undefined}>
                 {column.header}
               </th>
             ))}
@@ -38,11 +41,22 @@ export function Table<T>({
         <tbody>
           {rows.map((row) => (
             <tr key={rowKey(row)}>
-              {columns.map((column) => (
-                <td key={column.key} data-label={column.header}>
-                  {column.cell(row)}
-                </td>
-              ))}
+              {columns.map((column) => {
+                const content = column.cell(row);
+                // Plain text (a role, a project) is truncated with an ellipsis when too long, and
+                // the title shows it whole.
+                const text = typeof content === 'string' && !column.wide;
+                return (
+                  <td
+                    key={column.key}
+                    data-label={column.header}
+                    className={column.wide ? 'cell-wide' : text ? 'cell-text' : undefined}
+                    title={text ? content : undefined}
+                  >
+                    {content}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
