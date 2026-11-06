@@ -233,6 +233,21 @@ describe('why a run ended', () => {
   });
 });
 
+describe('chat transcript and daemon bookkeeping', () => {
+  it('hides system log lines from a chat thread but keeps them in a task run', () => {
+    const logs = {
+      r1: [
+        line('system', 'session started (model x)', undefined, 'r1'),
+        line('system', 'onett restarted; reattached to the agent at stream offset 0', undefined, 'r1'),
+        line('text', 'hi', undefined, 'r1'),
+      ],
+    };
+    const o = orchestratorEntries([msg({ id: 'm1', role: 'user', text: 'go', run_id: 'r1' })], logs);
+    expect(o.map((x) => x.kind)).toEqual(['owner', 'text']);
+    expect(runEntries(logs.r1).map((x) => x.kind)).toEqual(['system', 'system', 'text']);
+  });
+});
+
 describe('clipLines', () => {
   it('does not count a trailing newline as a line', () => {
     expect(clipLines('a\nb\nc\n', 3)).toEqual({ lines: ['a', 'b', 'c'], clipped: false });
