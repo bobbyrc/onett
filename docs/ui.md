@@ -58,6 +58,9 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
 - **RiskBadge**: condensed caps on one fixed ramp, the same everywhere: low outlined, medium on
   call yellow, high on stop red, unrated as quiet muted text.
 - **RelTime**: "3m ago", full timestamp in `title`.
+- **Agent names**: wherever the UI shows an agent or role as text it uses `agentLabel` (`web/src/lib/agentLabel.ts`):
+  the agent's title, else its key in Title Case ("implementer-claude" → "Implementer Claude", "sre" → "SRE").
+  URLs, form values, config, the API and the CLI keep the raw key; each Agents page card shows it as a small mono line.
 - **IdChip**: last 8 chars of an ID in monospace (IDs are UUIDv7, whose leading chars are a
   timestamp shared by IDs created close together), copies the full ID on click.
 - **Empty**: muted centred line in a dashed rule saying what would appear here and why it is

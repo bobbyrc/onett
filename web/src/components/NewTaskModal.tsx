@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TaskKind } from '../types';
+import { agentLabel } from '../lib/agentLabel';
 import { useAgents, useCreateTask, useProjects } from '../queries';
 import { Button } from './Button';
 import { ErrorLine } from './ErrorLine';
@@ -75,7 +76,7 @@ export function NewTaskModal({ open, onClose, defaultProject }: { open: boolean;
             <option value="">Routing default</option>
             {(agents.data ?? []).filter((agent) => !agent.disabled).map((agent) => (
               <option key={agent.name} value={agent.name}>
-                {agent.name}
+                {agentLabel(agent)}
               </option>
             ))}
           </select>
