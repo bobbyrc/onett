@@ -24,7 +24,7 @@ export type Entry = EntryBase &
     | { kind: 'owner'; text: string; queued?: boolean; messageId?: string; attachments?: Attachment[]; author?: string }
     | { kind: 'prompt'; text: string; label: string }
     | { kind: 'text'; text: string }
-    | { kind: 'tool'; tool: ToolSummary; input: string; result?: string; resultError?: boolean }
+    | { kind: 'tool'; tool: ToolSummary; input: string; result?: string; resultError?: boolean; elapsedSeconds?: number }
     | { kind: 'denial' | 'error' | 'system' | 'stderr'; text: string }
     | { kind: 'divider'; text: string }
   );
@@ -96,7 +96,8 @@ function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: 
   for (const l of sorted) {
     // Daemon bookkeeping ("session started", "onett restarted; reattached ...") stays in the run
     // log; a chat thread is the conversation, and why a run ended is shown by endedEntries.
-    if (skipSystem && l.kind === 'system') continue;
+    // Progress heartbeats are the exception: they feed the running tool row, and add no row.
+    if (skipSystem && l.kind === 'system' && !l.text.startsWith('{"type":"tool_progress"')) continue;
     const at = { id: `${l.run_id}:${l.seq}`, runId: l.run_id, time: l.time };
     switch (l.kind) {
       case 'prompt':
@@ -130,7 +131,12 @@ function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: 
         break;
       }
       default:
-        if (l.kind === 'system' && isRawStreamEvent(l.text)) break;
+        if (l.kind === 'system' && isRawStreamEvent(l.text)) {
+          const p = toolProgress(l.text);
+          const call = p && byId.get(p.toolId);
+          if (call && call.result === undefined) call.elapsedSeconds = p!.seconds;
+          break;
+        }
         out.push({ ...at, kind: l.kind, text: l.text });
     }
   }
@@ -155,6 +161,21 @@ export function isInternalLine(e: Entry): boolean {
 function isRawStreamEvent(text: string): boolean {
   // A prefix test, not JSON.parse: the parser truncates long lines, which are then not valid JSON.
   return /^\{"type":"[a-z_]+"/.test(text);
+}
+
+/**
+ * The call a `tool_progress` line reports on and how long it has run, or undefined for any other
+ * line. A heartbeat's id is the call's id plus `-heartbeat-N`.
+ */
+function toolProgress(text: string): { toolId: string; seconds: number } | undefined {
+  if (!text.startsWith('{"type":"tool_progress"')) return undefined;
+  try {
+    const p = JSON.parse(text) as { tool_use_id?: unknown; elapsed_time_seconds?: unknown };
+    if (typeof p.tool_use_id !== 'string' || typeof p.elapsed_time_seconds !== 'number') return undefined;
+    return { toolId: p.tool_use_id.replace(/-heartbeat-\d+$/, ''), seconds: p.elapsed_time_seconds };
+  } catch {
+    return undefined; // truncated by the parser
+  }
 }
 
 /** One run's log as entries. `fallbackPrompt` (the task body) stands in when the run recorded no prompt line. */

@@ -29,6 +29,10 @@ export function spanLabel(from: string, until?: string): string | undefined {
   return ms >= 1000 ? formatDuration(ms) : undefined;
 }
 
+/** How long a running call has gone, as last reported by the agent's progress heartbeats. */
+const liveElapsed = (e: ToolEntry): string | undefined =>
+  e.elapsedSeconds !== undefined && e.elapsedSeconds >= 1 ? formatDuration(e.elapsedSeconds * 1000) : undefined;
+
 /** Right-aligned metadata: status · duration · tokens. Only what is known; the log has no per-call token count, so tokens are the whole run's total. */
 function Meta({ status, danger, duration, tokens }: { status: string; danger?: boolean; duration?: string; tokens?: number }) {
   return (
@@ -59,7 +63,7 @@ export function ToolLine({ entry, live = false, until, tokens }: { entry: ToolEn
         <Meta
           status={lampLabel[lamp].toLowerCase()}
           danger={lamp === 'failed'}
-          duration={lamp === 'live' ? undefined : spanLabel(entry.time, until)}
+          duration={lamp === 'live' ? liveElapsed(entry) : spanLabel(entry.time, until)}
           tokens={lamp === 'live' ? undefined : tokens}
         />
       </button>
