@@ -579,10 +579,26 @@
 
 .msg-att-img img {
   display: block;
-  max-width: 100%;
-  max-height: 240px;
+  width: auto;
+  height: auto;
+  max-width: min(100%, 320px);
+  max-height: 320px;
   border: 1px solid var(--chat-border);
   border-radius: var(--chat-radius-md);
+}
+
+/* On a phone the thumbnail fills the bubble, keeping its aspect ratio. */
+@media (max-width: 640px) {
+  .msg-atts li:has(> .msg-att-img) {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .msg-att-img img {
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+  }
 }
 
 @media (max-width: 640px) {
