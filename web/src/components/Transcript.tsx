@@ -1,7 +1,7 @@
 import { Fragment, useId, useState, type ReactNode } from 'react';
 import { cx, formatClock } from '../lib/format';
 import { formatDuration, parseTime } from '../lib/time';
-import { clipLines, type Entry } from '../lib/transcript';
+import { clipLines, isInternalLine, type Entry } from '../lib/transcript';
 import type { TranscriptView } from '../lib/transcriptView';
 import { WorkedToggle } from './ActivityLine';
 import { CopyButton } from './CopyButton';
@@ -63,7 +63,8 @@ export interface TranscriptProps {
 
 /** A run of agent entries, or an owner's turn, laid out as a conversation or as terminal lines. */
 export function Transcript(props: TranscriptProps) {
-  return props.view === 'terminal' ? <TerminalView {...props} /> : <ConversationView {...props} />;
+  if (props.view === 'terminal') return <TerminalView {...props} />;
+  return <ConversationView {...props} entries={props.entries.filter((e) => !isInternalLine(e))} />;
 }
 
 const isAgentKind = (e: Entry) => e.kind === 'text' || e.kind === 'tool';
