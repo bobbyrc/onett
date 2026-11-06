@@ -37,6 +37,7 @@ import { ErrorLine } from '../components/ErrorLine';
 import { Modal } from '../components/Modal';
 import { PageHeader } from '../components/PageHeader';
 import { Transcript, ViewToggle } from '../components/Transcript';
+import { MessageRail } from '../components/MessageRail';
 import { Composer, ComposerArea } from '../components/Composer';
 import { useAttachmentUploads } from '../components/ComposerAttachments';
 import { DEFAULT_MAX_PER_MESSAGE } from '../lib/attachments';
@@ -118,6 +119,7 @@ export function Chat() {
         ) : null}
         <section className="thread">{thread}</section>
       </div>
+      <MessageRail />
     </div>
   );
 }
