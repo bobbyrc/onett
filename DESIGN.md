@@ -280,9 +280,10 @@ A fixed rail and one main column. The rail is 216px wide and sticky at full heig
 is at most 1360px wide with 28px top and 32px side padding (under 760px: 16px top and sides,
 40px bottom).
 
-Overview: the board spans the full main width, with a 14px inner padding, 2px gaps between
-windows, and 28px below. Windows fill a row with `auto-fill` at a 176px minimum; the line window
-takes a fixed 260px at the right. Below the board, two columns at a 7:5 ratio with 32px between
+Overview: the board is only as wide as its windows, with a 14px inner padding, 2px gaps between
+windows, and 28px below. Windows are 208px and the line window takes a fixed 260px at the right,
+so one project makes a small board, not a wide empty one. When the windows do not fit in one row,
+the board stops at the main width and they wrap into a grid that fills it. Below the board, two columns at a 7:5 ratio with 32px between
 them: Needs you on the left, Live runs and Activity on the right.
 
 Two-column layouts elsewhere, each with its own side column: Chat is a 260px conversation list
@@ -299,8 +300,10 @@ and 18px across (project sheets 14px and 18px). Table cells use 9px by 12px. Den
 
 Responsive: two breakpoints. Below 760px the rail becomes a charcoal top bar (wordmark, two count
 badges as words, a Menu button) with the nav as a full-height drawer under it. The two columns,
-the chat layout and the overview grid stack to one column. The board becomes a compact strip with
-two windows across and no detail lines, so the first decision fits on the first screen. Tables
+the chat layout and the overview grid stack to one column, and Needs you moves to the top when it
+has items. The board stays inside the page margins and becomes one row per project: the lamp as
+an 8px side bar, the name in Barlow 16px with the lamp's words on the right, the other counts and
+the last deploy beneath, and the line window as one row under a Board Rule. Tables
 become stacked sheets with a `label: value` line per cell, and the feed drops its tag column.
 Project sheets stack, the loop table becomes one sheet per loop name (when the main column is
 under 880px, so also on a narrow window with the rail), and the config section list
@@ -433,9 +436,11 @@ Each component is a square or a 2px-cornered control, with a word that carries i
   in review, Call Yellow when approvals wait, and Stop Red when a task is blocked.
 - **Text:** the project name in Board Name caps, then the count in words ("1 blocked", "2 need
   you", "3 running") in Barlow 600 at 14px. A waiting count is set in Call Yellow; a blocked count
-  in a lighter red (#ff8a80). A detail line in Board Muted lists the other non-zero counts.
+  in a lighter red (#ff8a80). A detail line in Board Muted lists the other non-zero counts. At
+  the foot of the window, a Board Muted line gives the last deploy in words and time ("Deployed ·
+  2d ago"; "Deploy failed" and "Rolled back" in #ff8a80), "No deploys yet", or "No deployer".
 - **Behaviour:** the whole window links to that project's open tasks. The lamp bar switches in
-  two steps. On a phone the detail line hides and the name drops to 17px.
+  two steps. On a phone the window is a row (see Responsive).
 - **Line window:** at the right end of the board, 260px wide, on the charcoal with a 1px Board Rule
   edge, with the line's state ("Line running" with a Run Green lamp, or "Line paused" with a Stop
   Red lamp), then active runs, queued tasks and cost today in Board Muted with the numbers in Board
