@@ -87,7 +87,7 @@ export function Runs() {
 
   const columns: Column<Run>[] = [
     { key: 'status', header: 'Status', cell: (r) => <StatusPill kind="run" status={r.status} /> },
-    { key: 'task', header: 'Task', cell: (r) => <TaskCell run={r} /> },
+    { key: 'task', header: 'Task', wide: true, cell: (r) => <TaskCell run={r} /> },
     { key: 'role', header: 'Role', cell: (r) => agentLabel(r.role) },
     {
       key: 'harness',
