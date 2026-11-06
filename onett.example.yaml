@@ -84,6 +84,8 @@ agents:
   implementer:
     harness: claude                    # default: codex
     model: sonnet                      # the model name the harness understands; empty = harness default
+    effort: high                       # reasoning effort, in the harness's words; empty = harness default
+    permission_mode: auto              # permission mode or sandbox, in the harness's words; empty = harness default
     prompt: builtin:implementer
     description: Writes and tests the code change for a feature, bug fix, issue or chore.
 

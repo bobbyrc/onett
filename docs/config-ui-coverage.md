@@ -61,6 +61,8 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `agents.*` | section | yes |  |
 | `agents.*.harness` | string | yes |  |
 | `agents.*.model` | string | yes |  |
+| `agents.*.effort` | string | yes |  |
+| `agents.*.permission_mode` | string | yes |  |
 | `agents.*.prompt` | string | yes |  |
 | `agents.*.prompt_text` | string | yes |  |
 | `agents.*.args` | list | yes |  |
@@ -117,6 +119,8 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `projects.*.agents.*` | section | yes |  |
 | `projects.*.agents.*.harness` | string | yes |  |
 | `projects.*.agents.*.model` | string | yes |  |
+| `projects.*.agents.*.effort` | string | yes |  |
+| `projects.*.agents.*.permission_mode` | string | yes |  |
 | `projects.*.agents.*.prompt` | string | yes |  |
 | `projects.*.agents.*.prompt_text` | string | yes |  |
 | `projects.*.agents.*.args` | list | yes |  |

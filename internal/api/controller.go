@@ -12,8 +12,8 @@ import (
 // SettingsView is a conversation's agent settings with what the UI needs to offer them.
 type SettingsView struct {
 	Settings domain.ConversationSettings `json:"settings"`
-	// Defaults are the role's values for what Settings leaves empty (the model; effort and
-	// permission mode use the harness's own default, so they are empty here).
+	// Defaults are the role's values for what Settings leaves empty (the agent's model,
+	// effort and permission mode; empty means the harness's own default).
 	Defaults domain.ConversationSettings `json:"defaults"`
 	Harness  string                      `json:"harness"`
 	Choices  agentharness.Choices        `json:"choices"`

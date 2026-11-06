@@ -9,13 +9,13 @@ export function choiceLabel(list: SettingsChoice[], value: string | undefined): 
 /** What the model button shows, e.g. "Opus · High". An unset part falls back to the role's default. */
 export function modelEffortLabel(view: ConversationSettingsView): string {
   const model = choiceLabel(view.choices.models, view.settings.model || view.defaults.model);
-  const effort = choiceLabel(view.choices.efforts, view.settings.effort);
+  const effort = choiceLabel(view.choices.efforts, view.settings.effort || view.defaults.effort);
   return [model || 'Default model', effort].filter(Boolean).join(' · ');
 }
 
 /** The permission picker's label; the harness's own default mode when none was chosen. */
 export function permissionLabel(view: ConversationSettingsView): string {
-  return choiceLabel(view.choices.permission_modes, view.settings.permission_mode) || 'Default permissions';
+  return choiceLabel(view.choices.permission_modes, view.settings.permission_mode || view.defaults.permission_mode) || 'Default permissions';
 }
 
 /** True when choosing mode needs the "skips safety checks" confirmation: it is dangerous and not already set. */

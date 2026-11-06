@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ConversationSettingsView } from '../types';
+import type { ConversationSettings, ConversationSettingsView } from '../types';
 import {
   contextFraction,
   contextWindow,
@@ -8,9 +8,9 @@ import {
   permissionLabel,
 } from './composerSettings';
 
-const view = (settings = {}): ConversationSettingsView => ({
+const view = (settings = {}, defaults: ConversationSettings = { model: 'sonnet' }): ConversationSettingsView => ({
   settings,
-  defaults: { model: 'sonnet' },
+  defaults,
   harness: 'claude',
   choices: {
     models: [{ value: 'opus', label: 'Opus' }, { value: 'sonnet', label: 'Sonnet' }],
@@ -23,6 +23,13 @@ const view = (settings = {}): ConversationSettingsView => ({
 });
 
 describe('composer settings labels', () => {
+  it('shows the role\'s effort and permission defaults until the conversation picks its own', () => {
+    const defaults = { model: 'sonnet', effort: 'high', permission_mode: 'auto' };
+    expect(modelEffortLabel(view({}, defaults))).toBe('Sonnet · High');
+    expect(permissionLabel(view({}, defaults))).toBe('Auto');
+    expect(permissionLabel(view({ permission_mode: 'bypassPermissions' }, defaults))).toBe('Bypass permissions');
+  });
+
   it('joins model and effort, falling back to the role default model', () => {
     expect(modelEffortLabel(view({ model: 'opus', effort: 'high' }))).toBe('Opus · High');
     expect(modelEffortLabel(view())).toBe('Sonnet');
