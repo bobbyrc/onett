@@ -22,6 +22,24 @@
     min-height: calc(100vh - 190px);
     min-height: calc(100dvh - 190px);
   }
+
+  /* The list must not set the page's height. A grid row is as tall as its tallest cell and cells
+     stretch, so a long list (every task agent has a row) once stretched the thread to its height:
+     the transcript sat at the top, the page opened scrolled to the bottom of the stretched thread,
+     and all that showed was blank space. Each column is its own height now, and the list scrolls
+     inside the window, pinned beside the thread. */
+  .chat-page .chat-layout {
+    align-items: start;
+  }
+
+  .chat-page .chat-layout > .conv-list {
+    position: sticky;
+    top: var(--chat-space-4, 16px);
+    max-height: calc(100vh - 2 * var(--chat-space-4, 16px));
+    max-height: calc(100dvh - 2 * var(--chat-space-4, 16px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 
 .chat-page .chat-layout {

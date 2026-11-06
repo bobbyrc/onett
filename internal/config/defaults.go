@@ -320,7 +320,7 @@ func applyAgentDefaults(c *Config) {
 
 // onlyDisabled reports whether a sets no field but possibly Disabled.
 func onlyDisabled(a Agent) bool {
-	return a.Harness == "" && a.Model == "" && a.Prompt == "" && a.PromptText == "" &&
+	return a.Harness == "" && a.Model == "" && a.Effort == "" && a.PermissionMode == "" && a.Prompt == "" && a.PromptText == "" &&
 		len(a.Args) == 0 && a.Description == "" && a.Title == "" && len(a.Context) == 0 && len(a.Tools) == 0
 }
 

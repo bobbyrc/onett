@@ -232,7 +232,12 @@ finds the shim, replays its log through a fresh parser (which rebuilds the sessi
 cost total) and writes to the same process. It does so only when the process was idle between
 turns and was started with the same settings (the harness records the fingerprint in the shim's
 directory); a process that was answering when onett went away, or whose settings changed, is
-stopped and the conversation resumes its session in a new one. Without the shim they are direct
+stopped and the conversation resumes its session in a new one. The exception is Claude's model
+and permission mode: a change to either is written to the running process as a `set_model` or
+`set_permission_mode` control request ahead of the next message, so the process and its prompt
+cache stay. (Checked against claude 2.1.318. A refused request, such as an unknown model, is
+shown in the log and the old setting stays. Effort has no such request and still restarts the
+process.) Without the shim they are direct
 children of onett and a restart ends them. And the environment is fixed when a process
 starts, so `ONETT_RUN_ID` names the run of the turn that started it, and a task created in a
 later turn is attributed to that earlier run. `ONETT_CONVERSATION_ID` does not change.

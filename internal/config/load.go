@@ -324,7 +324,8 @@ func (c *Config) LoopsFor(project string) Loops {
 }
 
 // AgentsFor returns the agent roles that apply to project: the global roles with the project's
-// overrides applied. A set field of an override (Harness, Model, Prompt, Args, Description, Title, Context, Tools)
+// overrides applied. A set field of an override (Harness, Model, Effort, PermissionMode, Prompt, Args, Description,
+// Title, Context, Tools)
 // replaces the global role's field; a name the global map lacks adds a project-only role. The
 // map is fresh, so the caller may change it. An empty or unconfigured project gets the global
 // roles.
@@ -349,6 +350,12 @@ func (c *Config) AgentsFor(project string) map[string]Agent {
 		}
 		if ov.Model != "" {
 			base.Model = ov.Model
+		}
+		if ov.Effort != "" {
+			base.Effort = ov.Effort
+		}
+		if ov.PermissionMode != "" {
+			base.PermissionMode = ov.PermissionMode
 		}
 		// Prompt and PromptText replace each other, so the agent never has both.
 		if ov.Prompt != "" {

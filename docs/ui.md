@@ -254,8 +254,9 @@ permission mode that skips safety checks (Claude's `bypassPermissions`, Codex's
 `dangerously-bypass-approvals-and-sandbox`) asks for confirmation first, once per conversation. The
 ring is the last run's input tokens over the model's context window (turns amber at 70% and red at
 90%); it is hidden when the window is unknown. On a phone the permission picker shows only its icon.
-In a task agent's thread the footer shows the agent's role, model, effort and permission mode
-read-only, from its last run, and the ring. Only people who can operate see the pickers.
+In a task agent's thread the same pickers appear once the task has a conversation, next to the
+agent's role; before that, and for people who cannot operate, the footer shows the role, model,
+effort and permission mode read-only, from its last run. Only people who can operate see the pickers.
 
 **Attachments.** The composer of an open orchestrator conversation takes files three ways: the
 paperclip button ("Attach files", a file picker that allows several), pasting files from the
@@ -284,7 +285,8 @@ The 260px sidebar has a "+ New conversation" button (always the orchestrator; op
 `GET /agent-conversations`. Each task with an agent shows its title, and under it a row with a lamp,
 the role and a text label: a blinking green lamp and "working" while a run is live; a dim lamp and
 "closed" for a closed conversation; a red lamp and "blocked" for a blocked task; a dim lamp and
-the task's status otherwise. Under 760px the sidebar is a row of chips above the thread.
+the task's status otherwise. On desktop the sidebar is as tall as the window at most: a long list scrolls inside it and it stays
+pinned beside the thread, so it never sets the page's height. Under 760px the sidebar is a row of chips above the thread.
 
 The header names who you are talking to ("Orchestrator", or the role such as "Implementer"), with
 harness · model (from the latest run) and the conversation title, or for a task agent its task as
@@ -424,14 +426,14 @@ table when it refuses a change, such as demoting or removing the last owner.
 
 **Agents** (`/agents`) — card grid of the configured roles. Each card shows the name, a badge
 (`built-in`, `edited`, `custom` or `removed`: where its settings come from, or that it is switched
-off), the description, the harness and its type, the model (or "harness default"), and **Used for**:
+off), the description, the harness and its type, the model, effort and permission mode (each "harness default" when unset), and **Used for**:
 one line per task kind or route that uses the agent, with the project when one is named. The prompt
 shows its first 8 lines with "Show full prompt" to expand it. An edited built-in that no longer
 receives onett's prompt updates says so, and "Compare with built-in" puts the built-in text beside
 the customised one (stacked on a phone). Enabled agents come first; removed ones sit under a
 "Removed" heading. Anyone can read the page. An owner also sees:
 "New agent", which opens a sheet with name (refused when taken), description, harness (the
-configured harnesses), model, args (one per line), and the prompt, either a reference such as
+configured harnesses), model, effort, permission mode, args (one per line), and the prompt, either a reference such as
 `builtin:triager` or a path, or text written here. "Start from" copies another agent's settings
 into the sheet, or starts blank. An enabled card has "Edit"; "Remove" (a built-in or edited agent is
 switched off, a custom one is deleted); and "Reset to built-in" (an edited one). Remove and reset ask

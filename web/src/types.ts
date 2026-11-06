@@ -375,12 +375,21 @@ export interface AgentView {
   /** False when the harness CLI is not on onett's PATH. */
   harness_cli_found: boolean;
   model: string;
+  /** The role's default effort and permission mode; empty is the harness's own. */
+  effort?: string;
+  permission_mode?: string;
   prompt: string;
   prompt_text: string;
   prompt_error?: string;
   prompt_updates: boolean;
   builtin_prompt_text?: string;
   description: string;
+  /** The role's display name; absent from older servers, and the card falls back to `name`. */
+  title?: string;
+  /** Files the agent reads for context (absent from older servers). */
+  context?: string[];
+  /** Tool permission rules the agent runs with (absent from older servers). */
+  tools?: string[];
   args: string[];
   kinds: string[];
   uses: AgentUse[];
@@ -524,6 +533,8 @@ export interface Harness {
 export interface Agent {
   harness: string;
   model?: string;
+  effort?: string;
+  permission_mode?: string;
   prompt: string;
   prompt_text?: string;
   args?: string[];

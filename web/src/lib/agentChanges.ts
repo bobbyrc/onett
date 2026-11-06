@@ -9,9 +9,16 @@ export type AgentEntry = Record<string, unknown>;
 /** The fields of the agent editor. `promptMode` says which of the two prompt fields is in use. */
 export interface AgentForm {
   name: string;
+  title: string;
   description: string;
+  /** One path per entry. */
+  context: string[];
+  /** One tool rule per entry. */
+  tools: string[];
   harness: string;
   model: string;
+  effort: string;
+  permissionMode: string;
   args: string[];
   promptMode: 'ref' | 'text';
   promptRef: string;
@@ -23,9 +30,14 @@ export function formFromAgent(a: AgentView): AgentForm {
   const inline = a.prompt === '';
   return {
     name: a.name,
+    title: a.title ?? '',
     description: a.description,
+    context: [...(a.context ?? [])],
+    tools: [...(a.tools ?? [])],
     harness: a.harness,
     model: a.model,
+    effort: a.effort ?? '',
+    permissionMode: a.permission_mode ?? '',
     args: [...a.args],
     promptMode: inline ? 'text' : 'ref',
     promptRef: inline ? '' : a.prompt,
@@ -40,12 +52,18 @@ export function formFromAgent(a: AgentView): AgentForm {
  */
 export function formFromEntry(name: string, entry: AgentEntry, view: AgentView | undefined): AgentForm {
   const text = (key: string): string => (typeof entry[key] === 'string' ? (entry[key] as string) : '');
+  const strings = (key: string): string[] => (Array.isArray(entry[key]) ? (entry[key] as unknown[]).map(String) : []);
   const inline = typeof entry.prompt_text === 'string';
   return {
     name,
+    title: text('title'),
     description: text('description'),
+    context: strings('context'),
+    tools: strings('tools'),
     harness: text('harness'),
     model: text('model'),
+    effort: text('effort'),
+    permissionMode: text('permission_mode'),
     args: Array.isArray(entry.args) ? entry.args.map(String) : [],
     promptMode: inline ? 'text' : 'ref',
     promptRef: text('prompt'),
@@ -57,9 +75,14 @@ export function formFromEntry(name: string, entry: AgentEntry, view: AgentView |
 export function blankForm(): AgentForm {
   return {
     name: '',
+    title: '',
     description: '',
+    context: [],
+    tools: [],
     harness: '',
     model: '',
+    effort: '',
+    permissionMode: '',
     args: [],
     promptMode: 'text',
     promptRef: '',
@@ -71,7 +94,14 @@ export function blankForm(): AgentForm {
 export function saveChanges(form: AgentForm): ConfigChange[] {
   const value: Record<string, unknown> = { harness: form.harness.trim() };
   if (form.model.trim()) value.model = form.model.trim();
+  if (form.title.trim()) value.title = form.title.trim();
+  if (form.effort.trim()) value.effort = form.effort.trim();
+  if (form.permissionMode.trim()) value.permission_mode = form.permissionMode.trim();
   if (form.description.trim()) value.description = form.description.trim();
+  const context = form.context.map((line) => line.trim()).filter(Boolean);
+  if (context.length > 0) value.context = context;
+  const tools = form.tools.map((line) => line.trim()).filter(Boolean);
+  if (tools.length > 0) value.tools = tools;
   if (form.args.length > 0) value.args = form.args;
   if (form.promptMode === 'text') {
     value.prompt_text = form.promptText;

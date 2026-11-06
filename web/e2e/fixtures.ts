@@ -252,6 +252,11 @@ export const agents: AgentView[] = ['implementer', 'reviewer', 'orchestrator-wit
   prompt_text: `# ${name}\n\n${LONG_TITLE}\n\n${UNBROKEN}\n\n\`\`\`\n${UNBROKEN}\n\`\`\``,
   prompt_updates: false,
   description: LONG_TITLE,
+  // The first agent carries the newer title, context and tools fields; the others leave them off,
+  // as an older server does.
+  ...(n === 0
+    ? { title: 'Senior engineer', context: ['AGENTS.md', 'docs/design.md', UNBROKEN], tools: ['Bash(go test:*)', 'Edit', UNBROKEN] }
+    : {}),
   args: ['--flag', UNBROKEN.slice(0, 80)],
   kinds: ['feature', 'bugfix'],
   uses: [{ kind: 'feature', project: 'onett', description: LONG_TITLE }],

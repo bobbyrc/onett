@@ -34,9 +34,14 @@ function view(overrides: Partial<AgentView>): AgentView {
 function form(overrides: Partial<AgentForm>): AgentForm {
   return {
     name: 'docs',
+    title: '',
     description: '',
+    context: [],
+    tools: [],
     harness: 'claude',
     model: '',
+    effort: '',
+    permissionMode: '',
     args: [],
     promptMode: 'text',
     promptRef: '',
@@ -49,9 +54,14 @@ describe('blankForm', () => {
   it('starts every field empty, in text mode, with no args', () => {
     expect(blankForm()).toEqual({
       name: '',
+      title: '',
       description: '',
+      context: [],
+      tools: [],
       harness: '',
       model: '',
+    effort: '',
+    permissionMode: '',
       args: [],
       promptMode: 'text',
       promptRef: '',
@@ -141,6 +151,11 @@ describe('saveChanges', () => {
     expect(value).not.toHaveProperty('args');
   });
 
+  it('writes effort and permission_mode when set', () => {
+    const value = saveChanges(form({ effort: ' high ', permissionMode: 'plan' }))[0].value as Record<string, unknown>;
+    expect(value).toMatchObject({ effort: 'high', permission_mode: 'plan' });
+  });
+
   it('writes a reference as prompt and drops prompt_text', () => {
     const changes = saveChanges(
       form({ promptMode: 'ref', promptRef: 'builtin:triager', promptText: 'stale copy', description: 'Sorts.', model: 'fast', args: ['--x'] }),
@@ -198,13 +213,34 @@ describe('formFromEntry', () => {
   it('defaults missing fields to empty strings and no args', () => {
     expect(formFromEntry('x', {}, undefined)).toEqual({
       name: 'x',
+      title: '',
       description: '',
+      context: [],
+      tools: [],
       harness: '',
       model: '',
+    effort: '',
+    permissionMode: '',
       args: [],
       promptMode: 'ref',
       promptRef: '',
       promptText: '',
     });
+  });
+});
+
+describe('title, context and tools', () => {
+  it('saves them trimmed, and leaves empty ones out', () => {
+    const [change] = saveChanges(form({ title: ' Docs writer ', context: ['README.md', '  ', ' docs/design.md'], tools: ['Bash(go test:*)', ''] }));
+    expect(change).toMatchObject({ value: { title: 'Docs writer', context: ['README.md', 'docs/design.md'], tools: ['Bash(go test:*)'] } });
+    const [bare] = saveChanges(form({ title: ' ', context: [''], tools: [] }));
+    expect(Object.keys((bare as { value: object }).value)).not.toEqual(expect.arrayContaining(['title', 'context', 'tools']));
+  });
+
+  it('reads them from the view and from the file entry, and tolerates an old server', () => {
+    const v = view({ title: 'Docs writer', context: ['README.md'], tools: ['Read'] });
+    expect(formFromAgent(v)).toMatchObject({ title: 'Docs writer', context: ['README.md'], tools: ['Read'] });
+    expect(formFromAgent(view({}))).toMatchObject({ title: '', context: [], tools: [] });
+    expect(formFromEntry('docs', { title: 'T', context: ['a'], tools: ['b'] }, v)).toMatchObject({ title: 'T', context: ['a'], tools: ['b'] });
   });
 });

@@ -163,6 +163,11 @@ func (p Price) Estimate(input, cached, output int64) float64 {
 type Agent struct {
 	Harness string `yaml:"harness" json:"harness"`
 	Model   string `yaml:"model" json:"model,omitempty"`
+	// Effort is the reasoning effort and PermissionMode the permission mode or sandbox, each in
+	// the harness's own vocabulary (see the composer's pickers). Empty leaves the harness's
+	// default (and the agent's args) in charge. A conversation's own settings override both.
+	Effort         string `yaml:"effort" json:"effort,omitempty"`
+	PermissionMode string `yaml:"permission_mode" json:"permission_mode,omitempty"`
 	// Prompt is "builtin:<name>" or a path to a Markdown file (relative to the config file).
 	// Set Prompt or PromptText, not both.
 	Prompt string `yaml:"prompt" json:"prompt"`

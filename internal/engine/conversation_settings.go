@@ -73,7 +73,7 @@ func (e *Engine) settingsView(ctx context.Context, conv domain.Conversation) (ap
 	}
 	return api.SettingsView{
 		Settings: conv.Settings,
-		Defaults: domain.ConversationSettings{Model: agent.Model},
+		Defaults: domain.ConversationSettings{Model: agent.Model, Effort: agent.Effort, PermissionMode: agent.PermissionMode},
 		Harness:  agent.Harness,
 		Choices:  e.settingsChoices(agent),
 	}, nil
@@ -136,6 +136,12 @@ func (e *Engine) UpdateConversationSettings(ctx context.Context, id string, in d
 func effectiveSettings(agent config.Agent, s domain.ConversationSettings) domain.ConversationSettings {
 	if s.Model == "" {
 		s.Model = agent.Model
+	}
+	if s.Effort == "" {
+		s.Effort = agent.Effort
+	}
+	if s.PermissionMode == "" {
+		s.PermissionMode = agent.PermissionMode
 	}
 	return s
 }

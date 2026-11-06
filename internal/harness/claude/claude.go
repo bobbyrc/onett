@@ -93,6 +93,8 @@ func (r *runner) Start(ctx context.Context, spec harness.Spec) (harness.Session,
 func (r *runner) startTurn(ctx context.Context, spec harness.Spec) (harness.Session, error) {
 	cs := harness.ConvStart{
 		Fingerprint: r.fingerprint(spec),
+		Live:        liveSettings(r.cfg, spec),
+		Retune:      func(prev string) ([]byte, bool) { return retuneLines(prev, liveSettings(r.cfg, spec)) },
 		Encode:      userLine,
 	}
 	// procSpec is the long-lived process's spec; each use gets its own parser.
@@ -144,11 +146,13 @@ func (r *runner) startTurn(ctx context.Context, spec harness.Spec) (harness.Sess
 }
 
 // fingerprint is what a long-lived process is fixed to when it starts: its command line without
-// the session to resume (which moves on every turn) and its environment without ONETT_RUN_ID
+// the session to resume (which moves on every turn) or the model and permission mode (which a
+// control request changes in place, see liveSettings), and its environment without ONETT_RUN_ID
 // (a new run each turn, which a running process cannot be told about).
 func (r *runner) fingerprint(spec harness.Spec) string {
 	resumeless := spec
 	resumeless.ResumeSessionID = ""
+	resumeless.Model, resumeless.PermissionMode = "", ""
 	env := mergeEnv(r.cfg.Env, spec.Env)
 	delete(env, "ONETT_RUN_ID")
 	b, _ := json.Marshal(struct {
@@ -301,4 +305,49 @@ func mergeEnv(maps ...map[string]string) map[string]string {
 		}
 	}
 	return out
+}
+
+// liveSettings is the model and permission mode a turn wants, as JSON. They are the settings a
+// running claude takes through a control request, so changing them does not replace the process
+// and lose its prompt cache. The mode is the one buildArgs would pass, or empty when the extras
+// choose it.
+func liveSettings(cfg harness.Config, spec harness.Spec) string {
+	mode := spec.PermissionMode
+	if mode == "" && !hasPermissionFlag(cfg.Args, spec.Args) {
+		mode = defaultPermissionMode
+	}
+	b, _ := json.Marshal(struct{ Model, Mode string }{spec.Model, mode})
+	return string(b)
+}
+
+// retuneLines returns the control requests that move a process from the settings prev to next
+// (both from liveSettings). It reports false when that cannot be done in place: going back to a
+// default that was never named (an empty model or mode) has no request.
+func retuneLines(prev, next string) ([]byte, bool) {
+	var p, n struct{ Model, Mode string }
+	if json.Unmarshal([]byte(prev), &p) != nil || json.Unmarshal([]byte(next), &n) != nil {
+		return nil, false
+	}
+	var out []byte
+	add := func(subtype, key, value string) {
+		b, _ := json.Marshal(struct {
+			Type      string            `json:"type"`
+			RequestID string            `json:"request_id"`
+			Request   map[string]string `json:"request"`
+		}{"control_request", "onett-" + subtype, map[string]string{"subtype": subtype, key: value}})
+		out = append(append(out, b...), '\n')
+	}
+	if n.Model != p.Model {
+		if n.Model == "" {
+			return nil, false
+		}
+		add("set_model", "model", n.Model)
+	}
+	if n.Mode != p.Mode {
+		if n.Mode == "" {
+			return nil, false
+		}
+		add("set_permission_mode", "mode", n.Mode)
+	}
+	return out, true
 }

@@ -56,9 +56,13 @@ func TestSettingsChangeChangesConversationFingerprint(t *testing.T) {
 	if r.fingerprint(harness.Spec{Model: "opus"}) != base {
 		t.Fatal("same settings must give the same fingerprint")
 	}
-	for _, s := range []harness.Spec{{Model: "sonnet"}, {Model: "opus", Effort: "max"}, {Model: "opus", PermissionMode: "plan"}} {
-		if r.fingerprint(s) == base {
-			t.Errorf("%+v kept the live process: its settings are fixed when it starts", s)
+	if r.fingerprint(harness.Spec{Model: "opus", Effort: "max"}) == base {
+		t.Error("a new effort kept the live process: it is fixed when the process starts")
+	}
+	// The model and the permission mode change in place instead.
+	for _, s := range []harness.Spec{{Model: "sonnet"}, {Model: "opus", PermissionMode: "plan"}} {
+		if r.fingerprint(s) != base {
+			t.Errorf("%+v replaced the process; a control request can change it in place", s)
 		}
 	}
 }
