@@ -196,6 +196,13 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 	}
 	ar.setSession(sess)
 	e.appendRunLog(ctx, run.ID, domain.LogPrompt, prompt)
+	// The agent is up: the run is running, as a task run is once its harness has started.
+	if r, err := e.updateRun(context.WithoutCancel(ctx), run.ID, func(r *domain.Run) error {
+		r.Status = domain.RunRunning
+		return nil
+	}); err == nil {
+		run = r
+	}
 
 	return e.superviseChat(runCtx, conv, agent, run, sess, ar)
 }
