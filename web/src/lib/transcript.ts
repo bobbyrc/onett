@@ -130,10 +130,21 @@ function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: 
         break;
       }
       default:
+        if (l.kind === 'system' && isRawStreamEvent(l.text)) break;
         out.push({ ...at, kind: l.kind, text: l.text });
     }
   }
   return out;
+}
+
+/**
+ * True for a system line that is a raw agent stream event the parser did not recognise, such as
+ * the `tool_progress` heartbeats a long command emits. They keep the run's stall clock fresh but
+ * mean nothing to a reader, so the transcript hides them; the Terminal view still shows them.
+ */
+function isRawStreamEvent(text: string): boolean {
+  // A prefix test, not JSON.parse: the parser truncates long lines, which are then not valid JSON.
+  return /^\{"type":"[a-z_]+"/.test(text);
 }
 
 /** One run's log as entries. `fallbackPrompt` (the task body) stands in when the run recorded no prompt line. */
