@@ -201,6 +201,19 @@ for (const vp of VIEWPORTS) {
               }
             });
             await page.waitForTimeout(300);
+            // The message rail marks the message at the reading line, and moves that mark from an
+            // IntersectionObserver callback that can run late on a busy machine (it was the one
+            // pixel difference between runs). Wait until the mark agrees with the scroll position.
+            await page.waitForFunction(() => {
+              const rows = [...document.querySelectorAll('.tr-row-you')];
+              const ticks = [...document.querySelectorAll('.msg-tick')];
+              if (rows.length < 2 || !ticks.length) return true;
+              let want = 0;
+              rows.forEach((r, i) => {
+                if (r.getBoundingClientRect().top <= window.innerHeight * 0.4) want = i;
+              });
+              return ticks[want]?.classList.contains('current') ?? false;
+            });
           }
           // Let images (the chat attachment) finish decoding.
           await page.waitForFunction(() => [...document.images].every((i) => i.complete));
