@@ -171,8 +171,27 @@ function Sidebar({
   agents: AgentConversation[];
   loading: boolean;
 }) {
+  // On a phone an open thread replaces the list with a back link and the open conversation's
+  // title (CSS shows this bar only there); the list itself stays for wider screens.
+  const activeConversation = orchestrator.find((c) => c.id === activeId);
+  const activeTitle = activeTaskId
+    ? agents.find((a) => a.task_id === activeTaskId)?.title
+    : activeConversation && (activeConversation.title || 'Untitled');
   return (
     <aside className={cx('conv-list', compact && 'compact')} aria-label="Conversations">
+      {compact ? (
+        <div className="conv-crumb">
+          <Link to="/chat" className="btn conv-back">
+            <span className="conv-back-chev" aria-hidden="true" />
+            Conversations
+          </Link>
+          {activeTitle ? (
+            <span className="conv-crumb-title" title={activeTitle}>
+              {activeTitle}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       {canOperate ? (
         <Link to="/chat" className="btn btn-primary conv-new">
           + New conversation
