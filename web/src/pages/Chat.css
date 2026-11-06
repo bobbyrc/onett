@@ -43,6 +43,9 @@
 
 /* The only scrolling part of a thread (useStickToBottom finds it as the scrolling ancestor). */
 .chat-page .messages-scroll {
+  /* Positioned so absolutely placed children (the sr-only spans) are clipped here and cannot
+     stretch the document. */
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow-y: auto;

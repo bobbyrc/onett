@@ -376,14 +376,15 @@ for (const vp of VIEWPORTS) {
       await page.waitForLoadState('networkidle');
       const distanceFromEnd = () =>
         page.evaluate(() => {
-          const r = document.documentElement;
-          return r.scrollHeight - r.scrollTop - window.innerHeight;
+          // The message list scrolls inside a one-screen page; the window never does.
+          const r = document.querySelector('.messages-scroll') as HTMLElement;
+          return r.scrollHeight - r.scrollTop - r.clientHeight;
         });
       await expect.poll(distanceFromEnd).toBeLessThan(2);
       const pill = page.getByRole('button', { name: /jump to latest/i });
       await expect(pill).toHaveCount(0);
 
-      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.evaluate(() => ((document.querySelector('.messages-scroll') as HTMLElement).scrollTop = 0));
       await expect(pill).toBeVisible();
       const box = (await pill.boundingBox())!;
       const composer = (await page.locator('.chat-page .composer').boundingBox())!;
