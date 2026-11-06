@@ -5,7 +5,10 @@
   flex-wrap: wrap;
   align-items: center;
   min-height: 24px;
-  margin: 0;
+  /* The transcript's column (.tr-col): the line starts at the left edge of the agent's messages. */
+  width: 100%;
+  max-width: var(--chat-max-width);
+  margin: 0 auto;
   font-size: var(--chat-text-sm);
   color: var(--chat-fg-faint);
   font-variant-numeric: tabular-nums;

@@ -347,6 +347,10 @@
 }
 
 .chat-page .send-now {
+  /* Same column as the transcript and the activity line above it. */
+  width: 100%;
+  max-width: var(--chat-max-width);
+  margin: 0 auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
