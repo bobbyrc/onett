@@ -1,0 +1,6 @@
+/* Goal detail: the meta line, the goal's Markdown body and the Tasks section each get their own
+   space. The body's inner rhythm comes from the .markdown rules in styles.css. */
+
+.goal-body {
+  margin-top: 20px;
+}
