@@ -137,7 +137,7 @@ function LiveRuns() {
   );
 }
 
-function RunItem({ run, scale, now }: { run: Run; scale: number; now: number }) {
+export function RunItem({ run, scale, now }: { run: Run; scale: number; now: number }) {
   const task = useTask(run.task_id);
   const cancel = useCancelRun(run.id);
   const canOperate = useCan('operate');
@@ -150,7 +150,9 @@ function RunItem({ run, scale, now }: { run: Run; scale: number; now: number }) 
   return (
     <li className="run-item">
       <div className="run-item-head">
-        <Link to={`/runs/${run.id}`}>{task.data?.task.title ?? 'Loading task…'}</Link>
+        <Link to={`/runs/${run.id}`}>
+          {run.task_id ? (task.data?.task.title ?? 'Loading task…') : `Chat with ${agentLabel(run.role)}`}
+        </Link>
         {canOperate ? (
           <Button variant="ghost" confirm disabled={cancel.isPending} onClick={() => cancel.mutate()}>
             Cancel
@@ -159,7 +161,7 @@ function RunItem({ run, scale, now }: { run: Run; scale: number; now: number }) 
       </div>
       <div className="run-item-meta">
         <span>
-          {agentLabel(run.role)} · {run.project}
+          {[run.task_id ? agentLabel(run.role) : '', run.project].filter(Boolean).join(' · ')}
         </span>
         <span>
           {started ? formatDuration(elapsedMs(started, null, now)) : 'starting'}

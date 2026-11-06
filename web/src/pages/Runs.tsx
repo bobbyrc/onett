@@ -31,9 +31,22 @@ const STATUS_OPTIONS: [string, string][] = [
 
 const isActive = (run: Run) => run.status === 'starting' || run.status === 'running';
 
-/** The run's task: its title links to the run, and a line under it names the project and task. */
+/**
+ * The run's task: its title links to the run, and a line under it names the project and task. A
+ * run with no task is a chat turn; it is named for the agent and has no task chip.
+ */
 function TaskCell({ run }: { run: Run }) {
   const task = useTask(run.task_id);
+  if (!run.task_id) {
+    return (
+      <div className="run-task">
+        <Link className="run-task-title" to={`/runs/${run.id}`}>
+          Chat with {agentLabel(run.role)}
+        </Link>
+        <span className="run-task-meta">{run.project}</span>
+      </div>
+    );
+  }
   return (
     <div className="run-task">
       {task.isSuccess ? (
