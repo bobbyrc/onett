@@ -2842,3 +2842,22 @@ a.board-window:hover .board-name {
     border-top: 1px solid var(--board-rule);
   }
 }
+
+/* A blocked reason is clamped to three lines; pre-wrap keeps the agent's own line breaks and
+   anywhere-wrapping breaks flags and paths inside the box only. */
+.blocked-reason-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.blocked-reason-text.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.blocked-reason-toggle {
+  margin-top: 6px;
+}
