@@ -34,7 +34,10 @@ function view(overrides: Partial<AgentView>): AgentView {
 function form(overrides: Partial<AgentForm>): AgentForm {
   return {
     name: 'docs',
+    title: '',
     description: '',
+    context: [],
+    tools: [],
     harness: 'claude',
     model: '',
     effort: '',
@@ -51,7 +54,10 @@ describe('blankForm', () => {
   it('starts every field empty, in text mode, with no args', () => {
     expect(blankForm()).toEqual({
       name: '',
+      title: '',
       description: '',
+      context: [],
+      tools: [],
       harness: '',
       model: '',
     effort: '',
@@ -207,7 +213,10 @@ describe('formFromEntry', () => {
   it('defaults missing fields to empty strings and no args', () => {
     expect(formFromEntry('x', {}, undefined)).toEqual({
       name: 'x',
+      title: '',
       description: '',
+      context: [],
+      tools: [],
       harness: '',
       model: '',
     effort: '',
@@ -217,5 +226,21 @@ describe('formFromEntry', () => {
       promptRef: '',
       promptText: '',
     });
+  });
+});
+
+describe('title, context and tools', () => {
+  it('saves them trimmed, and leaves empty ones out', () => {
+    const [change] = saveChanges(form({ title: ' Docs writer ', context: ['README.md', '  ', ' docs/design.md'], tools: ['Bash(go test:*)', ''] }));
+    expect(change).toMatchObject({ value: { title: 'Docs writer', context: ['README.md', 'docs/design.md'], tools: ['Bash(go test:*)'] } });
+    const [bare] = saveChanges(form({ title: ' ', context: [''], tools: [] }));
+    expect(Object.keys((bare as { value: object }).value)).not.toEqual(expect.arrayContaining(['title', 'context', 'tools']));
+  });
+
+  it('reads them from the view and from the file entry, and tolerates an old server', () => {
+    const v = view({ title: 'Docs writer', context: ['README.md'], tools: ['Read'] });
+    expect(formFromAgent(v)).toMatchObject({ title: 'Docs writer', context: ['README.md'], tools: ['Read'] });
+    expect(formFromAgent(view({}))).toMatchObject({ title: '', context: [], tools: [] });
+    expect(formFromEntry('docs', { title: 'T', context: ['a'], tools: ['b'] }, v)).toMatchObject({ title: 'T', context: ['a'], tools: ['b'] });
   });
 });

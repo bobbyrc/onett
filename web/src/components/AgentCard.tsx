@@ -27,6 +27,23 @@ export function agentBadge(a: AgentView): string {
   return a.origin === 'builtin' ? 'built-in' : a.origin;
 }
 
+/** A labelled list of paths or rules; nothing at all when there are none (or the server is older). */
+function AgentList({ label, items, mono }: { label: string; items?: string[]; mono?: boolean }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className="agent-list">
+      <span className="agent-list-label">{label}</span>
+      <ul>
+        {items.map((item, index) => (
+          <li key={index} className={mono ? 'mono small' : 'small'}>
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /**
  * `failure` is the reason the last action on this card was refused, or null. It is shown under
  * the card's own buttons, so the owner sees it next to the click that caused it.
@@ -55,17 +72,17 @@ export function AgentCard({
   return (
     <article className={wide ? 'card agent-card agent-card--wide' : 'card agent-card'}>
       <div className="card-head">
-        <h3 className="mono">{agent.name}</h3>
+        <h3>{agent.title || agent.name}</h3>
         <span className="tag">{agentBadge(agent)}</span>
       </div>
+      {agent.title ? <p className="agent-key mono small muted">{agent.name}</p> : null}
       <p className="muted">{agent.description || 'No description.'}</p>
+      <AgentList label="Context" items={agent.context} mono />
+      <AgentList label="Tools" items={agent.tools} mono />
+      <p className="agent-runs-with muted small">
+        {agent.harness} ({agent.harness_type}) · {agent.model || 'harness default model'}
+      </p>
       <dl className="kv">
-        <dt>Harness</dt>
-        <dd>
-          {agent.harness} <span className="muted">({agent.harness_type})</span>
-        </dd>
-        <dt>Model</dt>
-        <dd>{agent.model || 'harness default'}</dd>
         <dt>Effort</dt>
         <dd>{agent.effort || 'harness default'}</dd>
         <dt>Permissions</dt>
