@@ -24,4 +24,13 @@ describe('raw stream events', () => {
     expect(entries.filter((e) => e.kind === 'system').map((e) => 'text' in e && e.text)).toEqual(['session started']);
     expect(JSON.stringify(entries)).not.toContain('tool_progress');
   });
+
+  it('set the elapsed time on the running call', () => {
+    const entries = runEntries([
+      l(1, 'tool_use', 'Bash: {"command":"sleep 90"}', 'toolu_1'),
+      l(2, 'system', progress.replace('toolu_1-heartbeat-0', 'toolu_1')),
+      l(3, 'system', progress.replace('toolu_1-heartbeat-0', 'toolu_1-heartbeat-1').replace(':30,', ':60,')),
+    ]);
+    expect(entries.map((e) => e.kind === 'tool' && e.elapsedSeconds)).toEqual([60]);
+  });
 });
