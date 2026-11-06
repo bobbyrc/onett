@@ -288,7 +288,7 @@ message, opening a conversation and switching conversations always go to the end
 `prefers-reduced-motion` the jump is instant instead of smooth.
 
 The 260px sidebar has a "+ New conversation" button (always the orchestrator; operators only), an
-**Orchestrator** section of conversations (title, RelTime), then a quieter **Agents** section from
+**Orchestrator** section of conversations (title on one line with an ellipsis and the full title on hover, RelTime; a conversation is titled from its first owner message, and ones left as "New chat" are titled at startup), then a quieter **Agents** section from
 `GET /agent-conversations`. Each task with an agent shows its title, and under it a row with a lamp,
 the role and a text label: a blinking green lamp and "working" while a run is live; a dim lamp and
 "closed" for a closed conversation; a red lamp and "blocked" for a blocked task; a dim lamp and

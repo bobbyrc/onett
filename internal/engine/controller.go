@@ -454,10 +454,9 @@ func (e *Engine) SendChatWith(ctx context.Context, conversationID, text string, 
 	conv, err := e.d.Store.UpdateConversation(ctx, conversationID, func(c *domain.Conversation) error {
 		wasBusy = c.Busy
 		c.Busy = true
-		if c.Title == "" {
-			c.Title = firstRunes(text, 60)
-			if c.Title == "" && len(atts) > 0 {
-				c.Title = firstRunes(atts[0].Name, 60)
+		if needsChatTitle(c.Title) {
+			if t := chatTitleFor(text, atts); t != "" {
+				c.Title = t
 			}
 		}
 		return nil

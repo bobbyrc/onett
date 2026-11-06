@@ -387,6 +387,7 @@ func (e *Engine) recover(ctx context.Context) error {
 			}
 		}
 	}
+	e.backfillChatTitles(ctx)
 	return nil
 }
 
