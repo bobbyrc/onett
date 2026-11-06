@@ -10,6 +10,7 @@ import { PageHeader } from '../components/PageHeader';
 import { RelTime } from '../components/RelTime';
 import { StatusPill } from '../components/StatusPill';
 import { Table, type Column } from '../components/Table';
+import './GoalDetail.css';
 
 const columns: Column<Task>[] = [
   { key: 'status', header: 'Status', cell: (t) => <StatusPill status={t.status} /> },
@@ -45,9 +46,15 @@ export function GoalDetail() {
       {goal.summary ? (
         <Callout title={goal.status === 'blocked' ? 'Blocked' : 'Summary'}>{goal.summary}</Callout>
       ) : null}
-      {goal.body ? <Markdown text={goal.body} /> : null}
-      <h2>Tasks</h2>
-      <Table columns={columns} rows={tasks} rowKey={(t) => t.id} empty="No tasks have been queued for this goal yet." />
+      {goal.body ? (
+        <div className="goal-body">
+          <Markdown text={goal.body} />
+        </div>
+      ) : null}
+      <section className="section">
+        <h2>Tasks</h2>
+        <Table columns={columns} rows={tasks} rowKey={(t) => t.id} empty="No tasks have been queued for this goal yet." />
+      </section>
     </>
   );
 }

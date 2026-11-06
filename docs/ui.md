@@ -353,7 +353,9 @@ Resume on a paused or blocked one, Block on an active or paused one, Mark done o
 done. Done and Block open a text box first, because the API requires a summary or a reason. The
 controls need the operate action. **Goal detail** (`/goals/:id`): title and status, the controls,
 the project, the turn count, a link to the goal's conversation in Chat, the summary (a callout
-when blocked), the goal text and the tasks queued for it. `goal.updated` events refresh both.
+when blocked), the goal text and the tasks queued for it under a Tasks section heading. The goal
+text is rendered Markdown, 20px below the meta line; there, as in task bodies, a heading has 20px
+above it and 6px below, and paragraphs and lists 8px below. `goal.updated` events refresh both.
 
 **Tasks** (`/tasks`) — filter bar: project select, status chips (multi-select; default
 "active" = queued, running, review, awaiting_approval, merged, deploying, blocked), kind

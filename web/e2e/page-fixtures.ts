@@ -368,7 +368,16 @@ export const goals: Goal[] = [
     id: IDS.goal,
     project: 'onett',
     title: 'Make the web UI feel finished on phones, tablets and wide desktop screens',
-    body: 'Every page must read well at 390px and 1440px, in light and dark.\n\n- No clipped text\n- No horizontal scrolling\n- Empty states say what to do next',
+    // Headings, paragraphs and lists, like the goal bodies the orchestrator writes, so the shots
+    // show the body's vertical rhythm.
+    body: [
+      '## Objective',
+      'Every page must read well at 390px and 1440px, in light and dark.',
+      '## Constraints',
+      '- No clipped text\n- No horizontal scrolling\n- Empty states say what to do next',
+      '## Done when',
+      'The chief of staff has screenshotted every page at both widths and found nothing to fix.',
+    ].join('\n\n'),
     status: 'active',
     conversation_id: IDS.goalChat,
     turns: 6,
