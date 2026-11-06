@@ -1,8 +1,12 @@
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { useControl, useProjects, useStats } from '../queries';
+import { DEPLOYMENT_LIMIT, useControl, useDeployments, useProjects, useStats } from '../queries';
 import { formatCost } from '../lib/format';
 import { lampDetail, projectLamp } from '../lib/lamp';
+import { deployStopped, deployWords, latestDeploys } from '../lib/boardDeploy';
+import type { Deployment, ProjectView } from '../types';
 import { ErrorLine } from './ErrorLine';
+import { RelTime } from './RelTime';
 
 /**
  * The Overview's lamp board: one window per project, lit by what the project needs, and the line
@@ -10,9 +14,16 @@ import { ErrorLine } from './ErrorLine';
  */
 export function AndonBoard() {
   const projects = useProjects();
+  const deployments = useDeployments('');
+  const latest = latestDeploys(deployments.data ?? []);
+  // Only a loaded list shorter than the limit can say a project never deployed.
+  const allDeploys = deployments.isSuccess && deployments.data.length < DEPLOYMENT_LIMIT;
+  const count = projects.data?.length ?? 0;
+  // The board is as wide as its windows (styles.css), so one project is not a wide empty board.
+  const width = count > 0 ? ({ '--board-windows': count } as CSSProperties) : undefined;
 
   return (
-    <section className="board" aria-label="Projects">
+    <section className="board" aria-label="Projects" style={width}>
       <div className="board-windows">
         {projects.data?.map((project) => {
           const state = projectLamp(project);
@@ -23,6 +34,7 @@ export function AndonBoard() {
               <span className="board-name">{project.name}</span>
               <span className="board-count">{state.label}</span>
               {detail ? <span className="board-detail">{detail}</span> : null}
+              <DeployLine project={project} last={latest.get(project.name)} allDeploys={allDeploys} />
             </Link>
           );
         })}
@@ -37,6 +49,21 @@ export function AndonBoard() {
       </div>
       <LineWindow />
     </section>
+  );
+}
+
+/** The project's last deploy in words, or why there is none. */
+function DeployLine({ project, last, allDeploys }: { project: ProjectView; last: Deployment | undefined; allDeploys: boolean }) {
+  if (!last) {
+    if (!project.deploy) return <span className="board-deploy">No deployer</span>;
+    return allDeploys ? <span className="board-deploy">No deploys yet</span> : null;
+  }
+  return (
+    <span className="board-deploy">
+      <span className={deployStopped(last.state) ? 'board-stop-word' : undefined}>{deployWords(last.state)}</span>
+      {' · '}
+      <RelTime value={last.updated_at} />
+    </span>
   );
 }
 

@@ -8,58 +8,72 @@ import { PageHeader } from '../components/PageHeader';
 import { RelTime } from '../components/RelTime';
 import type { LoopView } from '../types';
 import { GLOBAL_PROJECT, loopGrid } from '../lib/loopGrid';
+import { loopLabel, loopStatusWord } from '../lib/loopLabel';
 import { formatGoDuration } from '../lib/format';
-import { loopHealth, loopHealthLabel } from '../lib/projects';
+import { loopHealth } from '../lib/projects';
 import { parseTime } from '../lib/time';
 
-/** The column label for a project name. A global loop has no project, so it says so. */
+/** The label for a project name. A global loop has no project, so it says so. */
 const projectLabel = (project: string) => (project === GLOBAL_PROJECT ? 'all projects' : project);
 
-/** The lamp for one loop, lit by loopHealth. The words are read aloud, so colour is not the only signal. */
-function Lamp({ loop }: { loop: LoopView }) {
+/** A loop's lamp, lit by loopHealth, with its state in words beside it, so colour is not the only signal. */
+function Status({ loop }: { loop: LoopView }) {
+  const health = loopHealth(loop);
   return (
-    <>
-      <span className={`loop-lamp loop-lamp-${loopHealth(loop)}`} aria-hidden="true" />
-      <span className="sr-only">{loopHealthLabel(loop)}</span>
-    </>
-  );
-}
-
-/** The second line of a loop's status: its error if it has one, else when it last ran. */
-function LastRun({ loop }: { loop: LoopView }) {
-  if (loop.last_error) {
-    return (
-      <span className="danger-text loop-error" title={loop.last_error}>
-        {loop.last_error}
-      </span>
-    );
-  }
-  if (!parseTime(loop.last_run_at)) return <span className="muted">never</span>;
-  return (
-    <span className="muted">
-      ran <RelTime value={loop.last_run_at} />
-      <Upcoming loop={loop} />
+    <span className="loop-status">
+      <span className={`loop-lamp loop-lamp-${health}`} aria-hidden="true" />
+      <span className={health === 'danger' ? 'danger-text' : health === 'muted' ? 'muted' : undefined}>{loopStatusWord(loop)}</span>
     </span>
   );
 }
 
-/** What a loop that reports it adds to its status: its next scheduled run and how many items the last run found. */
-function Upcoming({ loop }: { loop: LoopView }) {
-  const next = parseTime(loop.next_run_at);
+/** How often a loop runs, and its next run when the loop reports one (heartbeat). */
+function Schedule({ loop }: { loop: LoopView }) {
+  const next = loop.enabled && parseTime(loop.next_run_at);
   return (
     <>
-      {loop.item_count ? (
-        <>
-          {' · '}
-          {loop.item_count} {loop.item_count === 1 ? 'item' : 'items'}
-        </>
+      <span className={loop.enabled ? undefined : 'muted'}>every {formatGoDuration(loop.every)}</span>
+      {next ? (
+        <span className="loop-sub muted">
+          next <RelTime value={loop.next_run_at} />
+        </span>
       ) : null}
-      {next && loop.enabled ? (
-        <>
-          {' · next '}
-          <RelTime value={loop.next_run_at!} />
-        </>
+    </>
+  );
+}
+
+/** When a loop last ran and how many items it found, then its last error, cut to one line. */
+function LastRun({ loop }: { loop: LoopView }) {
+  return (
+    <>
+      {parseTime(loop.last_run_at) ? (
+        <span>
+          <RelTime value={loop.last_run_at} />
+          {loop.item_count ? (
+            <span className="muted">
+              {' · '}
+              {loop.item_count} {loop.item_count === 1 ? 'item' : 'items'}
+            </span>
+          ) : null}
+        </span>
+      ) : (
+        <span className="muted">never</span>
+      )}
+      {loop.last_error ? (
+        <span className="loop-sub danger-text loop-error" title={loop.last_error}>
+          {loop.last_error}
+        </span>
       ) : null}
+    </>
+  );
+}
+
+/** The loop's readable name over its id, which config and the API use. */
+function LoopName({ name }: { name: string }) {
+  return (
+    <>
+      <span className="loop-label">{loopLabel(name)}</span>
+      <span className="loop-id mono">{name}</span>
     </>
   );
 }
@@ -69,24 +83,30 @@ export function Loops() {
   const runLoop = useRunLoop();
   const canOperate = useCan('operate');
 
-  // "Run now" is an operator action: viewers see the lamps without the button.
+  // "Run" is an operator action: viewers see the loops without the button or its column.
   const runButton = (loop: LoopView) => {
-    if (!canOperate) return null;
     const pending = runLoop.isPending && runLoop.variables?.name === loop.name && runLoop.variables.project === loop.project;
     return (
       <Button
-        variant="ghost"
+        variant="secondary"
         className="loop-run"
         disabled={pending}
+        aria-busy={pending}
+        aria-label={pending ? undefined : `Run ${loopLabel(loop.name)} for ${projectLabel(loop.project)}`}
         onClick={() => runLoop.mutate({ name: loop.name, project: loop.project })}
       >
-        {pending ? 'Starting…' : 'Run'}
+        {pending ? 'Running…' : 'Run'}
       </Button>
     );
   };
 
   const list = loops.isSuccess ? loops.data : [];
   const grid = loopGrid(list);
+  // One group per loop name, holding the loop in each project it runs in.
+  const groups = grid.names.map((name) => ({
+    name,
+    loops: grid.projects.map((project) => grid.cell(name, project)).filter((loop): loop is LoopView => loop !== undefined),
+  }));
   const enabled = list.filter((l) => l.enabled).length;
   const failing = list.filter((l) => loopHealth(l) === 'danger').length;
 
@@ -96,8 +116,7 @@ export function Loops() {
       <ErrorLine error={loops.error} />
       {runLoop.isSuccess && runLoop.variables ? (
         <p className="muted small" role="status">
-          Started {runLoop.variables.name}
-          {runLoop.variables.project ? ` for ${runLoop.variables.project}` : ''}.
+          Ran {loopLabel(runLoop.variables.name)} for {projectLabel(runLoop.variables.project)}.
         </p>
       ) : null}
       {loops.isSuccess && list.length === 0 ? (
@@ -110,91 +129,88 @@ export function Loops() {
             <span className={failing > 0 ? 'danger-text' : undefined}>{failing} failing</span>
           </p>
 
-          {/* Desktop: one lamp per loop and project. */}
-          <div className="loops-grid-wrap">
-            <table className="loops-grid">
-              <thead>
-                <tr>
-                  <th scope="col" className="loops-head-name">
-                    Loop
-                  </th>
-                  {grid.projects.map((project) => (
-                    <th key={project} scope="col" className="loops-head-project">
-                      {projectLabel(project)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {grid.names.map((name) => (
-                  <tr key={name}>
-                    <th scope="row" className="loop-name">
-                      {name}
-                    </th>
-                    {grid.projects.map((project) => {
-                      const loop = grid.cell(name, project);
-                      if (!loop) {
-                        return (
-                          <td key={project} className="muted">
-                            —
-                          </td>
-                        );
-                      }
-                      return (
-                        <td key={project}>
-                          <div className="loop-cell">
-                            <div className="loop-cell-top">
-                              <Lamp loop={loop} />
-                              <span>
-                                {!loop.enabled ? <span className="loop-off">off · </span> : null}
-                                every {formatGoDuration(loop.every)}
-                              </span>
-                              {runButton(loop)}
-                            </div>
-                            <div className="loop-cell-status">
-                              <LastRun loop={loop} />
-                            </div>
-                          </div>
-                        </td>
-                      );
-                    })}
+          <div className="loops-body">
+            {/* Wide: one row per loop and project, grouped under the loop's name. */}
+            <div className="loops-table-wrap">
+              <table className="loops-table">
+                <colgroup>
+                  <col className="loops-col-name" />
+                  <col className="loops-col-project" />
+                  <col className="loops-col-status" />
+                  <col className="loops-col-schedule" />
+                  <col />
+                  {canOperate ? <col className="loops-col-action" /> : null}
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th scope="col">Loop</th>
+                    <th scope="col">Project</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Schedule</th>
+                    <th scope="col">Last run</th>
+                    {canOperate ? (
+                      <th scope="col">
+                        <span className="sr-only">Action</span>
+                      </th>
+                    ) : null}
                   </tr>
+                </thead>
+                {groups.map((group) => (
+                  <tbody key={group.name}>
+                    {group.loops.map((loop, i) => (
+                      <tr key={loop.project}>
+                        {i === 0 ? (
+                          <th scope="rowgroup" rowSpan={group.loops.length} className="loop-name">
+                            <LoopName name={group.name} />
+                          </th>
+                        ) : null}
+                        <td>{projectLabel(loop.project)}</td>
+                        <td>
+                          <Status loop={loop} />
+                        </td>
+                        <td>
+                          <Schedule loop={loop} />
+                        </td>
+                        <td>
+                          <LastRun loop={loop} />
+                        </td>
+                        {canOperate ? <td className="loop-action">{runButton(loop)}</td> : null}
+                      </tr>
+                    ))}
+                  </tbody>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
 
-          {/* Phone: one sheet per loop name, with a row for each project it runs in. */}
-          <div className="loops-sheets">
-            {grid.names.map((name) => (
-              <section key={name} className="loop-sheet">
-                <h3 className="loop-sheet-name mono">{name}</h3>
-                <ul className="loop-sheet-rows">
-                  {grid.projects.map((project) => {
-                    const loop = grid.cell(name, project);
-                    if (!loop) return null;
-                    return (
-                      <li key={project} className="loop-sheet-row">
+            {/* Narrow: one sheet per loop name, with a row for each project it runs in. */}
+            <div className="loops-sheets">
+              {groups.map((group) => (
+                <section key={group.name} className="loop-sheet">
+                  <h3 className="loop-sheet-name">
+                    <LoopName name={group.name} />
+                  </h3>
+                  <ul className="loop-sheet-rows">
+                    {group.loops.map((loop) => (
+                      <li key={loop.project} className="loop-sheet-row">
                         <div className="loop-sheet-main">
-                          <div className="loop-cell-top">
-                            <Lamp loop={loop} />
-                            <span className="loop-sheet-project">{projectLabel(project)}</span>
+                          <div className="loop-sheet-top">
+                            <span className="loop-project">{projectLabel(loop.project)}</span>
+                            <Status loop={loop} />
                           </div>
-                          <span>
-                            {!loop.enabled ? <span className="loop-off">off · </span> : null}
-                            every {formatGoDuration(loop.every)}
-                          </span>
-                          <div className="loop-cell-status">
+                          <div className="loop-sheet-line">
+                            <Schedule loop={loop} />
+                          </div>
+                          <div className="loop-sheet-line">
                             <LastRun loop={loop} />
                           </div>
                         </div>
-                        {runButton(loop)}
+                        {canOperate ? runButton(loop) : null}
                       </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ))}
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
           </div>
 
           <ErrorLine error={runLoop.error} />

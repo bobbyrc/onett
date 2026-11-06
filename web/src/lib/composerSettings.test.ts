@@ -52,6 +52,7 @@ describe('context ring', () => {
   it('knows Claude windows and hides the ring for unknown models', () => {
     expect(contextWindow('opus')).toBe(200_000);
     expect(contextWindow('claude-opus-4[1m]')).toBe(1_000_000);
+    expect(contextWindow('gpt-5.1-codex')).toBe(400_000);
     expect(contextWindow('gpt-x')).toBeNull();
     expect(contextWindow(undefined)).toBeNull();
   });

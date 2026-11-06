@@ -8,6 +8,8 @@ import { keys } from './keys';
 import { normaliseProject } from './lib/projects';
 
 export const LIST_REFRESH_MS = 30_000;
+/** The most deployments one list asks for; a full list may be missing older ones. */
+export const DEPLOYMENT_LIMIT = 200;
 
 /** Retries transient failures twice, but never a 4xx such as an expired session. */
 export function retryPolicy(failureCount: number, error: Error): boolean {
@@ -149,7 +151,7 @@ export function useApprovals(status: 'pending' | 'all') {
 export function useDeployments(project: string) {
   return useQuery({
     queryKey: keys.deploymentList({ project }),
-    queryFn: () => api.listDeployments({ project, limit: 200 }),
+    queryFn: () => api.listDeployments({ project, limit: DEPLOYMENT_LIMIT }),
     refetchInterval: LIST_REFRESH_MS,
   });
 }

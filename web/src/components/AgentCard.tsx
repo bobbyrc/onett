@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { AgentView } from '../types';
 import { AgentSaveFailure } from './AgentSaveFailure';
 import { agentLabel } from '../lib/agentLabel';
+import { reflowPrompt } from '../lib/reflowPrompt';
 import { Button } from './Button';
 
 /** The first lines of a prompt shown before "Show full prompt". */
@@ -63,9 +64,11 @@ export function AgentCard({
   const [expanded, setExpanded] = useState(false);
   const [comparing, setComparing] = useState(false);
 
-  const lines = agent.prompt_text.split('\n');
+  const promptText = reflowPrompt(agent.prompt_text);
+  const builtinText = agent.builtin_prompt_text === undefined ? undefined : reflowPrompt(agent.builtin_prompt_text);
+  const lines = promptText.split('\n');
   const truncated = lines.length > PREVIEW_LINES && !expanded;
-  const shownPrompt = truncated ? lines.slice(0, PREVIEW_LINES).join('\n') : agent.prompt_text;
+  const shownPrompt = truncated ? lines.slice(0, PREVIEW_LINES).join('\n') : promptText;
   const customized = agent.origin === 'edited' && !agent.prompt_updates;
   const canCompare = customized && agent.builtin_prompt_text !== undefined;
   const busy = controls?.busy ?? false;
@@ -123,11 +126,11 @@ export function AgentCard({
             <div className="agent-compare">
               <div>
                 <span className="muted small">Your prompt</span>
-                <pre className="agent-prompt">{agent.prompt_text}</pre>
+                <pre className="agent-prompt">{promptText}</pre>
               </div>
               <div>
                 <span className="muted small">Built-in</span>
-                <pre className="agent-prompt">{agent.builtin_prompt_text}</pre>
+                <pre className="agent-prompt">{builtinText}</pre>
               </div>
             </div>
           ) : (

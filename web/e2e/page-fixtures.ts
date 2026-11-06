@@ -463,6 +463,8 @@ export const deployments: Deployment[] = [
   dep(2, { task_id: tasks[5].id, state: 'rolled_back', started_at: ago(26 * 60 + 10), updated_at: ago(26 * 60), notes: 'Health check on /api/v1/health timed out after 60s; the previous binary was restored.', log: 'building 0e8ebaa...\nswapping binary\nhealth: GET /api/v1/health -> timeout\nrolling back to 5c1d02e\nhealth: ok' }),
   dep(3, { state: 'failed', provider_id: 'launchd-user-agent-for-the-staging-copy', started_at: ago(6 * DAY), updated_at: ago(6 * DAY - 3) }),
   dep(4, { state: 'deploying', started_at: ago(1), updated_at: ago(0.5), provider_id: 'render' }),
+  // A second project's deploy, so the Overview board shows a last deploy beyond onett's.
+  dep(5, { project: 'retro-diffusion-sprite-pipeline', ref: '4be81d0c2a9f6e3b7d15c8a0f42e9b6d3c71a5e8', provider_id: 'render', started_at: ago(2 * DAY), updated_at: ago(2 * DAY - 6) }),
 ];
 
 export const signals: Signal[] = [
@@ -570,13 +572,38 @@ export const loops: LoopView[] = [
   loop('deploy_watch', { last_run_at: ago(0.2) }),
   loop('prod_watch', { enabled: false, every: '5m', last_run_at: ago(3 * DAY) }),
   loop('friction_triage', { every: '1h', last_run_at: ago(41) }),
+  loop('retro', { every: '24h', last_run_at: '0001-01-01T00:00:00Z' }),
   loop('self_update', { enabled: false, every: '1h', last_run_at: ago(9 * DAY), last_error: 'new release held back: 2 tasks still running' }),
   loop('heartbeat', { every: '15m', last_run_at: ago(9), next_run_at: new Date(T0 + 6 * 60_000).toISOString(), item_count: 3, actions_24h: 7, escalations_24h: 1, operations_conversation_id: ulid(10) }),
   loop('issue_intake', { project: 'dotfiles-and-agent-configs', every: '5m', last_run_at: ago(2), last_error: 'gh: HTTP 403: API rate limit exceeded for user ID 1234567 (resets in 41m)' }),
 ];
 
+// Hard-wrapped at ~100 columns like the markdown sources, with a list, a code block and a
+// multi-line list item, so the Agents page shows how it reflows them.
 const PROMPT = (title: string) =>
-  `# ${title}\n\nYou turn a task into a working, tested change on your branch.\n\n1. Read the task, then the code it touches, before changing anything. If the task links an issue, the issue text is in the task body.\n2. If this is a re-run, the task body ends with what went wrong last time (CI failure log, reviewer findings, merge conflict, or a human's note). Address that first.\n3. Make the smallest change that fully solves the task. Fix root causes, not symptoms. No drive-by refactors; note them as followups instead.\n4. Add or update tests that would have caught the bug or that pin the new behaviour.\n\n## Your report (required)\n\nBefore you finish, write JSON to \`$ONETT_OUTBOX/result.json\`:\n\n\`\`\`json\n{ "status": "completed", "summary": "...", "risk": "low" }\n\`\`\`\n\nDo not commit, push, open pull requests or call the GitHub API. Onett does those.`;
+  `# ${title}
+
+You turn a task into a working, tested change on your branch. Read the task, then the code it
+touches, before changing anything. If the task links an issue, the issue text is in the task
+body.
+
+1. Read the task, then the code it touches, before changing anything. If the task links an
+   issue, the issue text is in the task body.
+2. If this is a re-run, the task body ends with what went wrong last time (CI failure log,
+   reviewer findings, merge conflict, or a human's note). Address that first.
+3. Make the smallest change that fully solves the task. Fix root causes, not symptoms. No
+   drive-by refactors; note them as followups instead.
+4. Add or update tests that would have caught the bug or that pin the new behaviour.
+
+## Your report (required)
+
+Before you finish, write JSON to \`$ONETT_OUTBOX/result.json\`:
+
+\`\`\`json
+{ "status": "completed", "summary": "...", "risk": "low" }
+\`\`\`
+
+Do not commit, push, open pull requests or call the GitHub API. Onett does those.`;
 
 const agent = (name: string, over: Partial<AgentView>): AgentView => ({
   name,

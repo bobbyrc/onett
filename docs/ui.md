@@ -185,11 +185,18 @@ as a fallback.
   bar is lit by what the project needs (`src/lib/lamp.ts`): red when a task is blocked, yellow
   when approvals wait, off when paused, green when tasks run or are in review, off when only
   queued or idle. Under the project name the reason in words ("1 blocked", "2 need you",
-  "3 running") and the other non-zero counts. A window links to the project's tasks. At the
-  right end, the line window: "Line running" or "Line paused", active runs, queued tasks and cost
-  today. Empty: "No projects yet." On a phone the board is a compact strip (two windows across,
-  no detail lines, the line window on one row) so the first decision fits in the first screen.
-- Below, two columns (one on a phone, board windows two across):
+  "3 running") and the other non-zero counts, then at the foot the last deploy from
+  `/deployments` ("Deployed · 2d ago", "Rolled back · 1h ago" in the stop colour, "No deploys yet",
+  or "No deployer" when the project has no `deploy`; `src/lib/boardDeploy.ts`). A window links to
+  the project's tasks. At the right end, the line window: "Line running" or "Line paused", active
+  runs, queued tasks and cost today. Windows are 208px, and the band is only as wide as its
+  windows and the line window, so one project is a small board, not a wide empty one; when the
+  windows do not fit in one row they wrap into a grid that fills the main column. Empty: "No
+  projects yet." On a phone the band sits inside the page margins with one row per project (the
+  lamp as a side bar, name and reason on the first line, the other counts and the last deploy
+  under them) and the line window on one row.
+- Below, two columns (one on a phone, with Needs you moved above the setup card and the board
+  when it has items):
 - Left: **Needs you**, with "N waiting · oldest 14m" beside the heading. Pending approvals
   (ApprovalCard) and blocked tasks, each a call item: a sheet with a lit lamp before the title
   (yellow for approvals, red for blocked), a muted line under it, then the body. Blocked items:
@@ -414,16 +421,19 @@ seen, task link.
 
 **Friction** (`/friction`) — table: project, title, count, issue (link), updated.
 
-**Loops** (`/loops`) — a lamp grid: one row per loop name, one column per project. Loops that run
-across all projects get an "all projects" column, placed first. Each cell has a 10px lamp, then
-"every 30s" (the interval as configured), then on a second line "ran 3m ago" or "never". A disabled
-loop reads "off · every 30s" in muted text, so it differs from a healthy loop by words as well as by
-its grey lamp. The lamp is green when the last run worked, red when it failed, and grey when the
-loop is disabled or has not run yet; the words are screen-reader text. A failed loop shows its error
-in red on that second line, cut to one line, with the full text on hover. A loop that reports them (heartbeat) adds " · 3 items" and " · next in 12m" to that line. Operators see a "Run"
-button in each cell; viewers do not. Above the grid, one muted line counts loops on, off and failing
-(failing in red when any). Under 760px the grid becomes one sheet per loop name, with a row for each
-project it runs in.
+**Loops** (`/loops`) — a table with one row per loop and project, grouped by loop: Loop,
+Project, Status, Schedule, Last run, and a Run button for operators (viewers see no Run column).
+The loop cell shows the id as Title Case words ("Issue Intake", "PR Shepherd") with the id itself
+under it in small mono. Loops that run across all projects say "all projects" in the Project
+column. Status is a 10px lamp and a word: "OK" (green), "Failed" (red), "Off" or "Not run yet"
+(grey). Schedule reads "every 30s" (muted when off) and, for a loop that reports it (heartbeat),
+"next in 12m" under it. Last run reads "3m ago" (with " · 3 items" when reported) or "never", and a
+failed loop's error under it in red, cut to one line, with the full text on hover. Run is an
+outlined button that reads "Running…" and is disabled until the run returns; then a line above
+the table says "Ran Issue Intake for onett." Above the table, one muted line counts loops on, off
+and failing (failing in red when any). When the main column is under 880px (a phone, or a narrow
+window beside the rail), the table becomes one sheet per loop, with a row for each project it runs
+in.
 
 **Users** (`/users`, owners only; anyone else is sent to Overview) — a table of accounts:
 username (your own row says "(you)"), role, added (relative time) and actions. The role is a

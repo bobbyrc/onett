@@ -1236,10 +1236,16 @@ input[type='checkbox'] {
 
 /* ---- the andon board (Overview) ---- */
 
+/* The board is only as wide as its windows: AndonBoard sets --board-windows to the project count,
+   and the windows' track grows to that many 208px windows. Where they do not fit, the board
+   stops at the main column and the windows wrap into rows that fill it. Unset (loading, no
+   projects) the board spans the column. */
 .board {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-columns: minmax(0, calc(var(--board-windows, 99) * 210px - 2px)) 260px;
   gap: 2px;
+  width: fit-content;
+  max-width: 100%;
   background: var(--board);
   padding: 14px;
   margin-bottom: 28px;
@@ -1248,7 +1254,7 @@ input[type='checkbox'] {
 
 .board-windows {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 208px), 1fr));
   gap: 2px;
   min-width: 0;
 }
@@ -1315,6 +1321,18 @@ a.board-window:hover .board-name {
   padding: 0 14px;
   font-size: 13px;
   color: var(--board-muted);
+}
+
+/* The last deploy sits at the foot of the window, so a row of windows lines it up. */
+.board-deploy {
+  margin-top: auto;
+  padding: 8px 14px 0;
+  font-size: 13px;
+  color: var(--board-muted);
+}
+
+.board-stop-word {
+  color: #ff8a80;
 }
 
 .board-line {
@@ -2060,57 +2078,6 @@ a.board-window:hover .board-name {
     margin-top: 28px;
   }
 
-  /* On a phone the board is a compact strip so the first decision fits in the first screen. */
-  .board {
-    grid-template-columns: minmax(0, 1fr);
-    margin: -16px -16px 20px;
-    padding: 0 12px 12px;
-  }
-
-  .board-windows {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .board-window {
-    padding-bottom: 8px;
-  }
-
-  .board-lamp {
-    height: 8px;
-  }
-
-  .board-name {
-    font-size: 17px;
-    padding: 6px 10px 0;
-  }
-
-  .board-count {
-    padding: 0 10px;
-    font-size: 13.5px;
-  }
-
-  .board-detail {
-    display: none;
-  }
-
-  .board-line {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 14px;
-    padding: 8px 10px;
-  }
-
-  .board-line-state {
-    font-size: 17px;
-    gap: 8px;
-  }
-
-  .board-line-state .lamp {
-    width: 10px;
-    height: 10px;
-  }
-
   .topbar .count-badge {
     font-family: var(--font);
     font-weight: 600;
@@ -2795,9 +2762,11 @@ a.board-window:hover .board-name {
     display: none;
   }
 
-  /* One full-width row per project, lamp as a side bar, instead of a half-width block. */
+  /* One full-width row per project, lamp as a side bar, inside the page margins: the name and
+     the lamp's words on the first line, the other counts and the last deploy under them. */
   .board {
     grid-template-columns: minmax(0, 1fr);
+    width: auto;
     padding: 8px;
     margin-bottom: 20px;
   }
@@ -2809,13 +2778,14 @@ a.board-window:hover .board-name {
     grid-template-columns: 8px minmax(0, 1fr) auto;
     align-items: baseline;
     column-gap: 12px;
-    padding: 0 12px 0 0;
+    padding: 0 12px 10px 0;
   }
   .board-lamp {
-    grid-row: 1 / span 2;
+    grid-row: 1 / span 3;
     grid-column: 1;
     height: auto;
     align-self: stretch;
+    margin-bottom: -10px;
   }
   .board-name {
     grid-column: 2;
@@ -2829,20 +2799,28 @@ a.board-window:hover .board-name {
     grid-column: 3;
     grid-row: 1;
     padding: 10px 0 0;
+    font-size: 13.5px;
   }
-  .board-detail {
+  .board-detail,
+  .board-deploy {
     grid-column: 2 / span 2;
-    padding: 0 0 10px;
+    padding: 0;
   }
   .board-line-state {
+    gap: 8px;
     font-family: var(--font);
     font-size: 15px;
     letter-spacing: 0;
+  }
+  .board-line-state .lamp {
+    width: 10px;
+    height: 10px;
   }
   .board-line {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
+    gap: 4px 14px;
     padding: 8px 12px;
     border: 0;
     border-top: 1px solid var(--board-rule);
