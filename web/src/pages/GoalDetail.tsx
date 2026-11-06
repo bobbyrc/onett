@@ -43,7 +43,7 @@ export function GoalDetail() {
         {goal.conversation_id ? <Link to={`/chat/${goal.conversation_id}`}>Open conversation</Link> : null}
       </p>
       {goal.summary ? (
-        <Callout title={goal.status === 'blocked' ? 'Blocked' : 'Summary'}>{goal.summary}</Callout>
+        <Callout tone={goal.status === 'blocked' ? 'danger' : 'info'} title={goal.status === 'blocked' ? 'Blocked' : 'Summary'}>{goal.summary}</Callout>
       ) : null}
       {goal.body ? <Markdown text={goal.body} /> : null}
       <h2>Tasks</h2>

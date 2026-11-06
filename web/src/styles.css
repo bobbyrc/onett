@@ -402,6 +402,13 @@ pre,
   color: var(--board-muted);
 }
 
+.cell-note {
+  margin-top: 4px;
+  font-size: 0.9em;
+  max-width: 32ch;
+  overflow-wrap: anywhere;
+}
+
 .pause-switch .error-line {
   flex-basis: 100%;
   color: #ff8a80;
