@@ -15,7 +15,7 @@ idea, and onett turns it into shipped, deployed software without further interve
 (approvals, caps, pauses) is opt-in configuration for people who want to rein it in. It is never the
 default.
 
-When you state an idea in chat, the orchestrator (the agent you talk to) decides how big it is. A
+When you state an idea in chat, the chief of staff (the agent you talk to) decides how big it is. A
 single small change becomes a task. Anything with several steps becomes a **goal** (see
 [Goals](#goals-unattended-multi-step-work)), which the `goals` loop drives until it is done. Each task is
 implemented by an agent in its own checkout, reviewed by a second agent, merged once CI is green, and
@@ -39,7 +39,7 @@ Reining it in, per setting:
 - `limits.daily_budget_usd`: stop new pay-per-token runs once today's cost reaches the cap.
 - `paused: true` on a project, or `onett project pause NAME`; `onett pause` stops the whole
   factory. Running agents finish.
-- `loops.goals.enabled: false`: no unattended multi-step work; the orchestrator creates tasks only.
+- `loops.goals.enabled: false`: no unattended multi-step work; the chief of staff creates tasks only.
 - `loops.self_update.enabled: false`: onett never replaces its own binary.
 
 What keeps it running unattended:
@@ -49,7 +49,7 @@ What keeps it running unattended:
   requeues the task without using an attempt, and resumes by itself. `onett status` shows the hold.
 - **Goals get a second chance.** A goal turn that makes no progress gets one explicit "change
   approach" check-in before the goal blocks. A task that blocks inside an active goal goes to the
-  goal's orchestrator first; you hear about it only if the goal itself blocks.
+  goal's chief of staff first; you hear about it only if the goal itself blocks.
 - **Self-update is on by default** for the `self_project` once its update command is known, so onett
   keeps running its own latest release. `loops.self_update.enabled: false` turns it off.
 
@@ -85,8 +85,8 @@ the built-in `supervised` policy holds `medium` and `high` for you.
    commit; onett does.
 3. If the run changed code, onett commits it, pushes a `onett/...` branch and opens a PR. The
    task moves to `review`.
-4. The PR shepherd (the loop that moves PRs along) waits for CI, starts a `reviewer` run when the
-   policy requires one, and then asks the policy. the PR merges automatically once the reviewer
+4. The PR shepherd (the loop that moves PRs along) waits for CI, starts a `code-reviewer` run when the
+   policy requires one, and then asks the policy. the PR merges automatically once the code reviewer
    approves and CI is green, at any risk level. Under the opt-in `supervised` policy, `medium` and
    `high` risk move the task to `awaiting_approval` and wait for you.
 5. After a merge, a project with a deployer goes through `deploying`. A health window (default 10
@@ -101,11 +101,11 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
 
 - **Agents judge, code gates.** Agents write code, review diffs and triage issues. Deterministic Go
   code does everything that leaves the machine: commits, pushes, PRs, merges, deploys and rollbacks.
-- **Agents cannot approve their own work.** Worker agents get no API token. Only the orchestrator
+- **Agents cannot approve their own work.** Worker agents get no API token. Only the chief of staff
   does, and it uses the CLI.
 - **People sign in; config and users change only through them.** The web UI signs people in with
   a username and password (roles: viewer reads, operator also acts on work, owner also edits
-  `onett.yaml` and manages users). The API token, which the CLI and the orchestrator hold, can
+  `onett.yaml` and manages users). The API token, which the CLI and the chief of staff hold, can
   read and act but can never edit the config or users, so an agent cannot rewrite its own policy
   or environment. The first visit to a new instance creates the owner account, so create it
   before you make onett reachable from other machines. Behind an HTTPS proxy, set
@@ -215,7 +215,7 @@ and keep tokens in `~/.config/onett/secrets.env`, then run `./onett config --rel
 on your PATH to drop the `./`.
 
 The web UI's **Chat** page works like a coding agent's terminal for every agent: talk to the
-orchestrator, open any task's agent from the sidebar or from a task, watch its tool calls as they
+chief of staff, open any task's agent from the sidebar or from a task, watch its tool calls as they
 happen (Conversation or Terminal view), type while it works, queue a message, stop a run with Stop
 or Esc, and close or reopen a task agent's conversation. See [docs/ui.md](docs/ui.md).
 
@@ -238,7 +238,7 @@ as in `onett task create -h`.
 | `agents [--all]` | list agent roles; `--all` also shows removed (disabled) ones |
 | `config` | print the redacted config, or `--reload` it |
 | `task` | create, list, show, cancel and retry tasks (`task create --attach ID`, repeatable, hands a chat attachment to the agent as a file under `.onett-run/attachments/`); `task message ID --text T` sends a message to a task agent; `task close-conversation ID --reason R` closes a task agent's conversation |
-| `goal` | create, list, show, pause, resume and finish goals the orchestrator works on unattended |
+| `goal` | create, list, show, pause, resume and finish goals the chief of staff works on unattended |
 | `run` | list, show, cancel and print logs of agent runs |
 | `deploys` | list releases, or show one with its log |
 | `approvals` | list approvals waiting for a decision |
@@ -249,7 +249,7 @@ as in `onett task create -h`.
 | `user reset-password NAME` | give a user a new random password and sign them out everywhere |
 | `pause` | stop starting runs and loops (`status` shows who paused it and since when) |
 | `resume` | resume a paused factory |
-| `chat` | message the orchestrator and print its reply |
+| `chat` | message the chief of staff and print its reply |
 | `service` | install, uninstall or check the launchd service that keeps serve running |
 | `doctor` | check the setup: config, git, gh, harness CLIs, projects and the daemon |
 | `version` | print the onett version |
@@ -313,9 +313,9 @@ and then `service install` again.
 
 ### Goals: unattended multi-step work
 
-The orchestrator creates a goal itself when you state a multi-step idea; you can also create one by
+The chief of staff creates a goal itself when you state a multi-step idea; you can also create one by
 hand. A **goal** is an objective you state once, such as "build parts 1 and 2 of X, part 2 after part 1
-merges". While it is active, the `goals` loop wakes the orchestrator, in the goal's own
+merges". While it is active, the `goals` loop wakes the chief of staff, in the goal's own
 conversation, each time the previous step has settled: it queues the next tasks (linked to the goal
 automatically), retries a blocked one, or declares the goal done or blocked. It waits while any goal
 task is still running, in review or waiting for an approval, and does nothing when nothing changed.
@@ -332,7 +332,7 @@ onett goal block ID --reason "what only you can unblock"
 ```
 
 `onett task create --goal ID` links a task to a goal; it defaults to `$ONETT_GOAL`, which onett
-sets for the orchestrator in a goal conversation. You can chat in that conversation to steer the
+sets for the chief of staff in a goal conversation. You can chat in that conversation to steer the
 goal. The web UI shows the conversation as a normal chat; it has no goals page yet.
 
 ### Retro loop and friction
@@ -340,7 +340,7 @@ goal. The web UI shows the conversation as a normal chat; it has no goals page y
 Agents list anything that slowed them down as `friction`. Onett files it as a GitHub issue and
 dedupes by title: a near-duplicate of an open issue becomes a comment on that issue. The retro loop
 (`loops.retro`, every 24h) hands the last day's blocked and failed tasks, friction, incidents and
-review rejections to the `improver` role as one task. It is on by default only for the project named
+review rejections to the `platform-engineer` role as one task. It is on by default only for the project named
 by `self_project`; set `enabled: true` or `false` to override.
 
 ## Repository layout
@@ -360,7 +360,7 @@ internal/observe/ Observer interface; exec and sentry observers
 internal/notify/  Notifier interface; log, ntfy, discord, telegram and exec notifiers
 internal/channel/ two-way chat channels: Telegram and Discord bots, wired in by `onett serve` from `channels:`
 internal/engine/  scheduler, supervisor, PR shepherd, loops, prompt assembly
-internal/chat/    orchestrator conversations
+internal/chat/    chief-of-staff conversations
 internal/api/     HTTP API, SSE stream (CLI), WebSocket (web UI) and the embedded web UI
 web/              React + Vite + TypeScript UI (built into internal/api/webdist)
 docs/             design, API, UI and plugin documentation

@@ -1,7 +1,7 @@
 # Chat channels: Telegram and Discord
 
 A **channel** is a two-way link between you and onett through a chat app. From your phone you can
-get alerts, chat with the orchestrator (the agent that creates and manages tasks for you), and
+get alerts, chat with the chief of staff (the agent that creates and manages tasks for you), and
 approve or reject merges with a button. A channel is different from a notifier: a notifier only
 sends messages out, a channel also reads what you send.
 
@@ -13,7 +13,7 @@ need no public URL and no open port.
 - **Only allowlisted users are obeyed.** `allowed_user_ids` lists who may talk to onett. Anyone
   else is ignored without a reply. An allowed user can approve merges, so keep the list short.
 - **Direct messages only.** Group chats and server channels are ignored.
-- **One conversation per chat.** Each direct-message chat gets its own orchestrator conversation.
+- **One conversation per chat.** Each direct-message chat gets its own chief-of-staff conversation.
   The link is saved in the channel's state file, so a restart does not lose it.
 - **Approvals arrive with buttons.** When a task needs your decision, the bot sends the request
   with Approve and Reject buttons. The approval is pinned to one commit, as in the web UI.
@@ -116,7 +116,7 @@ ignored; only direct messages count.
 
 ## Photos and files
 
-Send a file in the same direct message you would send text in, and the orchestrator can read it.
+Send a file in the same direct message you would send text in, and the chief of staff can read it.
 As everywhere else, only allowlisted users count.
 
 - **Telegram** takes a photo (the largest size Telegram offers), a document, a video, an audio file
@@ -133,7 +133,7 @@ As everywhere else, only allowlisted users count.
   also stops bots downloading anything over 20 MB, so on Telegram the effective cap is the lower
   of the two, with its own reply.
 - **Where they go.** Files are saved under `<data_dir>/attachments/<conversation id>/`. The
-  orchestrator opens them with its Read tool. To give one to a task agent, it runs
+  chief of staff opens them with its Read tool. To give one to a task agent, it runs
   `onett task create --attach ID`, which copies the file into the agent's worktree under
   `.onett-run/attachments/` (git ignores that folder, so it is never committed).
 
