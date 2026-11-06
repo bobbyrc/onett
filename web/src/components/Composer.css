@@ -18,7 +18,7 @@
   box-shadow: var(--chat-shadow-composer);
 }
 
-/* The field and its action row share one sheet: chips above, actions below. */
+/* One rounded card: chips and field at the top, the footer row below, no shadow. */
 .chat-page .composer {
   position: static;
   display: flex;
@@ -68,7 +68,7 @@
   display: flex;
   align-items: center;
   gap: var(--chat-space-3);
-  padding: var(--chat-space-1) var(--chat-space-2) var(--chat-space-2) var(--chat-space-4);
+  padding: var(--chat-space-1) var(--chat-space-2) var(--chat-space-2);
 }
 
 .chat-page .composer-hint {
@@ -78,34 +78,26 @@
   font-size: var(--chat-text-sm);
 }
 
-/* Send and Stop: one 44px button; the label is text, not only an icon or colour. */
+/* Send and Stop: one round 32px button filled with the strong text colour; the icon says which,
+   and aria-label carries the word. */
 .chat-page .composer-send {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--chat-space-2);
   flex: none;
   margin-left: auto;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 var(--chat-space-4);
-  border: 1px solid var(--chat-fg-strong);
-  border-radius: var(--chat-radius-sm);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
   background: var(--chat-fg-strong);
   color: var(--chat-surface);
-  font: inherit;
-  font-size: var(--chat-text-md);
-  font-weight: 600;
   cursor: pointer;
 }
 
-.chat-page .composer-send.is-stop {
-  background: transparent;
-  color: var(--chat-fg-strong);
-}
-
 .chat-page .composer-send:disabled {
-  opacity: 0.55;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -114,34 +106,77 @@
 }
 
 .chat-page .composer-send:focus-visible,
-.chat-page .composer .icon-btn:focus-visible {
+.chat-page .composer .icon-btn:focus-visible,
+.chat-page .composer .att-remove:focus-visible {
   outline: 2px solid var(--chat-focus-ring);
   outline-offset: 2px;
 }
 
-/* Attachments: the attach buttons in the foot, and the drop state. */
+/* Attachments: the round + (and the phone's photo button) in the foot, and the drop state. */
 .chat-page .composer-attach {
   display: flex;
   gap: 2px;
   flex: none;
 }
 
-.chat-page .icon-btn {
-  min-width: 44px;
-  min-height: 44px;
+.chat-page .composer .icon-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   border: 0;
+  border-radius: 50%;
   background: transparent;
-  color: var(--chat-fg-strong);
-  font-size: 18px;
+  color: var(--chat-fg-faint);
   cursor: pointer;
 }
 
-.chat-page .icon-btn:hover {
+.chat-page .composer .icon-btn:hover {
+  background: var(--chat-user-bg);
+  color: var(--chat-fg-strong);
+}
+
+/* Pending attachments sit inside the card above the field: rounded chips on a hairline. */
+.chat-page .composer .att-chips {
+  padding: var(--chat-space-3) var(--chat-space-3) 0;
+}
+
+.chat-page .composer .att-chip {
+  border: 1px solid var(--chat-composer-border);
+  border-radius: var(--chat-radius-md);
+  background: var(--chat-user-bg);
+}
+
+.chat-page .composer .att-chip.is-error {
+  border-color: var(--chat-danger);
+}
+
+.chat-page .composer .att-thumb {
+  border-radius: var(--chat-radius-sm);
+}
+
+.chat-page .composer .att-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--chat-fg-faint);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.chat-page .composer .att-remove:hover {
   background: var(--chat-code-bg);
+  color: var(--chat-fg-strong);
 }
 
 .chat-page .composer.is-dragging {
@@ -155,10 +190,33 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: var(--chat-radius-xl);
   background: var(--chat-surface);
   opacity: 0.94;
   font-weight: 600;
   pointer-events: none;
+}
+
+/* Jump to latest: a small pill centred just above the card. It is positioned against the dock, so
+   it follows the composer however tall the card grows. Rules here outrank the base ones in Chat.css. */
+.chat-page .composer-dock .jump-latest {
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 var(--chat-space-3) 0 10px;
+  border: 1px solid var(--chat-composer-border);
+  border-radius: 999px;
+  background: var(--chat-surface);
+  color: var(--chat-fg-faint);
+  font-size: var(--chat-text-sm);
+  box-shadow: 0 1px 2px var(--chat-composer-border);
+}
+
+.chat-page .composer-dock .jump-latest:hover {
+  color: var(--chat-fg-strong);
+}
+
+.chat-page .composer-dock .jump-latest .jump-count {
+  color: var(--chat-fg-strong);
 }
 
 @media (max-width: 759px) {
@@ -174,8 +232,9 @@
     display: none;
   }
 
-  .chat-page .composer-foot {
-    justify-content: space-between;
+  /* Small side margins so the card does not touch the screen edge. */
+  .chat-page .composer-dock {
+    padding-inline: var(--chat-space-2);
   }
 }
 

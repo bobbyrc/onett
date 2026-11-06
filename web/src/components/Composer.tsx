@@ -13,7 +13,8 @@ export interface ComposerProps {
   onSend: () => void;
   disabled: boolean;
   sendDisabled: boolean;
-  placeholder: string;
+  /** Defaults to "Ask anything…" when the page has nothing more specific. */
+  placeholder?: string;
   label: string;
   /** A turn is running and can be stopped: Stop takes Send's place while the field is empty, and Esc stops. */
   onStop?: () => void;
@@ -25,10 +26,27 @@ export interface ComposerProps {
   attach?: AttachmentUploads;
 }
 
+function PlusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PhotoIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <rect x="2" y="3.5" width="12" height="9" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 function SendIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+      <path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -36,12 +54,12 @@ function SendIcon() {
 function StopIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <rect x="3.5" y="3.5" width="9" height="9" fill="currentColor" />
+      <rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" />
     </svg>
   );
 }
 
-/** The message sheet: an auto-growing field, with chips above and the hint and Send/Stop below. */
+/** The message card: chips and an auto-growing field, with + , the hint and a round Send/Stop in the footer. */
 export function Composer({
   textareaRef,
   draft,
@@ -49,7 +67,7 @@ export function Composer({
   onSend,
   disabled,
   sendDisabled,
-  placeholder,
+  placeholder = 'Ask anything…',
   label,
   onStop,
   stopping = false,
@@ -161,13 +179,13 @@ export function Composer({
           <span className="composer-attach">
             <input ref={fileRef} type="file" multiple hidden data-testid="attach-input" onChange={pick} />
             <button type="button" className="icon-btn" aria-label="Attach files" onClick={() => fileRef.current?.click()}>
-              <span aria-hidden="true">📎</span>
+              <PlusIcon />
             </button>
             {touch ? (
               <>
                 <input ref={photoRef} type="file" accept="image/*" multiple hidden data-testid="photo-input" onChange={pick} />
                 <button type="button" className="icon-btn" aria-label="Add a photo" onClick={() => photoRef.current?.click()}>
-                  <span aria-hidden="true">📷</span>
+                  <PhotoIcon />
                 </button>
               </>
             ) : null}
@@ -184,12 +202,10 @@ export function Composer({
             onClick={() => onStop?.()}
           >
             <StopIcon />
-            <span>{buttonLabel}</span>
           </button>
         ) : (
           <button type="submit" className="composer-send" aria-label="Send" disabled={sendDisabled}>
             <SendIcon />
-            <span>Send</span>
           </button>
         )}
       </div>

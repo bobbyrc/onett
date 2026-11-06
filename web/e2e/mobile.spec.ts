@@ -239,7 +239,7 @@ for (const vp of VIEWPORTS) {
     // notched iPhone its lower ~34px sits under the indicator. --composer-inset stands in for
     // env(safe-area-inset-bottom), which Chromium reports as 0.
     // Several pending files, some with very long names: the chips wrap inside the composer, the
-    // page stays no wider than the screen, and every control is at least 44px to tap.
+    // page stays no wider than the screen, and every composer control is at least 32px to tap.
     test('chat composer with several pending attachments fits and is tappable', async ({ page }) => {
       await open(page, `/chat/${CONV_ID}`);
       const long = 'a-very-long-file-name-that-must-be-cut-with-an-ellipsis-instead-of-pushing-the-page-wider.txt';
@@ -261,8 +261,8 @@ for (const vp of VIEWPORTS) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
       for (const button of await page.locator('.composer .att-remove, .composer .icon-btn').all()) {
         const box = await button.boundingBox();
-        expect(box!.width).toBeGreaterThanOrEqual(44);
-        expect(box!.height).toBeGreaterThanOrEqual(44);
+        expect(box!.width).toBeGreaterThanOrEqual(32);
+        expect(box!.height).toBeGreaterThanOrEqual(32);
       }
       await expect(page.getByRole('button', { name: 'Add a photo' })).toBeVisible();
       mkdirSync(`e2e-results/screenshots/${vp.name}`, { recursive: true });
@@ -360,7 +360,7 @@ for (const vp of VIEWPORTS) {
     });
 
     // A long chat opens at the end. Scrolling up shows the Jump to latest pill: inside the screen,
-    // clear of the composer, 44px tall; tapping it returns to the end and hides it.
+    // clear of the composer, 32px tall; tapping it returns to the end and hides it.
     test('chat Jump to latest pill is visible, tappable and returns to the bottom', async ({ page }) => {
       // Same steps as open(), with the long conversation routed after the mock so it wins.
       await mockBackend(page);
@@ -384,7 +384,7 @@ for (const vp of VIEWPORTS) {
       const box = (await pill.boundingBox())!;
       const composer = (await page.locator('.chat-page .composer').boundingBox())!;
       const vw = page.viewportSize()!.width;
-      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(32);
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(vw);
       expect(box.y + box.height).toBeLessThanOrEqual(composer.y);
@@ -398,7 +398,7 @@ for (const vp of VIEWPORTS) {
     });
 
     // A long draft stops growing at 40% of the screen and scrolls inside the field, so the
-    // composer stays on screen; Send and Attach stay 44px tappable.
+    // composer stays on screen; Send and Attach stay 32px tappable.
     test('chat composer caps a 30-line draft and keeps Send tappable', async ({ page }) => {
       await open(page, `/chat/${CONV_ID}`);
       await page.addStyleTag({ content: ':root { --composer-inset: 34px !important; }' });
@@ -415,8 +415,8 @@ for (const vp of VIEWPORTS) {
       expect(vh - (box.y + box.height)).toBeGreaterThanOrEqual(33.5);
       for (const name of ['Send', 'Attach files']) {
         const b = (await page.getByRole('button', { name, exact: true }).boundingBox())!;
-        expect(b.width, name).toBeGreaterThanOrEqual(44);
-        expect(b.height, name).toBeGreaterThanOrEqual(44);
+        expect(b.width, name).toBeGreaterThanOrEqual(32);
+        expect(b.height, name).toBeGreaterThanOrEqual(32);
         expect(b.x + b.width, name).toBeLessThanOrEqual(vw);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
