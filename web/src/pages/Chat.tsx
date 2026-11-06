@@ -665,6 +665,8 @@ function TaskThread({
   const closedAt = conv.conversation?.closed_at;
   const closed = !!closedAt;
   const lastRun = conv.runs[conv.runs.length - 1];
+  // Owners pick model, effort and permissions once the task has a conversation to store them on.
+  const settingsId = canOperate ? conv.conversation?.id : undefined;
   const sub = (
     <>
       {[lastRun?.harness, lastRun?.model].filter(Boolean).join(' · ')}
@@ -756,10 +758,20 @@ function TaskThread({
             stopping={!!liveRunId && stoppingRun === liveRunId}
             textareaRef={textareaRef}
             label={`Message the ${role}`}
-            modelLabel={[role, lastRun?.model || lastRun?.harness, lastRun?.effort, lastRun?.permission_mode]
-              .filter(Boolean)
-              .join(' · ')}
-            rightControls={<ContextRing fraction={contextFraction(lastRun)} />}
+            modelLabel={
+              settingsId
+                ? role
+                : [role, lastRun?.model || lastRun?.harness, lastRun?.effort, lastRun?.permission_mode]
+                    .filter(Boolean)
+                    .join(' · ')
+            }
+            leftControls={settingsId ? <ComposerSettings conversationId={settingsId} side="permission" /> : undefined}
+            rightControls={
+              <>
+                {settingsId ? <ComposerSettings conversationId={settingsId} side="model" /> : null}
+                <ContextRing fraction={contextFraction(lastRun)} />
+              </>
+            }
           />
         </>
       )}
