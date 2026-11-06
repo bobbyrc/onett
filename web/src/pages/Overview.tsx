@@ -1,3 +1,4 @@
+import { chatRunHref } from '../lib/chatRunLink';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -150,7 +151,7 @@ export function RunItem({ run, scale, now }: { run: Run; scale: number; now: num
   return (
     <li className="run-item">
       <div className="run-item-head">
-        <Link to={`/runs/${run.id}`}>
+        <Link to={run.task_id ? `/runs/${run.id}` : chatRunHref(run)}>
           {run.task_id ? (task.data?.task.title ?? 'Loading task…') : `Chat with ${agentLabel(run.role)}`}
         </Link>
         {canOperate ? (

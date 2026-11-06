@@ -1,3 +1,4 @@
+import { chatRunHref } from '../lib/chatRunLink';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { Run } from '../types';
@@ -40,7 +41,7 @@ function TaskCell({ run }: { run: Run }) {
   if (!run.task_id) {
     return (
       <div className="run-task">
-        <Link className="run-task-title" to={`/runs/${run.id}`}>
+        <Link className="run-task-title" to={chatRunHref(run)}>
           Chat with {agentLabel(run.role)}
         </Link>
         <span className="run-task-meta">{run.project}</span>
