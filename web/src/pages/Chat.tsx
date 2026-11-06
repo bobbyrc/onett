@@ -567,6 +567,7 @@ function OrchestratorThread({
         stopping={!!liveRunId && stoppingRun === liveRunId}
         textareaRef={textareaRef}
         label="Message the orchestrator"
+        modelLabel={run?.model || run?.harness}
       />
       <ErrorLine error={stop.error} />
       <ErrorLine error={flush.error} />
@@ -736,6 +737,7 @@ function TaskThread({
             stopping={!!liveRunId && stoppingRun === liveRunId}
             textareaRef={textareaRef}
             label={`Message the ${role}`}
+            modelLabel={[role, lastRun?.model || lastRun?.harness].filter(Boolean).join(' · ')}
           />
         </>
       )}

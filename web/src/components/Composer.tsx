@@ -21,6 +21,8 @@ export interface ComposerProps {
   /** Stop was pressed and the run has not ended yet. */
   stopping?: boolean;
   hint?: string;
+  /** Who answers, e.g. "implementer · claude-sonnet"; shown at the right of the footer, before Send. */
+  modelLabel?: string;
   autoFocus?: boolean;
   /** Files for this message; without it the composer takes text only. */
   attach?: AttachmentUploads;
@@ -72,6 +74,7 @@ export function Composer({
   onStop,
   stopping = false,
   hint = 'Enter to send · Shift+Enter for a new line',
+  modelLabel,
   autoFocus = false,
   attach,
 }: ComposerProps) {
@@ -192,6 +195,11 @@ export function Composer({
           </span>
         ) : null}
         <span className="composer-hint muted small">{hint}</span>
+        {modelLabel ? (
+          <span className="composer-model muted small" title={modelLabel}>
+            {modelLabel}
+          </span>
+        ) : null}
         {stops ? (
           <button
             type="button"
@@ -226,6 +234,7 @@ export function ComposerArea(props: {
   stopping: boolean;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   label: string;
+  modelLabel?: string;
   attach?: AttachmentUploads;
   /** The reader's position in the transcript, for the Jump to latest pill. */
   stick?: StickToBottom;
@@ -249,6 +258,7 @@ export function ComposerArea(props: {
         attach={props.attach}
         placeholder={state.placeholder}
         label={props.label}
+        modelLabel={props.modelLabel}
         onStop={props.working ? props.onStop : undefined}
         stopping={props.stopping}
         hint={
