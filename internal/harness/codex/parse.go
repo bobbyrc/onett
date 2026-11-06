@@ -71,6 +71,8 @@ type parser struct {
 	input    int64
 	cached   int64
 	output   int64
+	// context is the last turn's input tokens, not a sum.
+	context int64
 }
 
 func newParser() *parser {
@@ -100,6 +102,9 @@ func (p *parser) parseLine(line string) []harness.Event {
 			p.input += sl.Usage.InputTokens
 			p.cached += sl.Usage.CachedInputTokens
 			p.output += sl.Usage.OutputTokens
+			// The last turn's input is the closest Codex gets to the context size: it
+			// includes the cached part, and the turns before it are already inside it.
+			p.context = sl.Usage.InputTokens
 		}
 	case "turn.failed":
 		msg := "turn failed"
@@ -192,6 +197,7 @@ func (p *parser) result(exitCode int, stderrTail []string) harness.Result {
 		InputTokens:       p.input,
 		CachedInputTokens: p.cached,
 		OutputTokens:      p.output,
+		ContextTokens:     p.context,
 		IsError:           p.turnFailed || p.errorPending || exitCode != 0,
 	}
 	if p.lastText == "" && exitCode != 0 && len(stderrTail) > 0 {

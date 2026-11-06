@@ -30,6 +30,7 @@ export function contextWindow(model: string | undefined): number | null {
   const m = model.toLowerCase();
   if (m.includes('[1m]') || m.includes('-1m')) return 1_000_000;
   if (/(opus|sonnet|haiku|claude)/.test(m)) return 200_000;
+  if (/(gpt-5|codex)/.test(m)) return 400_000;
   return null;
 }
 
