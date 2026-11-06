@@ -596,6 +596,10 @@ in `src/App.tsx`, plus one detail page each (task, run, goal, chat) using the fi
 returns; a detail page with no data is skipped with a note. `--routes /tasks,/runs` picks
 routes, and `--full` captures the whole scrolling page instead of the first screen.
 
+The live event stream needs a session cookie, which a token is not, so the script answers the
+WebSocket locally (it accepts and confirms subscriptions). The sidebar light therefore reads "live"
+in these shots, but no live events arrive.
+
 The API token cannot read owner-only data, so Agents, Config and Users show "forbidden" in these
 shots. That is on purpose: giving the token (or a screenshot mode) owner powers would break the
 rule that an agent cannot reach the owner's settings. The script prints a `note:` for each route
