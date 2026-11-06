@@ -438,6 +438,10 @@ func (e *Engine) SendChatWith(ctx context.Context, conversationID, text string, 
 		}
 	}
 	if cur.Busy && cur.ActiveRunID != "" {
+		if cur.Untitled() {
+			// The live-delivery path below returns before the title is set.
+			e.titleConversation(ctx, cur.ID, text, atts)
+		}
 		switch err := e.deliverToRun(ctx, cur.ActiveRunID, withAttachmentNote(text, atts)); {
 		case err == nil:
 			return e.storeOwnerMessage(ctx, cur, domain.ChatMessage{
@@ -454,11 +458,8 @@ func (e *Engine) SendChatWith(ctx context.Context, conversationID, text string, 
 	conv, err := e.d.Store.UpdateConversation(ctx, conversationID, func(c *domain.Conversation) error {
 		wasBusy = c.Busy
 		c.Busy = true
-		if c.Title == "" {
-			c.Title = firstRunes(text, 60)
-			if c.Title == "" && len(atts) > 0 {
-				c.Title = firstRunes(atts[0].Name, 60)
-			}
+		if c.Untitled() {
+			c.Title = titleOf(text, atts)
 		}
 		return nil
 	})
@@ -504,6 +505,28 @@ func (e *Engine) SendChatWith(ctx context.Context, conversationID, text string, 
 		return domain.ChatMessage{}, err
 	}
 	return msg, nil
+}
+
+// titleOf names a conversation from its first owner message, or its first attachment.
+func titleOf(text string, atts []domain.Attachment) string {
+	name := ""
+	if len(atts) > 0 {
+		name = atts[0].Name
+	}
+	return domain.TitleFromMessage(text, name)
+}
+
+// titleConversation gives a still-untitled conversation a title from its first message.
+func (e *Engine) titleConversation(ctx context.Context, id, text string, atts []domain.Attachment) {
+	_, err := e.d.Store.UpdateConversation(ctx, id, func(c *domain.Conversation) error {
+		if c.Untitled() {
+			c.Title = titleOf(text, atts)
+		}
+		return nil
+	})
+	if err != nil {
+		e.d.Logger.Warn("chat: title conversation", "conversation", id, "err", err)
+	}
 }
 
 // storeOwnerMessage appends an owner message and announces it.

@@ -75,7 +75,7 @@ export function parseTool(text: string): ToolSummary {
   return tool;
 }
 
-function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: string): Entry[] {
+function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: string, skipSystem = false): Entry[] {
   if (lines.length === 0) return [];
   const sorted = [...lines].sort((a, b) => a.seq - b.seq);
   const out: Entry[] = [];
@@ -94,6 +94,9 @@ function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: 
   }
 
   for (const l of sorted) {
+    // Daemon bookkeeping ("session started", "onett restarted; reattached ...") stays in the run
+    // log; a chat thread is the conversation, and why a run ended is shown by endedEntries.
+    if (skipSystem && l.kind === 'system') continue;
     const at = { id: `${l.run_id}:${l.seq}`, runId: l.run_id, time: l.time };
     switch (l.kind) {
       case 'prompt':
@@ -127,6 +130,7 @@ function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: 
         break;
       }
       default:
+        if (l.kind === 'system' && isRawStreamEvent(l.text)) break;
         out.push({ ...at, kind: l.kind, text: l.text });
     }
   }
@@ -141,6 +145,16 @@ function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: 
 export function isInternalLine(e: Entry): boolean {
   if (e.kind !== 'system') return false;
   return /^session started( \(.*\))?$/.test(e.text) || e.text.startsWith('onett restarted; reattached to the agent');
+}
+
+/**
+ * True for a system line that is a raw agent stream event the parser did not recognise, such as
+ * the `tool_progress` heartbeats a long command emits. They keep the run's stall clock fresh but
+ * mean nothing to a reader, so the transcript hides them; the Terminal view still shows them.
+ */
+function isRawStreamEvent(text: string): boolean {
+  // A prefix test, not JSON.parse: the parser truncates long lines, which are then not valid JSON.
+  return /^\{"type":"[a-z_]+"/.test(text);
 }
 
 /** One run's log as entries. `fallbackPrompt` (the task body) stands in when the run recorded no prompt line. */
@@ -238,7 +252,7 @@ export function orchestratorEntries(
           placed.add(r.id);
           out.push(ownerEntry(r));
         }
-        const run = linesToEntries(logs, true);
+        const run = linesToEntries(logs, true, undefined, true);
         out.push(...run, ...endedEntries(m.run_id, lastTime(run, m.created_at), runs[m.run_id]));
       }
     } else if (m.role === 'assistant') {

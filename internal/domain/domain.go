@@ -203,6 +203,9 @@ type Run struct {
 	// GoalTurn marks an orchestrator turn that was a goal check-in, so a restarted onett can still
 	// run the goal's after-turn check when the turn ends.
 	GoalTurn bool `json:"goal_turn,omitempty"`
+	// ConversationID is the chat conversation an orchestrator turn ran in, so the UI can link the
+	// run to /chat/<id>. Empty for task runs. It lives in the run's JSON document: no migration.
+	ConversationID string `json:"conversation_id,omitempty"`
 	// SetupOwed: project setup did not pass before the agent started, so it runs again after the
 	// agent's turn. A reattached run needs it to finish like a run that never restarted.
 	SetupOwed bool `json:"setup_owed,omitempty"`

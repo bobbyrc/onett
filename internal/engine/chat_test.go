@@ -83,6 +83,7 @@ func TestChatSendReplyAndDeltas(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.RunSucceeded, run.Status)
 	assert.Equal(t, "chief-of-staff", run.Role)
+	assert.Equal(t, conv.ID, run.ConversationID, "a chat run names its conversation")
 
 	var sawDelta, sawReply bool
 	deadline := time.After(5 * time.Second)
