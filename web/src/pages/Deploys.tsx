@@ -22,7 +22,13 @@ export function Deploys() {
   const columns: Column<Deployment>[] = [
     { key: 'project', header: 'Project', cell: (d) => d.project },
     { key: 'ref', header: 'Ref', cell: (d) => <span className="mono" title={d.ref}>{shortSha(d.ref)}</span> },
-    { key: 'state', header: 'State', cell: (d) => <StatusPill kind="deploy" status={d.state} /> },
+    { key: 'state', header: 'State', cell: (d) => (
+        <>
+          <StatusPill kind="deploy" status={d.state} />
+          {d.notes ? <div className="cell-note muted">{d.notes}</div> : null}
+        </>
+      ),
+    },
     {
       key: 'url',
       header: 'URL',
@@ -43,7 +49,6 @@ export function Deploys() {
     },
     { key: 'started', header: 'Started', cell: (d) => <RelTime value={d.started_at} /> },
     { key: 'updated', header: 'Updated', cell: (d) => <RelTime value={d.updated_at} /> },
-    { key: 'notes', header: 'Notes', wide: true, cell: (d) => d.notes || '—' },
     {
       key: 'log',
       header: 'Log',

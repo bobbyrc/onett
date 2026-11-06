@@ -357,7 +357,9 @@ Resume on a paused or blocked one, Block on an active or paused one, Mark done o
 done. Done and Block open a text box first, because the API requires a summary or a reason. The
 controls need the operate action. **Goal detail** (`/goals/:id`): title and status, the controls,
 the project, the turn count, a link to the goal's conversation in Chat, the summary (a callout
-when blocked), the goal text and the tasks queued for it. `goal.updated` events refresh both.
+when blocked), the goal text and the tasks queued for it under a Tasks section heading. The goal
+text is rendered Markdown, 20px below the meta line; there, as in task bodies, a heading has 20px
+above it and 6px below, and paragraphs and lists 8px below. `goal.updated` events refresh both.
 
 **Tasks** (`/tasks`) — filter bar: project select, status chips (multi-select; default
 "active" = queued, running, review, awaiting_approval, merged, deploying, blocked), kind
@@ -602,6 +604,10 @@ to change it): 1440x900 and 390x844, in both colour schemes. The default routes 
 in `src/App.tsx`, plus one detail page each (task, run, goal, chat) using the first id the API
 returns; a detail page with no data is skipped with a note. `--routes /tasks,/runs` picks
 routes, and `--full` captures the whole scrolling page instead of the first screen.
+
+The live event stream needs a session cookie, which a token is not, so the script answers the
+WebSocket locally (it accepts and confirms subscriptions). The sidebar light therefore reads "live"
+in these shots, but no live events arrive.
 
 The API token cannot read owner-only data, so Agents, Config and Users show "forbidden" in these
 shots. That is on purpose: giving the token (or a screenshot mode) owner powers would break the
