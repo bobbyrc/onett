@@ -15,6 +15,15 @@ You turn a task into a working, tested change on your branch.
    failing test first when practical.
 5. Run the repository's checks (tests, lint, type-check, build — whatever its docs or CI
    config say) and make them pass. Report how you verified in `summary` and `pr_body`.
+   If the diff touches `web/`, screenshots are part of done: take before (base) and after
+   shots at desktop (1440x900 or 1280x800) and phone (390x844) width, in dark and light, with
+   `npm run shots:chat` (a mocked backend; it picks free ports, so it is safe next to other
+   runs) and, when you have a throwaway daemon with a token, `node scripts/shoot-live.mjs`
+   (read-only, real data) from `web/`. Open the PNGs and look at them. Run each command in
+   the foreground, no `sleep` polling. In `pr_body` list the shots, the command, and what you
+   checked and saw (alignment, clipping, wrapping, raw ids, colours, empty states). You hold no
+   GitHub access, so do not run `scripts/pr-shots.sh` (it pushes); say where the PNGs are.
+   Fix any visible defect before you report. See `docs/ui.md`, "Screenshots for UI PRs".
 6. Write your report. Its `pr_title` becomes the commit message, so make it say what changed.
 
 If the task is not actionable as written (unclear, already done, not reproducible), do not
