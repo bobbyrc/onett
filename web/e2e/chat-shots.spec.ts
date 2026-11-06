@@ -63,6 +63,20 @@ const THREAD_LOGS: LogLine[] = [
   log(7, 'text', ANSWER, T2),
 ];
 
+// The task thread's run log. Seqs are unique (they make the entry ids), and the follow-up is an
+// owner line in the log, as the agent sees it, so the message rail has two user turns to tick.
+const TASK_LOGS: LogLine[] = [
+  log(1, 'prompt', 'Cap the shepherd backoff at 10 minutes and add a test.', T1),
+  ...THREAD_LOGS.slice(0, 6).map((l) => ({ ...l, seq: l.seq + 1 })),
+  log(8, 'text', 'Done: `backoff` now returns `min(d, 10*time.Minute)`, with `TestBackoffCapped` covering it.', T2),
+  log(9, 'owner', 'Also log when the cap kicks in.', T3),
+  log(10, 'tool_use', 'Edit: {"file_path":"internal/engine/loop_shepherd.go"}', '2026-11-05T11:58:30Z', 'c1'),
+  log(11, 'tool_result', 'ok', '2026-11-05T11:58:40Z', 'c1'),
+  log(12, 'tool_use', 'Bash: go test ./internal/engine', '2026-11-05T11:59:00Z', 'c2'),
+  log(13, 'tool_result', 'ok  github.com/bobbyrc/onett/internal/engine 0.9s', '2026-11-05T11:59:10Z', 'c2'),
+  log(14, 'text', 'Added a log line when `backoff` hits the cap.', '2026-11-05T12:00:00Z'),
+];
+
 const RUNNING_LOGS: LogLine[] = [
   log(1, 'tool_use', 'Read: {"file_path":"internal/engine/loop_shepherd.go"}', '2026-11-05T12:03:00Z', 'b1'),
   log(2, 'tool_result', 'package engine ...', '2026-11-05T12:03:01Z', 'b1'),
@@ -86,8 +100,6 @@ const taskConv: TaskConversation = {
   runs: runs.slice(0, 1),
   messages: [
     msg(11, 'shot-task-conv', 'user', 'Cap the shepherd backoff at 10 minutes and add a test.', T1),
-    // A second user message, so the message rail of ticks shows in the task-thread shots.
-    msg(12, 'shot-task-conv', 'user', 'Also log when the cap kicks in.', T3),
   ],
   can_send: true,
 };
@@ -150,11 +162,7 @@ const SCENES: Scene[] = [
     ready: '.composer',
     setup: async (page) => {
       await json(page, '**/api/v1/tasks/*/conversation*', taskConv);
-      await json(page, '**/api/v1/runs/*/logs*', [
-        log(1, 'prompt', 'Cap the shepherd backoff at 10 minutes and add a test.', T1),
-        ...THREAD_LOGS.slice(0, 6),
-        log(7, 'text', 'Done: `backoff` now returns `min(d, 10*time.Minute)`, with `TestBackoffCapped` covering it.', T3),
-      ]);
+      await json(page, '**/api/v1/runs/*/logs*', TASK_LOGS);
     },
   },
   {
@@ -164,11 +172,7 @@ const SCENES: Scene[] = [
     open: true,
     setup: async (page) => {
       await json(page, '**/api/v1/tasks/*/conversation*', taskConv);
-      await json(page, '**/api/v1/runs/*/logs*', [
-        log(1, 'prompt', 'Cap the shepherd backoff at 10 minutes and add a test.', T1),
-        ...THREAD_LOGS.slice(0, 6),
-        log(7, 'text', 'Done: `backoff` now returns `min(d, 10*time.Minute)`, with `TestBackoffCapped` covering it.', T3),
-      ]);
+      await json(page, '**/api/v1/runs/*/logs*', TASK_LOGS);
     },
   },
   {
