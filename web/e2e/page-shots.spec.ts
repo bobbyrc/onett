@@ -4,12 +4,15 @@
 // e2e-results/shots/<route>-<desktop|phone>-<dark|light>.png (the naming of scripts/shoot-live.mjs,
 // which needs a daemon and a token that worker agents do not have). Data: e2e/page-fixtures.ts.
 // The clock is frozen and animations are off, so two runs of one commit give identical PNGs.
+// SHOTS_FULL=1 captures the whole scrolling page instead of the first screen (into
+// e2e-results/shots-full/); the default shots stay viewport-sized.
 import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mockBackend } from './mock';
 import * as d from './page-fixtures';
 
-const OUT = 'e2e-results/shots';
+const FULL = !!process.env.SHOTS_FULL && process.env.SHOTS_FULL !== '0';
+const OUT = FULL ? 'e2e-results/shots-full' : 'e2e-results/shots';
 
 const VIEWPORTS = [
   { name: 'desktop', width: 1440, height: 900, mobile: false },
@@ -204,7 +207,7 @@ for (const vp of VIEWPORTS) {
           mkdirSync(OUT, { recursive: true });
           // A few pixels of anti-aliasing can still settle after the first paint, so shoot until
           // two consecutive frames are byte-identical.
-          const shoot = () => page.screenshot({ animations: 'disabled' });
+          const shoot = () => page.screenshot({ animations: 'disabled', fullPage: FULL });
           let png = await shoot();
           for (let i = 0; i < 8; i++) {
             await page.waitForTimeout(150);
