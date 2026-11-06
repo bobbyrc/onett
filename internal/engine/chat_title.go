@@ -63,7 +63,9 @@ func chatTitleFor(text string, atts []domain.Attachment) string {
 // backfillChatTitles gives orchestrator conversations that were left untitled (or "New chat")
 // a title from their first owner message. It runs once at startup rather than on every read, so
 // listing conversations stays a plain query; a conversation that already has a real title, or
-// has no usable message yet, is left alone, and a second run changes nothing.
+// has no usable message yet, is left alone, and a second run changes nothing. It keeps each
+// conversation's updated_at so the sidebar order does not change. It looks at the 10000 most
+// recently updated conversations; older untitled ones stay as they are.
 func (e *Engine) backfillChatTitles(ctx context.Context) {
 	convs, err := e.d.Store.ListConversations(ctx, 10000)
 	if err != nil {
@@ -90,7 +92,7 @@ func (e *Engine) backfillChatTitles(ctx context.Context) {
 		if title == "" {
 			continue
 		}
-		if _, err := e.d.Store.UpdateConversation(ctx, c.ID, func(c *domain.Conversation) error {
+		if _, err := e.d.Store.UpdateConversationQuiet(ctx, c.ID, func(c *domain.Conversation) error {
 			if needsChatTitle(c.Title) {
 				c.Title = title
 			}

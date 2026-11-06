@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,6 +74,12 @@ func TestBackfillChatTitles(t *testing.T) {
 	blank := mk("", user("Another one"))
 	named := mk("Operations", user("ignored"))
 	empty := mk(untitledChat)
+	before := map[string]time.Time{}
+	for _, id := range []string{placeholder, blank, named, empty} {
+		c, err := st.GetConversation(ctx, id)
+		require.NoError(t, err)
+		before[id] = c.UpdatedAt
+	}
 
 	cf.e.backfillChatTitles(ctx)
 	cf.e.backfillChatTitles(ctx) // idempotent
@@ -86,4 +93,9 @@ func TestBackfillChatTitles(t *testing.T) {
 	assert.Equal(t, "Another one", title(blank))
 	assert.Equal(t, "Operations", title(named))
 	assert.Equal(t, untitledChat, title(empty))
+	for id, want := range before { // a backfill must not re-date old conversations
+		c, err := st.GetConversation(ctx, id)
+		require.NoError(t, err)
+		assert.True(t, want.Equal(c.UpdatedAt), "updated_at changed for %s", id)
+	}
 }

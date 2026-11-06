@@ -130,6 +130,8 @@ type Store interface {
 	// GetConversationByTask returns the conversation of a task agent, or ErrNotFound.
 	GetConversationByTask(ctx context.Context, taskID string) (domain.Conversation, error)
 	UpdateConversation(ctx context.Context, id string, fn func(*domain.Conversation) error) (domain.Conversation, error)
+	// UpdateConversationQuiet is UpdateConversation that leaves UpdatedAt as it was.
+	UpdateConversationQuiet(ctx context.Context, id string, fn func(*domain.Conversation) error) (domain.Conversation, error)
 	AppendChatMessage(ctx context.Context, m domain.ChatMessage) (domain.ChatMessage, error)
 	// ListChatMessages returns a conversation's messages in ascending order.
 	ListChatMessages(ctx context.Context, conversationID string) ([]domain.ChatMessage, error)
