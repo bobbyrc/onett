@@ -6,7 +6,18 @@ import (
 
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
+	agentharness "github.com/bobbyrc/onett/internal/harness"
 )
+
+// SettingsView is a conversation's agent settings with what the UI needs to offer them.
+type SettingsView struct {
+	Settings domain.ConversationSettings `json:"settings"`
+	// Defaults are the role's values for what Settings leaves empty (the model; effort and
+	// permission mode use the harness's own default, so they are empty here).
+	Defaults domain.ConversationSettings `json:"defaults"`
+	Harness  string                      `json:"harness"`
+	Choices  agentharness.Choices        `json:"choices"`
+}
 
 // Controller is everything the API does beyond reading the store. internal/engine implements
 // it. Errors wrapping store.ErrNotFound map to 404, ErrInvalid to 400, ErrConflict to 409.
@@ -82,6 +93,13 @@ type Controller interface {
 	// SendChatWith is SendChat for a message that carries attachments (IDs from the attachment
 	// upload). Text may be empty when there are any. They are stored with the message.
 	SendChatWith(ctx context.Context, conversationID, text string, attachmentIDs []string) (domain.ChatMessage, error)
+	// ConversationSettings returns a conversation's model, effort and permission mode, the role's
+	// defaults, and the choices its harness accepts.
+	ConversationSettings(ctx context.Context, id string) (SettingsView, error)
+	// UpdateConversationSettings replaces the settings, which apply from the next turn. Values
+	// outside the harness's choices are ErrInvalid, as is a dangerous permission mode (one that
+	// skips safety checks) chosen without confirmDangerous.
+	UpdateConversationSettings(ctx context.Context, id string, in domain.ConversationSettings, confirmDangerous bool) (SettingsView, error)
 	// FlushChat starts a turn from the queued messages now. It does nothing when the queue is
 	// empty or a turn is running.
 	FlushChat(ctx context.Context, conversationID string) error

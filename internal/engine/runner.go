@@ -365,13 +365,25 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 	if _, ok := h.(harness.Reattacher); ok {
 		startCtx = context.WithoutCancel(ctx)
 	}
+	// The owner's settings for this task agent's conversation, if any, replace the role's defaults.
+	settings := effectiveSettings(agent, e.taskSettings(bg, root.ID))
+	if settings.Model != run.Model || settings.Effort != "" || settings.PermissionMode != "" {
+		if r, err := e.d.Store.UpdateRun(bg, run.ID, func(r *domain.Run) error {
+			r.Model, r.Effort, r.PermissionMode = settings.Model, settings.Effort, settings.PermissionMode
+			return nil
+		}); err == nil {
+			run = r
+		}
+	}
 	sess, err := h.Start(startCtx, harness.Spec{
 		RunID:           run.ID,
 		Workdir:         ws.Dir,
 		Prompt:          prompt,
 		ResumeSessionID: resumeID,
 		Instructions:    instructions,
-		Model:           agent.Model,
+		Model:           settings.Model,
+		Effort:          settings.Effort,
+		PermissionMode:  settings.PermissionMode,
 		Env:             env,
 		Args:            agent.Args,
 	})

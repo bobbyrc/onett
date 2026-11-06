@@ -49,6 +49,8 @@ type fakeCtl struct {
 	decided       string
 	loopRun       string
 	chatConvID    string
+	settings      domain.ConversationSettings
+	confirmed     bool
 	chatText      string
 	taskMsgAuthor string
 	chatAtts      []string

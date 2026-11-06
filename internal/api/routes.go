@@ -88,6 +88,8 @@ func (s *server) apiRoutes(r chi.Router) {
 	s.read(r, "/conversations/{id}", s.getConversation)
 	s.operate(r, http.MethodPost, "/conversations/{id}/messages", s.sendMessage)
 	s.operate(r, http.MethodPost, "/conversations/{id}/flush", s.flushConversation)
+	s.read(r, "/conversations/{id}/settings", s.getConversationSettings)
+	s.operate(r, http.MethodPut, "/conversations/{id}/settings", s.putConversationSettings)
 	s.operate(r, http.MethodPost, "/conversations/{id}/attachments", s.uploadAttachment)
 	s.read(r, "/conversations/{id}/attachments/{aid}", s.downloadAttachment)
 	s.operate(r, http.MethodPatch, "/messages/{id}", s.editMessage)

@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import * as api from './api';
 import { ApiError } from './api';
-import type { ConfigChange, NewProjectRequest, NewTask, Role, Run, Stats, TaskDetail } from './types';
+import type { ConfigChange, ConversationSettings, NewProjectRequest, NewTask, Role, Run, Stats, TaskDetail } from './types';
 import { keys } from './keys';
 import { normaliseProject } from './lib/projects';
 
@@ -338,6 +338,22 @@ export function useSendMessage(conversationId: string) {
     mutationFn: ({ text, attachments }: { text: string; attachments?: string[] }) =>
       api.sendMessage(conversationId, text, attachments),
     onSuccess: () => invalidate(qc, keys.conversation(conversationId), keys.conversationsAll),
+  });
+}
+
+export function useConversationSettings(conversationId: string) {
+  return useQuery({
+    queryKey: keys.conversationSettings(conversationId),
+    queryFn: () => api.getConversationSettings(conversationId),
+  });
+}
+
+export function useUpdateConversationSettings(conversationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ settings, confirmDangerous }: { settings: ConversationSettings; confirmDangerous?: boolean }) =>
+      api.putConversationSettings(conversationId, settings, confirmDangerous),
+    onSuccess: (view) => qc.setQueryData(keys.conversationSettings(conversationId), view),
   });
 }
 

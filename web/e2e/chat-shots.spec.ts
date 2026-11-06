@@ -111,7 +111,7 @@ const json = (page: Page, glob: string, body: unknown) =>
       : route.fallback(),
   );
 
-type Scene = { name: string; path: string; setup: (page: Page) => Promise<void>; ready: string; /** Scroll up before the shot, so the Jump to latest pill shows. */ away?: boolean; /** Open every "Worked for" fold and the first tool run, so the quiet tool lines show. */ open?: boolean };
+type Scene = { name: string; path: string; setup: (page: Page) => Promise<void>; ready: string; /** Scroll up before the shot, so the Jump to latest pill shows. */ away?: boolean; /** Open every "Worked for" fold and the first tool run, so the quiet tool lines show. */ open?: boolean; /** Click the button with this name prefix before the shot. */ pick?: string };
 
 const SCENES: Scene[] = [
   {
@@ -174,6 +174,14 @@ const SCENES: Scene[] = [
       await json(page, '**/api/v1/tasks/*/conversation*', taskConv);
       await json(page, '**/api/v1/runs/*/logs*', TASK_LOGS);
     },
+  },
+  {
+    // The model and effort picker open above the composer footer.
+    name: 'composer-picker',
+    path: `/chat/${CONV_ID}`,
+    ready: '.composer',
+    pick: 'Model and effort',
+    setup: async () => {},
   },
   {
     name: 'chat-empty',
@@ -242,6 +250,7 @@ for (const v of VARIANTS) {
           const head = page.locator('.tl-head').first();
           if (await head.count()) await head.click();
         }
+        if (scene.pick) await page.getByRole('button', { name: new RegExp(`^${scene.pick}`) }).click();
         // Threads open at the bottom; make sure of it before the shot.
         await page.evaluate(() => {
           for (const el of document.querySelectorAll<HTMLElement>('*')) {

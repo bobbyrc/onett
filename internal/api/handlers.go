@@ -960,6 +960,37 @@ func (s *server) sendMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, m)
 }
 
+func (s *server) getConversationSettings(w http.ResponseWriter, r *http.Request) {
+	v, err := s.opts.Controller.ConversationSettings(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, v)
+}
+
+// putConversationSettings is for a person only: the permission mode decides what the agent may do
+// without asking, so the agent holding the API token must not be able to widen its own.
+func (s *server) putConversationSettings(w http.ResponseWriter, r *http.Request) {
+	if _, ok := userPrincipal(w, r); !ok {
+		return
+	}
+	var in struct {
+		domain.ConversationSettings
+		ConfirmDangerous bool `json:"confirm_dangerous"`
+	}
+	if err := readJSON(w, r, &in); err != nil {
+		s.fail(w, err)
+		return
+	}
+	v, err := s.opts.Controller.UpdateConversationSettings(r.Context(), chi.URLParam(r, "id"), in.ConversationSettings, in.ConfirmDangerous)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, v)
+}
+
 func (s *server) flushConversation(w http.ResponseWriter, r *http.Request) {
 	if s.refuseTaskConversation(w, r) {
 		return

@@ -22,6 +22,10 @@ type Spec struct {
 	// Instructions are appended to the agent's system prompt: role, rules, outbox contract.
 	Instructions string
 	Model        string
+	// Effort is the reasoning effort and PermissionMode the permission mode or sandbox, in the
+	// adapter's own vocabulary (see Choices). Empty means the adapter's default.
+	Effort         string
+	PermissionMode string
 	// ResumeSessionID continues an earlier session (chat turns, re-runs on the same branch).
 	ResumeSessionID string
 	// Env is added to the inherited environment.

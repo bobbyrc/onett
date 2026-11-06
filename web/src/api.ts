@@ -19,6 +19,8 @@ import type {
   AgentConversation,
   Conversation,
   ConversationDetail,
+  ConversationSettings,
+  ConversationSettingsView,
   Deployment,
   Goal,
   GoalDetail,
@@ -272,6 +274,15 @@ export const getConversation = (id: string) =>
 export const sendMessage = (id: string, text: string, attachments: string[] = []) =>
   request<ChatMessage>('POST', `/conversations/${encodeURIComponent(id)}/messages`, {
     body: attachments.length > 0 ? { text, attachments } : { text },
+  });
+
+export const getConversationSettings = (id: string) =>
+  request<ConversationSettingsView>('GET', `/conversations/${encodeURIComponent(id)}/settings`);
+
+/** Replaces the settings; they apply from the next turn. A dangerous permission mode needs confirmDangerous. */
+export const putConversationSettings = (id: string, settings: ConversationSettings, confirmDangerous = false) =>
+  request<ConversationSettingsView>('PUT', `/conversations/${encodeURIComponent(id)}/settings`, {
+    body: { ...settings, confirm_dangerous: confirmDangerous },
   });
 
 /** Where a conversation's attachment is served (cookie auth; images and PDFs inline). */
