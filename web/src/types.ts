@@ -128,6 +128,8 @@ export interface Run {
   /** Parts of input_tokens read from / written to the prompt cache, when the harness reports them. */
   cached_input_tokens?: number;
   cache_write_tokens?: number;
+  /** Prompt size of the run's last model request: how full the context window is. Absent when unknown. */
+  context_tokens?: number;
   summary?: string;
   error?: string;
   stream_offset?: number;
