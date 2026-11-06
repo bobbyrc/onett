@@ -405,7 +405,7 @@ pre,
 .cell-note {
   margin-top: 4px;
   font-size: 0.9em;
-  max-width: 48ch;
+  max-width: 32ch;
   overflow-wrap: anywhere;
 }
 
