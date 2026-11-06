@@ -274,7 +274,10 @@ export const runLogs: LogLine[] = [
   L(IDS.run, 9, 'tool_use', 'Bash: cd web && npm test', 120, 'g4'),
   L(IDS.run, 10, 'tool_result', ' Test Files  41 passed (41)\n      Tests  318 passed (318)', 118, 'g4'),
   L(IDS.run, 11, 'stderr', 'npm warn deprecated inflight@1.0.6: This module is not supported', 117),
-  L(IDS.run, 12, 'text', 'Added `ToolElapsed`, fed from the latest `tool_progress` line for the call.\n\n- Shows seconds under a minute, then `1m 04s`\n- Hidden once the call has a result\n\nAll web checks pass.', 25),
+  L(IDS.run, 12, 'tool_use', 'Bash: {"command":"cd web && npm run lint && npm run typecheck && npm test -- --run src/lib/transcript.test.ts","timeout":600000,"description":"Run web checks"}', 100, 'g5'),
+  L(IDS.run, 13, 'system', '{"type":"tool_progress","tool_use_id":"g5-heartbeat-1","tool_name":"Bash","elapsed_time_seconds":30,"heartbeat":true}', 99),
+  L(IDS.run, 14, 'tool_result', 'ok', 98, 'g5'),
+  L(IDS.run, 15, 'text', 'Added `ToolElapsed`, fed from the latest `tool_progress` line for the call.\n\n- Shows seconds under a minute, then `1m 04s`\n- Hidden once the call has a result\n\nAll web checks pass.', 25),
 ];
 
 export const chatRunLogs: LogLine[] = [
