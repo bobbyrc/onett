@@ -6,18 +6,16 @@
   align-items: center;
   min-height: 24px;
   margin: 0;
-  font-size: var(--chat-text-md);
+  font-size: var(--chat-text-sm);
   color: var(--chat-fg-faint);
   font-variant-numeric: tabular-nums;
 }
 
 .chat-page .activity-lamp {
+  /* The 8px square is centred on the 12px text by the line's align-items. */
+  width: 8px;
+  height: 8px;
   margin-right: var(--chat-space-2);
-}
-
-.chat-page .activity-lamp {
-  width: 10px;
-  height: 10px;
   flex: none;
   background: var(--chat-accent);
   /* Two steps, on and off, like every onett lamp. */
@@ -86,6 +84,67 @@
 .chat-page .activity-link a:focus-visible {
   outline: 2px solid var(--chat-focus-ring);
   outline-offset: 2px;
+}
+
+/* "Worked for 1m 40s ›" and the hairline after it. */
+.chat-page .activity-worked {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-space-2);
+  min-width: 0;
+  font-size: var(--chat-text-sm);
+  color: var(--chat-fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-page .activity-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-space-2);
+  flex: none;
+  min-height: 24px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.chat-page .activity-toggle:hover {
+  color: var(--chat-fg);
+}
+
+.chat-page .activity-toggle:focus-visible {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--chat-radius-sm);
+}
+
+/* The pointer is not precise on touch: a 44px target without growing the line. */
+@media (pointer: coarse) {
+  .chat-page .activity-toggle {
+    min-height: 44px;
+    margin: -10px 0;
+  }
+}
+
+.chat-page .activity-chev {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.chat-page .activity-chev.open {
+  transform: rotate(45deg);
+}
+
+.chat-page .activity-hair {
+  flex: 1;
+  min-width: 0;
+  border-top: 1px solid var(--chat-border);
 }
 
 /* Read by screen readers only: the coarse text for the live region. */

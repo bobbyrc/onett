@@ -54,9 +54,35 @@ function useSecond(active: boolean): number {
 }
 
 /**
+ * The "Worked for 1m 40s ›" line above a finished turn's answer. The button collapses or expands the
+ * work between the owner's message and the answer; a hairline follows it. The chevron is drawn in CSS.
+ */
+export function WorkedToggle({
+  duration,
+  open,
+  onToggle,
+}: {
+  /** Formatted time the turn took, when known. */
+  duration?: string;
+  open: boolean;
+  onToggle(): void;
+}) {
+  return (
+    <div className="activity-worked">
+      <button type="button" className="activity-toggle" aria-expanded={open} onClick={onToggle}>
+        {duration ? `Worked for ${duration}` : 'Worked'}
+        <span className={cx('activity-chev', open && 'open')} aria-hidden="true" />
+      </button>
+      <span className="activity-hair" aria-hidden="true" />
+    </div>
+  );
+}
+
+/**
  * The line at the tail of a transcript (docs/design/chat-visual.md, "Status and activity line").
- * While the turn runs: a lamp and "Working · 1m 12s". After it: "Worked for 1m 40s", or
- * "Stopped after 40s" / "Failed after 1m 02s". One polite live region whose text changes only at
+ * While the turn runs: a lamp and "Working · 1m 12s". After it: "Stopped after 40s" or "Failed after
+ * 1m 02s". A turn that succeeded shows no line here: the transcript shows its WorkedToggle, which
+ * collapses that turn's work. One polite live region whose text changes only at
  * those transitions: the ticking numbers sit in aria-hidden spans and the spoken text is coarse.
  */
 export function ActivityLine({
@@ -91,7 +117,8 @@ export function ActivityLine({
     const ms = ended.getTime() - started.getTime();
     const visible = formatDuration(ms);
     const spoken = spokenDuration(ms);
-    const text = kind === 'worked' ? 'Worked for' : kind === 'stopped' ? 'Stopped after' : 'Failed after';
+    if (kind === 'worked') return null;
+    const text = kind === 'stopped' ? 'Stopped after' : 'Failed after';
     return (
       <p className={cx('activity-line', `activity-${kind}`)} role="status" aria-live="polite">
         <span className="activity-text">

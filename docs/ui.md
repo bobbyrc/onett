@@ -279,11 +279,17 @@ a link, its branch and status. On the right sit Close (task agents, operators, w
 **Conversation / Terminal** switch; the choice is remembered in the browser. The transcript is the
 same one the stored run logs give: owner messages as right-aligned sheets, agent prose as Markdown
 under the agent's name, each tool call as one row (name, main argument, `+n −m` for edits) that
-opens to its input and result, and a red DENIED row for a refused call. Two or more tool calls in a
-row fold into one **tool run** line: a sentence about what was done ("Ran 3 commands, read 2 files,
-edited 1 file"), with the total `+n −m` and file count when it edited files. While the run is live
-the line names its latest call ("Running go test ./...") with a lamp, then settles into the sentence.
-Opening a run lists the changed files, then each call as its own row. Terminal view shows one
+opens to its input and result, and a "Denied" line in the danger colour for a refused call. Tool
+rows are quiet single lines: onett's lamp (blinking while live, then done or failed), faint text, a
+chevron, and on the right the status and, when known, how long it took ("completed · 1m 44s"; the
+log has no per-call token counts, so none are shown, and on a phone the duration drops first). Two
+or more tool calls in a row fold into one **tool run** line: a sentence about what was done ("Ran 3
+commands, read 2 files, edited 1 file"), with the total `+n −m` and file count when it edited files.
+While the run is live the line names its latest call ("Running go test ./...") with a lamp, then
+settles into the sentence. Opening a run lists the changed files, then each call as its own row; the
+detail sits in one rounded surface with a hairline. Once a turn is done, the work between the owner's
+message and the answer folds under a faint **"Worked for 1m 40s ›"** line with a hairline after it;
+click it to open the work. A live turn is always open. Denials and errors stay visible when folded. Terminal view shows one
 line per entry with a time gutter, `›` for owner and prompt, `●` for prose and tool calls and `⎿` for
 results clipped to three lines with "show more". A task agent's view shows each run in order, with a
 divider ("New session") where a retry started a new session; a run with no recorded prompt starts with the task body

@@ -1,4 +1,5 @@
 // Pure logic for folding consecutive tool calls into one collapsible run in the conversation view.
+import { parseTime } from '../lib/time';
 import type { Entry } from '../lib/transcript';
 
 export type ToolEntry = Extract<Entry, { kind: 'tool' }>;
@@ -108,3 +109,51 @@ export function liveLabel(call: ToolEntry): string {
 
 /** A run is live while its last call has no result yet and the run it belongs to is still going. */
 export const isLiveRun = (calls: ToolEntry[]): boolean => calls[calls.length - 1].result === undefined;
+
+export interface TurnWork {
+  /** Id of the turn's first work entry; the "Worked for" toggle sits before it. */
+  key: string;
+  /** Ids of the entries a collapsed turn hides: the narration and tool calls before the answer. */
+  ids: Set<string>;
+  /** First work entry to last entry of the turn, in ms; 0 when a time is unknown. */
+  ms: number;
+}
+
+/**
+ * The finished turns that have work to fold. A turn runs from an owner message (or prompt) to the
+ * next one. Its answer is its last text entry; the text and tool calls before it are the work, and
+ * only when at least one is a tool call. Denials, errors and notes stay visible. The turn that is
+ * still producing output (the last one, with `liveRunId` among its entries, or without `liveRunId`
+ * a trailing call that has no result) is not folded, so live work is never hidden.
+ */
+export function turnWork(entries: Entry[], liveRunId?: string): TurnWork[] {
+  const out: TurnWork[] = [];
+  let i = 0;
+  while (i < entries.length) {
+    if (entries[i].kind === 'owner' || entries[i].kind === 'prompt') {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < entries.length && entries[j].kind !== 'owner' && entries[j].kind !== 'prompt') j++;
+    const turn = entries.slice(i, j);
+    const lastEntry = turn[turn.length - 1];
+    const live =
+      j === entries.length &&
+      (liveRunId !== undefined
+        ? turn.some((e) => e.runId === liveRunId)
+        : lastEntry.kind === 'tool' && lastEntry.result === undefined);
+    let answer = -1;
+    turn.forEach((e, k) => {
+      if (e.kind === 'text') answer = k;
+    });
+    const work = turn.slice(0, Math.max(answer, 0)).filter((e) => e.kind === 'text' || e.kind === 'tool');
+    if (!live && answer > 0 && work.some((e) => e.kind === 'tool')) {
+      const a = parseTime(work[0].time);
+      const b = parseTime(lastEntry.time);
+      out.push({ key: work[0].id, ids: new Set(work.map((e) => e.id)), ms: a && b ? b.getTime() - a.getTime() : 0 });
+    }
+    i = j;
+  }
+  return out;
+}

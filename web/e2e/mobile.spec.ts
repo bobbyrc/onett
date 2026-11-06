@@ -335,6 +335,10 @@ for (const vp of VIEWPORTS) {
     test('chat tool run: no overflow, header and call rows are tappable', async ({ page }) => {
       await open(page, `/chat/task/${CHAT_TASK_ID}`);
       const vw = page.viewportSize()!.width;
+      // A finished turn's work starts collapsed under its "Worked for" line.
+      const worked = page.getByRole('button', { name: /^Worked/ }).first();
+      await worked.scrollIntoViewIfNeeded();
+      await worked.click();
       const head = page.getByRole('button', { name: /Ran 2 commands, read 1 file, edited 1 file, searched 1 time/ }).first();
       await head.scrollIntoViewIfNeeded();
       await expect(head).toHaveAttribute('aria-expanded', 'false');

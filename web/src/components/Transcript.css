@@ -2,24 +2,36 @@
 
 .tr-seg {
   display: inline-flex;
+  gap: 2px;
+  padding: 2px;
   border: 1px solid var(--chat-border);
-  border-radius: 2px;
-  overflow: hidden;
+  border-radius: 999px;
+  background: var(--chat-bg);
 }
 
 .tr-seg button {
   border: 0;
-  background: var(--chat-surface);
+  border-radius: 999px;
+  background: none;
   color: var(--chat-fg-faint);
-  padding: 5px 12px;
+  padding: 3px 12px;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--chat-text-sm);
   cursor: pointer;
 }
 
+.tr-seg button:hover {
+  color: var(--chat-fg);
+}
+
+.tr-seg button:focus-visible {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: 1px;
+}
+
 .tr-seg button.on {
-  background: var(--chat-fg-strong);
-  color: var(--chat-bg);
+  background: var(--chat-user-bg);
+  color: var(--chat-fg-strong);
 }
 
 .tr-col {
@@ -313,11 +325,12 @@
   flex: none;
 }
 
+/* Notes are quiet lines on the canvas: faint 12px text, no box and no rule. */
 .tr-note pre {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font: 12.5px/1.5 var(--chat-font-mono);
+  font: var(--chat-text-sm) / 1.5 var(--chat-font-mono);
 }
 
 .tr-muted {
@@ -333,25 +346,22 @@
   color: var(--chat-danger);
 }
 
-.tr-denial {
-  border-left: 2px solid var(--chat-danger);
-  padding-left: 10px;
-}
-
+/* Sentence case, in the danger colour; the meaning is in the word, not the case. */
 .tr-denied {
   display: inline-block;
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.06em;
+  margin-right: var(--chat-space-2);
+  font-weight: 500;
+  font-size: var(--chat-text-sm);
   color: var(--chat-danger);
 }
 
+/* A soft hairline with a faint label. */
 .tr-divider {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--chat-space-3);
   color: var(--chat-fg-faint);
-  font-size: 12.5px;
+  font-size: var(--chat-text-sm);
 }
 
 .tr-divider::before,
