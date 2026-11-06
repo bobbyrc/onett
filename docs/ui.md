@@ -285,7 +285,8 @@ The 260px sidebar has a "+ New conversation" button (always the orchestrator; op
 `GET /agent-conversations`. Each task with an agent shows its title, and under it a row with a lamp,
 the role and a text label: a blinking green lamp and "working" while a run is live; a dim lamp and
 "closed" for a closed conversation; a red lamp and "blocked" for a blocked task; a dim lamp and
-the task's status otherwise. Under 760px the sidebar is a row of chips above the thread.
+the task's status otherwise. On desktop the sidebar is as tall as the window at most: a long list scrolls inside it and it stays
+pinned beside the thread, so it never sets the page's height. Under 760px the sidebar is a row of chips above the thread.
 
 The header names who you are talking to ("Orchestrator", or the role such as "Implementer"), with
 harness · model (from the latest run) and the conversation title, or for a task agent its task as
