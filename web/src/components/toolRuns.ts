@@ -121,14 +121,17 @@ export interface TurnWork {
 
 /**
  * The finished turns that have work to fold. A turn runs from an owner message (or prompt) to the
- * next one. Its answer is its last text entry; the text and tool calls before it are the work, and
+ * next one; work before the first of them belongs to no turn and stays unfolded, since a fold line
+ * there would have no message above it. Its answer is its last text entry; the text and tool calls before it are the work, and
  * only when at least one is a tool call. Denials, errors and notes stay visible. The turn that is
  * still producing output (the last one, with `liveRunId` among its entries, or without `liveRunId`
  * a trailing call that has no result) is not folded, so live work is never hidden.
  */
 export function turnWork(entries: Entry[], liveRunId?: string): TurnWork[] {
   const out: TurnWork[] = [];
-  let i = 0;
+  // Skip any work before the first owner message or prompt.
+  let i = entries.findIndex((e) => e.kind === 'owner' || e.kind === 'prompt');
+  if (i < 0) return out;
   while (i < entries.length) {
     if (entries[i].kind === 'owner' || entries[i].kind === 'prompt') {
       i++;

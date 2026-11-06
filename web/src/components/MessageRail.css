@@ -6,7 +6,8 @@
 @media (min-width: 768px) {
   .msg-rail {
     position: fixed;
-    right: var(--chat-space-3);
+    /* Hugs the window edge so the ticks clear the end of prose lines in the 46rem column. */
+    right: 0.25rem;
     top: 50%;
     transform: translateY(-50%);
     z-index: 5;

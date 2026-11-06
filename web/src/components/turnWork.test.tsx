@@ -71,3 +71,46 @@ describe('tool row metadata', () => {
     expect(screen.getByRole('button', { name: /Ran 2 commands/ }).textContent).toContain('1 error');
   });
 });
+
+describe('turns and user messages', () => {
+  const text = (id: string, s: number, body: string) => ({ id, kind: 'text', runId: 'r1', time: at(s), text: body }) as Entry;
+  const owner = (id: string, s: number, body: string) => ({ id, kind: 'owner', time: at(s), text: body }) as Entry;
+
+  it('leaves work before the first user message unfolded, with no fold line above it', () => {
+    const e = [tool('t0', 0), tool('t1', 1), text('a0', 2, 'Early answer.'), owner('u', 10, 'go'), tool('t2', 11), tool('t3', 12), text('a', 20, 'The answer.')];
+    expect(turnWork(e).map((t) => t.key)).toEqual(['t2']);
+    view(e);
+    expect(screen.getAllByRole('button', { name: /Worked/ })).toHaveLength(1);
+    expect(screen.getByText('Early answer.')).toBeTruthy();
+    // The fold comes after the user message, not before it.
+    const fold = screen.getByRole('button', { name: /Worked/ });
+    expect(screen.getByText('go').compareDocumentPosition(fold) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('folds each finished turn once and keeps every user message visible', () => {
+    const e = [
+      owner('u1', 0, 'first question'),
+      tool('t1', 1),
+      tool('t2', 2),
+      text('a1', 30, 'First answer.'),
+      owner('u2', 40, 'second question'),
+      tool('t3', 41),
+      tool('t4', 42),
+      text('a2', 70, 'Second answer.'),
+    ];
+    expect(turnWork(e).map((t) => t.key)).toEqual(['t1', 't3']);
+    view(e);
+    expect(screen.getAllByRole('button', { name: /^Worked for/ })).toHaveLength(2);
+    for (const t of ['first question', 'second question', 'First answer.', 'Second answer.']) expect(screen.getByText(t)).toBeTruthy();
+    expect(document.querySelectorAll('.tr-row-you')).toHaveLength(2);
+  });
+
+  it('shows a user message that follows a finished turn, even with its fold shut', () => {
+    const e = [owner('u1', 0, 'first'), tool('t1', 1), tool('t2', 2), text('a1', 30, 'Done.'), owner('u2', 40, 'follow-up')];
+    view(e);
+    expect(screen.getByRole('button', { name: /Worked/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByText('follow-up')).toBeTruthy();
+    // No work after the follow-up yet, so nothing more to fold.
+    expect(turnWork(e)).toHaveLength(1);
+  });
+});
