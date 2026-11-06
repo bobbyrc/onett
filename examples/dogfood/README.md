@@ -55,6 +55,18 @@ is `$DOGFOOD/data/onett.log`.
 - Any change under `examples/dogfood/**` is high risk. That covers the release scripts, so a
   human approves every change to the deploy pipeline.
 
+## Keeping the base branch current
+
+Agent PRs target `dogfood`. Each time it moves, open PRs that touch the same files can start to
+conflict, and a conflict sends the task back to the queue and uses up one of its attempts.
+`sync-base.sh` moves `dogfood` to `origin/main` only when it fast-forwards and every open PR against
+`dogfood` still merges cleanly into the new tip. Otherwise it changes nothing, lists the PRs in the
+way and exits 2; run it again once they have merged.
+
+```
+examples/dogfood/sync-base.sh          # ONETT_SYNC_DRY_RUN=1 to only report
+```
+
 ## Updating
 
 `update.sh` moves the instance to the latest `main` in one step:
