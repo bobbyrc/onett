@@ -81,6 +81,9 @@ const RUNNING_LOGS: LogLine[] = [
   log(1, 'tool_use', 'Read: {"file_path":"internal/engine/loop_shepherd.go"}', '2026-11-05T12:03:00Z', 'b1'),
   log(2, 'tool_result', 'package engine ...', '2026-11-05T12:03:01Z', 'b1'),
   log(3, 'text', 'Reading the backoff helper to see where the cap belongs', '2026-11-05T12:04:30Z'),
+  // A call still running, with the agent's progress heartbeat reporting how long it has gone.
+  log(4, 'tool_use', 'Bash: go test -race ./internal/engine', '2026-11-05T12:04:40Z', 'b2'),
+  log(5, 'system', '{"type":"tool_progress","tool_use_id":"b2","tool_name":"Bash","elapsed_time_seconds":47}', '2026-11-05T12:05:27Z'),
 ];
 
 const conv = (over: Partial<Conversation>): Conversation => ({

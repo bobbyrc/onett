@@ -96,7 +96,8 @@ function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: 
   for (const l of sorted) {
     // Daemon bookkeeping ("session started", "onett restarted; reattached ...") stays in the run
     // log; a chat thread is the conversation, and why a run ended is shown by endedEntries.
-    if (skipSystem && l.kind === 'system') continue;
+    // Progress heartbeats are the exception: they feed the running tool row, and add no row.
+    if (skipSystem && l.kind === 'system' && !l.text.startsWith('{"type":"tool_progress"')) continue;
     const at = { id: `${l.run_id}:${l.seq}`, runId: l.run_id, time: l.time };
     switch (l.kind) {
       case 'prompt':
