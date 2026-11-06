@@ -278,9 +278,10 @@ sent. Only `chat.attachments.max_per_message` files (10 until the config says ot
 extra ones are added as red chips reading "Only N files fit in one message". Send waits while any
 upload is running, and a message may be only attachments with no text. Task-agent conversations and
 the start page (no conversation yet) have no attach controls: the first message there is text only.
-A sent message shows its files under the text: an image as a thumbnail, anything else as a chip with
-the name and size, each opening the file in a new tab. If the file is gone (retention deleted it),
-the thumbnail falls back to the plain chip.
+A sent message shows its files under the text: a PNG, JPEG, GIF or WebP as an inline thumbnail (up
+to 320px wide on a desktop, the full width of the bubble on a phone, aspect ratio kept), anything
+else as a chip with the name and size, each opening the file in a new tab. If the file is gone
+(retention deleted it) or the browser cannot draw it, the thumbnail falls back to the plain chip.
 
 Scrolling: a thread follows new messages and a streaming reply only while you are within 80px of the
 end of the page. Scroll up and it stays put; a **Jump to latest** pill (with "N new" for the entries
