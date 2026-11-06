@@ -463,6 +463,8 @@ export const deployments: Deployment[] = [
   dep(2, { task_id: tasks[5].id, state: 'rolled_back', started_at: ago(26 * 60 + 10), updated_at: ago(26 * 60), notes: 'Health check on /api/v1/health timed out after 60s; the previous binary was restored.', log: 'building 0e8ebaa...\nswapping binary\nhealth: GET /api/v1/health -> timeout\nrolling back to 5c1d02e\nhealth: ok' }),
   dep(3, { state: 'failed', provider_id: 'launchd-user-agent-for-the-staging-copy', started_at: ago(6 * DAY), updated_at: ago(6 * DAY - 3) }),
   dep(4, { state: 'deploying', started_at: ago(1), updated_at: ago(0.5), provider_id: 'render' }),
+  // A second project's deploy, so the Overview board shows a last deploy beyond onett's.
+  dep(5, { project: 'retro-diffusion-sprite-pipeline', ref: '4be81d0c2a9f6e3b7d15c8a0f42e9b6d3c71a5e8', provider_id: 'render', started_at: ago(2 * DAY), updated_at: ago(2 * DAY - 6) }),
 ];
 
 export const signals: Signal[] = [

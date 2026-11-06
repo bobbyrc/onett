@@ -185,11 +185,18 @@ as a fallback.
   bar is lit by what the project needs (`src/lib/lamp.ts`): red when a task is blocked, yellow
   when approvals wait, off when paused, green when tasks run or are in review, off when only
   queued or idle. Under the project name the reason in words ("1 blocked", "2 need you",
-  "3 running") and the other non-zero counts. A window links to the project's tasks. At the
-  right end, the line window: "Line running" or "Line paused", active runs, queued tasks and cost
-  today. Empty: "No projects yet." On a phone the board is a compact strip (two windows across,
-  no detail lines, the line window on one row) so the first decision fits in the first screen.
-- Below, two columns (one on a phone, board windows two across):
+  "3 running") and the other non-zero counts, then at the foot the last deploy from
+  `/deployments` ("Deployed · 2d ago", "Rolled back · 1h ago" in the stop colour, "No deploys yet",
+  or "No deployer" when the project has no `deploy`; `src/lib/boardDeploy.ts`). A window links to
+  the project's tasks. At the right end, the line window: "Line running" or "Line paused", active
+  runs, queued tasks and cost today. Windows are 208px, and the band is only as wide as its
+  windows and the line window, so one project is a small board, not a wide empty one; when the
+  windows do not fit in one row they wrap into a grid that fills the main column. Empty: "No
+  projects yet." On a phone the band sits inside the page margins with one row per project (the
+  lamp as a side bar, name and reason on the first line, the other counts and the last deploy
+  under them) and the line window on one row.
+- Below, two columns (one on a phone, with Needs you moved above the setup card and the board
+  when it has items):
 - Left: **Needs you**, with "N waiting · oldest 14m" beside the heading. Pending approvals
   (ApprovalCard) and blocked tasks, each a call item: a sheet with a lit lamp before the title
   (yellow for approvals, red for blocked), a muted line under it, then the body. Blocked items:
