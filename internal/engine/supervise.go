@@ -118,6 +118,14 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 					return nil
 				})
 			}
+			if ev.ContextTokens > 0 && ev.Kind == "" {
+				// Live context size: not a log line, only the run's current fill.
+				e.updateRun(bg, run.ID, func(r *domain.Run) error {
+					r.ContextTokens = ev.ContextTokens
+					return nil
+				})
+				continue
+			}
 			if ev.Kind == domain.LogDenial {
 				ar.reason.CompareAndSwap(nil, "denied: "+ev.Text)
 				ar.cancel()
@@ -210,7 +218,9 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 		r.OutputTokens = res.OutputTokens
 		r.CachedInputTokens = res.CachedInputTokens
 		r.CacheWriteTokens = res.CacheWriteTokens
-		r.ContextTokens = res.ContextTokens
+		if res.ContextTokens > 0 {
+			r.ContextTokens = res.ContextTokens // else keep the live value streamed during the run
+		}
 		r.ContextWindow = res.ContextWindow
 		if res.SessionID != "" {
 			r.SessionID = res.SessionID

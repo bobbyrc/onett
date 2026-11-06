@@ -179,8 +179,11 @@ func (p *parser) parseLine(line string) []harness.Event {
 			events = append(events, event(domain.LogSystem, text))
 		}
 	case "assistant":
-		p.noteContext(sl)
+		n := p.noteContext(sl)
 		events = p.assistantEvents(sl.Message)
+		if n > 0 {
+			events = append(events, harness.Event{ContextTokens: n})
+		}
 	case "user":
 		events = toolResultEvents(sl.Message)
 	case "result":
@@ -212,20 +215,23 @@ func (p *parser) attach(events []harness.Event) []harness.Event {
 	return events
 }
 
-// noteContext remembers the prompt size of an assistant message. A sub-agent's messages carry a
-// parent_tool_use_id and have a window of their own, so they are skipped.
-func (p *parser) noteContext(sl streamLine) {
+// noteContext remembers the prompt size of an assistant message and returns it (0 if the message
+// has none). A sub-agent's messages carry a parent_tool_use_id and have a window of their own,
+// so they are skipped.
+func (p *parser) noteContext(sl streamLine) int64 {
 	if sl.ParentToolUseID != "" {
-		return
+		return 0
 	}
 	var msg message
 	if json.Unmarshal(sl.Message, &msg) != nil || msg.Usage == nil {
-		return
+		return 0
 	}
 	u := msg.Usage
-	if n := u.InputTokens + u.CacheCreationInputTokens + u.CacheReadInputTokens; n > 0 {
+	n := u.InputTokens + u.CacheCreationInputTokens + u.CacheReadInputTokens
+	if n > 0 {
 		p.contextTokens = n
 	}
+	return max(n, 0)
 }
 
 func (p *parser) assistantEvents(raw json.RawMessage) []harness.Event {
