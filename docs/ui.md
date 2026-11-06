@@ -235,7 +235,8 @@ on disk is deleted. Other roles see neither control. The sidebar gets **Projects
 agent, and read what an agent did as it works. With no conversation open, a centred block 640px
 wide sits 8vh from the top: the heading "Talk to the orchestrator", a muted line on what it can and
 cannot do, the composer, and three example prompts as chips. The composer is the thread's: the
-same attach button and permission and model pickers (no context ring yet). Choices come from
+same attach button and permission and model pickers, but no context ring: there is no run yet to
+measure, so the ring first appears in the conversation once it has one. Choices come from
 `GET /new-conversation/settings` and are held in the page, as are attached files, until you send.
 Sending creates a conversation, stores the chosen settings on it, opens it, uploads the files and
 only then sends the message, so the first turn runs with what you picked. If storing the settings
