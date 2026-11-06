@@ -17,7 +17,7 @@ import { StatusPill } from '../components/StatusPill';
 import { Table, type Column } from '../components/Table';
 import { cx, safeHref } from '../lib/format';
 import { groupTasks, queueLabel } from '../lib/taskGroups';
-import { roleName } from '../lib/roleNames';
+import { agentLabel } from '../lib/agentLabel';
 
 /** The statuses shown by default: everything the factory is still moving. */
 const ACTIVE = ['queued', 'running', 'review', 'awaiting_approval', 'merged', 'deploying', 'blocked'];
@@ -55,7 +55,7 @@ function makeColumns(paused: string[]): Column<Task>[] {
       ),
     },
     { key: 'project', header: 'Project', cell: (t) => t.project },
-    { key: 'role', header: 'Role', cell: (t) => roleName(t.role) || '—' },
+    { key: 'role', header: 'Role', cell: (t) => agentLabel(t.role) || '—' },
     { key: 'risk', header: 'Risk', cell: (t) => <RiskBadge risk={t.risk} /> },
     {
       key: 'pr',

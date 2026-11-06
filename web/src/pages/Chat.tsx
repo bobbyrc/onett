@@ -46,7 +46,7 @@ import { useAttachmentUploads } from '../components/ComposerAttachments';
 import { DEFAULT_MAX_PER_MESSAGE } from '../lib/attachments';
 import { useStickToBottom } from '../lib/useStickToBottom';
 import { useDraft } from '../lib/useDraft';
-import { roleName } from '../lib/roleNames';
+import { agentLabel } from '../lib/agentLabel';
 
 const EXAMPLES = ["What's running right now?", 'Fix the flaky test in …', 'Triage open issues in …'];
 
@@ -190,7 +190,7 @@ function Sidebar({
                     className={cx('conv-agent', agent.task_id === activeTaskId && 'active')}
                   >
                     <Lamp state={lamp} />
-                    <span className="conv-agent-role">{roleName(agent.role)}</span>
+                    <span className="conv-agent-role">{agentLabel(agent.role)}</span>
                     <span className="conv-agent-title">{agent.title}</span>
                     <span className="conv-agent-state muted small">{lamp.label}</span>
                   </Link>
@@ -662,7 +662,7 @@ function TaskThread({
   if (!conv) return <ChatSkeleton />;
 
   const { task } = conv;
-  const role = roleName(task.role) || 'agent';
+  const role = agentLabel(task.role) || 'agent';
   const closedAt = conv.conversation?.closed_at;
   const closed = !!closedAt;
   const lastRun = conv.runs[conv.runs.length - 1];

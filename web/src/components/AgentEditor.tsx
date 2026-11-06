@@ -2,6 +2,7 @@
 // entry in one config change and stays open with the server's reason when the save is refused.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useConfig, useSaveConfigDocument } from '../queries';
+import { agentLabel } from '../lib/agentLabel';
 import { blankForm, formFromAgent, formFromEntry, hasEntry, saveChanges, type AgentEntry, type AgentForm } from '../lib/agentChanges';
 import type { AgentView } from '../types';
 import { Button } from './Button';
@@ -116,7 +117,7 @@ export function AgentEditor({
               <option value="">Blank</option>
               {existing.map((a) => (
                 <option key={a.name} value={a.name}>
-                  {a.name}
+                  {agentLabel(a)}
                 </option>
               ))}
             </select>
