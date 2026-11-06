@@ -171,7 +171,7 @@ func writeStatus(w io.Writer, s statusSnapshot) error {
 		fmt.Fprintln(w, "  nothing")
 	}
 	for _, r := range s.Running {
-		fmt.Fprintf(w, "  %-12s %-16s run %s  task %s\n", oneLine(r.Role), oneLine(r.Project), oneLine(r.ID), oneLine(r.TaskID))
+		fmt.Fprintf(w, "  %-12s %-16s run %s  task %s\n", oneLine(config.CanonicalAgentName(r.Role)), oneLine(r.Project), oneLine(r.ID), oneLine(r.TaskID))
 	}
 	return nil
 }
@@ -517,7 +517,7 @@ func writeTaskDetail(w io.Writer, d client.TaskDetail) {
 	t := d.Task
 	fmt.Fprintf(w, "Task %s: %s\n", oneLine(t.ID), oneLine(t.Title))
 	fmt.Fprintf(w, "Status:    %s\n", oneLine(string(t.Status)))
-	fmt.Fprintf(w, "Kind:      %s   Role: %s   Project: %s\n", oneLine(string(t.Kind)), orDash(oneLine(t.Role)), oneLine(t.Project))
+	fmt.Fprintf(w, "Kind:      %s   Role: %s   Project: %s\n", oneLine(string(t.Kind)), orDash(oneLine(config.CanonicalAgentName(t.Role))), oneLine(t.Project))
 	fmt.Fprintf(w, "Priority:  %d   Attempts: %d of %d   Source: %s\n", t.Priority, t.Attempts, t.MaxAttempts, orDash(oneLine(t.Source)))
 	risk := "-"
 	if t.Risk != "" {
@@ -556,7 +556,7 @@ func writeTaskDetail(w io.Writer, d client.TaskDetail) {
 	} else {
 		rows := make([][]string, 0, len(d.Runs))
 		for _, r := range d.Runs {
-			rows = append(rows, []string{r.ID, string(r.Status), r.Role, stamp(r.StartedAt), truncate(r.Error, 50)})
+			rows = append(rows, []string{r.ID, string(r.Status), config.CanonicalAgentName(r.Role), stamp(r.StartedAt), truncate(r.Error, 50)})
 		}
 		fmt.Fprint(w, indentTable([]string{"ID", "STATUS", "ROLE", "STARTED", "ERROR"}, rows))
 	}
@@ -733,7 +733,7 @@ func runList(e *env, args []string) error {
 	}
 	rows := make([][]string, 0, len(runs))
 	for _, r := range runs {
-		rows = append(rows, []string{r.ID, string(r.Status), r.Role, r.Project, r.TaskID, stamp(r.StartedAt)})
+		rows = append(rows, []string{r.ID, string(r.Status), config.CanonicalAgentName(r.Role), r.Project, r.TaskID, stamp(r.StartedAt)})
 	}
 	table(e.out, []string{"ID", "STATUS", "ROLE", "PROJECT", "TASK", "STARTED"}, rows)
 	return nil
@@ -762,7 +762,7 @@ func runShow(e *env, args []string) error {
 	}
 	fmt.Fprintf(e.out, "Run %s\n", oneLine(r.ID))
 	fmt.Fprintf(e.out, "Status:   %s\n", oneLine(string(r.Status)))
-	fmt.Fprintf(e.out, "Task:     %s   Project: %s   Role: %s\n", oneLine(r.TaskID), oneLine(r.Project), orDash(oneLine(r.Role)))
+	fmt.Fprintf(e.out, "Task:     %s   Project: %s   Role: %s\n", oneLine(r.TaskID), oneLine(r.Project), orDash(oneLine(config.CanonicalAgentName(r.Role))))
 	fmt.Fprintf(e.out, "Harness:  %s   Model: %s\n", orDash(oneLine(r.Harness)), orDash(oneLine(r.Model)))
 	fmt.Fprintf(e.out, "Branch:   %s\n", orDash(oneLine(r.Branch)))
 	fmt.Fprintf(e.out, "Workdir:  %s\n", orDash(oneLine(r.Workdir)))

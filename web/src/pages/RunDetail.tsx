@@ -5,6 +5,7 @@ import { isActiveRun } from '../lib/status';
 import { elapsedMs, formatDuration, parseTime } from '../lib/time';
 import { useNow } from '../lib/clock';
 import { axisMinutes, axisTicks, runBar } from '../lib/runbar';
+import { roleName } from '../lib/roleNames';
 import { useCan } from '../auth';
 import { useCancelRun, useRun, useTask } from '../queries';
 import { Button } from '../components/Button';
@@ -35,7 +36,7 @@ export function RunDetail() {
   const start = parseTime(r.started_at);
   const end = parseTime(r.ended_at);
   const lastOutput = parseTime(r.last_output_at);
-  const title = [r.role, r.project].filter(Boolean).join(' · ');
+  const title = [roleName(r.role), r.project].filter(Boolean).join(' · ');
 
   return (
     <div className="run-detail">
