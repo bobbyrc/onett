@@ -284,10 +284,13 @@ describe('removeChanges with routes naming the agent', () => {
   });
 
   it('names each route and where its kind falls back to', () => {
-    const routing = fileRouting({
-      routing: { feature: 'implementer-claude' },
-      projects: { onett: { routing: { feature: 'implementer-claude', chore: 'implementer-claude' } } },
-    });
+    const routing = fileRouting(
+      {
+        routing: { feature: 'implementer-claude' },
+        projects: { onett: { routing: { feature: 'implementer-claude', chore: 'implementer-claude' } } },
+      },
+      { feature: 'senior-engineer', chore: 'senior-engineer' },
+    );
     const refs = routesNaming('implementer-claude', routing);
     expect(refs).toEqual([
       { kind: 'feature', fallback: 'senior-engineer' },
