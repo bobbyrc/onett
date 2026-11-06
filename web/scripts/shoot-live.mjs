@@ -12,7 +12,10 @@
 // Safe by construction: every request that is not a GET is aborted in the browser, so the script
 // can never change anything. The token is sent as `Authorization: Bearer` on API calls only and
 // is never printed. A token is not a session, so GET /api/v1/auth/state is answered locally with
-// a signed-in owner, which makes the UI render its signed-in pages.
+// a signed-in owner, which makes the UI render its signed-in pages. The token still cannot read
+// owner-only data (config, users, agents): those panels show "forbidden", and the script says so
+// per route instead of leaving it to look like a bug. Onett deliberately has no read-only owner
+// session for this: the API token must never gain owner powers (AGENTS.md, invariant 12).
 import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -94,6 +97,7 @@ const owner = {
 
 const browser = await chromium.launch();
 let shots = 0;
+const forbidden = new Map(); // route -> API paths the token was refused
 try {
   for (const colorScheme of SCHEMES) {
     for (const vp of VIEWPORTS) {
@@ -112,7 +116,16 @@ try {
         return route.continue();
       });
       const page = await context.newPage();
+      let current = '';
+      page.on('response', (res) => {
+        const url = new URL(res.url());
+        if (res.status() !== 403 || !url.pathname.startsWith('/api/')) return;
+        const seen = forbidden.get(current) ?? new Set();
+        seen.add(url.pathname);
+        forbidden.set(current, seen);
+      });
       for (const route of routes) {
+        current = route;
         await page.goto(API + route, { waitUntil: 'domcontentloaded' });
         // The event stream keeps the network busy, so idle may never come; give it a few seconds.
         await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
@@ -127,5 +140,8 @@ try {
   }
 } finally {
   await browser.close();
+}
+for (const [route, paths] of forbidden) {
+  console.error(`note: ${route}: owner-only data not shown, the token got 403 from ${[...paths].join(', ')}`);
 }
 console.log(`wrote ${shots} PNGs for ${routes.length} routes to ${outDir}`);

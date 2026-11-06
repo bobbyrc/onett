@@ -524,7 +524,14 @@ two runs of the same code give the same pixels. It is not part of `npm run test:
 `scripts/pr-shots.sh <label>` copies those PNGs to a branch `pr-assets/<current-branch>/<label>`
 (an orphan branch, created on first use) in a temporary git worktree, pushes it, and prints a
 Markdown table with permanent `raw.githubusercontent.com/<repo>/<commit-sha>/...` image links.
-Paste the `before` and `after` tables into the PR description. Your own branch and working tree
+Paste the `before` and `after` tables into the PR description.
+
+Worker agents hold no GitHub access and cannot run the script. They copy the PNGs into
+`$ONETT_OUTBOX/shots/before/` and `$ONETT_OUTBOX/shots/after/` instead. When onett publishes a
+run, it pushes each label directory (only plain `*.png` files, at most 48 of 8 MB, no symlinks)
+to the same `pr-assets/<branch>/<label>` branch and adds a "Screenshots: <label>" section of
+`raw.githubusercontent.com` image links to the PR description. This needs a GitHub project
+(`repo: owner/name`); a failure is logged and does not fail the run. Your own branch and working tree
 are not touched, and the worktree is removed when the script exits. Never merge a `pr-assets`
 branch.
 
@@ -543,6 +550,12 @@ to change it): 1440x900 and 390x844, in both colour schemes. The default routes 
 in `src/App.tsx`, plus one detail page each (task, run, goal, chat) using the first id the API
 returns; a detail page with no data is skipped with a note. `--routes /tasks,/runs` picks
 routes, and `--full` captures the whole scrolling page instead of the first screen.
+
+The API token cannot read owner-only data, so Agents, Config and Users show "forbidden" in these
+shots. That is on purpose: giving the token (or a screenshot mode) owner powers would break the
+rule that an agent cannot reach the owner's settings. The script prints a `note:` for each route
+that got a 403, so it is not mistaken for a UI bug; use `npm run shots:chat`-style mocks to
+design those pages.
 
 It cannot change anything: the browser aborts every request that is not a GET. It sends
 `Authorization: Bearer $ONETT_TOKEN` on API calls and never prints the token. A token is not a

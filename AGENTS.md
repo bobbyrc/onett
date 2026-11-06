@@ -183,7 +183,7 @@ commit, push, open PRs or call the GitHub API, and write your report to
   the reason in a parenthesis or the body when it is not obvious.
 - `dogfood` is the base branch of the self-hosted factory that works on this repo. Do not push to
   it while the factory has open PRs that touch the same files; sync it from `main` in one step
-  when they have settled (`tasks/lessons.md`).
+  when they have settled (`tasks/lessons.md`); `examples/dogfood/sync-base.sh` does that check.
 - Before deleting, killing or overwriting anything, check exactly what it is: kill processes by
   verified PID, never by pattern.
 - Never write a secret into the repository, a log, a test fixture or a command's output.

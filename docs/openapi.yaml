@@ -3052,6 +3052,9 @@ components:
         goal_turn:
           type: boolean
           description: The run is an orchestrator turn that was a goal check-in. Lets a restarted onett run the goal's after-turn check.
+        conversation_id:
+          type: string
+          description: The chat conversation an orchestrator turn ran in, so a client can link the run to its conversation. Absent on task runs.
 
     LogLine:
       type: object

@@ -613,6 +613,7 @@ func (e *Engine) publish(ctx context.Context, t domain.Task, p *config.Project, 
 		return false
 	}
 	pushedAt := e.d.Now().UTC()
+	shots := e.shotsSection(ctx, t, p, ws)
 	s, err := e.d.SCMFor(p)
 	if err != nil {
 		fail(ctx, t.ID, "could not reach the code host", err.Error())
@@ -647,7 +648,7 @@ func (e *Engine) publish(ctx context.Context, t domain.Task, p *config.Project, 
 				Head:   ws.Branch,
 				Base:   p.DefaultBranch,
 				Title:  title,
-				Body:   prBody(t, result),
+				Body:   prBody(t, result, shots),
 				Labels: []string{"onett"},
 			})
 			if err != nil {
@@ -661,9 +662,9 @@ func (e *Engine) publish(ctx context.Context, t domain.Task, p *config.Project, 
 		}
 	}
 
-	if reused && result.PRBody != "" {
+	if reused && (result.PRBody != "" || shots != "") {
 		// A failed refresh leaves a stale description, which is not worth failing the run.
-		if err := s.UpdatePRBody(ctx, pr.Number, prBody(t, result)); err != nil {
+		if err := s.UpdatePRBody(ctx, pr.Number, prBody(t, result, shots)); err != nil {
 			e.d.Logger.Warn("update PR description", "task", t.ID, "pr", pr.Number, "err", err)
 		}
 	}
@@ -774,12 +775,14 @@ func (w *tailWriter) String() string {
 }
 
 // prBody is the pull request description: the agent's body (or its summary), a closing keyword
-// when the task came from a GitHub issue, and a footer naming the task.
-func prBody(t domain.Task, result domain.RunResult) string {
+// when the task came from a GitHub issue, and a footer naming the task. shots is the Markdown
+// onett built from the screenshots it published, or "".
+func prBody(t domain.Task, result domain.RunResult, shots string) string {
 	body := result.PRBody
 	if body == "" {
 		body = result.Summary
 	}
+	body += shots
 	if n, ok := strings.CutPrefix(t.SourceRef, "github_issue:"); ok {
 		body += "\n\nFixes #" + n
 	}
