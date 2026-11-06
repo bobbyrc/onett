@@ -690,6 +690,8 @@ export interface ConfigDocument {
   version: string;
   document: unknown;
   schema: SchemaNode;
+  /** The built-in agent for each task kind; a kind falls back to it when the file drops its route. */
+  default_routing: Record<string, string>;
 }
 
 /** GET /config/file: the raw text of the file. */

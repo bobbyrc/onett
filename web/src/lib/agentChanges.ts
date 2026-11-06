@@ -125,22 +125,12 @@ function deleteEntry(name: string, fileAgents: Record<string, AgentEntry>): Conf
   return onlyEntry ? { op: 'delete', path: ['agents'] } : { op: 'delete', path: ['agents', name] };
 }
 
-/** The built-in route for each task kind, which a kind falls back to when the file's route is dropped. */
-const DEFAULT_ROUTES: Record<string, string> = {
-  feature: 'senior-engineer',
-  bugfix: 'senior-engineer',
-  issue: 'senior-engineer',
-  chore: 'senior-engineer',
-  incident: 'sre',
-  review: 'code-reviewer',
-  improve: 'platform-engineer',
-  question: 'tech-lead',
-};
-
 /** The routing the file writes: the global `routing:` and each project's own `routing:`. */
 export interface FileRouting {
   routing: Record<string, string>;
   projects: Record<string, Record<string, string>>;
+  /** The built-in agent for each kind, from the server, which a kind falls back to. */
+  defaults: Record<string, string>;
 }
 
 /** One route in the file that names an agent, and what the kind uses once it is dropped. */
@@ -153,26 +143,26 @@ export interface RouteRef {
 }
 
 /** The routing in a config document (`document.routing` and `document.projects.<p>.routing`). */
-export function fileRouting(document: unknown): FileRouting {
+export function fileRouting(document: unknown, defaults: Record<string, string> = {}): FileRouting {
   const doc = (document ?? {}) as { routing?: Record<string, string>; projects?: Record<string, { routing?: Record<string, string> }> };
   const projects: Record<string, Record<string, string>> = {};
   for (const [name, p] of Object.entries(doc.projects ?? {})) {
     if (p?.routing && Object.keys(p.routing).length > 0) projects[name] = p.routing;
   }
-  return { routing: doc.routing ?? {}, projects };
+  return { routing: doc.routing ?? {}, projects, defaults };
 }
 
 /** Every route in the file that names `agent`. Removing the agent has to drop these too. */
 export function routesNaming(agent: string, file: FileRouting): RouteRef[] {
   const refs: RouteRef[] = [];
   for (const [kind, target] of Object.entries(file.routing)) {
-    if (target === agent) refs.push({ kind, fallback: DEFAULT_ROUTES[kind] ?? '' });
+    if (target === agent) refs.push({ kind, fallback: file.defaults[kind] ?? '' });
   }
   for (const [project, routes] of Object.entries(file.projects)) {
     for (const [kind, target] of Object.entries(routes)) {
       if (target !== agent) continue;
       const global = file.routing[kind];
-      refs.push({ kind, project, fallback: global && global !== agent ? global : (DEFAULT_ROUTES[kind] ?? '') });
+      refs.push({ kind, project, fallback: global && global !== agent ? global : (file.defaults[kind] ?? '') });
     }
   }
   return refs;
@@ -211,7 +201,7 @@ function dropRouteChanges(refs: RouteRef[], file: FileRouting): ConfigChange[] {
 export function removeChanges(
   a: AgentView,
   fileAgents: Record<string, AgentEntry>,
-  routing: FileRouting = { routing: {}, projects: {} },
+  routing: FileRouting = { routing: {}, projects: {}, defaults: {} },
 ): ConfigChange[] {
   const drops = dropRouteChanges(routesNaming(a.name, routing), routing);
   if (a.origin === 'custom') return [...drops, deleteEntry(a.name, fileAgents)];

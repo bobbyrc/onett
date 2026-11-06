@@ -342,11 +342,10 @@ func resolvePrompt(dir string, a Agent) Agent {
 	return a
 }
 
-func applyRoutingDefaults(c *Config) {
-	if c.Routing == nil {
-		c.Routing = map[string]string{}
-	}
-	defaults := map[string]string{
+// DefaultRouting returns the built-in route for each task kind: the agent a kind goes to when
+// neither the file nor a project routes it. The API serves it so the UI never keeps its own copy.
+func DefaultRouting() map[string]string {
+	return map[string]string{
 		string(domain.KindFeature):  "senior-engineer",
 		string(domain.KindBugfix):   "senior-engineer",
 		string(domain.KindIssue):    "senior-engineer",
@@ -356,6 +355,13 @@ func applyRoutingDefaults(c *Config) {
 		string(domain.KindImprove):  "platform-engineer",
 		string(domain.KindQuestion): "tech-lead",
 	}
+}
+
+func applyRoutingDefaults(c *Config) {
+	if c.Routing == nil {
+		c.Routing = map[string]string{}
+	}
+	defaults := DefaultRouting()
 	c.defaultRoutes = map[string]bool{}
 	for kind, agent := range defaults {
 		if _, ok := c.Routing[kind]; !ok {

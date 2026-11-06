@@ -44,7 +44,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const doc = (document: unknown): ConfigDocument => ({ path: '/x/onett.yaml', version: 'v1', document, schema: { key: '', type: 'section' } });
+const doc = (document: unknown): ConfigDocument => ({ path: '/x/onett.yaml', version: 'v1', document, schema: { key: '', type: 'section' }, default_routing: {} });
 
 async function render(node: React.ReactNode) {
   host = document.createElement('div');
