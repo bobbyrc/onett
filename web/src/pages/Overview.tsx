@@ -8,6 +8,7 @@ import { formatClock } from '../lib/format';
 import { elapsedMs, formatDuration, formatRelative, parseTime } from '../lib/time';
 import { axisMinutes, axisTicks, runBar } from '../lib/runbar';
 import { useNow } from '../lib/clock';
+import { roleName } from '../lib/roleNames';
 import { AndonBoard } from '../components/AndonBoard';
 import { ApprovalCard } from '../components/ApprovalCard';
 import { Button } from '../components/Button';
@@ -158,7 +159,7 @@ function RunItem({ run, scale, now }: { run: Run; scale: number; now: number }) 
       </div>
       <div className="run-item-meta">
         <span>
-          {run.role} · {run.project}
+          {roleName(run.role)} · {run.project}
         </span>
         <span>
           {started ? formatDuration(elapsedMs(started, null, now)) : 'starting'}

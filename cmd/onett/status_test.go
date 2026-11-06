@@ -45,7 +45,7 @@ func TestWriteStatusBusy(t *testing.T) {
 		"$5.00 of $5.00 daily budget (budget reached",
 		"approval ap1  [merge] Add thing: -",
 		"blocked  t1  Stuck: denied tool",
-		"implementer",
+		"senior-engineer", // a stored old role name shows as its job title
 		"run r1  task t1",
 	} {
 		if !strings.Contains(out, want) {
