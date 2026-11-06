@@ -49,8 +49,17 @@ harnesses:
     # by default. Set true to run them without it, for example if connectors that come and go
     # between turns keep breaking the prompt cache (default false).
     # isolate: true
+    # Provider-specific options live in a section named after the provider (only valid on this
+    # type). full_access runs Claude Code with no permission prompts (bypassPermissions) instead
+    # of the default auto mode. Default false; a permission mode chosen for an agent or in args wins.
+    # claude:
+    #   full_access: true
   codex:
     type: codex                        # built-in harness type; default for "codex"
+    # full_access runs Codex with no sandbox and no approval prompts, instead of the workspace-write
+    # sandbox. Default false; a permission mode chosen for an agent or a sandbox flag in args wins.
+    # codex:
+    #   full_access: true
     # Codex reports tokens but no dollar cost. With a price, onett estimates each run's cost
     # (shown as ~$0.42) so limits.daily_budget_usd counts it. USD per million tokens; 0 = unknown.
     # These are PLACEHOLDERS: fill in the real prices for your plan or model.

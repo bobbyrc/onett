@@ -172,6 +172,10 @@ type Config struct {
 	// from user config, no user-level settings, hooks or plugins). Adapters that have no such
 	// setup ignore it.
 	Isolate bool
+	// FullAccess runs the agent with no sandbox and no permission prompts, for adapters that
+	// have such a mode (claude-code, codex). It replaces only the adapter's built-in default:
+	// a mode chosen in the Spec or a flag in Args wins.
+	FullAccess bool
 	// Shim, when set, runs the harness's processes behind a per-run shim (limits.run_shim).
 	Shim *ShimOptions
 }

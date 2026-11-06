@@ -33,6 +33,12 @@ func (c *Config) Validate() error {
 		if h.Type == "" {
 			add("harnesses.%s.type: must not be empty", name)
 		}
+		if h.Claude != nil && h.Type != "claude-code" {
+			add("harnesses.%s.claude: only valid when type is claude-code", name)
+		}
+		if h.Codex != nil && h.Type != "codex" {
+			add("harnesses.%s.codex: only valid when type is codex", name)
+		}
 		switch h.Billing {
 		case "", "auto", "metered", "subscription":
 		default:

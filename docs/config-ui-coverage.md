@@ -57,6 +57,10 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `harnesses.*.price.cached_input_per_mtok` | float | yes |  |
 | `harnesses.*.billing` | string | yes |  |
 | `harnesses.*.isolate` | bool | yes |  |
+| `harnesses.*.claude` | section | yes |  |
+| `harnesses.*.claude.full_access` | bool | yes |  |
+| `harnesses.*.codex` | section | yes |  |
+| `harnesses.*.codex.full_access` | bool | yes |  |
 | `agents` | map | yes |  |
 | `agents.*` | section | yes |  |
 | `agents.*.harness` | string | yes |  |

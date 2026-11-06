@@ -211,6 +211,17 @@ message instead. Each run records the cached and cache-written parts of its inpu
 (`cached_input_tokens`, `cache_write_tokens`); `onett run show` and the run page show the hit
 rate.
 
+#### Full access per harness (`harnesses.<name>.claude.full_access`, `.codex.full_access`, off by default)
+
+A harness block has a section per provider for options only that agent CLI has, and a section on
+a harness of another type is a config error. The first option is `full_access`: it replaces the
+adapter's built-in default (Claude's `--permission-mode auto`, Codex's `--approve-for-me`) with
+`bypassPermissions` or `--dangerously-bypass-approvals-and-sandbox`, so tests that bind localhost
+or need the network can run. It only replaces that default. The order, highest first, is the
+conversation's permission choice, the agent's `permission_mode`, a permission or sandbox flag
+already in the harness `args`, `full_access`, then the built-in default. `onett doctor` warns for
+each harness that has it on. Future provider-specific options go in the same sections.
+
 #### One agent process per conversation (`chat.session_idle_timeout`, 30m by default)
 
 The better fix for the same problem is to stop starting a new process for each message, as an

@@ -531,6 +531,10 @@ export interface Harness {
   inherit_env?: string[];
   /** claude-code: run agents without the owner's MCP servers, plugins and hooks. Default true. */
   isolate?: boolean;
+  /** Options only a claude-code harness has. */
+  claude?: { full_access: boolean };
+  /** Options only a codex harness has. */
+  codex?: { full_access: boolean };
 }
 
 export interface Agent {

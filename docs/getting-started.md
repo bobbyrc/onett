@@ -450,15 +450,26 @@ two ways out:
 1. **Route those tasks to the Claude-based senior-engineer role**, `implementer-claude`, which has no such
    restriction. Define it under `agents:` with `harness: claude` (see step 4) and send the task kind
    to it under `routing:`.
-2. **Opt the Codex senior engineer in to network access.** The owner adds this to the harness `args`:
+2. **Give the harness full access.** Set `full_access: true` in the harness's own section:
 
    ```yaml
-   args: ["-c", "sandbox_workspace_write.network_access=true"]
+   harnesses:
+     codex:
+       type: codex
+       codex:
+         full_access: true   # default false
    ```
 
-Option 2 is an owner decision with a security trade-off: the agent can then reach the network from
-inside the sandbox, so a prompt-injected or mistaken run can send data out or fetch code. Agents must
-never enable it themselves; if a task cannot be verified without it, report it as blocked.
+   Codex then runs with `--dangerously-bypass-approvals-and-sandbox`: no sandbox and no approval
+   prompts. The `claude:` section has the same option for Claude Code (`--permission-mode
+   bypassPermissions`). A permission mode chosen for a conversation, an agent's `permission_mode`,
+   or a sandbox flag already in the harness `args` still wins; `full_access` only replaces the
+   built-in default. `onett doctor` warns for each harness that has it on.
+
+Option 2 is an owner decision with a security trade-off: the agent can then reach the network and
+touch anything your user can, so a prompt-injected or mistaken run can send data out, fetch code
+or damage files outside its worktree. Agents must never enable it themselves; if a task cannot be
+verified without it, report it as blocked.
 
 ## Troubleshooting
 
