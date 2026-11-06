@@ -306,7 +306,9 @@ The 260px sidebar has a "+ New conversation" button (always the orchestrator; op
 the role and a text label: a blinking green lamp and "working" while a run is live; a dim lamp and
 "closed" for a closed conversation; a red lamp and "blocked" for a blocked task; a dim lamp and
 the task's status otherwise. On desktop the sidebar is as tall as the window at most: a long list scrolls inside it and it stays
-pinned beside the thread, so it never sets the page's height. Under 760px the sidebar is a row of chips above the thread.
+pinned beside the thread, so it never sets the page's height. Under 760px an open thread replaces the sidebar with one bar: a "Conversations" back link to
+`/chat` (where the full list and New conversation show) and the open conversation's title, muted and
+cut with an ellipsis on one line.
 
 The header names who you are talking to ("Orchestrator", or the role such as "Implementer"), with
 harness · model (from the latest run) and the conversation title, or for a task agent its task as

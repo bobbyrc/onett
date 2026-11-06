@@ -211,7 +211,7 @@
   color: var(--chat-fg-faint);
 }
 
-/* Phone: the list becomes a row of chips above an open thread; the full list shows otherwise. */
+/* Phone: one column; an open thread sits under a back bar (below), the full list shows otherwise. */
 @media (max-width: 759px) {
   /* Under the top bar and the page's 16px / 40px padding (plus the home-indicator inset). */
   .chat-page {
@@ -223,30 +223,6 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     gap: 16px;
-  }
-
-  .chat-page .conv-list.compact ul {
-    flex-direction: row;
-    gap: 8px;
-    overflow-x: auto;
-    border-top: 0;
-    padding-bottom: 4px;
-  }
-
-  .chat-page .conv-list.compact .conv-item {
-    flex: none;
-    max-width: 240px;
-    padding: 6px 10px;
-    border: 1px solid var(--chat-border);
-    border-radius: var(--chat-radius-md);
-  }
-
-  .chat-page .conv-list.compact .conv-item.active {
-    border-color: var(--chat-fg-strong);
-  }
-
-  .chat-page .conv-list.compact .conv-meta {
-    display: none;
   }
 
   .chat-page .chat-start {
@@ -434,52 +410,55 @@
   gap: 8px;
 }
 
-/* Phone: every conversation becomes one chip in a row above an open thread. */
-@media (max-width: 759px) {
-  .chat-page .conv-list.compact {
-    display: flex;
-    align-items: stretch;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-  }
+/* Phone, thread open: the list gives way to one bar, a back link to the full list (at /chat) and
+   the open conversation's title, ellipsed. The bar exists only there. */
+.chat-page .conv-crumb {
+  display: none;
+}
 
-  .chat-page .conv-list.compact .conv-heading,
-  .chat-page .conv-list.compact .conv-task,
-  .chat-page .conv-list.compact .conv-agent-state {
+@media (max-width: 759px) {
+  .chat-page .conv-list.compact > :not(.conv-crumb) {
     display: none;
   }
 
-  .chat-page .conv-list.compact .conv-group,
-  .chat-page .conv-list.compact .conv-agent-group,
-  .chat-page .conv-list.compact .conv-group > li {
-    display: contents;
+  .chat-page .conv-list.compact .conv-crumb {
+    display: flex;
+    align-items: center;
+    gap: var(--chat-space-3);
+    min-width: 0;
   }
 
-  .chat-page .conv-list.compact .conv-new {
+  .chat-page .conv-back {
     flex: none;
-    width: auto;
-    margin: 0;
-    white-space: nowrap;
+    min-height: 44px;
+    padding-inline: var(--chat-space-3) 14px;
+    gap: var(--chat-space-2);
+    color: var(--chat-fg-strong);
   }
 
-  .chat-page .conv-list.compact .conv-agent {
-    flex: none;
-    max-width: 240px;
-    padding: 6px 10px;
-    border: 1px solid var(--chat-border);
-    border-radius: var(--chat-radius-md);
+  .chat-page .conv-back:focus-visible {
+    outline: 2px solid var(--chat-focus-ring);
+    outline-offset: 2px;
   }
 
-  .chat-page .conv-list.compact .conv-agent.active {
-    border-color: var(--chat-fg-strong);
+  .chat-page .conv-back-chev {
+    width: 7px;
+    height: 7px;
+    margin-left: 3px;
+    border-left: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg);
   }
 
-  .chat-page .conv-list.compact .conv-agent-title {
-    display: inline;
+  .chat-page .conv-crumb-title {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-family: var(--chat-font);
+    font-size: var(--chat-text-md);
+    color: var(--chat-fg-faint);
   }
 }
 

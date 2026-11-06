@@ -529,8 +529,9 @@ Each component is a square or a 2px-cornered control, with a word that carries i
 - **Conversation list:** a 260px column at the left of the thread, with a rule above the list and
   between rows. Each row is a 10px-padded title, one line and ellipsed, with the relative time
   beneath in muted small type. The open conversation sits on a Sheet Mist panel in semi-bold.
-  Under 760px the list becomes a row of chips above the open thread; with no conversation open, the
-  full list shows first.
+  Under 760px an open thread replaces the list with one bar: a "Conversations" back link (a quiet
+  44px button with a drawn left chevron) to the full list, and the open conversation's title beside
+  it in muted 14px, one line and ellipsed. With no conversation open, the full list shows first.
 - **Thread:** the title in the condensed face, 22px caps. User messages are right-aligned Sheet Mist
   bubbles with a 1px outer rule, 72ch maximum. Assistant messages are unboxed, rendered Markdown,
   72ch maximum.
