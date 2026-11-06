@@ -73,7 +73,9 @@
   --chat-diff-add-bg: #d3e8d9;
   --chat-diff-del-fg: #a3231a;
   --chat-diff-del-bg: #f1d6d2;
-  --chat-focus-ring: var(--focus);
+  /* keyboard ring on chat controls: ink in both modes. The app's dark --focus is call yellow, which
+     in onett means "needs you", so chat does not borrow it. */
+  --chat-focus-ring: var(--text);
   /* derived surfaces: Orca's colour-mix, with onett's text over onett's canvas. Borders mix toward
      transparent, as Orca does, so they sit on any surface. */
   --chat-user-bg: color-mix(in srgb, var(--text) 4%, var(--bg));
@@ -82,6 +84,9 @@
   --chat-inline-code-bg: color-mix(in srgb, var(--text) 4%, var(--bg));
   --chat-inline-code-border: color-mix(in srgb, var(--text) 9%, transparent);
   --chat-composer-border: color-mix(in srgb, var(--text) 11%, transparent);
+  /* the composer's edge while it has focus: muted ink, 3:1 against the canvas, the card and the
+     resting edge */
+  --chat-composer-border-focus: var(--muted);
   /* syntax colours, measured on --chat-code-bg */
   --chat-syntax-keyword: #a3236b;
   --chat-syntax-string: #0b6b35;

@@ -262,6 +262,9 @@ the message as before. The draft text is kept per conversation in the browser (`
 `onett.chat.draft.<conversation id>` or `onett.chat.draft.task:<task id>`, saved about 300ms after
 typing stops), restored when you come back and cleared when a send succeeds; a failed send keeps it.
 Attachments are not kept. If the browser refuses storage, the draft lives in memory only.
+While you type, the composer card's edge steps up from its faint hairline to muted ink; there is
+no focus ring around the card. Its buttons and menus show a 2px ink ring when the keyboard reaches
+them (in dark mode too: chat does not use the app's call-yellow focus ring).
 
 **Composer controls.** The footer follows Orca's layout: **+** (attach) and a permission picker on
 the left; a model and effort picker ("Opus · High ⌄"), a small context ring and the round Send/Stop
@@ -534,9 +537,11 @@ scripts/pr-shots.sh after
 ```
 
 `npm run shots:chat` builds the UI and runs `web/e2e/chat-shots.spec.ts` against `vite preview`
-with the same in-browser mock as the mobile check, so no daemon is needed. It captures six
-scenes (`chat-thread`, `chat-running`, `task-thread`, `chat-empty`, `chat-error`, `chat-loading`) in four variants each
-(desktop 1280x800 and iPhone 390x844, light and dark): 24 PNGs in
+with the same in-browser mock as the mobile check, so no daemon is needed. It captures fifteen
+scenes (among them `chat-thread`, `chat-running`, `task-thread`, `chat-empty`, `chat-error`,
+`chat-loading`, and the focus scenes `composer-focus`, `composer-keyfocus`, `task-thread-focus` and
+`chat-empty-focus`, which click into the composer and type, or Tab to its first control) in four
+variants each (desktop 1280x800 and iPhone 390x844, light and dark): 60 PNGs in
 `web/e2e-results/chat-shots/<scene>-<variant>.png`. The clock is frozen and animations are off, so
 two runs of the same code give the same pixels. It is not part of `npm run test:mobile`.
 

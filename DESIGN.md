@@ -178,7 +178,7 @@ state. Every colour is set in `:root` and changed for dark in one media query.
 - **Ink Green Black** (#18201c light / #e4ebe6 dark, `accent`): the primary action. The primary
   button is filled with ink and reads "Approve merge" or "Retry". Also the text colour of the
   ink-filled button (`accent-ink` #ffffff light, #111614 dark). Focus rings are ink in light and
-  call yellow in dark.
+  call yellow in dark, except on the chat pages, where they are ink in both modes (see Chat).
 
 ### Secondary
 - **Run Green** (#2fa35a, `lamp-run`; #5fd08b text in dark): work is flowing: running, in review,
@@ -357,7 +357,8 @@ Each component is a square or a 2px-cornered control, with a word that carries i
 - **Confirm:** every destructive action asks inline; the button reads "Confirm?" for 3 seconds.
 - **Hover / Focus:** colour changes switch in 90ms, in two steps. Focus is a 2px outline in
   `focus` (ink on the ground; call yellow on the board, the phone top bar and in dark mode), offset
-  by 2px.
+  by 2px. The chat pages keep the ring ink in dark mode too, because call yellow means "needs
+  you" and chat has no other yellow (see Chat).
 - **Ghost:** transparent, no outline, muted text; turns ink on hover. Used for the Cancel beside a
   form's Save. Cancelling a task or a live run is a danger
   button that asks inline.
@@ -541,8 +542,12 @@ Each component is a square or a 2px-cornered control, with a word that carries i
 - **Composer:** a sheet in Field White with a 1px Outer Rule edge and no radius. The field inside
   has no border of its own, auto-grows to 40vh, and sits over a foot row: the hint "Enter to send ·
   Shift+Enter for a new line" in muted small type at the left and the primary Send at the right.
-  The sheet's edge turns to text colour while the field has focus. The field is disabled while the
-  orchestrator replies.
+  While the field has focus the sheet's 1px edge steps up to Muted Ink: no ring, no 2px frame and
+  no yellow, because a ring is for a control the keyboard lands on, not for a field the owner types
+  in for minutes. The small controls inside (attach, Send, the permission and model menus) keep
+  the 2px ring on keyboard focus (`:focus-visible`), in ink in both modes. The same holds for the
+  composer on the start screen and in a task thread. The field is disabled while the orchestrator
+  replies. `docs/design/chat-visual.md` has the tokens and contrast.
 - **Viewers:** the thread reads on; in place of the composer, a muted line says viewers can read
   but not send.
 

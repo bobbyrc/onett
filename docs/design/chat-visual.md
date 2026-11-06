@@ -46,7 +46,7 @@ owner; it is not part of the repository.
 ## Colour
 
 Colours are onett's. The colour tokens are `var()` references to the app tokens (`--bg`, `--panel`,
-`--text`, `--muted`, `--border`, `--field`, `--focus`, `--ok`, `--warn`, `--danger`), so chat is a
+`--text`, `--muted`, `--border`, `--field`, `--ok`, `--warn`, `--danger`), so chat is a
 green-tinted grey and dark mode is onett's green-black. Light is the default and dark follows
 `prefers-color-scheme`; there is no manual switch.
 
@@ -150,7 +150,10 @@ the transcript's column width and sticky at the bottom. Inside, top to bottom: a
 height), and a footer row: a round 32px `+` button (and a photo button on a phone), the keyboard hint
 (hidden on a phone), a faint `--chat-text-sm` label naming the role and model, and a round 32px Send
 button filled with `--chat-fg-strong` (it becomes a Stop square while a turn runs; `aria-label`
-carries the word). Focus draws a 2px `--chat-focus-ring` outline on the card. A dragged file turns
+carries the word). While the field has focus the card's 1px edge steps up to
+`--chat-composer-border-focus` (muted ink); it draws no ring, because the owner types there for
+minutes and a ring would frame the whole card the whole time. The small controls inside it (`+`,
+Send, the permission and model menus) show the keyboard ring on `:focus-visible`. A dragged file turns
 the border dashed. On the new-chat page the same card sits under the empty state at the same column
 width, with the example prompts below as rounded chips (`--chat-radius-md`, faint 12px text, 44px
 tall).
@@ -222,7 +225,8 @@ Colours written `var(--x)` are references to `styles.css`, not copies; the hex b
 | `--chat-syntax-function` | `#1d4fa3` | `#8fbaff` | function and section titles |
 | `--chat-syntax-type` | `#0b6674` | `#6fd3e0` | types and class names |
 | `--chat-syntax-meta` | `#6a3fa0` | `#c9a6ff` | attributes, tags, selectors, meta lines |
-| `--chat-focus-ring` | `#18201c` | `#f2c230` | focus outline (= `var(--focus)`) |
+| `--chat-focus-ring` | `#18201c` | `#e4ebe6` | keyboard focus outline on chat controls (= `var(--text)`: ink in both modes, never the app's dark call yellow) |
+| `--chat-composer-border-focus` | `#4b5751` | `#a1aea7` | the composer card's edge while it has focus (= `var(--muted)`) |
 | `--chat-font` | `'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif` | same | chat sans (Orca's stack; Geist self-hosted) |
 | `--chat-font-mono` | `'SF Mono', SFMono-Regular, ui-monospace, Menlo, monospace` | same | chat mono (Orca's stack) |
 | `--chat-text-md` / `-sm` / `-xs` | 14 / 12 / 11px | same | body / labels / captions |
@@ -283,9 +287,12 @@ on both backgrounds. Measured with the WCAG 2.x relative-luminance formula on th
 | `--chat-syntax-type` on `--chat-code-bg` | 5.22 | 9.81 |
 | `--chat-syntax-meta` on `--chat-code-bg` | 5.84 | 8.44 |
 | `--chat-diff-add-fg` / `-del-fg` on `--chat-code-bg` (diff lines in code) | 4.87 / 5.88 | 10.28 / 8.36 |
-| `--chat-focus-ring` on `--chat-bg` | 13.59 | 10.91 |
-| `--chat-focus-ring` on `--chat-surface` | 15.55 | 10.11 |
-| `--chat-focus-ring` on `--chat-user-bg` | 12.62 | 9.28 |
+| `--chat-focus-ring` on `--chat-bg` | 13.59 | 15.08 |
+| `--chat-focus-ring` on `--chat-surface` | 15.55 | 13.97 |
+| `--chat-focus-ring` on `--chat-user-bg` | 12.62 | 12.83 |
+| `--chat-composer-border-focus` on `--chat-bg` | 6.17 | 7.95 |
+| `--chat-composer-border-focus` on `--chat-surface` | 7.06 | 7.36 |
+| `--chat-composer-border-focus` against the resting `--chat-composer-border` (on the card) | 5.67 | 5.85 |
 | `--chat-field-border` on `--chat-bg` | 3.52 | 3.66 |
 | `--chat-field-border` on `--chat-surface` | 4.03 | 3.39 |
 
@@ -293,8 +300,13 @@ on both backgrounds. Measured with the WCAG 2.x relative-luminance formula on th
 Nothing may rely on it alone: cards are also set apart by their surface, and the one boundary the
 user must find, the composer input, uses `--chat-field-border`. Other rules:
 
-- Focus uses `outline: 2px solid var(--chat-focus-ring)` with a 2px offset; inside a scroll
-  container use an inset outline so it is not clipped (Orca's rule).
+- Focus on a control (a button, a menu, a chip) uses `outline: 2px solid var(--chat-focus-ring)`
+  on `:focus-visible` with a 2px offset; inside a scroll container use an inset outline so it is
+  not clipped (Orca's rule). The ring is ink in both modes: the app's dark `--focus` is call yellow,
+  which in onett means "needs you", so chat does not use it.
+- Focus on a text-entry surface (the composer card, on the new-chat page, in a conversation and in
+  a task thread) steps its 1px edge up to `--chat-composer-border-focus` with `:focus-within`: no
+  ring, no 2px frame, no yellow. `src/lib/composerFocusCss.test.ts` guards it.
 - State is never colour alone: lamps carry text, diffs carry `+`/`−`.
 - Motion stops under `prefers-reduced-motion`.
 - Re-measure when a token value changes; the numbers above are the check.
