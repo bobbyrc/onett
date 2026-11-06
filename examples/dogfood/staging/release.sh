@@ -36,20 +36,31 @@ REF12=${FULL:0:12}
 BIN=$STAGE/bin/onett-$REF12
 log "ref $REF_IN -> $FULL"
 
-# (b) Build the binary for this commit, unless it is already built.
-if [ ! -x "$BIN" ]; then
+# (b) Build the binary for this commit, with the web UI embedded and the commit as its version,
+# unless it is already built. A binary from before the UI was built in has no $BIN.ui marker and
+# is rebuilt, so a rollback never brings back a UI-less one.
+if [ ! -x "$BIN" ] || [ ! -f "$BIN.ui" ]; then
   SRC=$STAGE/src/$REF12
   rm -rf "$SRC"
   mkdir -p "$SRC"
   git -C "$CLONE" archive "$FULL" | tar -x -C "$SRC"
-  mkdir -p "$SRC/internal/api/webdist"
-  [ -f "$SRC/internal/api/webdist/.keep" ] || : > "$SRC/internal/api/webdist/.keep"
+  log "building web UI"
+  # The archive has no node_modules, and Go embeds internal/api/webdist as it stands, so the UI
+  # must be built before go build. A failure here fails the release instead of shipping no UI.
+  (
+    cd "$SRC/web"
+    npm ci --prefer-offline --no-audit --no-fund >&2
+    npm run build >&2
+  )
+  [ -f "$SRC/internal/api/webdist/index.html" ] || { log "web build left no index.html"; exit 1; }
   log "building $BIN"
   (
     cd "$SRC"
-    GOTOOLCHAIN=local GOFLAGS=-mod=mod GOCACHE=$STAGE/gocache "$GO" build -o "$BIN.tmp" ./cmd/onett
+    GOTOOLCHAIN=local GOFLAGS=-mod=mod GOCACHE=$STAGE/gocache \
+      "$GO" build -trimpath -ldflags "-X main.version=$REF12" -o "$BIN.tmp" ./cmd/onett
   )
   mv "$BIN.tmp" "$BIN"
+  : > "$BIN.ui"
 else
   log "reusing $BIN"
 fi
@@ -119,6 +130,18 @@ done
 if ! curl -sf -m 2 "$HEALTH" >/dev/null 2>&1; then
   log "health check failed at $HEALTH; last 30 log lines:"
   tail -n 30 "$LOG" >&2 || true
+  exit 1
+fi
+
+# The deployed copy must serve the UI and report this commit; "healthy" without them is how a
+# UI change went unseen at staging.
+HEALTH_BODY=$(curl -sf -m 2 "$HEALTH")
+case $HEALTH_BODY in
+  *"\"version\":\"$REF12\""*) ;;
+  *) log "health reports the wrong version (want $REF12): $HEALTH_BODY"; exit 1 ;;
+esac
+if curl -sf -m 5 "http://$ADDR/" | grep -q 'web UI is not built'; then
+  log "http://$ADDR/ does not serve the web UI"
   exit 1
 fi
 log "healthy"
