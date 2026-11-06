@@ -544,6 +544,12 @@ in `src/App.tsx`, plus one detail page each (task, run, goal, chat) using the fi
 returns; a detail page with no data is skipped with a note. `--routes /tasks,/runs` picks
 routes, and `--full` captures the whole scrolling page instead of the first screen.
 
+The API token cannot read owner-only data, so Agents, Config and Users show "forbidden" in these
+shots. That is on purpose: giving the token (or a screenshot mode) owner powers would break the
+rule that an agent cannot reach the owner's settings. The script prints a `note:` for each route
+that got a 403, so it is not mistaken for a UI bug; use `npm run shots:chat`-style mocks to
+design those pages.
+
 It cannot change anything: the browser aborts every request that is not a GET. It sends
 `Authorization: Bearer $ONETT_TOKEN` on API calls and never prints the token. A token is not a
 session, so `GET /api/v1/auth/state` is answered locally with a signed-in owner; pages that need
