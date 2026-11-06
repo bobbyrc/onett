@@ -188,7 +188,10 @@ type Run struct {
 	CacheWriteTokens  int64 `json:"cache_write_tokens,omitempty"`
 	// ContextTokens is the prompt size of the run's last model request: how full the context
 	// window ended up. Unlike InputTokens it is not summed over requests. 0 when unknown.
-	ContextTokens int64  `json:"context_tokens,omitempty"`
+	ContextTokens int64 `json:"context_tokens,omitempty"`
+	// ContextWindow is the model's context window as the CLI reported it, the denominator for
+	// ContextTokens. 0 when unknown (runs from before it was stored).
+	ContextWindow int64  `json:"context_window,omitempty"`
 	Summary       string `json:"summary,omitempty"`
 	Error         string `json:"error,omitempty"`
 

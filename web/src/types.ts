@@ -130,6 +130,8 @@ export interface Run {
   cache_write_tokens?: number;
   /** Prompt size of the run's last model request: how full the context window is. Absent when unknown. */
   context_tokens?: number;
+  /** The model's context window in tokens, as the CLI reported it. Absent on older runs. */
+  context_window?: number;
   summary?: string;
   error?: string;
   stream_offset?: number;

@@ -27,3 +27,24 @@ func TestContextUnknownWithoutAssistantUsage(t *testing.T) {
 	p.parseLine(`{"type":"result","is_error":false,"result":"ok","usage":{"input_tokens":1}}`)
 	assert.Zero(t, p.result(0, nil).ContextTokens)
 }
+
+// The result line of a real run carries modelUsage with the window the CLI runs the model at.
+func TestResultReportsContextWindow(t *testing.T) {
+	_, res := replay(t, "testdata/simple.jsonl")
+	assert.Equal(t, int64(1_000_000), res.ContextWindow)
+}
+
+func TestContextWindowPicksSessionModel(t *testing.T) {
+	p := &parser{}
+	p.parseLine(`{"type":"system","subtype":"init","model":"claude-opus-5-5[1m]"}`)
+	p.parseLine(`{"type":"result","is_error":false,"result":"ok","modelUsage":{` +
+		`"claude-haiku-5-5":{"contextWindow":200000,"costUSD":0.5},` +
+		`"claude-opus-5-5":{"contextWindow":1000000,"costUSD":0.1}}}`)
+	assert.Equal(t, int64(1_000_000), p.result(0, nil).ContextWindow, "the init model, not the costliest")
+}
+
+func TestContextWindowUnknownWithoutModelUsage(t *testing.T) {
+	p := &parser{}
+	p.parseLine(`{"type":"result","is_error":false,"result":"ok","usage":{"input_tokens":1}}`)
+	assert.Zero(t, p.result(0, nil).ContextWindow)
+}

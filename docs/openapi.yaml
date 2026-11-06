@@ -3031,6 +3031,14 @@ components:
           type: integer
           format: int64
           description: Part of input_tokens written to the prompt cache. Absent when the harness reports none.
+        context_tokens:
+          type: integer
+          format: int64
+          description: Prompt size of the run's last model request, how full the context window is. Absent when unknown.
+        context_window:
+          type: integer
+          format: int64
+          description: The model's context window in tokens as the CLI reported it (the Claude result's modelUsage). Absent when the CLI did not say, as on runs from before it was stored.
         summary:
           type: string
         error:

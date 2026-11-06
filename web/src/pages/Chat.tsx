@@ -41,7 +41,7 @@ import { MessageRail } from '../components/MessageRail';
 import { Composer, ComposerArea } from '../components/Composer';
 import { ComposerSettings, DraftComposerSettings } from '../components/ComposerSettings';
 import { ContextRing } from '../components/ContextRing';
-import { contextFraction } from '../lib/composerSettings';
+import { latestContextFraction } from '../lib/composerSettings';
 import { useAttachmentUploads, useLocalAttachments } from '../components/ComposerAttachments';
 import { DEFAULT_MAX_PER_MESSAGE } from '../lib/attachments';
 import { useStickToBottom } from '../lib/useStickToBottom';
@@ -649,7 +649,7 @@ function OrchestratorThread({
           canOperate ? (
             <>
               <ComposerSettings conversationId={conversationId} side="model" />
-              <ContextRing fraction={contextFraction(run)} />
+              <ContextRing fraction={latestContextFraction(runIds.map((id) => runs[id]))} />
             </>
           ) : undefined
         }
@@ -838,7 +838,7 @@ function TaskThread({
             rightControls={
               <>
                 {settingsId ? <ComposerSettings conversationId={settingsId} side="model" /> : null}
-                <ContextRing fraction={contextFraction(lastRun)} />
+                <ContextRing fraction={latestContextFraction(conv.runs)} />
               </>
             }
           />
