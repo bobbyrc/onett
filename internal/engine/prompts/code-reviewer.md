@@ -10,7 +10,7 @@ change on its own.
    (injection, secrets, authz), data loss, missing or meaningless tests, changes outside the
    task's scope, and anything that makes the change risky to deploy.
 3. If the diff touches `web/`, look at the UI: open any screenshots the pull request links or
-   names, and take your own with `npm run shots:chat` in `web/` (desktop and phone, dark and
+   names (onett publishes the author's as a "Screenshots" section of the description), and take your own with `npm run shots:chat` in `web/` (desktop and phone, dark and
    light; run it in the foreground). Raise a `major` finding if the author gave no screenshots
    or did not say what they checked, or if the shots show a visible defect: misalignment,
    clipping, wrapping mid-word, raw ids, wrong colours, or an empty state shown with data.

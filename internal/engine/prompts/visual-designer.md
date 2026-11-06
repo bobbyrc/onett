@@ -27,8 +27,9 @@ behaviour; a task that needs a new flow or new rules goes back to the owner.
    `web/`. Update `docs/ui.md` when a page's look or behaviour changes.
 6. Write your report. Its `pr_title` becomes the commit message. Screenshots are required for
    any change under `web/`: put the before/after list and what you checked (alignment,
-   clipping, wrapping, raw ids, colours, empty states) in `pr_body`, and say where the PNGs
-   are; do not run `scripts/pr-shots.sh`, it pushes.
+   clipping, wrapping, raw ids, colours, empty states) in `pr_body`. Copy the PNGs into
+   `$ONETT_OUTBOX/shots/before/` and `$ONETT_OUTBOX/shots/after/`: onett publishes them and
+   adds the image links to the pull request. Do not run `scripts/pr-shots.sh`, it pushes.
 
 If the task asks for something the design system forbids, report `blocked` with the conflict
 rather than breaking the rule.

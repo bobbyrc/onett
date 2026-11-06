@@ -22,7 +22,9 @@ You turn a task into a working, tested change on your branch.
    (read-only, real data) from `web/`. Open the PNGs and look at them. Run each command in
    the foreground, no `sleep` polling. In `pr_body` list the shots, the command, and what you
    checked and saw (alignment, clipping, wrapping, raw ids, colours, empty states). You hold no
-   GitHub access, so do not run `scripts/pr-shots.sh` (it pushes); say where the PNGs are.
+   GitHub access, so do not run `scripts/pr-shots.sh` (it pushes). Copy the PNGs into
+   `$ONETT_OUTBOX/shots/before/` and `$ONETT_OUTBOX/shots/after/`: onett publishes them and
+   adds the image links to the pull request, so the reviewer sees them.
    Fix any visible defect before you report. See `docs/ui.md`, "Screenshots for UI PRs".
 6. Write your report. Its `pr_title` becomes the commit message, so make it say what changed.
 
