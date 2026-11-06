@@ -570,6 +570,7 @@ export const loops: LoopView[] = [
   loop('deploy_watch', { last_run_at: ago(0.2) }),
   loop('prod_watch', { enabled: false, every: '5m', last_run_at: ago(3 * DAY) }),
   loop('friction_triage', { every: '1h', last_run_at: ago(41) }),
+  loop('retro', { every: '24h', last_run_at: '0001-01-01T00:00:00Z' }),
   loop('self_update', { enabled: false, every: '1h', last_run_at: ago(9 * DAY), last_error: 'new release held back: 2 tasks still running' }),
   loop('heartbeat', { every: '15m', last_run_at: ago(9), next_run_at: new Date(T0 + 6 * 60_000).toISOString(), item_count: 3, actions_24h: 7, escalations_24h: 1, operations_conversation_id: ulid(10) }),
   loop('issue_intake', { project: 'dotfiles-and-agent-configs', every: '5m', last_run_at: ago(2), last_error: 'gh: HTTP 403: API rate limit exceeded for user ID 1234567 (resets in 41m)' }),
