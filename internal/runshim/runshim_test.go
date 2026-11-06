@@ -232,9 +232,17 @@ func TestStatusReportsExitCodeAndStderr(t *testing.T) {
 	assert.False(t, st.StartedAt.IsZero())
 	assert.False(t, st.LastOutputAt.IsZero())
 
-	onDisk, err := ReadStatus(sh.spec.RunDir)
-	require.NoError(t, err)
-	assert.True(t, onDisk.Exited)
+	// The client sees the exit as soon as it is recorded in memory; the forced status.json write
+	// follows a moment later, so wait for the file instead of reading it once.
+	var onDisk Status
+	require.Eventually(t, func() bool {
+		d, err := ReadStatus(sh.spec.RunDir)
+		if err != nil || !d.Exited {
+			return false
+		}
+		onDisk = d
+		return true
+	}, 5*time.Second, 10*time.Millisecond)
 	assert.Equal(t, 3, onDisk.ExitCode)
 	assert.Equal(t, sh.spec.SocketPath, onDisk.Socket)
 	assert.EqualValues(t, 4, onDisk.LogSize)

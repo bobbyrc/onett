@@ -79,7 +79,10 @@ type Result struct {
 	// reported). Input that is neither read nor written was not cached at all.
 	CacheWriteTokens int64
 	OutputTokens     int64
-	IsError          bool
+	// ContextTokens is the size of the last model request's prompt, which is how full the context
+	// window is now (0 if not reported). InputTokens sums every request and cannot say that.
+	ContextTokens int64
+	IsError       bool
 	// Billing says how the run was paid for: BillingMetered, BillingSubscription, or "" when
 	// the adapter cannot tell.
 	Billing string

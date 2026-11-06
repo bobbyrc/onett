@@ -30,16 +30,18 @@ export function contextWindow(model: string | undefined): number | null {
   const m = model.toLowerCase();
   if (m.includes('[1m]') || m.includes('-1m')) return 1_000_000;
   if (/(opus|sonnet|haiku|claude)/.test(m)) return 200_000;
+  if (/(gpt-5|codex)/.test(m)) return 400_000;
   return null;
 }
 
 /**
- * How full the context was after the run: its input tokens (which count cached reads and writes)
- * over the model's window, 0..1. Null when the run or the window is unknown.
+ * How full the context window was after the run: the prompt size of its last model request
+ * (context_tokens: input plus cache reads and writes) over the model's window, 0..1. Not
+ * input_tokens, which sums every request of the run. Null when either is unknown.
  */
-export function contextFraction(run: Pick<Run, 'input_tokens' | 'model'> | undefined, model?: string): number | null {
-  if (!run || !run.input_tokens) return null;
+export function contextFraction(run: Pick<Run, 'context_tokens' | 'model'> | undefined, model?: string): number | null {
+  if (!run || !run.context_tokens || run.context_tokens < 0) return null;
   const window = contextWindow(model || run.model);
   if (!window) return null;
-  return Math.min(1, run.input_tokens / window);
+  return Math.min(1, run.context_tokens / window);
 }

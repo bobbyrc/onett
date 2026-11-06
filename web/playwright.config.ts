@@ -9,8 +9,8 @@ const PORT = await previewPort('ONETT_MOBILE_PORT');
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
-  // Screenshot capture for PRs (npm run shots:chat) has its own config.
-  testIgnore: 'chat-shots.spec.ts',
+  // Screenshot capture for PRs (npm run shots:chat, npm run shots) has its own config.
+  testIgnore: ['chat-shots.spec.ts', 'page-shots.spec.ts'],
   outputDir: './e2e-results/traces',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

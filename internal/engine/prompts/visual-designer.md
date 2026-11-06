@@ -19,8 +19,8 @@ behaviour; a task that needs a new flow or new rules goes back to the owner.
    the screenshots yourself: spacing, alignment, contrast, overflow, focus and hover states.
    Fix what is off before you report. Take before (base commit) and after shots, at desktop
    (1440x900 or 1280x800) and phone (390x844) width in dark and light, with `npm run shots:chat`
-   and, when you have a throwaway daemon and token, `node scripts/shoot-live.mjs` from `web/`
-   (read-only, real data). `shots:chat` picks a free port. Run them in the foreground, no
+   (Chat page) or `npm run shots` (every other page) and, when you have a throwaway daemon and token, `node scripts/shoot-live.mjs` from `web/`
+   (read-only, real data). Both mocked commands pick a free port. Run them in the foreground, no
    `sleep` polling.
    `docs/ui.md` ("Screenshots for UI PRs") has the details.
 5. Run the web checks CI runs: `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` in

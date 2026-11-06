@@ -1,90 +1,51 @@
-/* Loops page: a lamp grid on desktop, one sheet per loop name under 760px. */
+/* Loops page: a table grouped by loop name where the main column has room for it, else one
+   sheet per loop name. The switch follows the column's width, not the window's, because the rail
+   takes 216px of it: a 900px window leaves the table too little room. */
+
+.loops-body {
+  container-type: inline-size;
+}
 
 .loops-summary {
   margin: 0 0 12px;
 }
 
-/* ---- desktop grid ---- */
+/* ---- shared cell parts ---- */
 
-.loops-grid-wrap {
-  overflow-x: auto;
-  background: var(--panel);
-  border: 1px solid var(--border);
+/* The readable name, with the id config and the API use under it in small mono. */
+.loop-label {
+  display: block;
+  font-weight: 600;
 }
 
-.loops-grid {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.loops-grid th,
-.loops-grid td {
-  text-align: left;
-  vertical-align: top;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--rule);
-}
-
-.loops-grid thead th {
-  font-family: var(--font-cond);
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.loops-grid tbody tr:last-child th,
-.loops-grid tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.loop-name {
-  font-family: var(--mono);
-  font-size: 13px;
+.loop-id {
+  display: block;
+  font-size: 12px;
   font-weight: 400;
-  white-space: nowrap;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
-.loop-cell {
-  max-width: 240px;
-  min-width: 0;
-}
-
-.loop-cell-top {
-  display: flex;
+.loop-status {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 24px;
+  white-space: nowrap;
 }
 
-/* A disabled loop says "off" in words, so its cell does not differ from a healthy one by lamp only. */
-.loop-off {
-  color: var(--muted);
-}
-
-.loop-cell-status {
-  min-width: 0;
-  margin-top: 2px;
-  font-size: 13px;
+/* A second line in a cell: the next run, or the last error. */
+.loop-sub {
+  display: block;
+  font-size: 13.5px;
 }
 
 .loop-error {
-  display: block;
-  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.loop-run {
-  margin-left: auto;
-  padding: 2px 8px;
-  font-size: 13px;
-}
-
-/* The lamp: 10px square, coloured by loopHealth. The words beside it are screen-reader text. */
+/* The lamp: 10px square, coloured by loopHealth. The word beside it says the same thing. */
 .loop-lamp {
   display: inline-block;
   flex: none;
@@ -105,14 +66,97 @@
   background: var(--lamp-off-light);
 }
 
-/* ---- phone sheets ---- */
+/* ---- table ---- */
+
+/* Fixed columns, so a long error is cut in its cell instead of widening the table. */
+.loops-table-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.loops-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.loops-col-name {
+  width: 20%;
+}
+
+.loops-col-project {
+  width: 17%;
+}
+
+.loops-col-status {
+  width: 120px;
+}
+
+.loops-col-schedule {
+  width: 130px;
+}
+
+.loops-col-action {
+  width: 120px;
+}
+
+.loops-table th,
+.loops-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--rule);
+  overflow-wrap: anywhere;
+}
+
+.loops-table thead th {
+  font-family: var(--font-cond);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom-color: var(--border);
+  white-space: nowrap;
+}
+
+/* Each loop name is a group of rows; the Outer Rule between groups shows where one loop ends. */
+.loops-table tbody + tbody {
+  border-top: 1px solid var(--border);
+}
+
+.loops-table tbody tr:last-child td,
+.loops-table tbody tr:last-child th {
+  border-bottom: 0;
+}
+
+.loops-table .loop-name {
+  font-weight: 400;
+}
+
+/* The first line of every cell sits level with the Run button's text. */
+.loops-table tbody th,
+.loops-table td:not(.loop-action) {
+  padding-top: 14px;
+}
+
+.loop-action {
+  text-align: right;
+}
+
+/* Wide enough for "Running…", so the button keeps its size when a run starts. */
+.loop-run {
+  min-width: 96px;
+}
+
+/* ---- sheets, when the main column is narrower than the table needs ---- */
 
 .loops-sheets {
   display: none;
 }
 
-@media (max-width: 759px) {
-  .loops-grid-wrap {
+@container (max-width: 879px) {
+  .loops-table-wrap {
     display: none;
   }
 
@@ -130,9 +174,7 @@
     margin: 0;
     padding: 10px 12px;
     font-size: 15px;
-    font-weight: 600;
     border-bottom: 1px solid var(--rule);
-    overflow-wrap: anywhere;
   }
 
   .loop-sheet-rows {
@@ -144,7 +186,7 @@
   .loop-sheet-row {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
     padding: 10px 12px;
     border-bottom: 1px solid var(--rule);
   }
@@ -160,15 +202,29 @@
     gap: 2px;
   }
 
-  .loop-sheet-project {
+  .loop-sheet-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 10px;
+  }
+
+  .loop-sheet-top .loop-project {
     font-weight: 600;
+    overflow-wrap: anywhere;
   }
 
-  .loop-sheet-main .loop-error {
-    max-width: 100%;
+  .loop-sheet-line {
+    min-width: 0;
+    font-size: 13.5px;
   }
 
-  .loop-sheet-row .loop-run {
-    margin-left: 0;
+  /* In a sheet the next run joins the schedule's line; the error keeps a line of its own. */
+  .loop-sheet-line .loop-sub:not(.loop-error) {
+    display: inline;
+  }
+
+  .loop-sheet-line .loop-sub:not(.loop-error)::before {
+    content: ' · ';
   }
 }

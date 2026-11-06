@@ -269,6 +269,22 @@ for (const vp of VIEWPORTS) {
       await page.screenshot({ path: `e2e-results/screenshots/${vp.name}/chat-composer-attachments.png` });
     });
 
+    // A long title in a stacked card must wrap whole (or end in an ellipsis), never be cut mid-word
+    // by the cell: every title line sits inside its cell and the cell hides no overflow.
+    test('stacked cards wrap long titles instead of clipping them', async ({ page }) => {
+      await open(page, '/signals');
+      const cells = page.locator('td[data-label="Title"]');
+      expect(await cells.count()).toBeGreaterThan(0);
+      for (const cell of await cells.all()) {
+        const { clipped, hidden } = await cell.evaluate((el) => ({
+          clipped: el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1,
+          hidden: getComputedStyle(el).overflow !== 'visible' && getComputedStyle(el).textOverflow !== 'ellipsis',
+        }));
+        expect(clipped).toBe(false);
+        expect(hidden).toBe(false);
+      }
+    });
+
     test('chat code blocks: no page overflow, copy and wrap are tappable', async ({ page }) => {
       await open(page, `/chat/${CONV_ID}`);
       const blocks = page.locator('.code-block');
@@ -376,14 +392,15 @@ for (const vp of VIEWPORTS) {
       await page.waitForLoadState('networkidle');
       const distanceFromEnd = () =>
         page.evaluate(() => {
-          const r = document.documentElement;
-          return r.scrollHeight - r.scrollTop - window.innerHeight;
+          // The message list scrolls inside a one-screen page; the window never does.
+          const r = document.querySelector('.messages-scroll') as HTMLElement;
+          return r.scrollHeight - r.scrollTop - r.clientHeight;
         });
       await expect.poll(distanceFromEnd).toBeLessThan(2);
       const pill = page.getByRole('button', { name: /jump to latest/i });
       await expect(pill).toHaveCount(0);
 
-      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.evaluate(() => ((document.querySelector('.messages-scroll') as HTMLElement).scrollTop = 0));
       await expect(pill).toBeVisible();
       const box = (await pill.boundingBox())!;
       const composer = (await page.locator('.chat-page .composer').boundingBox())!;

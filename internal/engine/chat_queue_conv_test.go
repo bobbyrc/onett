@@ -273,7 +273,8 @@ func TestQueuedChatSentAfterSuccessfulTurn(t *testing.T) {
 	prompts := make(chan string, 4)
 	h := hfake.New(func(ctx context.Context, spec harness.Spec, _ func(harness.Event)) (harness.Result, error) {
 		prompts <- spec.Prompt
-		if spec.Prompt == "go" {
+		// The prompt carries the factory snapshot after the owner's text, so match the prefix.
+		if strings.HasPrefix(spec.Prompt, "go\n") {
 			<-release
 		}
 		return harness.Result{SessionID: "s", FinalText: "ok"}, nil

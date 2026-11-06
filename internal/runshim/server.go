@@ -406,6 +406,12 @@ func (s *shim) requestQuit() { s.quitOnce.Do(func() { close(s.quit) }) }
 
 // shutdown closes the socket and every connection and removes the socket file.
 func (s *shim) shutdown() {
+	// Closing a Go unix listener unlinks its socket file, which would make "the socket is gone"
+	// true while this shim still has files to write, and let a replacement shim bind the same
+	// path just before the remove below deletes the replacement's socket.
+	if ul, ok := s.ln.(*net.UnixListener); ok {
+		ul.SetUnlinkOnClose(false)
+	}
 	_ = s.ln.Close()
 	s.mu.Lock()
 	for c := range s.conns {

@@ -16,3 +16,8 @@ export function formatBytes(n: number): string {
 }
 
 export const isImage = (mime: string): boolean => mime.startsWith('image/');
+
+/** Formats every browser draws in an <img>. Other image types (SVG, which the server will not
+ * serve inline, HEIC, BMP) stay a file tile that opens or downloads the file. */
+const THUMBNAIL_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+export const canThumbnail = (mime: string): boolean => THUMBNAIL_TYPES.has(mime.split(';')[0].trim().toLowerCase());

@@ -18,6 +18,7 @@ import { Table, type Column } from '../components/Table';
 import { cx, safeHref } from '../lib/format';
 import { groupTasks, queueLabel } from '../lib/taskGroups';
 import { agentLabel } from '../lib/agentLabel';
+import { taskSourceLabel } from '../lib/taskSource';
 
 /** The statuses shown by default: everything the factory is still moving. */
 const ACTIVE = ['queued', 'running', 'review', 'awaiting_approval', 'merged', 'deploying', 'blocked'];
@@ -44,15 +45,19 @@ function makeColumns(paused: string[]): Column<Task>[] {
     {
       key: 'title',
       header: 'Title',
-      cell: (t) => (
-        <div className="cell-stack">
-          <Link to={`/tasks/${t.id}`}>{t.title}</Link>
-          <div className="muted small">
-            <span className="tag">{t.kind}</span> {t.source}
-            {t.source_ref ? ` · ${t.source_ref}` : ''}
+      wide: true,
+      cell: (t) => {
+        const source = taskSourceLabel(t);
+        return (
+          <div className="cell-stack">
+            <Link to={`/tasks/${t.id}`}>{t.title}</Link>
+            <div className="muted small">
+              <span className="tag">{t.kind}</span> {source.href ? <Link to={source.href}>{source.text}</Link> : source.text}
+              {source.ref ? ` · ${source.ref}` : ''}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     { key: 'project', header: 'Project', cell: (t) => t.project },
     { key: 'role', header: 'Role', cell: (t) => agentLabel(t.role) || '—' },

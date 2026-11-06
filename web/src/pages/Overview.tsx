@@ -1,3 +1,4 @@
+import { chatRunHref } from '../lib/chatRunLink';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -12,7 +13,7 @@ import { agentLabel } from '../lib/agentLabel';
 import { AndonBoard } from '../components/AndonBoard';
 import { ApprovalCard } from '../components/ApprovalCard';
 import { Button } from '../components/Button';
-import { Callout } from '../components/Callout';
+import { BlockedReason } from '../components/BlockedReason';
 import { Empty } from '../components/Empty';
 import { HeartbeatCard } from '../components/HeartbeatCard';
 import { HoldBanner } from '../components/HoldBanner';
@@ -94,7 +95,7 @@ function BlockedTaskCard({ task }: { task: Task }) {
         Blocked · {task.project} · attempt {task.attempts} of {task.max_attempts} · <RelTime value={task.updated_at} />
       </p>
       <div className="call-body">
-        <Callout>{task.blocked_reason || 'No reason was recorded.'}</Callout>
+        <BlockedReason>{task.blocked_reason || 'No reason was recorded.'}</BlockedReason>
         <div className="row-actions">
           <RetryTaskControl taskId={task.id} />
           <CancelTaskButton taskId={task.id} />
@@ -150,7 +151,7 @@ export function RunItem({ run, scale, now }: { run: Run; scale: number; now: num
   return (
     <li className="run-item">
       <div className="run-item-head">
-        <Link to={`/runs/${run.id}`}>
+        <Link to={run.task_id ? `/runs/${run.id}` : chatRunHref(run)}>
           {run.task_id ? (task.data?.task.title ?? 'Loading task…') : `Chat with ${agentLabel(run.role)}`}
         </Link>
         {canOperate ? (

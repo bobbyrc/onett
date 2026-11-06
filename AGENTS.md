@@ -160,7 +160,9 @@ and match the existing spelling and tone.
 - No inline scripts (the server's CSP forbids them). Rendered Markdown goes through the sanitiser
   in `components/Markdown.tsx`; do not render agent text as raw HTML.
 - Check a UI change in a real browser at desktop and phone width against a throwaway daemon, not
-  only with tests.
+  only with tests. Screenshots for a UI PR: `npm run shots:chat` for the Chat page and
+  `npm run shots` for every other page (mocked backend, no daemon or token); details in
+  `docs/ui.md`, "Screenshots for UI PRs".
 
 ## If onett is running you
 

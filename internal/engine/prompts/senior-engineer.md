@@ -17,8 +17,8 @@ You turn a task into a working, tested change on your branch.
    config say) and make them pass. Report how you verified in `summary` and `pr_body`.
    If the diff touches `web/`, screenshots are part of done: take before (base) and after
    shots at desktop (1440x900 or 1280x800) and phone (390x844) width, in dark and light, with
-   `npm run shots:chat` (a mocked backend; it picks free ports, so it is safe next to other
-   runs) and, when you have a throwaway daemon with a token, `node scripts/shoot-live.mjs`
+   `npm run shots:chat` for the Chat page, `npm run shots` for every other page (both use a
+   mocked backend and pick free ports, so they are safe next to other runs) and, when you have a throwaway daemon with a token, `node scripts/shoot-live.mjs`
    (read-only, real data) from `web/`. Open the PNGs and look at them. Run each command in
    the foreground, no `sleep` polling. In `pr_body` list the shots, the command, and what you
    checked and saw (alignment, clipping, wrapping, raw ids, colours, empty states). You hold no

@@ -1,9 +1,5 @@
 /* Chat page. Every rule sits under .chat-page so it outranks the older chat rules in styles.css. */
 
-.chat-page {
-  min-width: 0;
-}
-
 /* Buttons on the page (New conversation, Close, Retry) take Orca's control radius. */
 .chat-page .btn {
   border-radius: var(--chat-radius-md);
@@ -15,42 +11,49 @@
   min-width: 0;
 }
 
-/* On desktop the thread is at least a screen tall, so the composer sits at the bottom of the
-   window when the transcript is short, and stays pinned there (sticky) when it is long. */
-@media (min-width: 760px) {
-  .chat-page .thread {
-    min-height: calc(100vh - 190px);
-    min-height: calc(100dvh - 190px);
-  }
-
-  /* The list must not set the page's height. A grid row is as tall as its tallest cell and cells
-     stretch, so a long list (every task agent has a row) once stretched the thread to its height:
-     the transcript sat at the top, the page opened scrolled to the bottom of the stretched thread,
-     and all that showed was blank space. Each column is its own height now, and the list scrolls
-     inside the window, pinned beside the thread. */
-  .chat-page .chat-layout {
-    align-items: start;
-  }
-
-  .chat-page .chat-layout > .conv-list {
-    position: sticky;
-    top: var(--chat-space-4, 16px);
-    max-height: calc(100vh - 2 * var(--chat-space-4, 16px));
-    max-height: calc(100dvh - 2 * var(--chat-space-4, 16px));
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
+/* The page is exactly one screen tall (the .main padding is taken off), so the document never
+   scrolls: the thread header and the sidebar's "New conversation" stay put, and only the message
+   list and the sidebar list scroll inside it. */
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: calc(100vh - 76px);
+  height: calc(100dvh - 76px);
 }
 
 .chat-page .chat-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 28px;
-  /* The min-height below must not stretch the rows: a short thread would pull the phone's chip
-     row tall. */
-  align-content: start;
-  min-height: 60vh;
-  min-height: 60dvh;
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-page .chat-layout > .conv-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.chat-page .thread {
+  min-height: 0;
+}
+
+/* The only scrolling part of a thread (useStickToBottom finds it as the scrolling ancestor). */
+.chat-page .messages-scroll {
+  /* Positioned so absolutely placed children (the sr-only spans) are clipped here and cannot
+     stretch the document. */
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.chat-page .thread-head {
+  flex: none;
 }
 
 .chat-page .chat-layout.no-list {
@@ -208,35 +211,18 @@
   color: var(--chat-fg-faint);
 }
 
-/* Phone: the list becomes a row of chips above an open thread; the full list shows otherwise. */
+/* Phone: one column; an open thread sits under a back bar (below), the full list shows otherwise. */
 @media (max-width: 759px) {
+  /* Under the top bar and the page's 16px / 40px padding (plus the home-indicator inset). */
+  .chat-page {
+    height: calc(100vh - (56px + env(safe-area-inset-top, 0px)) - 56px - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - (56px + env(safe-area-inset-top, 0px)) - 56px - env(safe-area-inset-bottom, 0px));
+  }
+
   .chat-page .chat-layout {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 16px;
-  }
-
-  .chat-page .conv-list.compact ul {
-    flex-direction: row;
-    gap: 8px;
-    overflow-x: auto;
-    border-top: 0;
-    padding-bottom: 4px;
-  }
-
-  .chat-page .conv-list.compact .conv-item {
-    flex: none;
-    max-width: 240px;
-    padding: 6px 10px;
-    border: 1px solid var(--chat-border);
-    border-radius: var(--chat-radius-md);
-  }
-
-  .chat-page .conv-list.compact .conv-item.active {
-    border-color: var(--chat-fg-strong);
-  }
-
-  .chat-page .conv-list.compact .conv-meta {
-    display: none;
   }
 
   .chat-page .chat-start {
@@ -336,8 +322,22 @@
   margin: 0 0 var(--chat-space-1);
 }
 
+.chat-page .thread-who {
+  min-width: 0;
+}
+
 .chat-page .thread-sub {
   overflow-wrap: anywhere;
+}
+
+/* A long branch name stays on one line and ends in an ellipsis; its title shows the whole name. */
+.chat-page .thread-branch {
+  display: inline-block;
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .chat-page .thread-tools {
@@ -410,52 +410,55 @@
   gap: 8px;
 }
 
-/* Phone: every conversation becomes one chip in a row above an open thread. */
-@media (max-width: 759px) {
-  .chat-page .conv-list.compact {
-    display: flex;
-    align-items: stretch;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-  }
+/* Phone, thread open: the list gives way to one bar, a back link to the full list (at /chat) and
+   the open conversation's title, ellipsed. The bar exists only there. */
+.chat-page .conv-crumb {
+  display: none;
+}
 
-  .chat-page .conv-list.compact .conv-heading,
-  .chat-page .conv-list.compact .conv-task,
-  .chat-page .conv-list.compact .conv-agent-state {
+@media (max-width: 759px) {
+  .chat-page .conv-list.compact > :not(.conv-crumb) {
     display: none;
   }
 
-  .chat-page .conv-list.compact .conv-group,
-  .chat-page .conv-list.compact .conv-agent-group,
-  .chat-page .conv-list.compact .conv-group > li {
-    display: contents;
+  .chat-page .conv-list.compact .conv-crumb {
+    display: flex;
+    align-items: center;
+    gap: var(--chat-space-3);
+    min-width: 0;
   }
 
-  .chat-page .conv-list.compact .conv-new {
+  .chat-page .conv-back {
     flex: none;
-    width: auto;
-    margin: 0;
-    white-space: nowrap;
+    min-height: 44px;
+    padding-inline: var(--chat-space-3) 14px;
+    gap: var(--chat-space-2);
+    color: var(--chat-fg-strong);
   }
 
-  .chat-page .conv-list.compact .conv-agent {
-    flex: none;
-    max-width: 240px;
-    padding: 6px 10px;
-    border: 1px solid var(--chat-border);
-    border-radius: var(--chat-radius-md);
+  .chat-page .conv-back:focus-visible {
+    outline: 2px solid var(--chat-focus-ring);
+    outline-offset: 2px;
   }
 
-  .chat-page .conv-list.compact .conv-agent.active {
-    border-color: var(--chat-fg-strong);
+  .chat-page .conv-back-chev {
+    width: 7px;
+    height: 7px;
+    margin-left: 3px;
+    border-left: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg);
   }
 
-  .chat-page .conv-list.compact .conv-agent-title {
-    display: inline;
+  .chat-page .conv-crumb-title {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-family: var(--chat-font);
+    font-size: var(--chat-text-md);
+    color: var(--chat-fg-faint);
   }
 }
 
@@ -555,10 +558,26 @@
 
 .msg-att-img img {
   display: block;
-  max-width: 100%;
-  max-height: 240px;
+  width: auto;
+  height: auto;
+  max-width: min(100%, 320px);
+  max-height: 320px;
   border: 1px solid var(--chat-border);
   border-radius: var(--chat-radius-md);
+}
+
+/* On a phone the thumbnail fills the bubble, keeping its aspect ratio. */
+@media (max-width: 640px) {
+  .msg-atts li:has(> .msg-att-img) {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .msg-att-img img {
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+  }
 }
 
 @media (max-width: 640px) {

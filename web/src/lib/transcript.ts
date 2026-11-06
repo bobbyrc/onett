@@ -24,7 +24,7 @@ export type Entry = EntryBase &
     | { kind: 'owner'; text: string; queued?: boolean; messageId?: string; attachments?: Attachment[]; author?: string }
     | { kind: 'prompt'; text: string; label: string }
     | { kind: 'text'; text: string }
-    | { kind: 'tool'; tool: ToolSummary; input: string; result?: string; resultError?: boolean }
+    | { kind: 'tool'; tool: ToolSummary; input: string; result?: string; resultError?: boolean; elapsedSeconds?: number }
     | { kind: 'denial' | 'error' | 'system' | 'stderr'; text: string }
     | { kind: 'divider'; text: string }
   );
@@ -96,7 +96,8 @@ function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: 
   for (const l of sorted) {
     // Daemon bookkeeping ("session started", "onett restarted; reattached ...") stays in the run
     // log; a chat thread is the conversation, and why a run ended is shown by endedEntries.
-    if (skipSystem && l.kind === 'system') continue;
+    // Progress heartbeats are the exception: they feed the running tool row, and add no row.
+    if (skipSystem && l.kind === 'system' && !l.text.startsWith('{"type":"tool_progress"')) continue;
     const at = { id: `${l.run_id}:${l.seq}`, runId: l.run_id, time: l.time };
     switch (l.kind) {
       case 'prompt':
@@ -130,7 +131,12 @@ function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: 
         break;
       }
       default:
-        if (l.kind === 'system' && isRawStreamEvent(l.text)) break;
+        if (l.kind === 'system' && isRawStreamEvent(l.text)) {
+          const p = toolProgress(l.text);
+          const call = p && byId.get(p.toolId);
+          if (call && call.result === undefined) call.elapsedSeconds = p!.seconds;
+          break;
+        }
         out.push({ ...at, kind: l.kind, text: l.text });
     }
   }
@@ -138,13 +144,38 @@ function linesToEntries(lines: LogLine[], skipPrompt: boolean, fallbackPrompt?: 
 }
 
 /**
+ * Bookkeeping lines the harness and onett write into a run's log: a session starting and a restart
+ * reattaching. They help when reading a log, but are noise in a conversation, so the Conversation
+ * view drops them; the Terminal view and run logs keep them.
+ */
+export function isInternalLine(e: Entry): boolean {
+  if (e.kind !== 'system') return false;
+  return /^session started( \(.*\))?$/.test(e.text) || e.text.startsWith('onett restarted; reattached to the agent');
+}
+
+/**
  * True for a system line that is a raw agent stream event the parser did not recognise, such as
  * the `tool_progress` heartbeats a long command emits. They keep the run's stall clock fresh but
  * mean nothing to a reader, so the transcript hides them; the Terminal view still shows them.
  */
-function isRawStreamEvent(text: string): boolean {
+export function isRawStreamEvent(text: string): boolean {
   // A prefix test, not JSON.parse: the parser truncates long lines, which are then not valid JSON.
   return /^\{"type":"[a-z_]+"/.test(text);
+}
+
+/**
+ * The call a `tool_progress` line reports on and how long it has run, or undefined for any other
+ * line. A heartbeat's id is the call's id plus `-heartbeat-N`.
+ */
+function toolProgress(text: string): { toolId: string; seconds: number } | undefined {
+  if (!text.startsWith('{"type":"tool_progress"')) return undefined;
+  try {
+    const p = JSON.parse(text) as { tool_use_id?: unknown; elapsed_time_seconds?: unknown };
+    if (typeof p.tool_use_id !== 'string' || typeof p.elapsed_time_seconds !== 'number') return undefined;
+    return { toolId: p.tool_use_id.replace(/-heartbeat-\d+$/, ''), seconds: p.elapsed_time_seconds };
+  } catch {
+    return undefined; // truncated by the parser
+  }
 }
 
 /** One run's log as entries. `fallbackPrompt` (the task body) stands in when the run recorded no prompt line. */
@@ -246,10 +277,21 @@ export function orchestratorEntries(
         out.push(...run, ...endedEntries(m.run_id, lastTime(run, m.created_at), runs[m.run_id]));
       }
     } else if (m.role === 'assistant') {
-      // The reply is already the last text line of the run's log when the log is loaded.
-      if (!hasLogs) out.push({ id: `m:${m.id}`, runId: m.run_id, kind: 'text', text: m.text, time: m.created_at });
+      if (!hasLogs) {
+        out.push({ id: `m:${m.id}`, runId: m.run_id, kind: 'text', text: m.text, time: m.created_at });
+      } else if (m.run_id && !shown.has(m.run_id)) {
+        // A turn the system started (a goal or heartbeat wake-up) has no owner message to hang its
+        // log on, so the reply's own message does.
+        shown.add(m.run_id);
+        const run = linesToEntries(logs, true);
+        out.push(...run, ...endedEntries(m.run_id, lastTime(run, m.created_at), runs[m.run_id]));
+      }
+      // Otherwise the reply is already the last text line of the run's log shown above.
     } else if (m.kind !== 'internal') {
       out.push({ id: `m:${m.id}`, kind: 'system', text: m.text, time: m.created_at });
+    } else if (m.run_id) {
+      // onett's own prompt is hidden, but the turn it started gets a short marker.
+      out.push({ id: `m:${m.id}`, runId: m.run_id, kind: 'divider', text: 'Automatic update', time: m.created_at });
     }
   }
   out.push(...queuedEntries(messages));

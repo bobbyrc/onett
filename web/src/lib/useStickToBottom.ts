@@ -117,6 +117,8 @@ export function useStickToBottom(count: number, resetKey: string): StickToBottom
             if (stuck.current) s.scrollTop = Math.max(0, s.scrollHeight - s.clientHeight);
           });
     ro?.observe(content);
+    // The scroller itself can change height (composer or banner above/below it) without the content changing.
+    if (!isPage) ro?.observe(s);
     if (stuck.current) s.scrollTop = Math.max(0, s.scrollHeight - s.clientHeight);
 
     return () => {

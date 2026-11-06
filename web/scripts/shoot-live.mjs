@@ -14,7 +14,8 @@
 // is never printed. A token is not a session, so GET /api/v1/auth/state is answered locally with
 // a signed-in owner, which makes the UI render its signed-in pages. The token still cannot read
 // owner-only data (config, users, agents): those panels show "forbidden", and the script says so
-// per route instead of leaving it to look like a bug. Onett deliberately has no read-only owner
+// per route instead of leaving it to look like a bug. The event stream is stubbed locally (it
+// needs a session cookie a token cannot get), so no live events arrive in a shot. Onett deliberately has no read-only owner
 // session for this: the API token must never gain owner powers (AGENTS.md, invariant 12).
 import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -79,7 +80,8 @@ async function defaultRoutes() {
     '/runs/:id': await first('/runs'),
   };
   const routes = [];
-  for (const r of appRoutes()) {
+  // App.tsx guards /users with a redirect on the same line, so appRoutes() skips it.
+  for (const r of [...appRoutes(), '/users']) {
     if (!r.includes(':')) routes.push(r);
     else if (ids[r]) routes.push(r.replace(/:\w+/, ids[r]));
     else console.error(`note: no data for ${r}, skipped`);
@@ -102,6 +104,18 @@ try {
   for (const colorScheme of SCHEMES) {
     for (const vp of VIEWPORTS) {
       const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme });
+      // The live stream is a WebSocket, which `route` does not see, and a token is not a session
+      // cookie, so the real one is refused and the sidebar would show a false "reconnecting…".
+      // Answer it locally instead: accept the socket and confirm each subscribe. Nothing reaches
+      // the daemon, so the light shows the client's state, not the daemon's.
+      await context.routeWebSocket(/\/api\/v1\/ws/, (ws) => {
+        ws.onMessage((raw) => {
+          const msg = JSON.parse(String(raw));
+          if (msg.kind === 'subscribe') {
+            ws.send(JSON.stringify({ kind: 'subscribed', run_id: msg.run_id, conversation_id: msg.conversation_id }));
+          }
+        });
+      });
       await context.route('**/*', async (route) => {
         const req = route.request();
         if (req.method() !== 'GET') return route.abort();

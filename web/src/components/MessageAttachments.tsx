@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { attachmentUrl } from '../api';
-import { formatBytes, isImage } from '../lib/attachments';
+import { canThumbnail, formatBytes } from '../lib/attachments';
 import type { Attachment } from '../types';
 
 /** A sent message's files: images as thumbnails, everything else as a chip that opens the file. */
@@ -20,7 +20,7 @@ function MessageAttachment({ a }: { a: Attachment }) {
   const [broken, setBroken] = useState(false);
   const href = attachmentUrl(a.conversation_id, a.id);
   // A file retention deleted answers 404; the broken image falls back to the plain chip.
-  if (isImage(a.mime) && !broken) {
+  if (canThumbnail(a.mime) && !broken) {
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" className="msg-att-img" aria-label={`Open ${a.name}`}>
         <img src={href} alt={a.name} loading="lazy" onError={() => setBroken(true)} />

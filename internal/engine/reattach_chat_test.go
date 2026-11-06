@@ -165,7 +165,7 @@ func TestChatTurnSurvivesRestart(t *testing.T) {
 	assert.True(t, c.Busy)
 	assert.Equal(t, run.ID, c.ActiveRunID)
 	assert.Empty(t, f.assistantTexts(conv.ID))
-	assert.Equal(t, domain.RunStarting, mustRun(t, f, run.ID).Status) // not touched by the shutdown
+	assert.Equal(t, domain.RunRunning, mustRun(t, f, run.ID).Status) // not touched by the shutdown
 	require.NoError(t, syscall.Kill(f.shimStatus(run.ID).AgentPID, 0), "the agent outlived the daemon")
 
 	f.openGate()

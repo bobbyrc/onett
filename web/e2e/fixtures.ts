@@ -109,6 +109,7 @@ export const runs: Run[] = [0, 1, 2, 3].map((n) => ({
   cost_usd: 1.2345,
   billing: 'metered',
   input_tokens: 123456,
+  context_tokens: 58679,
   output_tokens: 7890,
   summary: LONG_TITLE,
   error: n === 2 ? UNBROKEN + ' failed ' + PATH : undefined,

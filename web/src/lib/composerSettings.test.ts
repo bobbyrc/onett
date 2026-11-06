@@ -52,15 +52,25 @@ describe('context ring', () => {
   it('knows Claude windows and hides the ring for unknown models', () => {
     expect(contextWindow('opus')).toBe(200_000);
     expect(contextWindow('claude-opus-4[1m]')).toBe(1_000_000);
+    expect(contextWindow('gpt-5.1-codex')).toBe(400_000);
     expect(contextWindow('gpt-x')).toBeNull();
     expect(contextWindow(undefined)).toBeNull();
   });
 
-  it('is input tokens over the window, capped at 1', () => {
-    expect(contextFraction({ input_tokens: 50_000, model: 'sonnet' })).toBeCloseTo(0.25);
-    expect(contextFraction({ input_tokens: 900_000, model: 'sonnet' })).toBe(1);
-    expect(contextFraction({ input_tokens: 0, model: 'sonnet' })).toBeNull();
+  it('is the last request context over the window, capped at 1', () => {
+    expect(contextFraction({ context_tokens: 50_000, model: 'sonnet' })).toBeCloseTo(0.25);
+    expect(contextFraction({ context_tokens: 900_000, model: 'sonnet' })).toBe(1);
+    expect(contextFraction({ context_tokens: 0, model: 'sonnet' })).toBeNull();
+    expect(contextFraction({ model: 'sonnet' })).toBeNull();
     expect(contextFraction(undefined)).toBeNull();
-    expect(contextFraction({ input_tokens: 10, model: 'gpt-x' })).toBeNull();
+    expect(contextFraction({ context_tokens: 10, model: 'gpt-x' })).toBeNull();
+  });
+
+  it('ignores input_tokens summed over a many-request run', () => {
+    // A 12-request turn re-reads a ~58k prompt each time: input_tokens is ~700k, the context is 58k.
+    const run = { input_tokens: 700_000, context_tokens: 58_679, model: 'sonnet' };
+    expect(contextFraction(run)).toBeCloseTo(0.293, 2);
+    // No context_tokens (an old run) shows no ring rather than an overstated one.
+    expect(contextFraction({ input_tokens: 700_000, model: 'sonnet' } as never)).toBeNull();
   });
 });

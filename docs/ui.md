@@ -175,6 +175,10 @@ as a fallback.
   `owner_unreachable` in `/stats`; `/config?mode=setup`), Secrets set (every secret the config
   refers to is set, from `/secrets`; `/config?mode=secrets`). It hides itself when all are done
   and has a Dismiss button (remembered in the browser). Logic is in `src/lib/setupChecklist.ts`.
+- **Blocked reason** (`BlockedReason`, used by the Needs you cards and the task page): the reason
+  is clamped to three lines with a Show more / Show less toggle (only when it overflows), keeps
+  the agent's line breaks and wraps long flags and paths inside the box, so Retry and Cancel stay
+  in view.
 - **Owner-unreachable banner**: above the board, a red callout "Nobody will be told" while
   `/stats` says `owner_unreachable` (only the log notifier, no channel). It names the fix (set
   up Telegram, Discord or ntfy) and lists each blocked goal as "Goal X is blocked and you have
@@ -185,11 +189,18 @@ as a fallback.
   bar is lit by what the project needs (`src/lib/lamp.ts`): red when a task is blocked, yellow
   when approvals wait, off when paused, green when tasks run or are in review, off when only
   queued or idle. Under the project name the reason in words ("1 blocked", "2 need you",
-  "3 running") and the other non-zero counts. A window links to the project's tasks. At the
-  right end, the line window: "Line running" or "Line paused", active runs, queued tasks and cost
-  today. Empty: "No projects yet." On a phone the board is a compact strip (two windows across,
-  no detail lines, the line window on one row) so the first decision fits in the first screen.
-- Below, two columns (one on a phone, board windows two across):
+  "3 running") and the other non-zero counts, then at the foot the last deploy from
+  `/deployments` ("Deployed · 2d ago", "Rolled back · 1h ago" in the stop colour, "No deploys yet",
+  or "No deployer" when the project has no `deploy`; `src/lib/boardDeploy.ts`). A window links to
+  the project's tasks. At the right end, the line window: "Line running" or "Line paused", active
+  runs, queued tasks and cost today. Windows are 208px, and the band is only as wide as its
+  windows and the line window, so one project is a small board, not a wide empty one; when the
+  windows do not fit in one row they wrap into a grid that fills the main column. Empty: "No
+  projects yet." On a phone the band sits inside the page margins with one row per project (the
+  lamp as a side bar, name and reason on the first line, the other counts and the last deploy
+  under them) and the line window on one row.
+- Below, two columns (one on a phone, with Needs you moved above the setup card and the board
+  when it has items):
 - Left: **Needs you**, with "N waiting · oldest 14m" beside the heading. Pending approvals
   (ApprovalCard) and blocked tasks, each a call item: a sheet with a lit lamp before the title
   (yellow for approvals, red for blocked), a muted line under it, then the body. Blocked items:
@@ -260,7 +271,7 @@ item. Choices come from `GET /conversations/{id}/settings` (the harness's own li
 named in the agents config); a pick is saved at once and applies from the next turn. Choosing a
 permission mode that skips safety checks (Claude's `bypassPermissions`, Codex's
 `dangerously-bypass-approvals-and-sandbox`) asks for confirmation first, once per conversation. The
-ring is the last run's input tokens over the model's context window (turns amber at 70% and red at
+ring is the last run's context size (the prompt of its final model request, not the input tokens summed over the run) over the model's context window (turns amber at 70% and red at
 90%); it is hidden when the window is unknown. On a phone the permission picker shows only its icon.
 In a task agent's thread the same pickers appear once the task has a conversation, next to the
 agent's role; before that, and for people who cannot operate, the footer shows the role, model,
@@ -278,9 +289,10 @@ sent. Only `chat.attachments.max_per_message` files (10 until the config says ot
 extra ones are added as red chips reading "Only N files fit in one message". Send waits while any
 upload is running, and a message may be only attachments with no text. Task-agent conversations and
 the start page (no conversation yet) have no attach controls: the first message there is text only.
-A sent message shows its files under the text: an image as a thumbnail, anything else as a chip with
-the name and size, each opening the file in a new tab. If the file is gone (retention deleted it),
-the thumbnail falls back to the plain chip.
+A sent message shows its files under the text: a PNG, JPEG, GIF or WebP as an inline thumbnail (up
+to 320px wide on a desktop, the full width of the bubble on a phone, aspect ratio kept), anything
+else as a chip with the name and size, each opening the file in a new tab. If the file is gone
+(retention deleted it) or the browser cannot draw it, the thumbnail falls back to the plain chip.
 
 Scrolling: a thread follows new messages and a streaming reply only while you are within 80px of the
 end of the page. Scroll up and it stays put; a **Jump to latest** pill (with "N new" for the entries
@@ -294,7 +306,9 @@ The 260px sidebar has a "+ New conversation" button (always the orchestrator; op
 the role and a text label: a blinking green lamp and "working" while a run is live; a dim lamp and
 "closed" for a closed conversation; a red lamp and "blocked" for a blocked task; a dim lamp and
 the task's status otherwise. On desktop the sidebar is as tall as the window at most: a long list scrolls inside it and it stays
-pinned beside the thread, so it never sets the page's height. Under 760px the sidebar is a row of chips above the thread.
+pinned beside the thread, so it never sets the page's height. Under 760px an open thread replaces the sidebar with one bar: a "Conversations" back link to
+`/chat` (where the full list and New conversation show) and the open conversation's title, muted and
+cut with an ellipsis on one line.
 
 The header names who you are talking to ("Orchestrator", or the role such as "Implementer"), with
 harness · model (from the latest run) and the conversation title, or for a task agent its task as
@@ -345,7 +359,9 @@ Resume on a paused or blocked one, Block on an active or paused one, Mark done o
 done. Done and Block open a text box first, because the API requires a summary or a reason. The
 controls need the operate action. **Goal detail** (`/goals/:id`): title and status, the controls,
 the project, the turn count, a link to the goal's conversation in Chat, the summary (a callout
-when blocked), the goal text and the tasks queued for it. `goal.updated` events refresh both.
+when blocked), the goal text and the tasks queued for it under a Tasks section heading. The goal
+text is rendered Markdown, 20px below the meta line; there, as in task bodies, a heading has 20px
+above it and 6px below, and paragraphs and lists 8px below. `goal.updated` events refresh both.
 
 **Tasks** (`/tasks`) — filter bar: project select, status chips (multi-select; default
 "active" = queued, running, review, awaiting_approval, merged, deploying, blocked), kind
@@ -413,16 +429,19 @@ seen, task link.
 
 **Friction** (`/friction`) — table: project, title, count, issue (link), updated.
 
-**Loops** (`/loops`) — a lamp grid: one row per loop name, one column per project. Loops that run
-across all projects get an "all projects" column, placed first. Each cell has a 10px lamp, then
-"every 30s" (the interval as configured), then on a second line "ran 3m ago" or "never". A disabled
-loop reads "off · every 30s" in muted text, so it differs from a healthy loop by words as well as by
-its grey lamp. The lamp is green when the last run worked, red when it failed, and grey when the
-loop is disabled or has not run yet; the words are screen-reader text. A failed loop shows its error
-in red on that second line, cut to one line, with the full text on hover. A loop that reports them (heartbeat) adds " · 3 items" and " · next in 12m" to that line. Operators see a "Run"
-button in each cell; viewers do not. Above the grid, one muted line counts loops on, off and failing
-(failing in red when any). Under 760px the grid becomes one sheet per loop name, with a row for each
-project it runs in.
+**Loops** (`/loops`) — a table with one row per loop and project, grouped by loop: Loop,
+Project, Status, Schedule, Last run, and a Run button for operators (viewers see no Run column).
+The loop cell shows the id as Title Case words ("Issue Intake", "PR Shepherd") with the id itself
+under it in small mono. Loops that run across all projects say "all projects" in the Project
+column. Status is a 10px lamp and a word: "OK" (green), "Failed" (red), "Off" or "Not run yet"
+(grey). Schedule reads "every 30s" (muted when off) and, for a loop that reports it (heartbeat),
+"next in 12m" under it. Last run reads "3m ago" (with " · 3 items" when reported) or "never", and a
+failed loop's error under it in red, cut to one line, with the full text on hover. Run is an
+outlined button that reads "Running…" and is disabled until the run returns; then a line above
+the table says "Ran Issue Intake for onett." Above the table, one muted line counts loops on, off
+and failing (failing in red when any). When the main column is under 880px (a phone, or a narrow
+window beside the rail), the table becomes one sheet per loop, with a row for each project it runs
+in.
 
 **Users** (`/users`, owners only; anyone else is sent to Overview) — a table of accounts:
 username (your own row says "(you)"), role, added (relative time) and actions. The role is a
@@ -526,6 +545,46 @@ two runs of the same code give the same pixels. It is not part of `npm run test:
 Markdown table with permanent `raw.githubusercontent.com/<repo>/<commit-sha>/...` image links.
 Paste the `before` and `after` tables into the PR description.
 
+### Any other page: `npm run shots`
+
+`npm run shots:chat` covers only the Chat page. For every other page (Overview, Projects, Goals,
+Tasks, Runs, Approvals, Deploys, Signals, Friction, Loops, Agents, Config, Users, and a task, run
+and goal detail page), use the same mocked approach, which needs no daemon and no token:
+
+```sh
+cd web && npm run shots
+```
+
+It builds the UI and runs `web/e2e/page-shots.spec.ts` (config: `playwright.page-shots.config.ts`,
+free port, pin it with `ONETT_PAGE_SHOTS_PORT`). The spec reads the routes from `src/App.tsx`, so a new
+page is shot without editing it, except that a route with a `:param` needs an id in its `PARAMS` table.
+It signs in as an owner, so Agents, Config and Users show data. Each page is shot at desktop
+(1440x900) and phone (390x844), dark and light, into
+`web/e2e-results/shots/<route>-<desktop|phone>-<dark|light>.png`; `/` is `overview`, and a detail
+route carries its id, for example `tasks_<id>-phone-light.png`. Extra shots show an empty Tasks and
+Runs page (`tasks_empty`, `runs_empty`), an Overview with one project (`overview_one_project`),
+a chat run with no task (`runs_<id>`) and a goal check-in conversation (`chat_<id>`).
+
+The shots cut each page at the window height, so anything below the fold is not in them, and a
+cut-off edge can look like a bug. For long pages, lists and anything below the fold, run
+`SHOTS_FULL=1 npm run shots`: it captures the whole scrolling page (the same as `shoot-live.mjs
+--full`) into `web/e2e-results/shots-full/` with the same file names, and leaves the default shots
+untouched. A chat thread scrolls inside its own panel, so it is not lengthened by this.
+
+The data is `web/e2e/page-fixtures.ts`: the shapes a real daemon holds (chat runs with a
+conversation and no task, goal check-ins started by the daemon, 60+ character branch names, long
+role names, an image attachment, timestamps from minutes to days old, done, blocked and active
+goals, deploys with and without notes, snake_case loop names, multi-paragraph agent prompts). Add
+a case there when a page breaks on a data shape the fixtures do not have. `fixtures.ts` is the
+opposite, layout-stress data for `npm run test:mobile`.
+
+The clock is frozen, the timezone is UTC, animations are off and the browser rasterises in software,
+so two runs of the same code give identical PNGs, and it can run at the same time as
+`npm run test:mobile`. Take the shots on the base commit and on your head, look at the pages you
+changed, and copy those PNGs to `$ONETT_OUTBOX/shots/before/` and `.../after/` (see below; at most
+48 files, so only touched pages). `shoot-live.mjs` shows the same pages with real data but needs
+an API token that worker agents do not hold.
+
 Worker agents hold no GitHub access and cannot run the script. They copy the PNGs into
 `$ONETT_OUTBOX/shots/before/` and `$ONETT_OUTBOX/shots/after/` instead. When onett publishes a
 run, it pushes each label directory (only plain `*.png` files, at most 48 of 8 MB, no symlinks)
@@ -550,6 +609,10 @@ to change it): 1440x900 and 390x844, in both colour schemes. The default routes 
 in `src/App.tsx`, plus one detail page each (task, run, goal, chat) using the first id the API
 returns; a detail page with no data is skipped with a note. `--routes /tasks,/runs` picks
 routes, and `--full` captures the whole scrolling page instead of the first screen.
+
+The live event stream needs a session cookie, which a token is not, so the script answers the
+WebSocket locally (it accepts and confirms subscriptions). The sidebar light therefore reads "live"
+in these shots, but no live events arrive.
 
 The API token cannot read owner-only data, so Agents, Config and Users show "forbidden" in these
 shots. That is on purpose: giving the token (or a screenshot mode) owner powers would break the

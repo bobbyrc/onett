@@ -4,6 +4,7 @@
 // when other fixtures change. scripts/pr-shots.sh publishes the PNGs.
 import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
+import { deflateSync } from 'node:zlib';
 import type { ChatMessage, Conversation, LogLine, TaskConversation } from '../src/types';
 import { CHAT_TASK_ID, CONV_ID, RUN_ID, tasks, runs } from './fixtures';
 import { mockBackend } from './mock';
@@ -40,6 +41,64 @@ const log = (seq: number, kind: LogLine['kind'], text: string, time: string, too
   text,
   tool_id,
 });
+
+// A 640x400 gradient PNG, built here so the shot shows a real thumbnail (the mock's default
+// download is 1x1). Each scanline starts with filter byte 0.
+function gradientPng(w: number, h: number): Buffer {
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) {
+    const row = y * (w * 3 + 1);
+    for (let x = 0; x < w; x++) {
+      raw[row + 1 + x * 3] = Math.round((x / w) * 255);
+      raw[row + 2 + x * 3] = Math.round((y / h) * 255);
+      raw[row + 3 + x * 3] = 160;
+    }
+  }
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc = (b: Buffer) => {
+    let c = 0xffffffff;
+    for (const x of b) c = crcTable[(c ^ x) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const sum = Buffer.alloc(4);
+    sum.writeUInt32BE(crc(body));
+    return Buffer.concat([len, body, sum]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // RGB
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+const SHOT_PNG = gradientPng(640, 400);
+
+// A short thread whose first message carries a screenshot, a PDF and an SVG: the screenshot is a
+// thumbnail, the others file tiles.
+const ATTACHED: ChatMessage[] = [
+  {
+    ...msg(40, CONV_ID, 'user', 'Here is the failing dashboard, and the notes I was working from.', T1),
+    attachments: [
+      { id: 'shot-att-1', conversation_id: CONV_ID, name: 'screenshot.png', mime: 'image/png', size: 84_000, created_at: T1 },
+      { id: 'shot-att-3', conversation_id: CONV_ID, name: 'shepherd-notes.pdf', mime: 'application/pdf', size: 2_400_000, created_at: T1 },
+      { id: 'shot-att-4', conversation_id: CONV_ID, name: 'diagram.svg', mime: 'image/svg+xml', size: 3_100, created_at: T1 },
+    ],
+  },
+  msg(41, CONV_ID, 'assistant', 'Thanks, I can see the screenshot. The table overflows at narrow widths; I will open a task for it.', T2),
+];
 
 const THREAD: ChatMessage[] = [
   msg(1, CONV_ID, 'user', 'Why does the shepherd loop retry a failed merge every tick? Can you show me where it decides?', T1, RUN_ID),
@@ -81,6 +140,9 @@ const RUNNING_LOGS: LogLine[] = [
   log(1, 'tool_use', 'Read: {"file_path":"internal/engine/loop_shepherd.go"}', '2026-11-05T12:03:00Z', 'b1'),
   log(2, 'tool_result', 'package engine ...', '2026-11-05T12:03:01Z', 'b1'),
   log(3, 'text', 'Reading the backoff helper to see where the cap belongs', '2026-11-05T12:04:30Z'),
+  // A call still running, with the agent's progress heartbeat reporting how long it has gone.
+  log(4, 'tool_use', 'Bash: go test -race ./internal/engine', '2026-11-05T12:04:40Z', 'b2'),
+  log(5, 'system', '{"type":"tool_progress","tool_use_id":"b2","tool_name":"Bash","elapsed_time_seconds":47}', '2026-11-05T12:05:27Z'),
 ];
 
 const conv = (over: Partial<Conversation>): Conversation => ({
@@ -121,6 +183,19 @@ const SCENES: Scene[] = [
     setup: async (page) => {
       await json(page, '**/api/v1/conversations/*', { conversation: conv({}), messages: THREAD });
       await json(page, '**/api/v1/runs/*/logs*', THREAD_LOGS);
+    },
+  },
+  {
+    // Image attachments in a sent message: thumbnails for images, tiles for other files.
+    name: 'chat-attachments',
+    path: `/chat/${CONV_ID}`,
+    ready: '.composer',
+    setup: async (page) => {
+      await json(page, '**/api/v1/conversations/*', { conversation: conv({}), messages: ATTACHED });
+      // A real-sized image instead of the mock's 1x1.
+      await page.route('**/api/v1/conversations/*/attachments/*', (route) =>
+        route.fulfill({ status: 200, contentType: 'image/png', body: SHOT_PNG }),
+      );
     },
   },
   {

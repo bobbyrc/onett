@@ -171,8 +171,27 @@ function Sidebar({
   agents: AgentConversation[];
   loading: boolean;
 }) {
+  // On a phone an open thread replaces the list with a back link and the open conversation's
+  // title (CSS shows this bar only there); the list itself stays for wider screens.
+  const activeConversation = orchestrator.find((c) => c.id === activeId);
+  const activeTitle = activeTaskId
+    ? agents.find((a) => a.task_id === activeTaskId)?.title
+    : activeConversation && (activeConversation.title || 'Untitled');
   return (
     <aside className={cx('conv-list', compact && 'compact')} aria-label="Conversations">
+      {compact ? (
+        <div className="conv-crumb">
+          <Link to="/chat" className="btn conv-back">
+            <span className="conv-back-chev" aria-hidden="true" />
+            Conversations
+          </Link>
+          {activeTitle ? (
+            <span className="conv-crumb-title" title={activeTitle}>
+              {activeTitle}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       {canOperate ? (
         <Link to="/chat" className="btn btn-primary conv-new">
           + New conversation
@@ -184,7 +203,7 @@ function Sidebar({
         {orchestrator.map((conversation) => (
           <li key={conversation.id}>
             <Link to={`/chat/${conversation.id}`} className={cx('conv-item', conversation.id === activeId && 'active')}>
-              <span className="conv-title" title={conversation.title}>{conversation.title || 'Untitled'}</span>
+              <span className="conv-title" title={conversation.title || 'Untitled'}>{conversation.title || 'Untitled'}</span>
               <span className="conv-meta muted small">
                 {conversation.busy ? 'working · ' : ''}
                 <ConvTime value={conversation.updated_at} />
@@ -568,6 +587,7 @@ function OrchestratorThread({
   return (
     <>
       <ThreadHead who="Orchestrator" sub={sub} view={view} onView={onView} />
+      <div className="messages-scroll">
       <div className="messages" ref={stick.contentRef}>
         {entries.length === 0 && canOperate ? (
           <div className="examples">
@@ -605,6 +625,7 @@ function OrchestratorThread({
         {canOperate && queued > 0 && !working ? (
           <SendNow pending={flush.isPending} onClick={() => flush.mutate({ conversationId })} />
         ) : null}
+      </div>
       </div>
       <ComposerArea
         stick={stick}
@@ -717,7 +738,7 @@ function TaskThread({
     <>
       {[lastRun?.harness, lastRun?.model].filter(Boolean).join(' · ')}
       {lastRun ? ' · ' : ''}task <Link to={`/tasks/${task.id}`}>{task.title}</Link>
-      {task.branch ? <> · branch <span className="mono">{task.branch}</span></> : null}
+      {task.branch ? <> · branch <span className="mono thread-branch" title={task.branch}>{task.branch}</span></> : null}
       {' · '}
       {taskLamp(task.status).label}
     </>
@@ -753,6 +774,7 @@ function TaskThread({
   return (
     <>
       <ThreadHead who={capitalise(role)} sub={sub} extra={closeButton} view={view} onView={onView} />
+      <div className="messages-scroll">
       <div className="messages" ref={stick.contentRef}>
         <Transcript
           entries={entries}
@@ -772,6 +794,7 @@ function TaskThread({
         {canOperate && queued > 0 && !liveRunId && !closed ? (
           <SendNow pending={flush.isPending} onClick={() => flush.mutate({ taskId })} />
         ) : null}
+      </div>
       </div>
       {closed ? (
         <div className="closed-note">

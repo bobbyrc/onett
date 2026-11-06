@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { Approval, Run, Task } from '../types';
 import { usePausedProjects, useTask } from '../queries';
 import { ApprovalCard } from '../components/ApprovalCard';
+import { BlockedReason } from '../components/BlockedReason';
 import { Callout } from '../components/Callout';
 import { ErrorLine } from '../components/ErrorLine';
 import { IdChip } from '../components/IdChip';
@@ -18,6 +19,7 @@ import { formatCost, safeHref } from '../lib/format';
 import { elapsedMs, formatDuration, parseTime } from '../lib/time';
 import { useNow } from '../lib/clock';
 import { agentLabel } from '../lib/agentLabel';
+import { taskSourceLabel } from '../lib/taskSource';
 import './TaskDetail.css';
 
 const TERMINAL_NO_CANCEL = ['done', 'failed', 'cancelled'];
@@ -38,7 +40,8 @@ export function TaskDetail() {
   const pendingApprovals = approvals.filter((a) => a.status === 'pending');
   const decidedApprovals = approvals.filter((a) => a.status !== 'pending');
   const needsYou = task.status === 'blocked' || queuedInPausedProject || pendingApprovals.length > 0;
-  const kicker = [task.kind, task.project, agentLabel(task.role), `from ${task.source}`].filter(Boolean).join(' · ');
+  const source = taskSourceLabel(task);
+  const kicker = [task.kind, task.project, agentLabel(task.role)].filter(Boolean).join(' · ');
   const actions = (
     <>
       {canCancel ? <CancelTaskButton taskId={task.id} /> : null}
@@ -57,7 +60,9 @@ export function TaskDetail() {
         actions={task.status === 'blocked' ? null : actions}
       />
       <p className="task-meta muted">
-        <span>{kicker}</span>
+        <span>
+          {kicker} · from {source.href ? <Link to={source.href}>{source.text}</Link> : source.text}
+        </span>
         <IdChip id={task.id} />
         {runs.length > 0 ? <Link to={`/chat/task/${task.id}`}>Open conversation</Link> : null}
       </p>
@@ -81,7 +86,7 @@ export function TaskDetail() {
             <Section title="Needs you" className="task-needs">
               {task.status === 'blocked' ? (
                 <>
-                  <Callout title="Blocked">{task.blocked_reason || 'No reason was recorded.'}</Callout>
+                  <BlockedReason title="Blocked">{task.blocked_reason || 'No reason was recorded.'}</BlockedReason>
                   <div className="task-needs-actions">{actions}</div>
                 </>
               ) : null}
@@ -113,7 +118,7 @@ export function TaskDetail() {
                 <Table<Task>
                   columns={[
                     { key: 'status', header: 'Status', cell: (t) => <StatusPill status={t.status} /> },
-                    { key: 'title', header: 'Title', cell: (t) => <Link to={`/tasks/${t.id}`}>{t.title}</Link> },
+                    { key: 'title', header: 'Title', wide: true, cell: (t) => <Link to={`/tasks/${t.id}`}>{t.title}</Link> },
                     { key: 'kind', header: 'Kind', cell: (t) => t.kind },
                     { key: 'role', header: 'Role', cell: (t) => agentLabel(t.role) || '—' },
                   ]}
@@ -163,8 +168,8 @@ export function TaskDetail() {
           <SpecItem label="Kind">{task.kind}</SpecItem>
           {task.role ? <SpecItem label="Role">{agentLabel(task.role)}</SpecItem> : null}
           <SpecItem label="Source">
-            {task.source}
-            {task.source_ref ? <div className="mono spec-sub">{task.source_ref}</div> : null}
+            {source.href ? <Link to={source.href}>{source.text}</Link> : source.text}
+            {source.ref ? <div className="mono spec-sub">{source.ref}</div> : null}
           </SpecItem>
           {task.parent_id ? (
             <SpecItem label="Parent">
