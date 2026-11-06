@@ -253,3 +253,164 @@
     transition: none;
   }
 }
+
+/* Composer controls: the permission picker (left) and the model picker, context ring (right).
+   Labels collapse to icons on a phone so the footer never overflows. */
+.chat-page .composer-right {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-space-2);
+  min-width: 0;
+}
+
+.chat-page .menu-pop {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.chat-page .menu-pop-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  max-width: 100%;
+  padding: 0 var(--chat-space-2);
+  border: 0;
+  border-radius: var(--chat-radius-md);
+  background: transparent;
+  color: var(--chat-fg-faint);
+  font: inherit;
+  font-size: var(--chat-text-sm);
+  cursor: pointer;
+}
+
+.chat-page .menu-pop-trigger:hover,
+.chat-page .menu-pop-trigger[aria-expanded='true'] {
+  background: var(--chat-user-bg);
+  color: var(--chat-fg-strong);
+}
+
+.chat-page .menu-pop-trigger:focus-visible,
+.chat-page .menu-pop-item:focus-visible {
+  outline: 2px solid var(--chat-focus-ring);
+  outline-offset: 2px;
+}
+
+.chat-page .menu-pop-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Opens upward: the composer sits at the bottom of the page. */
+.chat-page .menu-pop-panel {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: var(--chat-space-1);
+  border: 1px solid var(--chat-composer-border);
+  border-radius: var(--chat-radius-lg, var(--chat-radius-md));
+  background: var(--chat-surface);
+  box-shadow: var(--chat-shadow-composer);
+}
+
+.chat-page .composer-right .menu-pop-panel {
+  left: auto;
+  right: 0;
+}
+
+.chat-page .menu-pop-title {
+  padding: var(--chat-space-1) var(--chat-space-2);
+  color: var(--chat-fg-faint);
+  font-size: var(--chat-text-sm);
+  font-weight: 600;
+}
+
+.chat-page .menu-pop-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-space-2);
+  width: 100%;
+  min-height: 32px;
+  padding: 6px var(--chat-space-2);
+  border: 0;
+  border-radius: var(--chat-radius-sm);
+  background: transparent;
+  color: var(--chat-fg-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-page .menu-pop-item:hover {
+  background: var(--chat-user-bg);
+}
+
+.chat-page .menu-pop-check {
+  flex: none;
+  width: 1em;
+}
+
+.chat-page .menu-pop-reset {
+  margin-top: var(--chat-space-1);
+  border-top: 1px solid var(--chat-composer-border);
+  border-radius: 0 0 var(--chat-radius-sm) var(--chat-radius-sm);
+}
+
+.chat-page .menu-pop-confirm {
+  padding: var(--chat-space-2);
+  font-size: var(--chat-text-sm);
+}
+
+.chat-page .menu-pop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--chat-space-2);
+}
+
+.chat-page .menu-pop-error {
+  padding: 0 var(--chat-space-2);
+  color: var(--chat-danger);
+}
+
+.chat-page .context-ring {
+  display: inline-flex;
+  color: var(--chat-fg-faint);
+}
+
+.chat-page .context-ring[data-level='warn'] {
+  color: var(--chat-warning, var(--chat-fg-strong));
+}
+
+.chat-page .context-ring[data-level='high'] {
+  color: var(--chat-danger);
+}
+
+@media (max-width: 759px) {
+  /* The permission picker shows only its icon; the model picker keeps its label but may shrink. */
+  .chat-page .composer-permission .menu-pop-label {
+    display: none;
+  }
+
+  .chat-page .composer-model-picker {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 38vw;
+  }
+
+  .chat-page .menu-pop-panel {
+    position: fixed;
+    left: var(--chat-space-2);
+    right: var(--chat-space-2);
+    bottom: calc(var(--composer-inset, env(safe-area-inset-bottom, 0px)) + 96px);
+    max-width: none;
+  }
+
+  .chat-page .composer-right .menu-pop-panel {
+    left: var(--chat-space-2);
+  }
+}

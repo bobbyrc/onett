@@ -244,6 +244,19 @@ the message as before. The draft text is kept per conversation in the browser (`
 typing stops), restored when you come back and cleared when a send succeeds; a failed send keeps it.
 Attachments are not kept. If the browser refuses storage, the draft lives in memory only.
 
+**Composer controls.** The footer follows Orca's layout: **+** (attach) and a permission picker on
+the left; a model and effort picker ("Opus · High ⌄"), a small context ring and the round Send/Stop
+button on the right. The pickers are compact popovers that open upward: arrow keys, Home and End
+move between items, Esc closes and returns focus to the button. Each has a "Reset to role default"
+item. Choices come from `GET /conversations/{id}/settings` (the harness's own list, plus models
+named in the agents config); a pick is saved at once and applies from the next turn. Choosing a
+permission mode that skips safety checks (Claude's `bypassPermissions`, Codex's
+`dangerously-bypass-approvals-and-sandbox`) asks for confirmation first, once per conversation. The
+ring is the last run's input tokens over the model's context window (turns amber at 70% and red at
+90%); it is hidden when the window is unknown. On a phone the permission picker shows only its icon.
+In a task agent's thread the footer shows the agent's role, model, effort and permission mode
+read-only, from its last run, and the ring. Only people who can operate see the pickers.
+
 **Attachments.** The composer of an open orchestrator conversation takes files three ways: the
 paperclip button ("Attach files", a file picker that allows several), pasting files from the
 clipboard into the field (a pasted screenshot, for one; pasted text is left alone), and dragging

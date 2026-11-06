@@ -155,21 +155,25 @@ const (
 
 // Run is one harness session working on a task.
 type Run struct {
-	ID           string     `json:"id"`
-	TaskID       string     `json:"task_id"`
-	Project      string     `json:"project"`
-	Role         string     `json:"role"`
-	Harness      string     `json:"harness"`
-	Model        string     `json:"model,omitempty"`
-	Status       RunStatus  `json:"status"`
-	SessionID    string     `json:"session_id,omitempty"` // harness session, for resume
-	Workdir      string     `json:"workdir,omitempty"`
-	Branch       string     `json:"branch,omitempty"`
-	StartedAt    time.Time  `json:"started_at"`
-	EndedAt      *time.Time `json:"ended_at,omitempty"`
-	LastOutputAt time.Time  `json:"last_output_at"`
-	ExitCode     int        `json:"exit_code"`
-	CostUSD      float64    `json:"cost_usd"`
+	ID      string `json:"id"`
+	TaskID  string `json:"task_id"`
+	Project string `json:"project"`
+	Role    string `json:"role"`
+	Harness string `json:"harness"`
+	Model   string `json:"model,omitempty"`
+	// Effort and PermissionMode are the reasoning effort and permission mode the run started
+	// with, when the owner chose them or the harness was told; "" means the harness default.
+	Effort         string     `json:"effort,omitempty"`
+	PermissionMode string     `json:"permission_mode,omitempty"`
+	Status         RunStatus  `json:"status"`
+	SessionID      string     `json:"session_id,omitempty"` // harness session, for resume
+	Workdir        string     `json:"workdir,omitempty"`
+	Branch         string     `json:"branch,omitempty"`
+	StartedAt      time.Time  `json:"started_at"`
+	EndedAt        *time.Time `json:"ended_at,omitempty"`
+	LastOutputAt   time.Time  `json:"last_output_at"`
+	ExitCode       int        `json:"exit_code"`
+	CostUSD        float64    `json:"cost_usd"`
 	// CostEstimated: CostUSD was computed from tokens and the configured price, not reported.
 	CostEstimated bool `json:"cost_estimated,omitempty"`
 	// Billing is "metered", "subscription" or "" (unknown). A subscription run's CostUSD is an
@@ -407,6 +411,17 @@ type Conversation struct {
 	// Kind marks a conversation onett itself opened for a purpose; "" is an ordinary chat. The
 	// owner may rename the title, so code finds such a conversation by Kind, never by title.
 	Kind string `json:"kind,omitempty"`
+	// Settings are the owner's choices for the agent's next turns; see ConversationSettings.
+	Settings ConversationSettings `json:"settings"`
+}
+
+// ConversationSettings are per-conversation overrides of the agent's model, reasoning effort and
+// permission mode. Every field is optional: "" means the role's default from the config (the
+// harness's own default for effort and permission mode). A change applies from the next turn.
+type ConversationSettings struct {
+	Model          string `json:"model,omitempty"`
+	Effort         string `json:"effort,omitempty"`
+	PermissionMode string `json:"permission_mode,omitempty"`
 }
 
 // ConversationOperations is the Kind of the conversation the heartbeat wakes the orchestrator in.

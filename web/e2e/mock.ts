@@ -2,6 +2,7 @@
 // renders with no daemon behind it.
 import type { Page } from '@playwright/test';
 import * as f from './fixtures';
+import type { ConversationSettingsView } from '../src/types';
 
 type Json = unknown;
 
@@ -55,6 +56,7 @@ export function respond(path: string): Json | undefined {
     case 'agent-conversations':
       return f.agentConversations;
     case 'conversations':
+      if (a && b === 'settings') return SETTINGS_VIEW;
       return a ? { conversation: f.conversations[0], messages: f.chatMessages } : f.conversations;
     case 'events':
       return [];
@@ -66,6 +68,26 @@ export function respond(path: string): Json | undefined {
       return undefined;
   }
 }
+
+const SETTINGS_VIEW: ConversationSettingsView = {
+  settings: { model: 'opus', effort: 'high', permission_mode: 'acceptEdits' },
+  defaults: { model: 'sonnet' },
+  harness: 'claude',
+  choices: {
+    models: [
+      { value: 'opus', label: 'Opus' },
+      { value: 'sonnet', label: 'Sonnet' },
+      { value: 'haiku', label: 'Haiku' },
+    ],
+    efforts: ['low', 'medium', 'high', 'xhigh', 'max'].map((v) => ({ value: v, label: v[0].toUpperCase() + v.slice(1) })),
+    permission_modes: [
+      { value: 'auto', label: 'Auto' },
+      { value: 'acceptEdits', label: 'Accept edits' },
+      { value: 'plan', label: 'Plan' },
+      { value: 'bypassPermissions', label: 'Bypass permissions', dangerous: true },
+    ],
+  },
+};
 
 /** Installs the mocks. Returns the list of unmocked API paths the page asked for. */
 export async function mockBackend(page: Page): Promise<string[]> {

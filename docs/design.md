@@ -368,6 +368,17 @@ conversation). It runs with the `onett` CLI on its PATH and `ONETT_API`/`ONETT_T
 its environment, so it delegates by running `onett task create …`, inspects with `onett
 task list`, `onett run logs`, and so on. Its answer streams back to the UI over its WebSocket.
 
+Each conversation may carry settings: a model, a reasoning effort and a permission mode, all
+optional (empty means the role's default from the config). The owner changes them in the composer
+footer; they apply from the next turn, and each run records the model, effort and permission mode
+it used. For Claude Code a settings change alters the long-lived process's fingerprint (its
+command line), so the next turn replaces the process and resumes the session with the new
+`--model`, `--effort` and `--permission-mode`. Claude's `control_request` messages
+(`set_model`, `set_permission_mode`) could change a live process in place, but that was not
+verified against the installed CLI, so it is not used **(review)**. The choices per harness are
+listed in one place each (`choices.go` in the adapter). Only a signed-in person may change the
+settings: the API token, which the orchestrator holds, cannot widen its own permissions.
+
 The owner can keep typing while the orchestrator works. If its harness takes input mid-run, the
 message goes straight to the live agent. Otherwise it is queued (`Queued` on the message) and
 sent as the next turn's prompt, joined with any other queued messages, but only after a turn that

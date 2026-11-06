@@ -1,6 +1,7 @@
 import './Composer.css';
 import { useLayoutEffect, useRef, useState, type ChangeEvent, type DragEvent, type RefObject } from 'react';
 import { cx } from '../lib/format';
+import type { ReactNode } from 'react';
 import type { composerState } from '../lib/chatState';
 import type { StickToBottom } from '../lib/useStickToBottom';
 import { JumpToLatest } from './JumpToLatest';
@@ -23,6 +24,10 @@ export interface ComposerProps {
   hint?: string;
   /** Who answers, e.g. "implementer · claude-sonnet"; shown at the right of the footer, before Send. */
   modelLabel?: string;
+  /** Left of the footer, after +: the permission picker. */
+  leftControls?: ReactNode;
+  /** Right of the footer, before Send: the model picker and context ring. Sits after modelLabel. */
+  rightControls?: ReactNode;
   autoFocus?: boolean;
   /** Files for this message; without it the composer takes text only. */
   attach?: AttachmentUploads;
@@ -75,6 +80,8 @@ export function Composer({
   stopping = false,
   hint = 'Enter to send · Shift+Enter for a new line',
   modelLabel,
+  leftControls,
+  rightControls,
   autoFocus = false,
   attach,
 }: ComposerProps) {
@@ -194,12 +201,14 @@ export function Composer({
             ) : null}
           </span>
         ) : null}
+        {leftControls}
         <span className="composer-hint muted small">{hint}</span>
         {modelLabel ? (
           <span className="composer-model muted small" title={modelLabel}>
             {modelLabel}
           </span>
         ) : null}
+        {rightControls ? <span className="composer-right">{rightControls}</span> : null}
         {stops ? (
           <button
             type="button"
@@ -235,6 +244,8 @@ export function ComposerArea(props: {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   label: string;
   modelLabel?: string;
+  leftControls?: ReactNode;
+  rightControls?: ReactNode;
   attach?: AttachmentUploads;
   /** The reader's position in the transcript, for the Jump to latest pill. */
   stick?: StickToBottom;
@@ -259,6 +270,8 @@ export function ComposerArea(props: {
         placeholder={state.placeholder}
         label={props.label}
         modelLabel={props.modelLabel}
+        leftControls={props.leftControls}
+        rightControls={props.rightControls}
         onStop={props.working ? props.onStop : undefined}
         stopping={props.stopping}
         hint={

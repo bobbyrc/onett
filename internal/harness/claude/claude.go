@@ -252,6 +252,9 @@ func buildArgs(cfg harness.Config, spec harness.Spec) []string {
 	if spec.Model != "" {
 		args = append(args, "--model", spec.Model)
 	}
+	if spec.Effort != "" {
+		args = append(args, "--effort", spec.Effort)
+	}
 	if spec.ResumeSessionID != "" {
 		args = append(args, "--resume", spec.ResumeSessionID)
 	}
@@ -266,7 +269,11 @@ func buildArgs(cfg harness.Config, spec harness.Spec) []string {
 	for _, rule := range spec.AllowedTools {
 		args = append(args, "--allowedTools", rule)
 	}
-	if !hasPermissionFlag(cfg.Args, spec.Args) {
+	// A mode chosen for the conversation comes last so it wins over the profile's own flag.
+	switch {
+	case spec.PermissionMode != "":
+		args = append(args, "--permission-mode", spec.PermissionMode)
+	case !hasPermissionFlag(cfg.Args, spec.Args):
 		args = append(args, "--permission-mode", defaultPermissionMode)
 	}
 	return args

@@ -1575,6 +1575,72 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /conversations/{id}/settings:
+    get:
+      operationId: getConversationSettings
+      tags: [conversations]
+      summary: Read a conversation's agent settings and the choices for them.
+      description: |
+        Works for the orchestrator's conversations and for a task agent's. `settings` are the
+        owner's overrides (an empty field means the role's default); `defaults` is the role's
+        model; `choices` is what the conversation's harness accepts, built in one place per
+        harness (the models named in the agents config are added).
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '200':
+          description: The settings and choices.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationSettingsView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      operationId: putConversationSettings
+      tags: [conversations]
+      summary: Replace a conversation's agent settings.
+      description: |
+        Applies from the conversation's next turn (a turn already running is not changed). An
+        empty field resets that setting to the role's default. A value outside `choices` is 400.
+        Choosing a dangerous permission mode (one that skips safety checks) that is not already
+        set needs `confirm_dangerous: true`, else 400. A signed-in person only; the API token
+        gets 403, so an agent cannot widen its own permissions.
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ConversationSettings'
+                - type: object
+                  properties:
+                    confirm_dangerous:
+                      type: boolean
+      responses:
+        '200':
+          description: The stored settings, with the choices.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationSettingsView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /messages/{id}:
     patch:
       operationId: editMessage
@@ -2890,6 +2956,12 @@ components:
           type: string
         model:
           type: string
+        effort:
+          type: string
+          description: Reasoning effort the run started with; empty is the harness default.
+        permission_mode:
+          type: string
+          description: Permission mode the run started with; empty is the harness default.
         status:
           $ref: '#/components/schemas/RunStatus'
         session_id:
@@ -3150,6 +3222,58 @@ components:
           type: string
           format: date-time
 
+    ConversationSettings:
+      type: object
+      description: >-
+        Per-conversation overrides of the agent's model, reasoning effort and permission mode.
+        An empty or missing field means the role's default.
+      properties:
+        model:
+          type: string
+        effort:
+          type: string
+        permission_mode:
+          type: string
+    SettingsChoice:
+      type: object
+      required: [value, label]
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        hint:
+          type: string
+        dangerous:
+          type: boolean
+          description: Skips safety checks; choosing it needs `confirm_dangerous`.
+    ConversationSettingsView:
+      type: object
+      required: [settings, defaults, harness, choices]
+      properties:
+        settings:
+          $ref: '#/components/schemas/ConversationSettings'
+        defaults:
+          $ref: '#/components/schemas/ConversationSettings'
+        harness:
+          type: string
+          description: The configured harness the conversation's agent runs on.
+        choices:
+          type: object
+          required: [models, efforts, permission_modes]
+          properties:
+            models:
+              type: array
+              items:
+                $ref: '#/components/schemas/SettingsChoice'
+            efforts:
+              type: array
+              items:
+                $ref: '#/components/schemas/SettingsChoice'
+            permission_modes:
+              type: array
+              items:
+                $ref: '#/components/schemas/SettingsChoice'
     Conversation:
       type: object
       description: One chat thread with the orchestrator agent.
@@ -3186,6 +3310,8 @@ components:
           description: >-
             `operations` for the conversation the heartbeat wakes the orchestrator in; empty for
             an ordinary chat.
+        settings:
+          $ref: '#/components/schemas/ConversationSettings'
         created_at:
           type: string
           format: date-time

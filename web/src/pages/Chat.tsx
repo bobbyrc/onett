@@ -39,6 +39,9 @@ import { PageHeader } from '../components/PageHeader';
 import { Transcript, ViewToggle } from '../components/Transcript';
 import { MessageRail } from '../components/MessageRail';
 import { Composer, ComposerArea } from '../components/Composer';
+import { ComposerSettings } from '../components/ComposerSettings';
+import { ContextRing } from '../components/ContextRing';
+import { contextFraction } from '../lib/composerSettings';
 import { useAttachmentUploads } from '../components/ComposerAttachments';
 import { DEFAULT_MAX_PER_MESSAGE } from '../lib/attachments';
 import { useStickToBottom } from '../lib/useStickToBottom';
@@ -573,7 +576,16 @@ function OrchestratorThread({
         stopping={!!liveRunId && stoppingRun === liveRunId}
         textareaRef={textareaRef}
         label="Message the orchestrator"
-        modelLabel={run?.model || run?.harness}
+        modelLabel={canOperate ? undefined : run?.model || run?.harness}
+        leftControls={canOperate ? <ComposerSettings conversationId={conversationId} side="permission" /> : undefined}
+        rightControls={
+          canOperate ? (
+            <>
+              <ComposerSettings conversationId={conversationId} side="model" />
+              <ContextRing fraction={contextFraction(run)} />
+            </>
+          ) : undefined
+        }
       />
       <ErrorLine error={stop.error} />
       <ErrorLine error={flush.error} />
@@ -744,7 +756,10 @@ function TaskThread({
             stopping={!!liveRunId && stoppingRun === liveRunId}
             textareaRef={textareaRef}
             label={`Message the ${role}`}
-            modelLabel={[role, lastRun?.model || lastRun?.harness].filter(Boolean).join(' · ')}
+            modelLabel={[role, lastRun?.model || lastRun?.harness, lastRun?.effort, lastRun?.permission_mode]
+              .filter(Boolean)
+              .join(' · ')}
+            rightControls={<ContextRing fraction={contextFraction(lastRun)} />}
           />
         </>
       )}

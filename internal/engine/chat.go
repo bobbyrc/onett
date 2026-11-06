@@ -124,12 +124,20 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 		return fail(err)
 	}
 
+	// Settings the owner changed while an earlier turn ran take effect now; conv may predate that.
+	settings := conv.Settings
+	if cur, err := e.d.Store.GetConversation(ctx, conv.ID); err == nil {
+		settings = cur.Settings
+	}
+	settings = effectiveSettings(agent, settings)
+
 	now := e.d.Now().UTC()
 	deadline := now.Add(cfg.Limits.RunTimeout.Duration)
 	// The run row is bookkeeping for a reply that is already underway, so it is written even when
 	// shutdown has cancelled ctx; otherwise the reply would fail to start and leave no run.
 	run, err := e.d.Store.CreateRun(context.WithoutCancel(ctx), domain.Run{
-		Project: conv.Project, Role: "orchestrator", Harness: agent.Harness, Model: agent.Model,
+		Project: conv.Project, Role: "orchestrator", Harness: agent.Harness, Model: settings.Model,
+		Effort: settings.Effort, PermissionMode: settings.PermissionMode,
 		Status: domain.RunStarting, Workdir: dir, GoalTurn: opts.goal,
 		StartedAt: now, LastOutputAt: now, DeadlineAt: &deadline,
 	})
@@ -165,7 +173,9 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 		Workdir:         dir,
 		Prompt:          prompt,
 		Instructions:    chatInstructions(conv, base),
-		Model:           agent.Model,
+		Model:           settings.Model,
+		Effort:          settings.Effort,
+		PermissionMode:  settings.PermissionMode,
 		ResumeSessionID: conv.SessionID,
 		Env:             e.chatEnv(conv, run.ID),
 		Args:            agent.Args,

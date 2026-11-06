@@ -110,6 +110,8 @@ export interface Run {
   role: string;
   harness: string;
   model?: string;
+  effort?: string;
+  permission_mode?: string;
   status: RunStatus;
   session_id?: string;
   workdir?: string;
@@ -255,6 +257,29 @@ export interface Conversation {
   closed_reason?: string;
   /** "operations" for the conversation the heartbeat wakes; empty for an ordinary chat. */
   kind?: string;
+  settings?: ConversationSettings;
+}
+
+/** Per-conversation overrides; an empty or missing field means the role's default. */
+export interface ConversationSettings {
+  model?: string;
+  effort?: string;
+  permission_mode?: string;
+}
+
+export interface SettingsChoice {
+  value: string;
+  label: string;
+  hint?: string;
+  /** Skips safety checks: choosing it needs a confirmation. */
+  dangerous?: boolean;
+}
+
+export interface ConversationSettingsView {
+  settings: ConversationSettings;
+  defaults: ConversationSettings;
+  harness: string;
+  choices: { models: SettingsChoice[]; efforts: SettingsChoice[]; permission_modes: SettingsChoice[] };
 }
 
 export interface ChatMessage {

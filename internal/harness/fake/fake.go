@@ -21,6 +21,15 @@ func init() {
 	harness.Register("fake", func(cfg harness.Config) (harness.Harness, error) {
 		return New(DefaultScript), nil
 	})
+	// Choices so tests can exercise the per-conversation settings without a real CLI.
+	harness.RegisterChoices("fake", harness.Choices{
+		Models:  []harness.Choice{{Value: "big", Label: "Big"}},
+		Efforts: []harness.Choice{{Value: "low", Label: "Low"}, {Value: "high", Label: "High"}},
+		PermissionModes: []harness.Choice{
+			{Value: "safe", Label: "Safe"},
+			{Value: "bypass", Label: "Bypass", Dangerous: true},
+		},
+	})
 }
 
 // Script stands in for an agent run. It emits events, may write files into spec.Workdir, and

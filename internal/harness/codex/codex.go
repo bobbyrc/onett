@@ -132,9 +132,15 @@ func buildArgs(cfg harness.Config, spec harness.Spec) []string {
 	if spec.Model != "" {
 		args = append(args, "--model", spec.Model)
 	}
+	if spec.Effort != "" {
+		args = append(args, "-c", `model_reasoning_effort="`+spec.Effort+`"`)
+	}
 	args = append(args, cfg.Args...)
 	args = append(args, spec.Args...)
-	if !hasSandboxFlag(cfg.Args, spec.Args) {
+	if spec.PermissionMode != "" {
+		// A mode chosen for the conversation replaces the default and wins over the profile's.
+		args = append(args, permissionArgs(spec.PermissionMode, resume)...)
+	} else if !hasSandboxFlag(cfg.Args, spec.Args) {
 		if resume {
 			args = append(args, "-c", resumeSandboxOverride)
 		} else {
@@ -143,6 +149,27 @@ func buildArgs(cfg harness.Config, spec harness.Spec) []string {
 	}
 	// "-" reads the prompt from stdin.
 	return append(args, "-")
+}
+
+// permissionArgs turns a permission mode choice into flags. `codex exec resume` has no sandbox or
+// approval flags, so a resumed session gets config overrides with the same effect.
+func permissionArgs(mode string, resume bool) []string {
+	switch mode {
+	case permApproveForMe:
+		if resume {
+			return []string{"-c", resumeSandboxOverride}
+		}
+		return defaultSandboxArgs
+	case permBypass:
+		if resume {
+			return []string{"-c", `sandbox_mode="danger-full-access"`, "-c", `approval_policy="never"`}
+		}
+		return []string{"--dangerously-bypass-approvals-and-sandbox"}
+	}
+	if resume {
+		return []string{"-c", `sandbox_mode="` + mode + `"`}
+	}
+	return []string{"--sandbox", mode}
 }
 
 // hasSandboxFlag reports whether an extra argument already chooses a sandbox or approval mode,
