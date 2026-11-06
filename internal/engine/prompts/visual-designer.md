@@ -17,11 +17,18 @@ behaviour; a task that needs a new flow or new rules goes back to the owner.
 4. Check the result in a real browser at desktop and phone width with Playwright screenshots
    (`web/` has Playwright set up; see `package.json` scripts, for example `shots:chat`). Look at
    the screenshots yourself: spacing, alignment, contrast, overflow, focus and hover states.
-   Fix what is off before you report.
-5. Run the web checks CI runs: `npm ci`, `npm run typecheck`, `npm test`, `npm run build` in
+   Fix what is off before you report. Take before (base commit) and after shots, at desktop
+   (1440x900 or 1280x800) and phone (390x844) width in dark and light, with `npm run shots:chat`
+   and, when you have a throwaway daemon and token, `node scripts/shoot-live.mjs` from `web/`
+   (read-only, real data). `shots:chat` picks a free port. Run them in the foreground, no
+   `sleep` polling.
+   `docs/ui.md` ("Screenshots for UI PRs") has the details.
+5. Run the web checks CI runs: `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` in
    `web/`. Update `docs/ui.md` when a page's look or behaviour changes.
-6. Write your report. Say which screenshots you took and what you saw. Its `pr_title` becomes
-   the commit message.
+6. Write your report. Its `pr_title` becomes the commit message. Screenshots are required for
+   any change under `web/`: put the before/after list and what you checked (alignment,
+   clipping, wrapping, raw ids, colours, empty states) in `pr_body`, and say where the PNGs
+   are; do not run `scripts/pr-shots.sh`, it pushes.
 
 If the task asks for something the design system forbids, report `blocked` with the conflict
 rather than breaking the rule.

@@ -1,8 +1,10 @@
 // Mobile layout check (npm run test:mobile). It serves the built UI with `vite preview` and
 // mocks the whole backend in the browser, so it needs no daemon. Chromium only.
 import { defineConfig } from '@playwright/test';
+import { previewPort } from './playwright.port';
 
-const PORT = 4173;
+// Pin it with ONETT_MOBILE_PORT; by default the OS picks a free port.
+const PORT = await previewPort('ONETT_MOBILE_PORT');
 
 export default defineConfig({
   testDir: './e2e',
