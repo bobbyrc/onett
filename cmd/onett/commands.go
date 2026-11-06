@@ -244,10 +244,10 @@ func cmdAgents(e *env, args []string) error {
 			origin = "removed"
 		}
 		rows = append(rows, []string{
-			a.Name, orDash(origin), orDash(a.Harness), orDash(a.Model), orDash(strings.Join(a.Kinds, ",")), truncate(a.Description, 70),
+			a.Name, orDash(a.Title), orDash(origin), orDash(a.Harness), orDash(a.Model), orDash(strings.Join(a.Kinds, ",")), truncate(a.Description, 70),
 		})
 	}
-	table(e.out, []string{"ROLE", "ORIGIN", "HARNESS", "MODEL", "KINDS", "DESCRIPTION"}, rows)
+	table(e.out, []string{"ROLE", "TITLE", "ORIGIN", "HARNESS", "MODEL", "KINDS", "DESCRIPTION"}, rows)
 	return nil
 }
 

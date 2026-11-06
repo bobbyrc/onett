@@ -152,11 +152,16 @@ type AgentView struct {
 	PromptUpdates bool `json:"prompt_updates"`
 	// BuiltinPromptText is the built-in prompt of this name, set only for a built-in whose
 	// instructions the file replaces, so the owner can compare the two.
-	BuiltinPromptText string            `json:"builtin_prompt_text,omitempty"`
-	Description       string            `json:"description"`
-	Args              []string          `json:"args"`
-	Kinds             []string          `json:"kinds"`
-	Uses              []config.AgentUse `json:"uses"`
+	BuiltinPromptText string `json:"builtin_prompt_text,omitempty"`
+	Description       string `json:"description"`
+	// Title is the role's job title; Context lists files it reads first; Tools are the tool
+	// rules its runs are pre-approved for.
+	Title   string            `json:"title,omitempty"`
+	Context []string          `json:"context,omitempty"`
+	Tools   []string          `json:"tools,omitempty"`
+	Args    []string          `json:"args"`
+	Kinds   []string          `json:"kinds"`
+	Uses    []config.AgentUse `json:"uses"`
 }
 
 // conversationDetail is the body of GET /conversations/{id}.
@@ -666,6 +671,9 @@ func (s *server) listAgents(w http.ResponseWriter, r *http.Request) {
 			Prompt:          a.Prompt,
 			PromptUpdates:   strings.HasPrefix(a.Prompt, "builtin:") && a.PromptText == "",
 			Description:     a.Description,
+			Title:           a.Title,
+			Context:         a.Context,
+			Tools:           a.Tools,
 			Args:            nonNil(a.Args),
 			Kinds:           nonNil(kinds),
 			Uses:            nonNil(uses[name]),

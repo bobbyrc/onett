@@ -8,8 +8,8 @@ import { Button } from './Button';
 /** The first lines of a prompt shown before "Show full prompt". */
 const PREVIEW_LINES = 8;
 
-/** The server always refuses to disable the orchestrator (chat needs it), so it has no Remove. */
-const ORCHESTRATOR = 'orchestrator';
+/** The server always refuses to disable the chief of staff (chat needs it), so it has no Remove. */
+const CHIEF_OF_STAFF = 'chief-of-staff';
 
 export interface AgentControls {
   /** True while a save is in flight: every control is disabled. */
@@ -156,7 +156,7 @@ export function AgentCard({
               <Button disabled={busy} onClick={controls.onEdit}>
                 Edit
               </Button>
-              {agent.origin === 'custom' || agent.name !== ORCHESTRATOR ? (
+              {agent.origin === 'custom' || agent.name !== CHIEF_OF_STAFF ? (
                 <Button variant="danger" confirm disabled={busy} onClick={controls.onRemove}>
                   {agent.origin === 'custom' ? 'Delete' : 'Remove'}
                 </Button>

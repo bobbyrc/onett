@@ -150,6 +150,9 @@ type AgentView struct {
 	PromptUpdates     bool               `json:"prompt_updates"`
 	BuiltinPromptText string             `json:"builtin_prompt_text,omitempty"`
 	Description       string             `json:"description"`
+	Title             string             `json:"title,omitempty"`
+	Context           []string           `json:"context,omitempty"`
+	Tools             []string           `json:"tools,omitempty"`
 	Args              []string           `json:"args"`
 	Kinds             []string           `json:"kinds"`
 	Uses              []config.AgentUse  `json:"uses"`
