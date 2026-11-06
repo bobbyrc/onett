@@ -86,6 +86,9 @@ func newReattachFixture(t *testing.T, stall, runTimeout time.Duration) *reattach
 	t.Helper()
 	root := t.TempDir()
 	f := &reattachFixture{t: t, dataDir: filepath.Join(root, "data"), gate: filepath.Join(root, "gate")}
+	// Registered right after TempDir, so it runs after the engines have stopped and just before the
+	// directory is removed (cleanups run last-in first-out).
+	t.Cleanup(f.killLeftovers)
 	bare, clone := filepath.Join(root, "remote.git"), filepath.Join(root, "clone")
 	rtSeedRepo(t, bare)
 	agent := filepath.Join(root, "agent.sh")
@@ -225,6 +228,37 @@ func (f *reattachFixture) waitShimGone(runID string) {
 	rtWait(f.t, 15*time.Second, "shim to exit", func() bool {
 		return syscall.Kill(st.ShimPID, 0) == syscall.ESRCH
 	})
+}
+
+// killLeftovers kills every shim and agent a run left in the data directory and waits until they
+// are gone. A test that ends early (or a shim that has not yet seen its ack) would otherwise leave
+// a process still writing into the directory while TempDir removes it, which fails the test with
+// "directory not empty".
+func (f *reattachFixture) killLeftovers() {
+	dirs, _ := filepath.Glob(filepath.Join(f.dataDir, "runs", "*"))
+	var pids []int
+	for _, d := range dirs {
+		st, err := runshim.ReadStatus(d)
+		if err != nil {
+			continue
+		}
+		if st.AgentPGID > 1 {
+			_ = syscall.Kill(-st.AgentPGID, syscall.SIGKILL)
+		}
+		if st.ShimPID > 1 {
+			_ = syscall.Kill(st.ShimPID, syscall.SIGKILL)
+			pids = append(pids, st.ShimPID)
+		}
+		if st.AgentPGID > 1 {
+			pids = append(pids, -st.AgentPGID)
+		}
+	}
+	deadline := time.Now().Add(15 * time.Second)
+	for _, pid := range pids {
+		for syscall.Kill(pid, 0) != syscall.ESRCH && time.Now().Before(deadline) {
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
 }
 
 func (f *reattachFixture) shimStatus(runID string) runshim.Status {

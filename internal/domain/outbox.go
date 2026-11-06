@@ -4,6 +4,10 @@ package domain
 // It is excluded from git through .git/info/exclude.
 const OutboxDir = ".onett-run"
 
+// ShotsDir is the directory under OutboxDir where the agent leaves screenshots, one subdirectory
+// per label ("before", "after"). Onett publishes the PNGs; the agent cannot push.
+const ShotsDir = "shots"
+
 // ResultFile is the agent's report, written to OutboxDir/ResultFile before it finishes.
 const ResultFile = "result.json"
 

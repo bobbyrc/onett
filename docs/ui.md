@@ -524,7 +524,14 @@ two runs of the same code give the same pixels. It is not part of `npm run test:
 `scripts/pr-shots.sh <label>` copies those PNGs to a branch `pr-assets/<current-branch>/<label>`
 (an orphan branch, created on first use) in a temporary git worktree, pushes it, and prints a
 Markdown table with permanent `raw.githubusercontent.com/<repo>/<commit-sha>/...` image links.
-Paste the `before` and `after` tables into the PR description. Your own branch and working tree
+Paste the `before` and `after` tables into the PR description.
+
+Worker agents hold no GitHub access and cannot run the script. They copy the PNGs into
+`$ONETT_OUTBOX/shots/before/` and `$ONETT_OUTBOX/shots/after/` instead. When onett publishes a
+run, it pushes each label directory (only plain `*.png` files, at most 48 of 8 MB, no symlinks)
+to the same `pr-assets/<branch>/<label>` branch and adds a "Screenshots: <label>" section of
+`raw.githubusercontent.com` image links to the PR description. This needs a GitHub project
+(`repo: owner/name`); a failure is logged and does not fail the run. Your own branch and working tree
 are not touched, and the worktree is removed when the script exits. Never merge a `pr-assets`
 branch.
 
