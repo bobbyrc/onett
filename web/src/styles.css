@@ -1022,8 +1022,38 @@ input[type='checkbox'] {
 }
 
 .table td .mono,
-.table td .id-chip {
+.table td .id-chip,
+.table td time {
   white-space: nowrap;
+}
+
+/* Wide screens: every cell stays on one line (a timestamp never wraps to "12m" / "ago", a role or
+   model name never breaks inside a word) except the free-text column, which takes the width the
+   rest leave. A long plain-text value is cut with an ellipsis; its title shows it whole. */
+@media (min-width: 760px) {
+  .table td,
+  .table th {
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+
+  .table td .small {
+    white-space: normal;
+  }
+
+  .table td.cell-text {
+    max-width: 28ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .table td.cell-wide,
+  .table th.cell-wide {
+    white-space: normal;
+    width: 100%;
+    min-width: 16rem;
+    overflow-wrap: break-word;
+  }
 }
 
 /* ---- meta grid ---- */

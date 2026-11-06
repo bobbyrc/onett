@@ -16,6 +16,7 @@ const columns: Column<Signal>[] = [
   {
     key: 'title',
     header: 'Title',
+    wide: true,
     cell: (s) =>
       safeHref(s.url) ? (
         <a href={safeHref(s.url)} target="_blank" rel="noopener noreferrer">
