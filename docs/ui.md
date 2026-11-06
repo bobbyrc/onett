@@ -559,6 +559,12 @@ route carries its id, for example `tasks_<id>-phone-light.png`. Extra shots show
 Runs page (`tasks_empty`, `runs_empty`), an Overview with one project (`overview_one_project`),
 a chat run with no task (`runs_<id>`) and a goal check-in conversation (`chat_<id>`).
 
+The shots cut each page at the window height, so anything below the fold is not in them, and a
+cut-off edge can look like a bug. For long pages, lists and anything below the fold, run
+`SHOTS_FULL=1 npm run shots`: it captures the whole scrolling page (the same as `shoot-live.mjs
+--full`) into `web/e2e-results/shots-full/` with the same file names, and leaves the default shots
+untouched. A chat thread scrolls inside its own panel, so it is not lengthened by this.
+
 The data is `web/e2e/page-fixtures.ts`: the shapes a real daemon holds (chat runs with a
 conversation and no task, goal check-ins started by the daemon, 60+ character branch names, long
 role names, an image attachment, timestamps from minutes to days old, done, blocked and active
