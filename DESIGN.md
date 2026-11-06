@@ -302,7 +302,8 @@ badges as words, a Menu button) with the nav as a full-height drawer under it. T
 the chat layout and the overview grid stack to one column. The board becomes a compact strip with
 two windows across and no detail lines, so the first decision fits on the first screen. Tables
 become stacked sheets with a `label: value` line per cell, and the feed drops its tag column.
-Project sheets stack, the loop grid becomes one sheet per loop name, and the config section list
+Project sheets stack, the loop table becomes one sheet per loop name (when the main column is
+under 880px, so also on a narrow window with the rail), and the config section list
 becomes a row of pill chips that scrolls sideways. Below 960px the task detail is one column: the
 spec sheet follows "Needs you", then the rest of the page. From 960px it is the two-column body
 described under Components.
@@ -332,7 +333,7 @@ square have a 0px corner. Controls (buttons, fields, the segmented control, chip
 
 Structure is drawn with 1px rules: the outer rule around a sheet, the inner rule between rows, and
 a board rule inside the charcoal. The one 2px rule is the task line's station rule, which joins
-the lamps. Lamps are small squares, never circles: 10px in pills, the rail rows, the loop grid, the
+the lamps. Lamps are small squares, never circles: 10px in pills, the rail rows, the loop table, the
 chat's working line and a project sheet's bar (10px tall); 12px for task-line stations, call items,
 the line window and a board window's bar; 8px in the config section list and on the phone board.
 
@@ -355,7 +356,7 @@ Each component is a square or a 2px-cornered control, with a word that carries i
   `focus` (ink on the ground; call yellow on the board, the phone top bar and in dark mode), offset
   by 2px.
 - **Ghost:** transparent, no outline, muted text; turns ink on hover. Used for the Cancel beside a
-  form's Save, and the Run button in a loop cell. Cancelling a task or a live run is a danger
+  form's Save. Cancelling a task or a live run is a danger
   button that asks inline.
 - **On the charcoal board:** the filled action is Board Text (#eef3ef) with charcoal text, the
   inverse of ink, because ink would vanish on the board. The rail's Resume and the config Save use
@@ -539,20 +540,27 @@ Each component is a square or a 2px-cornered control, with a word that carries i
 - **Viewers:** the thread reads on; in place of the composer, a muted line says viewers can read
   but not send.
 
-### Loop lamp grid
-- **Shape:** a Sheet Mist table with a 1px outer rule. The heads are condensed caps (15px, 0.1em)
-  in Muted Ink. A row is one loop name in mono 13px. The first column, "all projects", holds loops
-  that run across every project and comes first.
-- **Cell:** a 10px lamp, then "every 30s" (the interval as configured), then a Ghost "Run" button
-  for operators only. The second line says "ran 3m ago" or "never" in muted text, or the last
-  error in Stop Red text cut to one line, with the full text as a tooltip. The lamp is Run Green
-  when the last run worked, Stop Red when it failed, and Idle Grey light when the loop is off or has
-  not run yet. A disabled loop reads "off · every 30s", so the words carry the state as well as the
-  lamp.
+### Loop table
+- **Shape:** a Sheet Mist table with a 1px outer rule and fixed columns: Loop, Project, Status,
+  Schedule, Last run, and the Run button for operators only (viewers have no such column). Heads
+  are table heads (condensed caps, 13px, 0.08em) in Muted Ink. One row per loop and project,
+  grouped by loop: the loop cell spans its group's rows, and an Outer Rule separates groups. Global
+  loops say "all projects" in the Project column.
+- **Loop name:** the id in Title Case words in Barlow 600 ("Issue Intake", "PR Shepherd"), with
+  the id itself under it in 12px mono Muted Ink, because config and the API use the id.
+- **Status:** a 10px lamp and a word: "OK" (Run Green), "Failed" (Stop Red lamp, Danger text),
+  "Off" or "Not run yet" (Idle Grey light lamp, Muted text). The word carries the state as well as
+  the lamp.
+- **Schedule and last run:** "every 30s" (muted when off), with "next in 12m" under it when the
+  loop reports one. "3m ago" (with " · 3 items" when reported) or "never", with the last error
+  under it in Stop Red text cut to one line and the full text as a tooltip.
+- **Run:** a Secondary button, 96px wide at least so it keeps its size when it reads "Running…"
+  (disabled) while the run goes on.
 - **Summary:** one muted line above: "3 loops on · 2 off · 1 failing", with the failing count in
   Stop Red text when any fails.
-- **Phone:** one sheet per loop name, its name in mono with a rule under it, and a row per project
-  with the lamp, the project name, the interval and the status line.
+- **Narrow:** when the main column is under 880px (a container query, since the rail takes part of
+  the window), one sheet per loop with the name and id over a rule, and a row per project with the
+  project name, the status, the schedule line, the last run line and the Run button at the right.
 
 ### Account, sign-in and users
 - **Sign-in sheet:** the connect screen is the charcoal board filling the viewport. The sheet is a

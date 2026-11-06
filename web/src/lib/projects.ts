@@ -35,17 +35,6 @@ export function loopSummary(loops: LoopView[]): LoopSummary {
   return { on, off: loops.length - on, failing };
 }
 
-const HEALTH_LABEL: Record<LoopHealth, string> = {
-  ok: 'last run ok',
-  danger: 'last run failed',
-  muted: 'disabled or not yet run',
-};
-
-/** Screen-reader text for the pill's dot, so health is not carried by colour alone. */
-export function loopHealthLabel(loop: LoopView): string {
-  return HEALTH_LABEL[loopHealth(loop)];
-}
-
 /**
  * A project as the API may send it. The Go side omits observe when a project has none, and a
  * stale or partial response may omit counts, so those fields are optional here.

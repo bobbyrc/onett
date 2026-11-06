@@ -414,16 +414,19 @@ seen, task link.
 
 **Friction** (`/friction`) — table: project, title, count, issue (link), updated.
 
-**Loops** (`/loops`) — a lamp grid: one row per loop name, one column per project. Loops that run
-across all projects get an "all projects" column, placed first. Each cell has a 10px lamp, then
-"every 30s" (the interval as configured), then on a second line "ran 3m ago" or "never". A disabled
-loop reads "off · every 30s" in muted text, so it differs from a healthy loop by words as well as by
-its grey lamp. The lamp is green when the last run worked, red when it failed, and grey when the
-loop is disabled or has not run yet; the words are screen-reader text. A failed loop shows its error
-in red on that second line, cut to one line, with the full text on hover. A loop that reports them (heartbeat) adds " · 3 items" and " · next in 12m" to that line. Operators see a "Run"
-button in each cell; viewers do not. Above the grid, one muted line counts loops on, off and failing
-(failing in red when any). Under 760px the grid becomes one sheet per loop name, with a row for each
-project it runs in.
+**Loops** (`/loops`) — a table with one row per loop and project, grouped by loop: Loop,
+Project, Status, Schedule, Last run, and a Run button for operators (viewers see no Run column).
+The loop cell shows the id as Title Case words ("Issue Intake", "PR Shepherd") with the id itself
+under it in small mono. Loops that run across all projects say "all projects" in the Project
+column. Status is a 10px lamp and a word: "OK" (green), "Failed" (red), "Off" or "Not run yet"
+(grey). Schedule reads "every 30s" (muted when off) and, for a loop that reports it (heartbeat),
+"next in 12m" under it. Last run reads "3m ago" (with " · 3 items" when reported) or "never", and a
+failed loop's error under it in red, cut to one line, with the full text on hover. Run is an
+outlined button that reads "Running…" and is disabled until the run returns; then a line above
+the table says "Ran Issue Intake for onett." Above the table, one muted line counts loops on, off
+and failing (failing in red when any). When the main column is under 880px (a phone, or a narrow
+window beside the rail), the table becomes one sheet per loop, with a row for each project it runs
+in.
 
 **Users** (`/users`, owners only; anyone else is sent to Overview) — a table of accounts:
 username (your own row says "(you)"), role, added (relative time) and actions. The role is a
