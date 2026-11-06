@@ -86,6 +86,8 @@ const taskConv: TaskConversation = {
   runs: runs.slice(0, 1),
   messages: [
     msg(11, 'shot-task-conv', 'user', 'Cap the shepherd backoff at 10 minutes and add a test.', T1),
+    // A second user message, so the message rail of ticks shows in the task-thread shots.
+    msg(12, 'shot-task-conv', 'user', 'Also log when the cap kicks in.', T3),
   ],
   can_send: true,
 };
