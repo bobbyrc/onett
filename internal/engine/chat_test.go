@@ -82,7 +82,7 @@ func TestChatSendReplyAndDeltas(t *testing.T) {
 	run, err := r.st.GetRun(ctx, msgs[1].RunID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.RunSucceeded, run.Status)
-	assert.Equal(t, "orchestrator", run.Role)
+	assert.Equal(t, "chief-of-staff", run.Role)
 
 	var sawDelta, sawReply bool
 	deadline := time.After(5 * time.Second)
@@ -152,9 +152,9 @@ func TestChatInstructionsAreStableAcrossTurns(t *testing.T) {
 
 	// The factory changes between turns: a project is paused and an agent is disabled.
 	r.cfg.Projects["demo"].Paused = true
-	improver := r.cfg.Agents["improver"]
+	improver := r.cfg.Agents["platform-engineer"]
 	improver.Disabled = true
-	r.cfg.Agents["improver"] = improver
+	r.cfg.Agents["platform-engineer"] = improver
 
 	assert.Equal(t, before, chatInstructions(conv, "BASE PROMPT"), "the system prompt does not follow factory state")
 	assert.NotEqual(t, snapBefore, factorySnapshot(r.cfg), "the per-turn snapshot does")
@@ -170,7 +170,7 @@ func TestFactorySnapshotListsProjectsAndAgents(t *testing.T) {
 	text := factorySnapshot(r.cfg)
 	assert.Contains(t, text, "## The factory right now\n\n")
 	assert.Contains(t, text, "- **demo** — /nonexistent/demo.git, "+r.cfg.Projects["demo"].Path+", paused: yes")
-	assert.Contains(t, text, "- **implementer** (codex) — ")
+	assert.Contains(t, text, "- **senior-engineer** (codex) — ")
 	assert.Contains(t, text, "handles: bugfix, chore, feature, issue")
 }
 
@@ -243,7 +243,7 @@ func (s *ctGateStore) ClaimNextTask(ctx context.Context, busy []string, held ...
 }
 
 func (s *ctGateStore) CreateRun(ctx context.Context, r domain.Run) (domain.Run, error) {
-	if r.Role == "orchestrator" {
+	if r.Role == "chief-of-staff" {
 		s.once.Do(func() {
 			close(s.reached)
 			<-s.release

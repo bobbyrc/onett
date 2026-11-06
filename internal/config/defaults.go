@@ -14,6 +14,7 @@ import (
 // user set. It also expands a leading "~" in paths and makes relative agent prompt paths
 // absolute against the directory of c.Path.
 func ApplyDefaults(c *Config) {
+	canonicalizeNames(c)
 	applyServerDefaults(c)
 	applyChatDefaults(c)
 	applyLimitDefaults(c)
@@ -216,43 +217,68 @@ func applyHarnessDefaults(c *Config) {
 	}
 }
 
-// BuiltinAgents returns the six built-in agents by name, with prompts written as
-// "builtin:<name>". Each call returns a fresh map.
+// BuiltinAgents returns the built-in agents by name, with prompts written as "builtin:<name>".
+// Each is a job role: a title, the files it reads first and the tools it is pre-approved for.
+// Each call returns a fresh map. The old names (implementer, reviewer, ...) are aliases; see
+// CanonicalAgentName.
 func BuiltinAgents() map[string]Agent {
 	return map[string]Agent{
-		"orchestrator": {
+		"chief-of-staff": {
+			Title:       "Chief of Staff",
 			Harness:     "claude",
 			Model:       "opus",
-			Prompt:      "builtin:orchestrator",
-			Description: "The agent you chat with. Turns what you ask for into tasks for the other agents and reports back; never edits code.",
+			Prompt:      "builtin:chief-of-staff",
+			Description: "Knows every project, task and goal in the factory. Turns what you ask for into goals and tasks for the other roles, follows them to done and reports back; never edits code.",
 		},
-		"implementer": {
+		"senior-engineer": {
+			Title:       "Senior Engineer",
 			Harness:     "codex",
-			Prompt:      "builtin:implementer",
-			Description: "Writes and tests the code change for a feature, bug fix, issue or chore; on a re-run, fixes the CI failure or review findings first.",
+			Prompt:      "builtin:senior-engineer",
+			Description: "Knows the repository's conventions and checks. Writes and tests the code change for a feature, bug fix, issue or chore; on a re-run, fixes the CI failure or review findings first.",
 		},
-		"reviewer": {
+		"code-reviewer": {
+			Title:       "Code Reviewer",
 			Harness:     "claude",
 			Model:       "sonnet",
-			Prompt:      "builtin:reviewer",
-			Description: "Reviews each pull request's diff for defects and risk before merge, without the author's reasoning; approves or requests changes.",
+			Prompt:      "builtin:code-reviewer",
+			Description: "Reads each pull request's diff cold, without the author's reasoning, for defects, missing tests and risk; approves or requests changes before merge.",
 		},
-		"triager": {
+		"tech-lead": {
+			Title:       "Tech Lead",
 			Harness:     "claude",
 			Model:       "sonnet",
-			Prompt:      "builtin:triager",
-			Description: "Answers questions about the code, and triages bug reports: reproduces them and splits them into well-scoped follow-up tasks.",
+			Prompt:      "builtin:tech-lead",
+			Description: "Knows the codebase well enough to answer questions about it, and triages bug reports: reproduces them and splits them into well-scoped follow-up tasks.",
 		},
 		"sre": {
+			Title:       "Site Reliability Engineer",
 			Harness:     "claude",
 			Model:       "sonnet",
 			Prompt:      "builtin:sre",
-			Description: "Investigates a failed deploy or production error from its evidence, finds the root cause and ships the smallest safe fix.",
+			Description: "Reads the evidence of a failed deploy or production error, finds the root cause and ships the smallest safe fix.",
 		},
-		"improver": {
+		"platform-engineer": {
+			Title:       "Platform Engineer",
 			Harness:     "codex",
-			Prompt:      "builtin:improver",
-			Description: "Fixes the cause of friction agents report and of problems retrospectives find: tooling, docs, flaky tests, agent instructions.",
+			Prompt:      "builtin:platform-engineer",
+			Description: "Owns the factory's own tooling. Fixes the cause of friction agents report and of problems retrospectives find: scripts, docs, flaky tests, agent instructions.",
+		},
+		"product-designer": {
+			Title:       "Product Designer",
+			Harness:     "claude",
+			Model:       "opus",
+			Prompt:      "builtin:product-designer",
+			Context:     []string{"PRODUCT.md", "DESIGN.md", "docs/"},
+			Description: "Knows the product's users and goals. Owns user flows, specs, acceptance criteria and UX copy; writes specs, proposals and copy changes, not feature code.",
+		},
+		"visual-designer": {
+			Title:       "Visual Designer",
+			Harness:     "claude",
+			Model:       "opus",
+			Prompt:      "builtin:visual-designer",
+			Context:     []string{"DESIGN.md", "web/src/styles.css", "web/src/chat-tokens.css"},
+			Tools:       []string{"mcp__claude_ai_Figma"},
+			Description: "Knows the design system's tokens and components. Owns layout, type, colour and motion; implements settled visual changes in the UI and checks them with screenshots.",
 		},
 	}
 }
@@ -295,7 +321,7 @@ func applyAgentDefaults(c *Config) {
 // onlyDisabled reports whether a sets no field but possibly Disabled.
 func onlyDisabled(a Agent) bool {
 	return a.Harness == "" && a.Model == "" && a.Prompt == "" && a.PromptText == "" &&
-		len(a.Args) == 0 && a.Description == ""
+		len(a.Args) == 0 && a.Description == "" && a.Title == "" && len(a.Context) == 0 && len(a.Tools) == 0
 }
 
 // configDir is the directory of the config file, or "" when the config has no path.
@@ -321,14 +347,14 @@ func applyRoutingDefaults(c *Config) {
 		c.Routing = map[string]string{}
 	}
 	defaults := map[string]string{
-		string(domain.KindFeature):  "implementer",
-		string(domain.KindBugfix):   "implementer",
-		string(domain.KindIssue):    "implementer",
-		string(domain.KindChore):    "implementer",
+		string(domain.KindFeature):  "senior-engineer",
+		string(domain.KindBugfix):   "senior-engineer",
+		string(domain.KindIssue):    "senior-engineer",
+		string(domain.KindChore):    "senior-engineer",
 		string(domain.KindIncident): "sre",
-		string(domain.KindReview):   "reviewer",
-		string(domain.KindImprove):  "improver",
-		string(domain.KindQuestion): "triager",
+		string(domain.KindReview):   "code-reviewer",
+		string(domain.KindImprove):  "platform-engineer",
+		string(domain.KindQuestion): "tech-lead",
 	}
 	c.defaultRoutes = map[string]bool{}
 	for kind, agent := range defaults {

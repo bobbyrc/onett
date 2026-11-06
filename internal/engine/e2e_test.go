@@ -413,7 +413,7 @@ func TestE2EReviewerRejectThenBlocks(t *testing.T) {
 
 	var implRuns, reviewRuns int
 	for _, r := range e2eRuns(v, task.ID) {
-		if r.Role == "implementer" {
+		if r.Role == "senior-engineer" {
 			implRuns++
 		}
 	}

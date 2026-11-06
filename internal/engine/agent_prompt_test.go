@@ -24,9 +24,9 @@ func TestAgentPromptPrefersInlineText(t *testing.T) {
 
 func TestAgentPromptReadsBuiltin(t *testing.T) {
 	e := &Engine{}
-	got, err := e.AgentPrompt(config.Agent{Prompt: "builtin:reviewer"})
+	got, err := e.AgentPrompt(config.Agent{Prompt: "builtin:code-reviewer"})
 	require.NoError(t, err)
-	assert.True(t, strings.HasPrefix(got, "# Role: reviewer"), got)
+	assert.True(t, strings.HasPrefix(got, "# Role: code reviewer"), got)
 }
 
 func TestBuiltinPromptUnknown(t *testing.T) {

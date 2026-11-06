@@ -79,6 +79,7 @@ func Parse(data []byte, path string) (*Config, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	cfg.Warnings = append(cfg.Warnings, toolWarnings(&cfg)...)
 	return &cfg, nil
 }
 
@@ -323,7 +324,7 @@ func (c *Config) LoopsFor(project string) Loops {
 }
 
 // AgentsFor returns the agent roles that apply to project: the global roles with the project's
-// overrides applied. A set field of an override (Harness, Model, Prompt, Args, Description)
+// overrides applied. A set field of an override (Harness, Model, Prompt, Args, Description, Title, Context, Tools)
 // replaces the global role's field; a name the global map lacks adds a project-only role. The
 // map is fresh, so the caller may change it. An empty or unconfigured project gets the global
 // roles.
@@ -364,6 +365,15 @@ func (c *Config) AgentsFor(project string) map[string]Agent {
 		if ov.Description != "" {
 			base.Description = ov.Description
 		}
+		if ov.Title != "" {
+			base.Title = ov.Title
+		}
+		if len(ov.Context) > 0 {
+			base.Context = ov.Context
+		}
+		if len(ov.Tools) > 0 {
+			base.Tools = ov.Tools
+		}
 		if ov.Disabled {
 			base.Disabled = true
 		}
@@ -384,6 +394,7 @@ func (c *Config) AgentFor(kind domain.TaskKind, role string) (string, Agent, err
 func (c *Config) AgentForProject(project string, kind domain.TaskKind, role string) (string, Agent, error) {
 	agents := c.AgentsFor(project)
 	if role != "" {
+		role = CanonicalAgentName(role)
 		a, ok := agents[role]
 		if !ok {
 			return "", Agent{}, fmt.Errorf("config: unknown agent role %q", role)

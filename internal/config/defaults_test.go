@@ -31,20 +31,20 @@ func TestDefaultsOnEmptyConfig(t *testing.T) {
 	assert.Equal(t, "claude-code", cfg.Harness["claude"].Type)
 	assert.Equal(t, "codex", cfg.Harness["codex"].Type)
 
-	assert.Len(t, cfg.Agents, 6)
-	assert.Equal(t, "opus", cfg.Agents["orchestrator"].Model)
-	assert.Equal(t, "codex", cfg.Agents["implementer"].Harness)
+	assert.Len(t, cfg.Agents, 8)
+	assert.Equal(t, "opus", cfg.Agents["chief-of-staff"].Model)
+	assert.Equal(t, "codex", cfg.Agents["senior-engineer"].Harness)
 	assert.Equal(t, "builtin:sre", cfg.Agents["sre"].Prompt)
 
 	assert.Equal(t, map[string]string{
-		"feature":  "implementer",
-		"bugfix":   "implementer",
-		"issue":    "implementer",
-		"chore":    "implementer",
+		"feature":  "senior-engineer",
+		"bugfix":   "senior-engineer",
+		"issue":    "senior-engineer",
+		"chore":    "senior-engineer",
 		"incident": "sre",
-		"review":   "reviewer",
-		"improve":  "improver",
-		"question": "triager",
+		"review":   "code-reviewer",
+		"improve":  "platform-engineer",
+		"question": "tech-lead",
 	}, cfg.Routing)
 
 	pol := cfg.Policies["default"]
@@ -103,9 +103,9 @@ loops:
 	assert.Equal(t, "http://127.0.0.1:9000", cfg.Server.PublicURL)
 	assert.Equal(t, 5, cfg.Limits.MaxAttempts)
 	assert.Equal(t, 3, cfg.Limits.MaxConcurrentRuns)
-	assert.Equal(t, "codex", cfg.Agents["reviewer"].Harness)
-	assert.Equal(t, "gpt-5", cfg.Agents["reviewer"].Model)
-	assert.Equal(t, "triager", cfg.Routing["feature"])
+	assert.Equal(t, "codex", cfg.Agents["code-reviewer"].Harness)
+	assert.Equal(t, "gpt-5", cfg.Agents["code-reviewer"].Model)
+	assert.Equal(t, "tech-lead", cfg.Routing["feature"])
 	assert.Equal(t, "fatal", cfg.Loops.ProdWatch.MinLevel)
 
 	pol := cfg.Policies["default"]
@@ -161,8 +161,8 @@ func TestPromptPathsResolveAgainstConfigDir(t *testing.T) {
 	dir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(dir, "onett.yaml"), cfg.Path)
-	assert.Equal(t, filepath.Join(dir, "prompts", "reviewer.md"), cfg.Agents["reviewer"].Prompt)
-	assert.Equal(t, "/abs/triager.md", cfg.Agents["triager"].Prompt, "absolute paths are left alone")
+	assert.Equal(t, filepath.Join(dir, "prompts", "reviewer.md"), cfg.Agents["code-reviewer"].Prompt)
+	assert.Equal(t, "/abs/triager.md", cfg.Agents["tech-lead"].Prompt, "absolute paths are left alone")
 	assert.Equal(t, "builtin:sre", cfg.Agents["sre"].Prompt, "builtin prompts are left alone")
 }
 
@@ -239,9 +239,9 @@ projects:
 	require.NoError(t, err)
 
 	app := cfg.Projects["app"]
-	assert.Equal(t, filepath.Join(dir, "prompts", "app.md"), app.Agents["implementer"].Prompt)
+	assert.Equal(t, filepath.Join(dir, "prompts", "app.md"), app.Agents["senior-engineer"].Prompt)
 	assert.Equal(t, "/abs/designer.md", app.Agents["designer"].Prompt, "absolute paths are left alone")
-	assert.Equal(t, app.Agents["implementer"].Prompt, cfg.AgentsFor("app")["implementer"].Prompt, "merged roles see the resolved path")
+	assert.Equal(t, app.Agents["senior-engineer"].Prompt, cfg.AgentsFor("app")["senior-engineer"].Prompt, "merged roles see the resolved path")
 }
 
 func TestCIGraceDefaultsToThreeMinutesForEveryPolicy(t *testing.T) {

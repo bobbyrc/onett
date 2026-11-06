@@ -95,7 +95,7 @@ func (c *Config) AgentUses(project string) map[string][]AgentUse {
 			continue
 		}
 		var uses []AgentUse
-		if name == "orchestrator" {
+		if name == "chief-of-staff" {
 			uses = append(uses, AgentUse{Description: "the agent you chat with"})
 		}
 		rs := routes[name]
@@ -108,8 +108,8 @@ func (c *Config) AgentUses(project string) map[string][]AgentUse {
 		for _, r := range rs {
 			uses = append(uses, AgentUse{Kind: r.kind, Project: r.project, Description: KindUse(r.kind)})
 		}
-		if name != "orchestrator" {
-			uses = append(uses, AgentUse{Description: "the orchestrator may also hand it work by name"})
+		if name != "chief-of-staff" {
+			uses = append(uses, AgentUse{Description: "the chief of staff may also hand it work by name"})
 		}
 		out[name] = uses
 	}

@@ -40,6 +40,8 @@ func (e *Engine) repoFor(p *config.Project) workspace.Repo {
 // that apply to project (its overrides included); project "" means the global roles.
 func (e *Engine) harnessFor(project, agentName string) (harness.Harness, config.Agent, error) {
 	cfg := e.Config()
+	// Stored tasks and runs may still carry an old built-in name.
+	agentName = config.CanonicalAgentName(agentName)
 	a, ok := cfg.AgentsFor(project)[agentName]
 	if !ok {
 		return nil, config.Agent{}, fmt.Errorf("unknown agent %q", agentName)

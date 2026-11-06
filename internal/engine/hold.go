@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/notify"
@@ -159,6 +160,10 @@ func (e *Engine) heldRoles() []store.ProjectRole {
 		for role, a := range cfg.AgentsFor(name) {
 			if _, ok := e.holds.held(a.Harness, e.d.Now()); ok && !a.Disabled {
 				out = append(out, store.ProjectRole{Project: name, Role: role})
+				// Rows stored before the rename still carry the old name.
+				for _, old := range config.LegacyAgentNames(role) {
+					out = append(out, store.ProjectRole{Project: name, Role: old})
+				}
 			}
 		}
 	}

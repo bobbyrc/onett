@@ -37,11 +37,11 @@ func TestAgentsViewShowsOriginPromptAndUses(t *testing.T) {
 	x := newHarness(t)
 	withConfig(t, x, "")
 
-	reviewer := agentViews(t, x, "/api/v1/agents")["reviewer"]
+	reviewer := agentViews(t, x, "/api/v1/agents")["code-reviewer"]
 	assert.Equal(t, config.OriginBuiltin, reviewer.Origin)
 	assert.True(t, reviewer.PromptUpdates)
 	assert.Empty(t, reviewer.BuiltinPromptText)
-	assert.Contains(t, reviewer.PromptText, "# Role: reviewer")
+	assert.Contains(t, reviewer.PromptText, "# Role: code-reviewer")
 	assert.Contains(t, reviewer.Uses, config.AgentUse{Kind: "review", Description: config.KindUse("review")})
 }
 
@@ -49,11 +49,11 @@ func TestAgentsViewEditedPromptShowsBuiltinForCompare(t *testing.T) {
 	x := newHarness(t)
 	withConfig(t, x, "agents:\n  reviewer:\n    harness: claude\n    prompt_text: Mine.\n")
 
-	reviewer := agentViews(t, x, "/api/v1/agents")["reviewer"]
+	reviewer := agentViews(t, x, "/api/v1/agents")["code-reviewer"]
 	assert.Equal(t, config.OriginEdited, reviewer.Origin)
 	assert.False(t, reviewer.PromptUpdates)
 	assert.Equal(t, "Mine.", reviewer.PromptText)
-	assert.Contains(t, reviewer.BuiltinPromptText, "# Role: reviewer")
+	assert.Contains(t, reviewer.BuiltinPromptText, "# Role: code-reviewer")
 }
 
 func TestAgentsViewMissingPromptFileStill200(t *testing.T) {
@@ -62,17 +62,17 @@ func TestAgentsViewMissingPromptFileStill200(t *testing.T) {
 	withConfig(t, x, "agents:\n  reviewer:\n    harness: claude\n    prompt: \""+missing+"\"\n")
 
 	agents := agentViews(t, x, "/api/v1/agents")
-	reviewer := agents["reviewer"]
+	reviewer := agents["code-reviewer"]
 	assert.NotEmpty(t, reviewer.PromptError)
 	assert.Empty(t, reviewer.PromptText)
-	assert.Contains(t, agents, "implementer")
+	assert.Contains(t, agents, "senior-engineer")
 }
 
 func TestAgentsViewListsDisabled(t *testing.T) {
 	x := newHarness(t)
 	withConfig(t, x, "routing:\n  improve: triager\nagents:\n  improver:\n    disabled: true\n")
 
-	improver, ok := agentViews(t, x, "/api/v1/agents")["improver"]
+	improver, ok := agentViews(t, x, "/api/v1/agents")["platform-engineer"]
 	require.True(t, ok, "a disabled agent stays in the list")
 	assert.True(t, improver.Disabled)
 	assert.NotNil(t, improver.Uses, "uses is [] for a disabled agent, never null")
@@ -84,10 +84,10 @@ func TestAgentsViewProjectQuery(t *testing.T) {
 	withConfig(t, x, "projects:\n  app:\n    repo: bobbyrc/app\n    agents:\n      reviewer:\n        description: App review rules.\n")
 
 	global := agentViews(t, x, "/api/v1/agents")
-	assert.NotEqual(t, "App review rules.", global["reviewer"].Description)
+	assert.NotEqual(t, "App review rules.", global["code-reviewer"].Description)
 
 	app := agentViews(t, x, "/api/v1/agents?project=app")
-	assert.Equal(t, "App review rules.", app["reviewer"].Description)
+	assert.Equal(t, "App review rules.", app["code-reviewer"].Description)
 
 	rec := x.call(t, http.MethodGet, "/api/v1/agents?project=nope", "")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)

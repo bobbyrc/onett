@@ -254,7 +254,30 @@
           {
             "key": "description",
             "type": "string",
-            "help": "Description is shown in the UI and given to the orchestrator so it can pick roles."
+            "help": "Description is shown in the UI and given to the chief of staff so it can pick roles."
+          },
+          {
+            "key": "title",
+            "type": "string",
+            "help": "Title is the agent's human job title, such as \"Senior Engineer\"."
+          },
+          {
+            "key": "context",
+            "type": "list",
+            "help": "Context lists repo-relative files the agent reads before it starts. A path the worktree lacks is skipped.",
+            "item": {
+              "key": "",
+              "type": "string"
+            }
+          },
+          {
+            "key": "tools",
+            "type": "list",
+            "help": "Tools are harness-native tool permission rules the agent's runs are pre-approved for (claude-code: \"Bash(go test:*)\"). A harness without such rules ignores them.",
+            "item": {
+              "key": "",
+              "type": "string"
+            }
           },
           {
             "key": "disabled",
@@ -519,7 +542,30 @@
                 {
                   "key": "description",
                   "type": "string",
-                  "help": "Description is shown in the UI and given to the orchestrator so it can pick roles."
+                  "help": "Description is shown in the UI and given to the chief of staff so it can pick roles."
+                },
+                {
+                  "key": "title",
+                  "type": "string",
+                  "help": "Title is the agent's human job title, such as \"Senior Engineer\"."
+                },
+                {
+                  "key": "context",
+                  "type": "list",
+                  "help": "Context lists repo-relative files the agent reads before it starts. A path the worktree lacks is skipped.",
+                  "item": {
+                    "key": "",
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "tools",
+                  "type": "list",
+                  "help": "Tools are harness-native tool permission rules the agent's runs are pre-approved for (claude-code: \"Bash(go test:*)\"). A harness without such rules ignores them.",
+                  "item": {
+                    "key": "",
+                    "type": "string"
+                  }
                 },
                 {
                   "key": "disabled",

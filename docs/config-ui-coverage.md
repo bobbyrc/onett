@@ -66,6 +66,11 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `agents.*.args` | list | yes |  |
 | `agents.*.args.*` | string | yes |  |
 | `agents.*.description` | string | yes |  |
+| `agents.*.title` | string | yes |  |
+| `agents.*.context` | list | yes |  |
+| `agents.*.context.*` | string | yes |  |
+| `agents.*.tools` | list | yes |  |
+| `agents.*.tools.*` | string | yes |  |
 | `agents.*.disabled` | bool | yes |  |
 | `routing` | map | yes |  |
 | `routing.*` | string | yes |  |
@@ -122,6 +127,11 @@ when a new `any` field appears or a gap is closed without its entry being remove
 | `projects.*.agents.*.args` | list | yes |  |
 | `projects.*.agents.*.args.*` | string | yes |  |
 | `projects.*.agents.*.description` | string | yes |  |
+| `projects.*.agents.*.title` | string | yes |  |
+| `projects.*.agents.*.context` | list | yes |  |
+| `projects.*.agents.*.context.*` | string | yes |  |
+| `projects.*.agents.*.tools` | list | yes |  |
+| `projects.*.agents.*.tools.*` | string | yes |  |
 | `projects.*.agents.*.disabled` | bool | yes |  |
 | `projects.*.routing` | map | yes |  |
 | `projects.*.routing.*` | string | yes |  |

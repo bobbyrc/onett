@@ -41,7 +41,7 @@ import (
 func (e *Engine) reattachRun(ctx context.Context, r domain.Run) bool {
 	chat := r.TaskID == ""
 	if chat {
-		if r.Role != "orchestrator" || r.Workdir == "" {
+		if config.CanonicalAgentName(r.Role) != chatAgentName || r.Workdir == "" {
 			return false
 		}
 	} else if r.Status != domain.RunRunning || r.Workdir == "" || r.StartSHA == "" {
@@ -144,7 +144,7 @@ func (e *Engine) takeOverChat(ctx context.Context, r domain.Run, log *slog.Logge
 		return false
 	}
 	conv := convs[i]
-	h, agent, err := e.harnessFor(conv.Project, "orchestrator")
+	h, agent, err := e.harnessFor(conv.Project, chatAgentName)
 	if err != nil {
 		return false
 	}

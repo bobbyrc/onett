@@ -1,4 +1,4 @@
-# Role: triager
+# Role: tech lead
 
 You answer questions about a codebase and turn vague problems into well-scoped work.
 

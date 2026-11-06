@@ -69,17 +69,17 @@ agents:
 
 	name, agent, err := cfg.AgentFor(domain.KindFeature, "")
 	require.NoError(t, err)
-	assert.Equal(t, "implementer", name)
+	assert.Equal(t, "senior-engineer", name)
 	assert.Equal(t, "claude", agent.Harness, "routing picks the overridden implementer")
 
 	name, agent, err = cfg.AgentFor(domain.KindReview, "")
 	require.NoError(t, err)
-	assert.Equal(t, "reviewer", name)
+	assert.Equal(t, "code-reviewer", name)
 	assert.Equal(t, "sonnet", agent.Model)
 
 	name, _, err = cfg.AgentFor(domain.KindQuestion, "orchestrator")
 	require.NoError(t, err)
-	assert.Equal(t, "orchestrator", name, "an explicit role wins over routing")
+	assert.Equal(t, "chief-of-staff", name, "an explicit role wins over routing")
 
 	_, _, err = cfg.AgentFor(domain.KindFeature, "nobody")
 	assert.ErrorContains(t, err, `unknown agent role "nobody"`)
@@ -187,7 +187,7 @@ func TestExampleFileLoads(t *testing.T) {
 	assert.Equal(t, "vercel rollback $ONETT_ROLLBACK_ID --yes", myapp.Deploy.Options["rollback"])
 	assert.Equal(t, "sentry-prod", myapp.Observe[0].Name)
 
-	assert.Equal(t, "claude", cfg.Agents["implementer"].Harness)
+	assert.Equal(t, "claude", cfg.Agents["senior-engineer"].Harness)
 	assert.Equal(t, "exec", cfg.Harness["my-agent"].Type)
 	assert.Equal(t, "onett", cfg.SelfProject)
 
@@ -243,7 +243,7 @@ projects:
 	require.NoError(t, err)
 
 	app := cfg.AgentsFor("app")
-	impl := app["implementer"]
+	impl := app["senior-engineer"]
 	assert.Equal(t, "codex", impl.Harness, "override model only keeps the global harness")
 	assert.Equal(t, "sonnet", impl.Model)
 	assert.Equal(t, "builtin:implementer", impl.Prompt, "override model only keeps the global prompt")
@@ -252,12 +252,12 @@ projects:
 	assert.Equal(t, Agent{Harness: "claude", Prompt: "builtin:implementer", Description: "project only", Origin: OriginCustom},
 		app["designer"], "a name the global map lacks adds a project-only role")
 	assert.NotContains(t, cfg.AgentsFor("plain"), "designer")
-	assert.Equal(t, "codex", cfg.AgentsFor("plain")["implementer"].Harness)
-	assert.Equal(t, "gpt-5", cfg.Agents["implementer"].Model, "global roles are not changed")
+	assert.Equal(t, "codex", cfg.AgentsFor("plain")["senior-engineer"].Harness)
+	assert.Equal(t, "gpt-5", cfg.Agents["senior-engineer"].Model, "global roles are not changed")
 	assert.NotContains(t, cfg.Agents, "designer")
 
-	app["implementer"] = Agent{}
-	assert.Equal(t, "sonnet", cfg.AgentsFor("app")["implementer"].Model, "changing the returned map does not change the config")
+	app["senior-engineer"] = Agent{}
+	assert.Equal(t, "sonnet", cfg.AgentsFor("app")["senior-engineer"].Model, "changing the returned map does not change the config")
 }
 
 func TestAgentForProjectRoutingFallsBackToGlobal(t *testing.T) {
@@ -285,21 +285,21 @@ projects:
 	// The project routes bugfix to its overridden implementer, which runs on claude.
 	name, agent, err := cfg.AgentForProject("app", domain.KindBugfix, "")
 	require.NoError(t, err)
-	assert.Equal(t, "implementer", name)
+	assert.Equal(t, "senior-engineer", name)
 	assert.Equal(t, "claude", agent.Harness)
 
 	// No project routing for review: the global routing applies.
 	name, _, err = cfg.AgentForProject("app", domain.KindReview, "")
 	require.NoError(t, err)
-	assert.Equal(t, "reviewer", name)
+	assert.Equal(t, "code-reviewer", name)
 
 	// The project's routing wins over the global one for the same kind.
 	name, _, err = cfg.AgentForProject("plain", domain.KindFeature, "")
 	require.NoError(t, err)
-	assert.Equal(t, "triager", name)
+	assert.Equal(t, "tech-lead", name)
 	name, _, err = cfg.AgentForProject("plain", domain.KindBugfix, "")
 	require.NoError(t, err)
-	assert.Equal(t, "implementer", name, "kinds the project does not route use the global routing")
+	assert.Equal(t, "senior-engineer", name, "kinds the project does not route use the global routing")
 
 	// An explicit role is checked against the project's roles.
 	_, _, err = cfg.AgentForProject("app", domain.KindFeature, "triager")

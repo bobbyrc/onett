@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -96,6 +97,10 @@ func (e *Engine) finishChat(ctx context.Context, conv domain.Conversation, res c
 	return true
 }
 
+// chatAgentName is the agent that chat runs on. It is a name in the agents config; the message
+// author, ONETT_ROLE and closedBy "orchestrator" are separate identifiers and stay as they are.
+const chatAgentName = "chief-of-staff"
+
 // orchestratorAllowedTools pre-approves the onett CLI, which is how the orchestrator manages the
 // factory, so Claude Code's auto-mode classifier does not refuse routine calls such as
 // `onett task cancel`. Nothing else is allowed: no wildcard Bash.
@@ -108,7 +113,7 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 		return chatTurnResult{Reply: "I can't run: " + err.Error()}
 	}
 	cfg := e.Config()
-	h, agent, err := e.harnessFor(conv.Project, "orchestrator")
+	h, agent, err := e.harnessFor(conv.Project, chatAgentName)
 	if err != nil {
 		return fail(err)
 	}
@@ -136,7 +141,7 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 	// The run row is bookkeeping for a reply that is already underway, so it is written even when
 	// shutdown has cancelled ctx; otherwise the reply would fail to start and leave no run.
 	run, err := e.d.Store.CreateRun(context.WithoutCancel(ctx), domain.Run{
-		Project: conv.Project, Role: "orchestrator", Harness: agent.Harness, Model: settings.Model,
+		Project: conv.Project, Role: chatAgentName, Harness: agent.Harness, Model: settings.Model,
 		Effort: settings.Effort, PermissionMode: settings.PermissionMode,
 		Status: domain.RunStarting, Workdir: dir, GoalTurn: opts.goal,
 		StartedAt: now, LastOutputAt: now, DeadlineAt: &deadline,
@@ -179,7 +184,7 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 		ResumeSessionID: conv.SessionID,
 		Env:             e.chatEnv(conv, run.ID),
 		Args:            agent.Args,
-		AllowedTools:    orchestratorAllowedTools,
+		AllowedTools:    append(slices.Clone(orchestratorAllowedTools), agent.Tools...),
 		// Turns of one conversation share a long-lived agent process, so the prompt cache and
 		// MCP connections carry over; a harness that cannot do that starts one per turn.
 		ConversationID: conv.ID,

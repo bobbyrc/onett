@@ -40,6 +40,9 @@ type Config struct {
 	expanded []string `yaml:"-" json:"-"` // values substituted for ${NAME} references at load time; redacted wherever they appear
 	// defaultRoutes records the task kinds whose routing was filled from the built-in defaults.
 	defaultRoutes map[string]bool `yaml:"-" json:"-"`
+	// nameConflicts lists agents set under both their old and their current name; Validate
+	// reports them.
+	nameConflicts []string `yaml:"-" json:"-"`
 }
 
 type Server struct {
@@ -167,8 +170,16 @@ type Agent struct {
 	// agent that has no Markdown file.
 	PromptText string   `yaml:"prompt_text" json:"prompt_text,omitempty"`
 	Args       []string `yaml:"args" json:"args,omitempty"`
-	// Description is shown in the UI and given to the orchestrator so it can pick roles.
+	// Description is shown in the UI and given to the chief of staff so it can pick roles.
 	Description string `yaml:"description" json:"description,omitempty"`
+	// Title is the agent's human job title, such as "Senior Engineer".
+	Title string `yaml:"title" json:"title,omitempty"`
+	// Context lists repo-relative files the agent reads before it starts. A path the worktree
+	// lacks is skipped.
+	Context []string `yaml:"context" json:"context,omitempty"`
+	// Tools are harness-native tool permission rules the agent's runs are pre-approved for
+	// (claude-code: "Bash(go test:*)"). A harness without such rules ignores them.
+	Tools []string `yaml:"tools" json:"tools,omitempty"`
 	// Disabled removes the agent from use: no task is routed to it and it cannot be named
 	// directly. A built-in agent can be disabled this way but not deleted. Disabling is refused
 	// while a route still uses the agent, so move those routes first.

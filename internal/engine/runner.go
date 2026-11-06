@@ -203,7 +203,7 @@ func (e *Engine) taskEnv(t domain.Task, run domain.Run, p *config.Project, ws wo
 	env["ONETT_RUN_ID"] = run.ID
 	env["ONETT_TASK_ID"] = t.ID
 	env["ONETT_PROJECT"] = t.Project
-	env["ONETT_ROLE"] = t.Role
+	env["ONETT_ROLE"] = config.CanonicalAgentName(t.Role)
 	env["ONETT_OUTBOX"] = filepath.Join(ws.Dir, domain.OutboxDir)
 	env["ONETT_BASE_REF"] = ws.BaseRef
 	return env
@@ -321,7 +321,7 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 
 	// Owner messages queued for this task's agent go with this run: a follow-up resumes the
 	// agent's session with just the messages; a first run gets them after the task prompt.
-	prompt := buildTaskPrompt(t, p, parent, conflicts) + attNote + setupNote
+	prompt := buildTaskPrompt(t, p, parent, conflicts) + contextSection(agent.Context, ws.Dir) + attNote + setupNote
 	resumeID := ""
 	root, claimed := e.claimOwnerMessages(bg, t)
 	st.root = root
@@ -386,6 +386,7 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 		PermissionMode:  settings.PermissionMode,
 		Env:             env,
 		Args:            agent.Args,
+		AllowedTools:    agent.Tools,
 	})
 	if err != nil {
 		_, ids := messageTexts(claimed)
