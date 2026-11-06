@@ -1,5 +1,5 @@
-// Chat screenshots for PR descriptions (npm run shots:chat). Four scenes, each in four variants
-// (desktop/iPhone x light/dark), written to e2e-results/chat-shots/<scene>-<variant>.png. The data
+// Chat screenshots for PR descriptions (npm run shots:chat). Every scene is taken in four variants
+// (desktop/iPhone x light/dark) and written to e2e-results/chat-shots/<scene>-<variant>.png. The data
 // is defined here, not in fixtures.ts, so the shots read like a real conversation and stay stable
 // when other fixtures change. scripts/pr-shots.sh publishes the PNGs.
 import { expect, test, type Page } from '@playwright/test';
@@ -173,7 +173,7 @@ const json = (page: Page, glob: string, body: unknown) =>
       : route.fallback(),
   );
 
-type Scene = { name: string; path: string; setup: (page: Page) => Promise<void>; ready: string; /** Scroll up before the shot, so the Jump to latest pill shows. */ away?: boolean; /** Open every "Worked for" fold and the first tool run, so the quiet tool lines show. */ open?: boolean; /** Click the button with this name prefix before the shot. */ pick?: string };
+type Scene = { name: string; path: string; setup: (page: Page) => Promise<void>; ready: string; /** Scroll up before the shot, so the Jump to latest pill shows. */ away?: boolean; /** Open every "Worked for" fold and the first tool run, so the quiet tool lines show. */ open?: boolean; /** Click the button with this name prefix before the shot. */ pick?: string; /** Focus the composer: 'click' clicks into the field and types, 'key' then tabs to the next control (keyboard focus). */ focus?: 'click' | 'key' };
 
 const SCENES: Scene[] = [
   {
@@ -259,6 +259,47 @@ const SCENES: Scene[] = [
     setup: async () => {},
   },
   {
+    // The composer while the owner types: the card's focused edge.
+    name: 'composer-focus',
+    path: `/chat/${CONV_ID}`,
+    ready: '.composer',
+    focus: 'click',
+    setup: async (page) => {
+      await json(page, '**/api/v1/conversations/*', { conversation: conv({}), messages: THREAD });
+      await json(page, '**/api/v1/runs/*/logs*', THREAD_LOGS);
+    },
+  },
+  {
+    // A control inside the composer reached with Tab: its keyboard ring.
+    name: 'composer-keyfocus',
+    path: `/chat/${CONV_ID}`,
+    ready: '.composer',
+    focus: 'key',
+    setup: async (page) => {
+      await json(page, '**/api/v1/conversations/*', { conversation: conv({}), messages: THREAD });
+      await json(page, '**/api/v1/runs/*/logs*', THREAD_LOGS);
+    },
+  },
+  {
+    name: 'task-thread-focus',
+    path: `/chat/task/${CHAT_TASK_ID}`,
+    ready: '.composer',
+    focus: 'click',
+    setup: async (page) => {
+      await json(page, '**/api/v1/tasks/*/conversation*', taskConv);
+      await json(page, '**/api/v1/runs/*/logs*', TASK_LOGS);
+    },
+  },
+  {
+    name: 'chat-empty-focus',
+    path: '/chat',
+    ready: '.composer',
+    focus: 'click',
+    setup: async (page) => {
+      await json(page, '**/api/v1/conversations', []);
+    },
+  },
+  {
     name: 'chat-empty',
     path: '/chat',
     ready: '.composer',
@@ -332,6 +373,12 @@ for (const v of VARIANTS) {
             if (el.scrollHeight > el.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowY)) el.scrollTop = el.scrollHeight;
           }
         });
+        if (scene.focus) {
+          const field = page.locator('.composer textarea').first();
+          await field.click();
+          if (scene.focus === 'click') await field.pressSequentially('Also log when the cap kicks in');
+          else await page.keyboard.press('Tab');
+        }
         if (scene.away) {
           await page.evaluate(() => {
             for (const el of document.querySelectorAll<HTMLElement>('*')) {

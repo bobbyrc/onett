@@ -32,9 +32,11 @@
   border-radius: var(--chat-radius-xl);
 }
 
+/* Typing focus is quiet: the 1px edge steps up to muted ink, no ring. A ring is for a control the
+   keyboard lands on (the :focus-visible rules below), not for a field the owner types in for
+   minutes. */
 .chat-page .composer:focus-within {
-  outline: 2px solid var(--chat-focus-ring);
-  outline-offset: 0;
+  border-color: var(--chat-composer-border-focus);
 }
 
 .chat-page .composer textarea {

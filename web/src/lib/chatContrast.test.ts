@@ -119,6 +119,8 @@ const pairs: [string, string, number][] = [
   ...['--chat-bg', '--chat-surface', '--chat-user-bg'].map((bg): [string, string, number] => ['--chat-focus-ring', bg, UI]),
   ['--chat-field-border', '--chat-bg', UI],
   ['--chat-field-border', '--chat-surface', UI],
+  ['--chat-composer-border-focus', '--chat-bg', UI],
+  ['--chat-composer-border-focus', '--chat-surface', UI],
 ];
 
 describe('chat token contrast', () => {
