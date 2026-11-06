@@ -13,10 +13,11 @@ import (
 // context ring reads the former.
 func TestSuperviseRecordsContextTokens(t *testing.T) {
 	env := rtNewEngine(t, rtOpts{
-		script: costScript(harness.Result{InputTokens: 700_000, ContextTokens: 58_679}),
+		script: costScript(harness.Result{InputTokens: 700_000, ContextTokens: 58_679, ContextWindow: 1_000_000}),
 	})
 	task := env.create(domain.Task{Body: "context"})
 	runs := env.firstEndedRun(task.ID)
 	assert.Equal(t, int64(58_679), runs[0].ContextTokens)
+	assert.Equal(t, int64(1_000_000), runs[0].ContextWindow)
 	assert.Equal(t, int64(700_000), runs[0].InputTokens)
 }

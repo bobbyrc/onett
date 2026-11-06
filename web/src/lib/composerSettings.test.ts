@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ConversationSettings, ConversationSettingsView } from '../types';
 import {
   contextFraction,
+  latestContextFraction,
   contextWindow,
   modelEffortLabel,
   needsDangerConfirm,
@@ -50,7 +51,7 @@ describe('composer settings labels', () => {
 
 describe('context ring', () => {
   it('knows Claude windows and hides the ring for unknown models', () => {
-    expect(contextWindow('opus')).toBe(200_000);
+    expect(contextWindow('opus')).toBeNull();
     expect(contextWindow('claude-opus-4[1m]')).toBe(1_000_000);
     expect(contextWindow('gpt-5.1-codex')).toBe(400_000);
     expect(contextWindow('gpt-x')).toBeNull();
@@ -58,9 +59,9 @@ describe('context ring', () => {
   });
 
   it('is the last request context over the window, capped at 1', () => {
-    expect(contextFraction({ context_tokens: 50_000, model: 'sonnet' })).toBeCloseTo(0.25);
-    expect(contextFraction({ context_tokens: 900_000, model: 'sonnet' })).toBe(1);
-    expect(contextFraction({ context_tokens: 0, model: 'sonnet' })).toBeNull();
+    expect(contextFraction({ context_tokens: 50_000, context_window: 200_000, model: 'sonnet' })).toBeCloseTo(0.25);
+    expect(contextFraction({ context_tokens: 900_000, context_window: 200_000, model: 'sonnet' })).toBe(1);
+    expect(contextFraction({ context_tokens: 0, context_window: 200_000, model: 'sonnet' })).toBeNull();
     expect(contextFraction({ model: 'sonnet' })).toBeNull();
     expect(contextFraction(undefined)).toBeNull();
     expect(contextFraction({ context_tokens: 10, model: 'gpt-x' })).toBeNull();
@@ -68,9 +69,28 @@ describe('context ring', () => {
 
   it('ignores input_tokens summed over a many-request run', () => {
     // A 12-request turn re-reads a ~58k prompt each time: input_tokens is ~700k, the context is 58k.
-    const run = { input_tokens: 700_000, context_tokens: 58_679, model: 'sonnet' };
+    const run = { input_tokens: 700_000, context_tokens: 58_679, context_window: 200_000, model: 'sonnet' };
     expect(contextFraction(run)).toBeCloseTo(0.293, 2);
     // No context_tokens (an old run) shows no ring rather than an overstated one.
     expect(contextFraction({ input_tokens: 700_000, model: 'sonnet' } as never)).toBeNull();
+  });
+
+  it('uses the window the CLI reported over the name table', () => {
+    // An "opus" alias run above 200k: the CLI said its window is 1M.
+    expect(contextFraction({ context_tokens: 250_000, context_window: 1_000_000, model: 'opus' })).toBeCloseTo(0.25);
+  });
+
+  it('has no ring for an old run on a Claude alias, and a name-table ring for Codex', () => {
+    expect(contextFraction({ context_tokens: 250_000, model: 'opus' })).toBeNull();
+    expect(contextFraction({ context_tokens: 100_000, model: 'gpt-5.1-codex' })).toBeCloseTo(0.25);
+  });
+
+  it('keeps the previous run value while a run is live', () => {
+    const done = { context_tokens: 250_000, context_window: 1_000_000, model: 'opus' };
+    const live = { model: 'opus' };
+    expect(latestContextFraction([done, live])).toBeCloseTo(0.25);
+    expect(latestContextFraction([live])).toBeNull();
+    expect(latestContextFraction([undefined, done, undefined])).toBeCloseTo(0.25);
+    expect(latestContextFraction([])).toBeNull();
   });
 });

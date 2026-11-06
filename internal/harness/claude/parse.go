@@ -19,20 +19,21 @@ const (
 // streamLine is the subset of Claude Code's stream-json lines that onett reads. Each line has
 // a "type": "system" (init, hooks), "assistant", "user", "result" or "rate_limit_event".
 type streamLine struct {
-	Type              string          `json:"type"`
-	Subtype           string          `json:"subtype"`
-	SessionID         string          `json:"session_id"`
-	Model             string          `json:"model"`
-	APIKeySource      string          `json:"apiKeySource"`
-	Message           json.RawMessage `json:"message"`
-	Result            string          `json:"result"`
-	IsError           bool            `json:"is_error"`
-	TotalCostUSD      float64         `json:"total_cost_usd"`
-	Usage             *usage          `json:"usage"`
-	ParentToolUseID   string          `json:"parent_tool_use_id"`
-	PermissionDenials []denial        `json:"permission_denials"`
-	APIErrorStatus    int             `json:"api_error_status"`
-	RateLimitInfo     *rateLimitInfo  `json:"rate_limit_info"`
+	Type              string                `json:"type"`
+	Subtype           string                `json:"subtype"`
+	SessionID         string                `json:"session_id"`
+	Model             string                `json:"model"`
+	APIKeySource      string                `json:"apiKeySource"`
+	Message           json.RawMessage       `json:"message"`
+	Result            string                `json:"result"`
+	IsError           bool                  `json:"is_error"`
+	TotalCostUSD      float64               `json:"total_cost_usd"`
+	Usage             *usage                `json:"usage"`
+	ModelUsage        map[string]modelUsage `json:"modelUsage"`
+	ParentToolUseID   string                `json:"parent_tool_use_id"`
+	PermissionDenials []denial              `json:"permission_denials"`
+	APIErrorStatus    int                   `json:"api_error_status"`
+	RateLimitInfo     *rateLimitInfo        `json:"rate_limit_info"`
 	Response          *struct {
 		Subtype string `json:"subtype"`
 	} `json:"response"`
@@ -50,6 +51,36 @@ type usage struct {
 	CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
 	CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
 	OutputTokens             int64 `json:"output_tokens"`
+}
+
+// modelUsage is one entry of the result line's modelUsage, keyed by the full model ID. The CLI
+// reports the window it actually runs the model with, which the requested alias cannot tell.
+type modelUsage struct {
+	ContextWindow int64   `json:"contextWindow"`
+	CostUSD       float64 `json:"costUSD"`
+}
+
+// windowOf picks the context window of the session's own model from a result's modelUsage, which
+// also lists helper models (a sub-agent, a title writer). It prefers the model the init line
+// named, then the only entry, then the costliest one. 0 when the line reports none.
+func windowOf(usage map[string]modelUsage, initModel string) int64 {
+	if len(usage) == 0 {
+		return 0
+	}
+	base := func(m string) string { return strings.TrimSuffix(m, "[1m]") }
+	var best string
+	for name, u := range usage {
+		if u.ContextWindow <= 0 {
+			continue
+		}
+		if name == initModel || (initModel != "" && base(name) == base(initModel)) {
+			return u.ContextWindow
+		}
+		if best == "" || u.CostUSD > usage[best].CostUSD {
+			best = name
+		}
+	}
+	return usage[best].ContextWindow
 }
 
 type message struct {
@@ -99,6 +130,10 @@ type parser struct {
 	// reads and writes): what the context window holds now. The result line's usage sums every
 	// request of the turn, so it cannot say that.
 	contextTokens int64
+	// contextWindow is the model's window from the latest result line's modelUsage (0 if absent);
+	// initModel is the full model ID the init line named, which picks the entry that is ours.
+	contextWindow int64
+	initModel     string
 	// onResult, if set, runs after each result line is parsed.
 	onResult func()
 	// perTurn is set for a long-lived process that answers many turns (see harness.StartConvTurn):
@@ -132,6 +167,7 @@ func (p *parser) parseLine(line string) []harness.Event {
 		// Only init is kept. Hook and informational lines are environment noise.
 		if sl.Subtype == "init" {
 			p.billing = billingFor(sl.APIKeySource)
+			p.initModel = sl.Model
 			model := sl.Model
 			if model == "" {
 				model = p.model
@@ -246,6 +282,9 @@ func (p *parser) resultEvents(sl streamLine) []harness.Event {
 		p.cacheRead += sl.Usage.CacheReadInputTokens
 		p.cacheWrite += sl.Usage.CacheCreationInputTokens
 	}
+	if w := windowOf(sl.ModelUsage, p.initModel); w > 0 {
+		p.contextWindow = w
+	}
 	if p.onResult != nil {
 		defer p.onResult()
 	}
@@ -279,6 +318,7 @@ func (p *parser) endTurn() {
 	p.denials = nil
 	p.rejected = nil
 	p.inputTokens, p.outputTokens, p.cacheRead, p.cacheWrite, p.contextTokens = 0, 0, 0, 0, 0
+	p.contextWindow = 0
 	p.announced = false // the next turn's first event names the session again
 }
 
@@ -302,6 +342,7 @@ func (p *parser) result(exitCode int, stderrTail []string) harness.Result {
 		res.CachedInputTokens = p.cacheRead
 		res.CacheWriteTokens = p.cacheWrite
 		res.ContextTokens = p.contextTokens
+		res.ContextWindow = p.contextWindow
 		res.OutputTokens = p.outputTokens
 		if f.Result != "" {
 			res.FinalText = f.Result

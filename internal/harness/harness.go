@@ -82,6 +82,9 @@ type Result struct {
 	// ContextTokens is the size of the last model request's prompt, which is how full the context
 	// window is now (0 if not reported). InputTokens sums every request and cannot say that.
 	ContextTokens int64
+	// ContextWindow is the model's context window in tokens as the CLI reported it (0 if not
+	// reported). Aliases such as "opus" hide whether it is 200k or 1M, so it is never guessed.
+	ContextWindow int64
 	IsError       bool
 	// Billing says how the run was paid for: BillingMetered, BillingSubscription, or "" when
 	// the adapter cannot tell.
