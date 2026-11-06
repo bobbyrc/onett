@@ -21,8 +21,8 @@ with the config by [config-ui-coverage.md](config-ui-coverage.md) and a test.
 - `git`, and `gh` logged in to GitHub (`gh auth status`). Onett uses `gh` to open and merge PRs.
 - `mise`. The repository's `mise.toml` pins the Go version, and `mise exec --` runs commands with it.
 - Node.js and npm. They are needed only to build the web UI.
-- The agent CLIs you plan to use. The default `implementer` role runs on Codex, and the
-  `orchestrator` and `reviewer` roles run on Claude Code. Install and log in to both (`codex` and
+- The agent CLIs you plan to use. The default `senior-engineer` role runs on Codex, and the
+  `chief-of-staff` and `code-reviewer` roles run on Claude Code. Install and log in to both (`codex` and
   `claude`), or change the roles to use only one.
 
 ## 2. Build onett
@@ -94,6 +94,26 @@ clone from step 3. Onett runs agents there, so it must be a real git checkout.
 Every other key is optional and has a default. `onett.example.yaml` in the repository lists every
 option with its default.
 
+**Roles.** Onett ships with job-role agents. Each has a `title`, instructions that say what it
+knows and does, and, optionally, `context` (repo files it reads first; missing files are skipped)
+and `tools` (tool permission rules pre-approved for its runs; Claude Code honours them, Codex
+ignores them and config validation warns). The harness (which agent CLI runs it)
+and the model are secondary settings you can change per role.
+
+| Role key | Title | What it does | Old name |
+|---|---|---|---|
+| `chief-of-staff` | Chief of Staff | the agent you chat with; turns requests into tasks and goals | `orchestrator` |
+| `senior-engineer` | Senior Engineer | writes and tests the change for a feature, bug fix or chore | `implementer` |
+| `code-reviewer` | Code Reviewer | reviews a PR with fresh context | `reviewer` |
+| `tech-lead` | Tech Lead | answers questions about the codebase and triages bug reports | `triager` |
+| `sre` | Site Reliability Engineer | investigates production incidents | `sre` |
+| `platform-engineer` | Platform Engineer | acts on retro findings to improve the factory | `improver` |
+| `product-designer` | Product Designer | designs product behaviour; reached with `--role` | new |
+| `visual-designer` | Visual Designer | designs the look of the UI; reached with `--role` | new |
+
+The old names still work as aliases in config, routing and `--role`. The two designer roles have
+no task kind, so a task reaches them only with `--role`.
+
 **Adding another project.** You do not need to edit the file by hand for a second repository. Run
 `./onett project add NAME --repo OWNER/NAME`, with `--path` and `--branch` optional, and it adds
 the project under `projects:` and keeps the file's comments. It refuses a name that already exists.
@@ -104,7 +124,7 @@ role name the fields to change (`harness`, `model`, `prompt`, `args`, `descripti
 leave out keep the global role's values, and a name the global config does not define adds a role
 that only this project has. Under `routing:`, send a task kind to a role for this project only, and
 kinds you leave out keep the global routing. `onett.example.yaml` shows `myapp` running its
-implementer on Claude Code with a different model.
+senior engineer on Claude Code with a different model.
 
 **Per-project checks.** `checks` lists commands onett runs in the worktree after the agent
 finishes and before it commits and pushes. A failure re-queues the task with the output instead of
@@ -237,13 +257,13 @@ A run ends with one of these outcomes:
 - **No changes needed**: the task is done, and the summary explains why.
 - **Failed, or the agent reports `failed`**: onett queues the task again for another attempt,
   until `max_attempts` is used up. Then the task is blocked. The same happens when CI fails or the
-  reviewer asks for changes.
+  code reviewer asks for changes.
 - **Denied or stalled**: the task is blocked at once, with the reason, and you are notified.
 
-Once the PR exists, the PR shepherd waits for CI and runs a reviewer agent. Your trial repository
-needs no CI. Onett treats "no checks" as passing, so the reviewer is the only gate. A small docs
+Once the PR exists, the PR shepherd waits for CI and runs a code-reviewer agent. Your trial repository
+needs no CI. Onett treats "no checks" as passing, so the code reviewer is the only gate. A small docs
 change is usually rated `low` risk. If the agent and the policy both agree, the PR merges on its
-own after the reviewer approves and CI is green, whatever its risk. Under the opt-in `supervised`
+own after the code reviewer approves and CI is green, whatever its risk. Under the opt-in `supervised`
 policy (`policy: supervised` on the project), only `low` risk merges alone; otherwise it waits
 for you, as in step 8.
 
@@ -392,7 +412,7 @@ in flight is still checked and rolled back.
 
 ## 14. Run toolchains under Codex's sandbox
 
-Codex is the agent behind the `implementer` and `improver` roles. Its default `workspace-write`
+Codex is the agent behind the `senior-engineer` and `platform-engineer` roles. Its default `workspace-write`
 sandbox can write only to the task's worktree and `/tmp`, and it has no network. Build tools that
 write caches under `$HOME` or download dependencies fail inside it, usually with a permission error.
 
@@ -427,10 +447,10 @@ binding or connecting to localhost. A test suite that starts an `httptest` serve
 listener fails with errors such as `listen tcp6 [::1]:0: bind: operation not permitted`. There are
 two ways out:
 
-1. **Route those tasks to the Claude-based implementer role**, `implementer-claude`, which has no such
+1. **Route those tasks to the Claude-based senior-engineer role**, `implementer-claude`, which has no such
    restriction. Define it under `agents:` with `harness: claude` (see step 4) and send the task kind
    to it under `routing:`.
-2. **Opt the Codex implementer in to network access.** The owner adds this to the harness `args`:
+2. **Opt the Codex senior engineer in to network access.** The owner adds this to the harness `args`:
 
    ```yaml
    args: ["-c", "sandbox_workspace_write.network_access=true"]
