@@ -52,3 +52,34 @@ func TestShutdownKeepsTheSocketUntilTheShimIsDone(t *testing.T) {
 	_, err = os.Stat(sock)
 	require.True(t, os.IsNotExist(err), "shutdown removes the socket last: %v", err)
 }
+
+// A shim whose socket path was taken over by a newer shim (the harness gives up waiting for an
+// old shim after a few seconds) must leave the newer shim's socket alone.
+func TestShutdownLeavesAReplacementsSocket(t *testing.T) {
+	dir := t.TempDir()
+	short, err := os.MkdirTemp("", "sh")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(short) })
+	sock := filepath.Join(short, "s.sock")
+	ln, err := net.Listen("unix", sock)
+	require.NoError(t, err)
+	logf, err := os.Create(filepath.Join(dir, "stream.log"))
+	require.NoError(t, err)
+	s := &shim{spec: Spec{RunDir: dir, SocketPath: sock}, ln: ln, logf: logf, conns: map[net.Conn]struct{}{}}
+	s.sockInfo, err = os.Lstat(sock)
+	require.NoError(t, err)
+
+	// The old shim closes its listener; a replacement then binds the same path.
+	ul := ln.(*net.UnixListener)
+	ul.SetUnlinkOnClose(false)
+	require.NoError(t, ln.Close())
+	require.NoError(t, os.Remove(sock))
+	newer, err := net.Listen("unix", sock)
+	require.NoError(t, err)
+	defer newer.Close()
+
+	s.shutdown()
+	c, err := net.DialTimeout("unix", sock, time.Second)
+	require.NoError(t, err, "the replacement's socket must survive the old shim's shutdown")
+	_ = c.Close()
+}
