@@ -280,15 +280,22 @@ func (g *GitHub) MergePR(ctx context.Context, number int, headSHA string) error 
 }
 
 // CILog returns the logs of up to three failed workflow runs on the PR's branch, each preceded by
-// a "=== <name> ===" header. Lines are cleaned of gh's job/step/timestamp prefix and ANSI escapes;
+// a "=== <name> ===" header. Once the PR head commit is known only runs for that commit are used,
+// and the header names its short SHA, so a log from an older push is never taken for the current
+// one. A run whose failed-step log comes back empty says so rather than leaving a blank block. Lines are cleaned of gh's job/step/timestamp prefix and ANSI escapes;
 // if the result exceeds maxBytes it is cut down to the lines around failures (see condenseLog).
 func (g *GitHub) CILog(ctx context.Context, number int, maxBytes int) (string, error) {
 	pr, err := g.GetPR(ctx, number)
 	if err != nil {
 		return "", err
 	}
-	out, err := g.run(ctx, "", "run", "list", "--repo", g.Repo, "--branch", pr.HeadBranch,
-		"--json", "databaseId,conclusion,name", "--limit", "10")
+	listArgs := []string{"run", "list", "--repo", g.Repo, "--branch", pr.HeadBranch}
+	short := ""
+	if pr.HeadSHA != "" {
+		listArgs = append(listArgs, "--commit", pr.HeadSHA)
+		short = pr.HeadSHA[:min(7, len(pr.HeadSHA))]
+	}
+	out, err := g.run(ctx, "", append(listArgs, "--json", "databaseId,conclusion,name", "--limit", "10")...)
 	if err != nil {
 		return "", fmt.Errorf("list runs for %s: %w", pr.HeadBranch, err)
 	}
@@ -316,7 +323,15 @@ func (g *GitHub) CILog(ctx context.Context, number int, maxBytes int) (string, e
 		if err != nil {
 			return "", fmt.Errorf("view log of run %d (%s): %w", r.DatabaseID, r.Name, err)
 		}
-		fmt.Fprintf(&b, "=== %s ===\n%s", r.Name, cleanLog(string(log)))
+		name := r.Name
+		if short != "" {
+			name += " @ " + short
+		}
+		body := cleanLog(string(log))
+		if strings.TrimSpace(body) == "" {
+			body = "(GitHub returned no failed-step log for this run; it may still be finalising, or the job failed before any step ran)\n"
+		}
+		fmt.Fprintf(&b, "=== %s ===\n%s", name, body)
 	}
 	return condenseLog(b.String(), maxBytes), nil
 }
