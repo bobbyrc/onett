@@ -73,6 +73,9 @@ func TestShutdownLeavesAReplacementsSocket(t *testing.T) {
 	ul := ln.(*net.UnixListener)
 	ul.SetUnlinkOnClose(false)
 	require.NoError(t, ln.Close())
+	// Keep the old inode alive through a hard link: otherwise the filesystem may hand the freed
+	// inode number straight to the replacement socket, and the shim could not tell the two apart.
+	require.NoError(t, os.Link(sock, filepath.Join(short, "old.sock")))
 	require.NoError(t, os.Remove(sock))
 	newer, err := net.Listen("unix", sock)
 	require.NoError(t, err)
