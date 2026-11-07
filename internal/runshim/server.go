@@ -35,6 +35,8 @@ type shim struct {
 	cmd  *exec.Cmd
 	logf *os.File
 	ln   net.Listener
+	// sockInfo identifies the socket file this shim bound, so shutdown removes only its own.
+	sockInfo os.FileInfo
 
 	stdin       io.WriteCloser // nil unless KeepStdinOpen
 	stdinMu     sync.Mutex     // serialises writers only; never held by closeStdin
@@ -199,6 +201,7 @@ func (s *shim) listen() error {
 	}
 	_ = os.Chmod(path, 0o600)
 	s.ln = ln
+	s.sockInfo, _ = os.Lstat(path)
 	s.mu.Lock()
 	s.st.Socket = path
 	s.mu.Unlock()
@@ -420,7 +423,14 @@ func (s *shim) shutdown() {
 	s.mu.Unlock()
 	_ = s.logf.Close()
 	s.writeStatus(true)
-	// Last, so a missing socket means the shim is done with its files.
+	// Last, so a missing socket means the shim is done with its files. Only our own file: a
+	// replacement shim may have bound the path already (the harness stops waiting for the old
+	// shim after a few seconds), and removing its socket would leave it unreachable.
+	if s.sockInfo != nil {
+		if fi, err := os.Lstat(s.spec.SocketPath); err != nil || !os.SameFile(fi, s.sockInfo) {
+			return
+		}
+	}
 	_ = os.Remove(s.spec.SocketPath)
 }
 
