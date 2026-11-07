@@ -400,8 +400,12 @@ for (const vp of VIEWPORTS) {
       const pill = page.getByRole('button', { name: /jump to latest/i });
       await expect(pill).toHaveCount(0);
 
-      await page.evaluate(() => ((document.querySelector('.messages-scroll') as HTMLElement).scrollTop = 0));
-      await expect(pill).toBeVisible();
+      // A late layout pass can re-pin the view to the end after we scroll away (the hook still counts
+      // the reader as following until its scroll event lands), so retry until the pill sticks.
+      await expect(async () => {
+        await page.evaluate(() => ((document.querySelector('.messages-scroll') as HTMLElement).scrollTop = 0));
+        await expect(pill).toBeVisible({ timeout: 1000 });
+      }).toPass({ timeout: 10_000 });
       const box = (await pill.boundingBox())!;
       const composer = (await page.locator('.chat-page .composer').boundingBox())!;
       const vw = page.viewportSize()!.width;
