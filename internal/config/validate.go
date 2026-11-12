@@ -52,9 +52,21 @@ func (c *Config) Validate() error {
 	for _, msg := range c.nameConflicts {
 		add("%s", msg)
 	}
+	builtins := BuiltinAgents()
 	for name, a := range c.Agents {
-		if _, ok := c.Harness[a.Harness]; !ok {
+		// An entry that names a built-in role replaces it whole (applyAgentDefaults), so a required
+		// field it leaves out is empty. The message says what to write, not only that it is missing.
+		def, builtin := builtins[name]
+		switch _, ok := c.Harness[a.Harness]; {
+		case ok:
+		case builtin && a.Harness == "":
+			add("agents.%s.harness: must not be empty; an entry here replaces the built-in role whole, so add \"harness: %s\"", name, def.Harness)
+		default:
 			add("agents.%s.harness: unknown harness %q", name, a.Harness)
+		}
+		if builtin && a.Prompt == "" && a.PromptText == "" {
+			add("agents.%s.prompt: must not be empty; an entry here replaces the built-in role whole, so add \"prompt: %s\"", name, def.Prompt)
+			continue
 		}
 		addPromptProblem(add, "agents."+name, a)
 	}

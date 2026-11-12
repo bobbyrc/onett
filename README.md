@@ -232,7 +232,7 @@ as in `onett task create -h`.
 | `init [--notify ntfy --ntfy-topic T] [--channel telegram\|discord --user-ids IDS]` | write a starter onett.yaml; the flags set up notifications without prompts |
 | `token` | print the API token |
 | `open` | open the web UI (sign in there) |
-| `status` | what is running, and what needs you |
+| `status` | what is running, what needs you, and the daemon's version |
 | `projects` | list managed projects |
 | `project add\|pause\|resume` | add a project to the config, or pause or resume one |
 | `agents [--all]` | list agent roles; `--all` also shows removed (disabled) ones |
@@ -251,7 +251,7 @@ as in `onett task create -h`.
 | `resume` | resume a paused factory |
 | `chat` | message the chief of staff and print its reply |
 | `service` | install, uninstall or check the launchd service that keeps serve running |
-| `doctor` | check the setup: config, git, gh, harness CLIs, projects and the daemon |
+| `doctor [--no-daemon]` | check the setup: config, git, gh, harness CLIs, each project's clone and the daemon; warns when the daemon runs a different version than this binary. `--no-daemon` skips the daemon checks, to validate a config file on its own |
 | `version` | print the onett version |
 
 ### Run it as a service

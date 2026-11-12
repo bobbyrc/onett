@@ -50,7 +50,8 @@ func healthyDaemon(t *testing.T) {
 	t.Setenv("ONETT_API", srv.URL)
 }
 
-// doctorFixture is a temp data dir, a clone that exists, and a config that uses them. The
+// doctorFixture is a temp data dir, a clone that exists (a directory with a .git), and a config
+// that uses them. The
 // config has three projects (a GitHub one with a clone, one that will be cloned, and a paused
 // local-path one) and an exec harness that is not used by any agent.
 type doctorFixture struct {
@@ -66,7 +67,7 @@ func newDoctorFixture(t *testing.T, extra string) doctorFixture {
 		dataDir: filepath.Join(root, "data"),
 		clone:   filepath.Join(root, "clone"),
 	}
-	require.NoError(t, os.MkdirAll(f.clone, 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(f.clone, ".git"), 0o755))
 	body := "server:\n" +
 		"  data_dir: " + strconv.Quote(f.dataDir) + "\n" +
 		"projects:\n" +
@@ -129,7 +130,8 @@ func TestDoctorAllHealthy(t *testing.T) {
 	for _, c := range *calls {
 		names = append(names, c.name+" "+strings.Join(c.args, " "))
 	}
-	assert.Equal(t, []string{"git --version", "gh auth status", "claude --version", "codex --version"}, names)
+	remote := "git -c core.hooksPath=/dev/null -C " + f.clone + " remote get-url origin"
+	assert.Equal(t, []string{"git --version", "gh auth status", "claude --version", "codex --version", remote, remote}, names)
 }
 
 func TestDoctorFailsWhenUsedHarnessIsMissing(t *testing.T) {
