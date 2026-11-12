@@ -155,6 +155,25 @@ type Store interface {
 	SaveLoopState(ctx context.Context, s domain.LoopState) error
 	ListLoopStates(ctx context.Context) ([]domain.LoopState, error)
 
+	// CreateTrigger assigns ID and timestamps when empty.
+	CreateTrigger(ctx context.Context, t domain.Trigger) (domain.Trigger, error)
+	GetTrigger(ctx context.Context, id string) (domain.Trigger, error)
+	// ListTriggers returns every trigger, oldest first.
+	ListTriggers(ctx context.Context) ([]domain.Trigger, error)
+	UpdateTrigger(ctx context.Context, id string, fn func(*domain.Trigger) error) (domain.Trigger, error)
+	// DeleteTrigger removes the trigger and its firings. ErrNotFound when absent.
+	DeleteTrigger(ctx context.Context, id string) error
+	// CreateTriggerFiring assigns ID, and At when zero.
+	CreateTriggerFiring(ctx context.Context, f domain.TriggerFiring) (domain.TriggerFiring, error)
+	UpdateTriggerFiring(ctx context.Context, id string, fn func(*domain.TriggerFiring) error) (domain.TriggerFiring, error)
+	// ListTriggerFirings returns the firings of one trigger, newest first. limit 0 = 200.
+	ListTriggerFirings(ctx context.Context, triggerID string, limit int) ([]domain.TriggerFiring, error)
+	// TriggerFiringsSince returns the firings of one trigger at or after since, newest first.
+	TriggerFiringsSince(ctx context.Context, triggerID string, since time.Time) ([]domain.TriggerFiring, error)
+	// LastIssueFiring returns the newest firing of triggerID for that issue, or ErrNotFound. It is
+	// how a github_issue trigger knows it already fired for an issue, across restarts.
+	LastIssueFiring(ctx context.Context, triggerID string, issueNumber int) (domain.TriggerFiring, error)
+
 	// CreateFirstUser stores u only if no user exists yet, atomically, and returns ErrConflict
 	// otherwise. CreatedAt and UpdatedAt are set when zero.
 	CreateFirstUser(ctx context.Context, u domain.User) (domain.User, error)

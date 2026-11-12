@@ -61,6 +61,7 @@ func commandList() []command {
 		{"config", "print the redacted config, or --reload it", cmdConfig},
 		{"task", "create, list, show, cancel and retry tasks", cmdTask},
 		{"goal", "create, list, show, pause, resume and finish goals the orchestrator works on unattended", cmdGoal},
+		{"trigger", "list triggers and their firing history (only a signed-in owner creates or changes triggers)", cmdTrigger},
 		{"run", "list, show, cancel and print logs of agent runs", cmdRun},
 		{"deploys", "list releases, or show one with its log: deploys show ID", cmdDeploys},
 		{"approvals", "list approvals waiting for a decision", cmdApprovals},
@@ -148,6 +149,8 @@ const (
 		"Run \"onett task <verb> -h\" for a verb's flags."
 	goalHelp = "usage: onett goal create|list|show|pause|resume|done|block [flags] [arguments]\n" +
 		"Run \"onett goal <verb> -h\" for a verb's flags."
+	triggerHelp = "usage: onett trigger list|history [flags] [arguments]\n" +
+		"Run \"onett trigger <verb> -h\" for a verb's flags."
 	runHelp = "usage: onett run list|show|cancel|logs [flags] [arguments]\n" +
 		"Run \"onett run <verb> -h\" for a verb's flags."
 	projectHelp = "usage: onett project add|pause|resume NAME [flags]\n" +
