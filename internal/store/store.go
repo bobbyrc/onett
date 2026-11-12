@@ -170,6 +170,9 @@ type Store interface {
 	ListTriggerFirings(ctx context.Context, triggerID string, limit int) ([]domain.TriggerFiring, error)
 	// TriggerFiringsSince returns the firings of one trigger at or after since, newest first.
 	TriggerFiringsSince(ctx context.Context, triggerID string, since time.Time) ([]domain.TriggerFiring, error)
+	// ListAllTriggerFirings returns the newest firings across every trigger, newest first.
+	// limit 0 = 50.
+	ListAllTriggerFirings(ctx context.Context, limit int) ([]domain.TriggerFiring, error)
 	// LastIssueFiring returns the newest firing of triggerID for that issue, or ErrNotFound. It is
 	// how a github_issue trigger knows it already fired for an issue, across restarts.
 	LastIssueFiring(ctx context.Context, triggerID string, issueNumber int) (domain.TriggerFiring, error)

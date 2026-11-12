@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -57,13 +58,17 @@ func writeError(w http.ResponseWriter, log *slog.Logger, err error) {
 	}
 }
 
-// readJSON decodes a request body, rejecting unknown fields and bodies over maxBodyBytes. A
-// failure wraps ErrInvalid. An empty body yields io.EOF (wrapped), which optional bodies accept.
+// readJSON decodes a request body, rejecting unknown fields, anything after the JSON value and
+// bodies over maxBodyBytes. A failure wraps ErrInvalid. An empty body yields io.EOF (wrapped),
+// which optional bodies accept.
 func readJSON(w http.ResponseWriter, r *http.Request, v any) error {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBodyBytes))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return invalidf("unexpected data after the JSON value")
 	}
 	return nil
 }

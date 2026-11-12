@@ -22,6 +22,8 @@ import type {
   Stats,
   Task,
   TaskConversation,
+  Trigger,
+  TriggerFiring,
   User,
 } from '../src/types';
 
@@ -168,6 +170,53 @@ export const goals: Goal[] = [
     updated_at: NOW,
   },
   { id: id(23), project: 'onett', title: 'Short goal', body: 'x', status: 'done', conversation_id: id(24), turns: 1, created_at: EARLIER, updated_at: NOW },
+];
+
+export const TRIGGER_ID = id(40);
+const firing = (n: number, over: Partial<TriggerFiring>): TriggerFiring => ({
+  id: id(50 + n),
+  trigger_id: TRIGGER_ID,
+  at: '2026-01-02T03:04:05Z',
+  cause: 'schedule',
+  scheduled_for: '2026-01-02T03:04:00Z',
+  outcome: 'started',
+  ...over,
+});
+export const triggerFirings: TriggerFiring[] = [
+  firing(1, { conversation_id: CONV_ID }),
+  firing(2, { outcome: 'skipped', reason: UNBROKEN }),
+  firing(3, { trigger_id: id(41), cause: 'github_issue', issue_number: 123456, issue_url: 'https://github.com/example/repo/issues/123456', outcome: 'failed', reason: LONG_TITLE }),
+  firing(4, { cause: 'manual', by: `owner:${UNBROKEN}` }),
+];
+export const triggers: Trigger[] = [
+  {
+    id: TRIGGER_ID,
+    name: LONG_TITLE,
+    kind: 'schedule',
+    project: 'onett',
+    prompt: `${LONG_TITLE} ${UNBROKEN}`,
+    enabled: true,
+    cron: '5 4 1,15 * *',
+    time_zone: 'America/Argentina/ComodRivadavia',
+    next_run_at: '2026-01-03T04:05:00Z',
+    conversation_id: CONV_ID,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    last_firing: triggerFirings[1],
+  },
+  {
+    id: id(41),
+    name: UNBROKEN,
+    kind: 'github_issue',
+    project: 'onett',
+    prompt: UNBROKEN,
+    enabled: false,
+    label: UNBROKEN,
+    issues_after: '2026-01-01T00:00:00Z',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    last_firing: triggerFirings[2],
+  },
 ];
 
 export const approvals: Approval[] = [0, 1, 2].map((n) => ({

@@ -154,8 +154,8 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   A trigger starts at most 20 turns an hour, and its turns always run with the orchestrator's
   default model and permission mode, whatever was set on its conversation.
 - **Agents get a small environment.** An agent sees an allowlist (`PATH`, `HOME`, `USER`, `LANG`,
-  ...), not onett's own environment, so `GH_TOKEN` and provider tokens do not reach it. To pass
-  one through, name it in the harness's `inherit_env` list. Agents still run as your user and can
+  ...), not onett's own environment, so the credentials onett holds for itself (`GH_TOKEN`, `GITHUB_TOKEN`, `SENTRY_AUTH_TOKEN`) do not reach it. The agent CLIs' own keys and settings (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, every `CLAUDE_CODE_*` variable) are on the allowlist and do reach it when they are set where onett runs. To pass
+  another variable through, name it in the harness's `inherit_env` list. Agents still run as your user and can
   read what your user can read; isolating them is an open decision, see
   [docs/proposals/agent-isolation.md](docs/proposals/agent-isolation.md).
 - **Self-assigned work is rated higher.** Follow-up and retro tasks (task sources `followup` and

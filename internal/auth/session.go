@@ -6,11 +6,31 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"time"
 )
 
-// SessionCookie is the name of the browser cookie that carries a session token.
+// SessionCookie is the base of the browser cookie name that carries a session token. See
+// SessionCookieName for the full name.
 const SessionCookie = "onett_session"
+
+// SessionCookieName returns the name of the session cookie for the onett that listens on
+// listenAddr (host:port): SessionCookie, an underscore and the port, such as
+// "onett_session_7777". Browsers keep one cookie jar per host name and ignore the port, so two
+// onetts on one machine (the real one and a staging copy) would otherwise overwrite and clear
+// each other's session. An address with no numeric port, or port 0, gives SessionCookie alone.
+func SessionCookieName(listenAddr string) string {
+	_, port, err := net.SplitHostPort(listenAddr)
+	if err != nil || port == "" || port == "0" {
+		return SessionCookie
+	}
+	for _, c := range port {
+		if c < '0' || c > '9' {
+			return SessionCookie
+		}
+	}
+	return SessionCookie + "_" + port
+}
 
 // SessionTTL is how long a session lasts after sign-in.
 const SessionTTL = 30 * 24 * time.Hour

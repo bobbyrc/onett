@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Triggers mockup A: read-only</title>
+<link rel="stylesheet" href="../../../../web/src/styles.css">
+<link rel="stylesheet" href="../../../../web/src/components/RailLamps.css">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="a.css">
+<script src="shell.js" defer></script>
+</head>
+<body data-nav="after-goals" data-role="viewer">
+<div class="app">
+<main class="main">
+<header class="page-header">
+  <h1>Triggers</h1>
+</header>
+<p class="muted small trg-summary">5 triggers on · 1 off · <span class="danger-text">1 failing</span></p>
+<p class="muted small trg-note">Only an owner can add or change triggers.</p>
+<div class="trg-body">
+  <div class="trg-table-wrap">
+    <table class="trg-table">
+      <colgroup><col class="trg-col-status"><col class="trg-col-name"><col class="trg-col-when"><col></colgroup>
+      <thead>
+        <tr><th scope="col">Status</th><th scope="col">Trigger</th><th scope="col">When</th><th scope="col">Last firing</th></tr>
+      </thead>
+      <tbody>
+<tr>
+  <td><span class="trg-status"><span class="trg-lamp trg-lamp-danger" aria-hidden="true"></span><span class="danger-text">Failed</span></span></td>
+  <td><a class="trg-name" href="a-history.html">Bug reports</a><span class="trg-sub muted">GitHub issue · dotfiles-and-agent-configs</span></td>
+  <td><span>When an issue is opened</span><span class="trg-sub muted">bobbyrc/dotfiles-and-agent-configs · label bug</span></td>
+  <td><span>2d ago <span class="muted">· issue #88</span></span><span class="trg-sub trg-cut danger-text" title="Failed: onett was shutting down">Failed: onett was shutting down</span></td>
+</tr>
+<tr>
+  <td><span class="trg-status"><span class="trg-lamp" aria-hidden="true"></span><span class="muted">Not fired yet</span></span></td>
+  <td><a class="trg-name" href="a-history.html">Friday release notes</a><span class="trg-sub muted">Schedule · onett</span></td>
+  <td><span>Fridays at 16:00</span><span class="trg-sub muted">America/New_York · next in 1d 5h</span></td>
+  <td><span><span class="muted">never</span></span></td>
+</tr>
+<tr>
+  <td><span class="trg-status"><span class="trg-lamp trg-lamp-ok" aria-hidden="true"></span><span>OK</span></span></td>
+  <td><a class="trg-name" href="a-history.html">Morning issue sweep</a><span class="trg-sub muted">Schedule · onett</span></td>
+  <td><span>Every day at 05:00</span><span class="trg-sub muted">America/New_York · next in 18h</span></td>
+  <td><span>5h ago <span class="muted">· scheduled 05:00</span></span><span class="trg-sub"><a href="#">Open conversation</a></span></td>
+</tr>
+<tr>
+  <td><span class="trg-status"><span class="trg-lamp trg-lamp-ok" aria-hidden="true"></span><span>OK</span></span></td>
+  <td><a class="trg-name" href="a-history.html">Triage new issues</a><span class="trg-sub muted">GitHub issue · onett</span></td>
+  <td><span>When an issue is opened</span><span class="trg-sub muted">bobbyrc/onett · any label</span></td>
+  <td><span>42m ago <span class="muted">· issue #412</span></span><span class="trg-sub"><a href="#">Open conversation</a></span></td>
+</tr>
+<tr>
+  <td><span class="trg-status"><span class="trg-lamp trg-lamp-warn" aria-hidden="true"></span><span>Skipped</span></span></td>
+  <td><a class="trg-name" href="a-history.html">Weekday dependency check</a><span class="trg-sub muted">Schedule · home-lab</span></td>
+  <td><span>Monday to Friday at 09:30</span><span class="trg-sub muted">America/New_York · next in 23h</span></td>
+  <td><span>1h ago <span class="muted">· scheduled 09:30</span></span><span class="trg-sub trg-cut warn-text" title="Skipped: the factory was paused">Skipped: the factory was paused</span></td>
+</tr>
+<tr>
+  <td><span class="trg-status"><span class="trg-lamp" aria-hidden="true"></span><span class="muted">Off</span></span></td>
+  <td><a class="trg-name" href="a-history.html">Stale PR nudge</a><span class="trg-sub muted">Schedule · onett</span></td>
+  <td><span class="muted">Every 6 hours</span><span class="trg-sub muted">America/New_York</span></td>
+  <td><span>21d ago <span class="muted">· scheduled 12:00</span></span><span class="trg-sub"><a href="#">Open conversation</a></span></td>
+</tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="trg-sheets">
+<article class="trg-sheet">
+  <div class="trg-sheet-top"><a class="trg-name" href="a-history.html">Bug reports</a><span class="trg-status"><span class="trg-lamp trg-lamp-danger" aria-hidden="true"></span><span class="danger-text">Failed</span></span></div>
+  <div class="trg-sheet-line muted">GitHub issue · dotfiles-and-agent-configs</div>
+  <div class="trg-sheet-line">When an issue is opened · label bug</div>
+  <div class="trg-sheet-line">Last firing 2d ago <span class="muted">· issue #88</span></div>
+  <div class="trg-sheet-line danger-text">Failed: onett was shutting down</div>
+</article>
+<article class="trg-sheet">
+  <div class="trg-sheet-top"><a class="trg-name" href="a-history.html">Friday release notes</a><span class="trg-status"><span class="trg-lamp" aria-hidden="true"></span><span class="muted">Not fired yet</span></span></div>
+  <div class="trg-sheet-line muted">Schedule · onett</div>
+  <div class="trg-sheet-line">Fridays at 16:00 · next in 1d 5h</div>
+  <div class="trg-sheet-line">Last firing <span class="muted">never</span></div>
+</article>
+<article class="trg-sheet">
+  <div class="trg-sheet-top"><a class="trg-name" href="a-history.html">Morning issue sweep</a><span class="trg-status"><span class="trg-lamp trg-lamp-ok" aria-hidden="true"></span><span>OK</span></span></div>
+  <div class="trg-sheet-line muted">Schedule · onett</div>
+  <div class="trg-sheet-line">Every day at 05:00 · next in 18h</div>
+  <div class="trg-sheet-line">Last firing 5h ago <span class="muted">· scheduled 05:00</span></div>
+  <div class="trg-sheet-line"><a href="#">Open conversation</a></div>
+</article>
+<article class="trg-sheet">
+  <div class="trg-sheet-top"><a class="trg-name" href="a-history.html">Triage new issues</a><span class="trg-status"><span class="trg-lamp trg-lamp-ok" aria-hidden="true"></span><span>OK</span></span></div>
+  <div class="trg-sheet-line muted">GitHub issue · onett</div>
+  <div class="trg-sheet-line">When an issue is opened · any label</div>
+  <div class="trg-sheet-line">Last firing 42m ago <span class="muted">· issue #412</span></div>
+  <div class="trg-sheet-line"><a href="#">Open conversation</a></div>
+</article>
+<article class="trg-sheet">
+  <div class="trg-sheet-top"><a class="trg-name" href="a-history.html">Weekday dependency check</a><span class="trg-status"><span class="trg-lamp trg-lamp-warn" aria-hidden="true"></span><span>Skipped</span></span></div>
+  <div class="trg-sheet-line muted">Schedule · home-lab</div>
+  <div class="trg-sheet-line">Monday to Friday at 09:30 · next in 23h</div>
+  <div class="trg-sheet-line">Last firing 1h ago <span class="muted">· scheduled 09:30</span></div>
+  <div class="trg-sheet-line warn-text">Skipped: the factory was paused</div>
+</article>
+<article class="trg-sheet">
+  <div class="trg-sheet-top"><a class="trg-name" href="a-history.html">Stale PR nudge</a><span class="trg-status"><span class="trg-lamp" aria-hidden="true"></span><span class="muted">Off</span></span></div>
+  <div class="trg-sheet-line muted">Schedule · onett</div>
+  <div class="trg-sheet-line muted">Every 6 hours</div>
+  <div class="trg-sheet-line">Last firing 21d ago <span class="muted">· scheduled 12:00</span></div>
+  <div class="trg-sheet-line"><a href="#">Open conversation</a></div>
+</article>
+  </div>
+</div>
+</main>
+</div>
+</body>
+</html>

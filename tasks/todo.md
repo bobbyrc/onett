@@ -115,7 +115,7 @@ Owner decisions and open items are the unchecked `OWNER:` lines below.
 - [x] pause keeps deploy_watch (finish/rollback) and prod_watch running; manual loop run on paused project → 409
 - [x] chat replies tied to shutdown; crash recovery respects max attempts
 - [x] cancelled incidents stay dismissed; retro excludes its own work; review findings deduped
-- [ ] known limit: budget counts a run's cost only when it ends (in-flight runs count $0)
+- [ ] known limit: the budget counts a run in flight as $0 until it ends, unless its harness is Claude Code with a `price` that has a `cached_input_per_mtok` rate (then its prompt tokens so far at that rate, a low estimate); a Codex run in flight always counts $0
 - [ ] idea: herdr gram intake — pick up owner-queued work posted from the Herdr phone app (herdr gram grab) as onett tasks
 - [x] issue-sourced tasks must report back: when a github_issue task ends without a PR (no_changes / blocked / failed / cancelled) comment the outcome on the issue (the intake comment promises it); once per outcome
 - [ ] later: comments/PRs post as the owner's gh account — consider a bot account or GitHub App for clear provenance

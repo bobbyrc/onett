@@ -132,7 +132,9 @@ type Harness struct {
 	// secrets loaded into onett (GH_TOKEN, provider tokens) do not reach them.
 	InheritEnv []string `yaml:"inherit_env" json:"inherit_env,omitempty"`
 	// Price lets onett estimate the cost of runs whose harness reports tokens but no dollar
-	// cost (codex), so limits.daily_budget_usd counts them.
+	// cost (codex), so limits.daily_budget_usd counts them. With a cached-input rate it also
+	// prices a run in flight (its prompt tokens so far at that rate), so the budget counts a
+	// running run before it ends.
 	Price *Price `yaml:"price" json:"price,omitempty"`
 	// Billing says how this harness's runs are paid for: "auto" (default; the adapter detects
 	// it), "metered" (pay per token) or "subscription" (flat rate). A value other than auto
@@ -183,7 +185,9 @@ func (h Harness) CodexFullAccess() bool { return h.Codex != nil && h.Codex.FullA
 func (h Harness) IsolateOn() bool { return h.Isolate != nil && *h.Isolate }
 
 // Price is USD per million tokens. Every field is optional; 0 means unknown. Cached input
-// tokens are billed at CachedInputPerMTok, falling back to InputPerMTok when that is 0.
+// tokens are billed at CachedInputPerMTok, falling back to InputPerMTok when that is 0. That
+// fallback is for a finished run only: a run in flight is estimated only when
+// CachedInputPerMTok is set (the engine's costSoFar).
 type Price struct {
 	InputPerMTok       float64 `yaml:"input_per_mtok" json:"input_per_mtok"`
 	OutputPerMTok      float64 `yaml:"output_per_mtok" json:"output_per_mtok"`
