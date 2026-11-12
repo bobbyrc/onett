@@ -102,7 +102,9 @@ Changes to `internal/engine/prompts/**`, `internal/policy/**`, `internal/config/
 `internal/sysproc/**`, `internal/engine/loop_shepherd.go`, `internal/engine/helpers.go`,
 `internal/auth/**`, `internal/api/auth.go` and `internal/api/routes.go` are rated **high** risk by
 a built-in rule, and `AGENTS.md`, `CLAUDE.md` and `onett.yaml` files are
-**medium**: the owner approves them. Do not move logic out of those files to avoid the rule.
+**medium**: the owner approves them. Changes to `.claude/**`, `.mcp.json` and `.codex/**` (the
+agent CLIs' own settings, hooks and MCP servers) are rated **high** too. Do not move logic out of
+those files to avoid the rule.
 
 ## Go conventions
 

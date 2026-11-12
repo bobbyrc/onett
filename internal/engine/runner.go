@@ -387,6 +387,8 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 		Env:             env,
 		Args:            agent.Args,
 		AllowedTools:    agent.Tools,
+		// A review runs in the worker's branch: that tree must not configure its own reviewer.
+		NoProjectConfig: t.Kind == domain.KindReview,
 	})
 	if err != nil {
 		_, ids := messageTexts(claimed)
@@ -674,8 +676,7 @@ func (e *Engine) publish(ctx context.Context, t domain.Task, p *config.Project, 
 		x.Branch = ws.Branch
 		x.PRNumber = pr.Number
 		x.PRURL = pr.URL
-		x.Risk = result.Risk
-		x.RiskReasons = result.RiskReasons
+		carryRisk(x, result.Risk, result.RiskReasons)
 		if x.ApprovedSHA != pr.HeadSHA {
 			// A new push invalidates any earlier review. A run that pushed nothing leaves the
 			// head the reviewer approved, so its approval stands and the shepherd retries the merge.
@@ -700,18 +701,21 @@ const checkOutputTail = 8 << 10
 // checkFailure is the first project command (a check or a setup command) that failed.
 type checkFailure struct {
 	name   string
-	output string // the tail of the check's combined stdout and stderr
+	output string // the tail of the command's combined stdout and stderr, redacted
 	note   string // "timed out after 10m" when the check ran out of time
 	err    error
 }
 
-// context renders the failure as the body of the re-queue note for the next agent.
+// context renders the failure as evidence for the next agent, the owner and anywhere the task's
+// text is posted: headed by evidenceNote, and fenced so that a backtick run in the output cannot
+// close the fence. The output was redacted when it was captured (runCommands).
 func (f *checkFailure) context() string {
 	out := strings.TrimSpace(f.output)
 	if out == "" {
 		out = "(no output)"
 	}
-	body := "```\n" + out + "\n```"
+	fence := strings.Repeat("`", max(3, longestBacktickRun(out)+1))
+	body := evidenceNote + "\n\n" + fence + "\n" + out + "\n" + fence
 	if f.note != "" {
 		body = f.note + "\n\n" + body
 	}
@@ -721,7 +725,8 @@ func (f *checkFailure) context() string {
 // runCommands runs cmds in order in dir and stops at the first that fails. Each command is
 // `sh -c` with its own timeout and runs with exactly env. Callers pass the agent's environment,
 // because these commands execute code the agent may have written, and onett's own tokens must
-// not be reachable from them. It returns nil when every command passes.
+// not be reachable from them. It returns nil when every command passes. The failure's output is
+// redacted.
 func runCommands(ctx context.Context, cmds []config.Check, dir string, env []string) *checkFailure {
 	for _, c := range cmds {
 		timeout := c.Timeout.Duration
@@ -742,7 +747,10 @@ func runCommands(ctx context.Context, cmds []config.Check, dir string, env []str
 		timedOut := errors.Is(cctx.Err(), context.DeadlineExceeded)
 		cancel()
 		if err != nil {
-			f := &checkFailure{name: c.Name, output: out.String(), err: err}
+			// Redacted here, where it is captured, so that no later use can leak it: with the
+			// command's own environment (the project's env is in it) and with onett's, where a
+			// ${NAME} reference in the config got its value.
+			f := &checkFailure{name: c.Name, output: redactSecrets(out.String(), append(os.Environ(), env...)), err: err}
 			if timedOut {
 				f.note = fmt.Sprintf("timed out after %s", timeout)
 			}
@@ -806,16 +814,7 @@ func (e *Engine) applyReview(ctx context.Context, rt domain.Task, parent *domain
 		_, applied, err := e.setTaskFrom(ctx, parent.ID, []domain.TaskStatus{domain.TaskReview},
 			"approved by reviewer at "+reviewed, func(x *domain.Task) error {
 				x.ApprovedSHA = reviewed
-				if result.Risk != domain.RiskUnknown {
-					base := x.Risk
-					if base == domain.RiskUnknown {
-						base = domain.RiskMedium
-					}
-					x.Risk = domain.MaxRisk(base, result.Risk)
-					for _, why := range result.RiskReasons {
-						x.RiskReasons = append(x.RiskReasons, "reviewer: "+why)
-					}
-				}
+				raiseForReviewer(x, result.Risk, result.RiskReasons)
 				return nil
 			})
 		if err != nil {
@@ -849,6 +848,16 @@ func (e *Engine) applyReview(ctx context.Context, rt domain.Task, parent *domain
 		x.Status = domain.TaskDone
 		return nil
 	})
+	// A rejecting reviewer's rating counts as well, so the worker's next report cannot undercut it.
+	if result.Risk != domain.RiskUnknown {
+		if _, _, err := e.setTaskFrom(ctx, parent.ID, []domain.TaskStatus{domain.TaskReview},
+			"reviewer rated risk "+string(result.Risk), func(x *domain.Task) error {
+				raiseForReviewer(x, result.Risk, result.RiskReasons)
+				return nil
+			}); err != nil {
+			e.d.Logger.Error("record reviewer risk", "task", parent.ID, "err", err)
+		}
+	}
 	e.requeueOrBlockFrom(ctx, parent.ID, []domain.TaskStatus{domain.TaskReview},
 		"reviewer requested changes", formatFindings(result.Review.Findings))
 }

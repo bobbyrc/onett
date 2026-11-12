@@ -50,7 +50,7 @@ func TestDefaultsOnEmptyConfig(t *testing.T) {
 	pol := cfg.Policies["default"]
 	assert.Equal(t, 400, pol.MaxLines)
 	assert.Equal(t, 20, pol.MaxFiles)
-	assert.Len(t, pol.Rules, 7)
+	assert.Len(t, pol.Rules, 8)
 	assert.Nil(t, pol.ExtraRules, "extra rules default to none")
 	assert.Equal(t, DefaultGates(), pol.Gates)
 
@@ -149,7 +149,7 @@ policies:
 `), "")
 	require.NoError(t, err)
 
-	assert.Len(t, cfg.Policies["absent"].Rules, 7, "absent rules take the defaults")
+	assert.Len(t, cfg.Policies["absent"].Rules, 8, "absent rules take the defaults")
 	require.NotNil(t, cfg.Policies["empty"].Rules, "an explicit empty list stays non-nil")
 	assert.Empty(t, cfg.Policies["empty"].Rules)
 }
