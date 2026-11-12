@@ -108,7 +108,12 @@ func Run(ctx context.Context, spec Spec) error {
 	select {
 	case <-s.quit:
 	case <-ctx.Done():
-		_ = sysproc.KillGroup(s.st.AgentPGID, syscall.SIGKILL)
+		s.mu.Lock()
+		exited := s.st.Exited
+		s.mu.Unlock()
+		if !exited { // the group ID may be reused once the agent is gone
+			_ = sysproc.KillGroup(s.st.AgentPGID, syscall.SIGKILL)
+		}
 		select {
 		case <-s.finished:
 		case <-time.After(5 * time.Second):
