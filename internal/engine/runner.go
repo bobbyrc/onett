@@ -698,6 +698,13 @@ const defaultCheckTimeout = 10 * time.Minute
 // checkOutputTail is how much of a failing check's output is kept for the next attempt.
 const checkOutputTail = 8 << 10
 
+// checkOutputRaw is how much of a command's raw output is held while it runs. Redaction runs on
+// all of it before the tail is cut, so a secret that straddles the start of the tail is replaced
+// whole instead of leaving its second half behind.
+// shortcut: a secret cut at the start of this larger window survives only if redaction shrinks
+// the megabyte below checkOutputTail; redact as a stream if that ever matters.
+const checkOutputRaw = 1 << 20
+
 // checkFailure is the first project command (a check or a setup command) that failed.
 type checkFailure struct {
 	name   string
@@ -734,7 +741,7 @@ func runCommands(ctx context.Context, cmds []config.Check, dir string, env []str
 			timeout = defaultCheckTimeout
 		}
 		cctx, cancel := context.WithTimeout(ctx, timeout)
-		out := &tailWriter{max: checkOutputTail}
+		out := &tailWriter{max: checkOutputRaw}
 		cmd := exec.CommandContext(cctx, "sh", "-c", c.Run)
 		cmd.Dir = dir
 		cmd.Env = env
@@ -749,8 +756,9 @@ func runCommands(ctx context.Context, cmds []config.Check, dir string, env []str
 		if err != nil {
 			// Redacted here, where it is captured, so that no later use can leak it: with the
 			// command's own environment (the project's env is in it) and with onett's, where a
-			// ${NAME} reference in the config got its value.
-			f := &checkFailure{name: c.Name, output: redactSecrets(out.String(), append(os.Environ(), env...)), err: err}
+			// ${NAME} reference in the config got its value. The tail is cut after redaction.
+			output := lastBytes(redactSecrets(out.String(), append(os.Environ(), env...)), checkOutputTail)
+			f := &checkFailure{name: c.Name, output: output, err: err}
 			if timedOut {
 				f.note = fmt.Sprintf("timed out after %s", timeout)
 			}
