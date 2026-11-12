@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bobbyrc/onett/internal/config"
@@ -18,9 +19,7 @@ func (quotingSCM) QuoteMentions(s string) string { return "quoted(" + s + ")" }
 
 func TestCommitMessageIsQuotedByAnSCMThatQuotesMentions(t *testing.T) {
 	e := &Engine{d: Deps{SCMFor: func(*config.Project) (scm.SCM, error) { return quotingSCM{scmfake.New()}, nil }}}
-	msg, err := e.commitMessage(&config.Project{}, "Fix @alice's bug", "task title")
-	require.NoError(t, err)
-	require.Equal(t, "quoted(Fix @alice's bug)", msg)
+	require.Equal(t, "quoted(Fix @alice's bug)", e.commitMessage(&config.Project{}, "Fix @alice's bug", "task title"))
 }
 
 func TestCommitMessageIsUnchangedForAnSCMThatDoesNotQuote(t *testing.T) {
@@ -28,21 +27,15 @@ func TestCommitMessageIsUnchangedForAnSCMThatDoesNotQuote(t *testing.T) {
 	_, ok := scm.SCM(s).(scm.MentionQuoter)
 	require.False(t, ok)
 	e := &Engine{d: Deps{SCMFor: func(*config.Project) (scm.SCM, error) { return s, nil }}}
-	msg, err := e.commitMessage(&config.Project{}, "Fix @alice's bug", "task title")
-	require.NoError(t, err)
-	require.Equal(t, "Fix @alice's bug", msg)
+	require.Equal(t, "Fix @alice's bug", e.commitMessage(&config.Project{}, "Fix @alice's bug", "task title"))
 }
 
 func TestCommitMessageFallsBackToTheTaskTitle(t *testing.T) {
 	e := &Engine{d: Deps{SCMFor: func(*config.Project) (scm.SCM, error) { return quotingSCM{scmfake.New()}, nil }}}
-	msg, err := e.commitMessage(&config.Project{}, "", "task title")
-	require.NoError(t, err)
-	require.Equal(t, "quoted(task title)", msg)
+	require.Equal(t, "quoted(task title)", e.commitMessage(&config.Project{}, "", "task title"))
 }
 
-func TestCommitMessageFailsWhenTheSCMCannotBeBuilt(t *testing.T) {
-	e := &Engine{d: Deps{SCMFor: func(*config.Project) (scm.SCM, error) { return nil, errors.New("no scm") }}}
-	msg, err := e.commitMessage(&config.Project{}, "Fix", "task title")
-	require.Error(t, err)
-	require.Empty(t, msg)
+func TestCommitMessageIsUnchangedForAProjectWithNoSCM(t *testing.T) {
+	e := &Engine{d: Deps{SCMFor: func(*config.Project) (scm.SCM, error) { return nil, errors.New("no GitHub repository") }}}
+	assert.Equal(t, "Fix @alice's bug", e.commitMessage(&config.Project{}, "Fix @alice's bug", "task title"))
 }
