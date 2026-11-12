@@ -59,8 +59,9 @@ const (
 
 // agentRefused is the one place that says what the agent token may not do, with the reason the
 // agent is given so it can tell the owner what to do instead of trying another way. Agents may
-// stop things (pause, cancel, block); starting them again and deciding are for a person. To
-// let the agent token do one of these again, delete its line and the test that names it.
+// stop things (pause, cancel, block); starting them again and deciding are for a person. The
+// owner can lift ApproveMerge, and the three resumes together, with two settings (see
+// AgentAllowances.lifts); the rest are not configurable.
 var agentRefused = map[PersonAction]string{
 	ApproveMerge:      "approving or rejecting a merge is the owner's decision; tell the owner to use the approval card in the web UI or their chat channel, or to run `onett approve` in their own terminal",
 	ResumeFactory:     "resuming the factory is the owner's decision; tell the owner to resume it in the web UI or to run `onett resume` in their own terminal",
@@ -72,32 +73,57 @@ var agentRefused = map[PersonAction]string{
 	RetryDenied:       "this task was blocked because a tool call was denied, and only the owner may retry a denial; tell the owner to adjust the permissions or the task and retry it",
 }
 
+// AgentAllowances are the person's decisions the owner has chosen to let the agent token take
+// (onett.yaml: chat.agent_may_approve_merges and chat.agent_may_resume). The zero value allows
+// none. Only a signed-in owner can edit onett.yaml, so an agent cannot switch one on for itself.
+type AgentAllowances struct {
+	// ApproveMerges lets the agent token approve or reject an approval.
+	ApproveMerges bool
+	// Resume lets the agent token resume the factory, a project and a goal someone paused.
+	Resume bool
+}
+
+// lifts reports whether the owner's settings lift the refusal of a. Only the actions named here
+// can be lifted; every other entry of agentRefused is refused whatever the settings say.
+func (al AgentAllowances) lifts(a PersonAction) bool {
+	switch a {
+	case ApproveMerge:
+		return al.ApproveMerges
+	case ResumeFactory, ResumeProject, ChangePausedGoal:
+		return al.Resume
+	}
+	return false
+}
+
 type agentKey struct{}
 
-// WithAgent marks ctx as a request made with the agent token. The API's sign-in middleware is
-// the only caller, so every API request from the agent carries the mark.
-func WithAgent(ctx context.Context) context.Context {
-	return context.WithValue(ctx, agentKey{}, true)
+// WithAgent marks ctx as a request made with the agent token, and carries what the owner's
+// settings allow it. The API's sign-in middleware is the only caller, so every API request from
+// the agent carries the mark, read from the config in force when the request arrived.
+func WithAgent(ctx context.Context, allowed AgentAllowances) context.Context {
+	return context.WithValue(ctx, agentKey{}, allowed)
 }
 
 // IsAgent reports whether ctx is a request made with the agent token. Code that onett runs
 // itself (loops, chat-channel buttons) has no mark and is not an agent.
 func IsAgent(ctx context.Context) bool {
-	v, _ := ctx.Value(agentKey{}).(bool)
-	return v
+	_, ok := ctx.Value(agentKey{}).(AgentAllowances)
+	return ok
 }
 
 // ErrPersonOnly marks a refusal of the agent token. The API answers it with 403.
 var ErrPersonOnly = errors.New("only a person can do this")
 
-// Refused returns nil unless ctx is a request made with the agent token and a is in
-// agentRefused; then it returns an error that wraps ErrPersonOnly and carries the reason.
+// Refused returns nil unless ctx is a request made with the agent token, a is in agentRefused,
+// and the owner's settings do not lift it; then it returns an error that wraps ErrPersonOnly
+// and carries the reason.
 func Refused(ctx context.Context, a PersonAction) error {
-	if !IsAgent(ctx) {
+	allowed, ok := ctx.Value(agentKey{}).(AgentAllowances)
+	if !ok {
 		return nil
 	}
-	reason, ok := agentRefused[a]
-	if !ok {
+	reason, refused := agentRefused[a]
+	if !refused || allowed.lifts(a) {
 		return nil
 	}
 	return fmt.Errorf("%w: %s", ErrPersonOnly, reason)

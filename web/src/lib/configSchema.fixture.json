@@ -79,6 +79,18 @@
           "type": "duration",
           "help": "Session idle timeout is how long the agent process of an orchestrator or goal conversation stays alive after its last turn (default 30m). While it lives, each message goes to the same process, so the prompt cache keeps hitting and MCP servers connect once; after it, the next message resumes the session in a new process. A negative value turns the long-lived process off: every turn then starts its own process.",
           "default": "30m"
+        },
+        {
+          "key": "agent_may_approve_merges",
+          "type": "bool",
+          "help": "Agent may approve merges lets the chief of staff approve or reject a merge approval when you tell it to in chat (default false). Off, only a person decides an approval: on the approval card, in a chat channel, or with `onett approve` in their own terminal. On, the gate of the supervised policy is held only by the agent's instructions, in every turn it runs.",
+          "default": false
+        },
+        {
+          "key": "agent_may_resume",
+          "type": "bool",
+          "help": "Agent may resume lets the chief of staff resume the factory, a project and a goal someone paused when you tell it to in chat (default false). Off, agents can pause but only a person resumes.",
+          "default": false
         }
       ]
     },

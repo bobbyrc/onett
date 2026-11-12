@@ -99,7 +99,10 @@ reviewer's approval.
     (a rule that starts an orchestrator turn by itself) need a signed-in owner session. Neither
     API token can do any of them (`auth.TokenAllows`): not the owner token the CLI uses, and not
     the agent token the orchestrator agent holds, which is also refused a person's decisions (the
-    list is `agentRefused` in `internal/auth`). So an agent cannot rewrite its own policy or
+    list is `agentRefused` in `internal/auth`). Two of those refusals are options the owner sets
+    in `onett.yaml`, off by default: `chat.agent_may_approve_merges` and `chat.agent_may_resume`;
+    the others are not configurable, and nothing may add a third without the owner's decision.
+    So an agent cannot rewrite its own policy or
     environment, change which triggers exist, or take the owner's decisions. Either token may
     read triggers and their history. Known gap, not closed here: a `github_issue`
     trigger fires for any issue GitHub attributes to the owner, a member or a collaborator, and

@@ -96,7 +96,13 @@ func (s *server) principal(next http.Handler) http.Handler {
 			if agent {
 				// The mark travels with the request into the engine, which is where the
 				// state-dependent refusals are decided (see auth.Refused).
-				ctx = auth.WithAgent(ctx)
+				// What the owner's settings allow the agent is read on every request, so a config
+				// reload applies at once.
+				var allowed auth.AgentAllowances
+				if cfg := s.opts.Controller.Config(); cfg != nil {
+					allowed = auth.AgentAllowances{ApproveMerges: cfg.Chat.AgentMayApproveMerges, Resume: cfg.Chat.AgentMayResume}
+				}
+				ctx = auth.WithAgent(ctx, allowed)
 			}
 			next.ServeHTTP(w, r.WithContext(withPrincipal(ctx, principal{token: true, agent: agent})))
 			return
