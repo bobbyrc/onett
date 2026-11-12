@@ -12,6 +12,20 @@ import (
 // reviewerReasonPrefix marks a risk reason as the reviewer's.
 const reviewerReasonPrefix = "reviewer: "
 
+// reasonParts returns the single reasons a stored reason holds. A reason under the policy's label
+// ("agent rated risk high: a; b") holds the reasons folded there; any other reason is one reason,
+// whatever punctuation it has. A label with nothing under it, or an empty reason, holds none.
+func reasonParts(r string) []string {
+	under := unwrapAgentReason(r)
+	if under == "" {
+		return nil
+	}
+	if under == r {
+		return []string{r}
+	}
+	return strings.Split(under, "; ")
+}
+
 // carryRisk records the rating of a worker's new report on task x without lowering what is
 // stored. Risk only goes up: the stored rating may be the reviewer's or an earlier policy
 // decision, and the worker's own text must not undercut either. A stored rating that is higher
@@ -33,14 +47,17 @@ func carryRisk(x *domain.Task, risk domain.Risk, reasons []string) {
 	x.RiskReasons = append(slices.Clone(reasons), reviewerReasons(x.RiskReasons)...)
 }
 
-// reviewerReasons returns the stored reasons that carry a reviewer's reason. The shepherd folds
-// the stored reasons into one "agent rated risk high: a; reviewer: b" reason when it applies the
-// policy, so the mark is looked for anywhere in a reason, not only at its start.
+// reviewerReasons returns the reviewer's reasons among the stored ones, each once. The shepherd's
+// decision folds the stored reasons under one label ("agent rated risk high: a; reviewer: b"), so
+// they are looked for under that label too, and matched whole: one reviewer reason that is the
+// start of another is still its own reason.
 func reviewerReasons(reasons []string) []string {
 	var out []string
 	for _, r := range reasons {
-		if strings.Contains(r, reviewerReasonPrefix) {
-			out = append(out, r)
+		for _, part := range reasonParts(r) {
+			if strings.HasPrefix(part, reviewerReasonPrefix) && !slices.Contains(out, part) {
+				out = append(out, part)
+			}
 		}
 	}
 	return out
@@ -58,9 +75,11 @@ func raiseForReviewer(x *domain.Task, risk domain.Risk, reasons []string) {
 		base = domain.RiskMedium
 	}
 	x.Risk = domain.MaxRisk(base, risk)
+	have := reviewerReasons(x.RiskReasons)
 	for _, why := range reasons {
-		if r := reviewerReasonPrefix + why; !slices.Contains(x.RiskReasons, r) {
+		if r := reviewerReasonPrefix + why; !slices.Contains(have, r) {
 			x.RiskReasons = append(x.RiskReasons, r)
+			have = append(have, r)
 		}
 	}
 }
@@ -87,8 +106,10 @@ func unwrapAgentReason(r string) string {
 // what agents said and what an earlier decision wrote, and giving the latter back to the policy
 // made every pass label them again. So only the agents' part goes in: the stored reasons that
 // the policy does not give by itself, with an earlier label taken off. A reviewer's reasons that
-// the policy leaves out, because its rules alone reach the rating, are added back. The result is
-// stable: a task that holds a decision gets the same risk and reasons from the next call.
+// the policy leaves out, because its rules alone reach the rating, are added back. The result
+// settles: a task that holds a settled decision gets the same risk and reasons from the next
+// call. A task whose agent gave no rating takes two calls, because its first decision ("agent did
+// not rate its risk") is put under the label once.
 func decideRisk(pol config.Policy, in policy.Input, t domain.Task) policy.Decision {
 	in.AgentRisk, in.AgentRiskReasons = t.Risk, nil
 	own := policy.Evaluate(pol, in).Reasons
@@ -97,15 +118,13 @@ func decideRisk(pol config.Policy, in policy.Input, t domain.Task) policy.Decisi
 		if slices.Contains(own, r) {
 			continue
 		}
-		if r = unwrapAgentReason(r); r != "" {
-			said = append(said, r)
-		}
+		said = append(said, reasonParts(r)...)
 	}
 	in.AgentRiskReasons = said
 	d := policy.Evaluate(pol, in)
+	have := reviewerReasons(d.Reasons)
 	for _, r := range reviewerReasons(said) {
-		kept := slices.ContainsFunc(d.Reasons, func(have string) bool { return strings.Contains(have, r) })
-		if !kept {
+		if !slices.Contains(have, r) {
 			d.Reasons = append(d.Reasons, r)
 		}
 	}
