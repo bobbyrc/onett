@@ -76,7 +76,7 @@ func commandList() []command {
 		{"pause", "stop starting runs and loops", cmdPause},
 		{"resume", "resume a paused factory", cmdResume},
 		{"chat", "message the chief of staff and print its reply", cmdChat},
-		{"conversations", "list conversations, or print one's messages: conversations show ID | show --task TASK", cmdConversations},
+		{"conversations", "list chats with the chief of staff (--tasks: the task agents' conversations), or print one: conversations show ID | show --task TASK_ID", cmdConversations},
 		{"service", "install, uninstall or check the launchd service that keeps serve running", cmdService},
 		{"doctor", "check the setup: config, git, gh, harness CLIs, projects and the daemon", cmdDoctor},
 		{"version", "print the onett version", cmdVersion},

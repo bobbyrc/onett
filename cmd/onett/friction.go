@@ -109,5 +109,5 @@ func frictionShow(e *env, args []string) error {
 		fmt.Fprintf(e.out, "\n%s\n", body)
 		return nil
 	}
-	return fmt.Errorf("no friction %q", positional[0])
+	return fmt.Errorf("no friction %q among the newest 200", positional[0])
 }

@@ -95,5 +95,5 @@ func signalsShow(e *env, args []string) error {
 		field("updated_at", stamp(s.UpdatedAt))
 		return nil
 	}
-	return fmt.Errorf("no signal %q", positional[0])
+	return fmt.Errorf("no signal %q among the newest 200", positional[0])
 }
