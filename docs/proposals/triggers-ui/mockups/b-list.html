@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Triggers mockup B: list</title>
+<link rel="stylesheet" href="../../../../web/src/styles.css">
+<link rel="stylesheet" href="../../../../web/src/components/RailLamps.css">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="b.css">
+<script src="shell.js" defer></script>
+</head>
+<body class="tab-rules" data-nav="after-loops" data-role="owner">
+<div class="app">
+<main class="main">
+<header class="page-header">
+  <h1>Triggers</h1>
+  <div class="page-actions"><button type="button" class="btn btn-primary">New trigger</button></div>
+</header>
+<div class="segmented trg-tabs" role="tablist">
+  <button type="button" role="tab" class="on" aria-selected="true">Triggers</button><button type="button" role="tab" aria-selected="false">Firings</button>
+</div>
+<div class="trg-cols">
+  <section class="section trg-rules" aria-labelledby="trg-rules-h">
+    <h2 id="trg-rules-h">Rules <span class="section-note">5 on · 1 off · <span class="danger-text">1 failing</span></span></h2>
+    <article class="trg-rule" data-lamp="stop">
+      <header class="trg-rule-head">
+        <div class="trg-rule-id">
+          <h3 class="trg-rule-name">Bug reports <span class="tag">dotfiles-and-agent-configs</span></h3>
+          <p class="trg-rule-state"><strong>Last firing failed</strong></p>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-secondary">Edit</button>
+          <button type="button" class="btn btn-ghost">Turn off</button>
+        </div>
+      </header>
+      <dl class="trg-rule-body">
+        <dt>When</dt><dd>A new issue in bobbyrc/dotfiles-and-agent-configs <span class="muted">· label bug</span></dd>
+        <dt>Ask</dt><dd class="trg-clamp">Reproduce the bug described in the issue if you can, then queue a bugfix task with the steps you found.</dd>
+        <dt>Last</dt><dd>2d ago <span class="muted">· issue #88 ·</span> <span class="danger-text">Failed: onett was shutting down</span> · <a href="b-history.html">All firings</a></dd>
+      </dl>
+    </article>
+    <article class="trg-rule" data-lamp="off">
+      <header class="trg-rule-head">
+        <div class="trg-rule-id">
+          <h3 class="trg-rule-name">Friday release notes <span class="tag">onett</span></h3>
+          <p class="trg-rule-state"><strong>On</strong> · not fired yet · next in 1d 5h</p>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-secondary">Run now</button>
+          <button type="button" class="btn btn-secondary">Edit</button>
+          <button type="button" class="btn btn-ghost">Turn off</button>
+        </div>
+      </header>
+      <dl class="trg-rule-body">
+        <dt>When</dt><dd>Fridays at 16:00 <span class="muted">· America/New_York</span></dd>
+        <dt>Ask</dt><dd class="trg-clamp">Draft release notes from the pull requests merged this week and post them in this conversation.</dd>
+        <dt>Last</dt><dd><span class="muted">never</span></dd>
+      </dl>
+    </article>
+    <article class="trg-rule" data-lamp="run">
+      <header class="trg-rule-head">
+        <div class="trg-rule-id">
+          <h3 class="trg-rule-name">Morning issue sweep <span class="tag">onett</span></h3>
+          <p class="trg-rule-state"><strong>On</strong> · next in 18h</p>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-secondary">Run now</button>
+          <button type="button" class="btn btn-secondary">Edit</button>
+          <button type="button" class="btn btn-ghost">Turn off</button>
+        </div>
+      </header>
+      <dl class="trg-rule-body">
+        <dt>When</dt><dd>Every day at 05:00 <span class="muted">· America/New_York</span></dd>
+        <dt>Ask</dt><dd class="trg-clamp">Look at every open issue in this repository. Close the ones that are already fixed and say which commit fixed them. For each of the rest, queue a task if it is clear enough to work on, or ask me what is missing.</dd>
+        <dt>Last</dt><dd>5h ago <span class="muted">· scheduled 05:00 ·</span> Started · <a href="#">Open conversation</a> · <a href="b-history.html">All firings</a></dd>
+      </dl>
+    </article>
+    <article class="trg-rule" data-lamp="run">
+      <header class="trg-rule-head">
+        <div class="trg-rule-id">
+          <h3 class="trg-rule-name">Triage new issues <span class="tag">onett</span></h3>
+          <p class="trg-rule-state"><strong>On</strong> · waits for the next issue</p>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-secondary">Edit</button>
+          <button type="button" class="btn btn-ghost">Turn off</button>
+        </div>
+      </header>
+      <dl class="trg-rule-body">
+        <dt>When</dt><dd>A new issue in bobbyrc/onett <span class="muted">· any label</span></dd>
+        <dt>Ask</dt><dd class="trg-clamp">Read the new issue. Say whether it is a bug, a feature or a question, check whether it is already fixed on main, and queue a task if it is clear enough to work on.</dd>
+        <dt>Last</dt><dd>42m ago <span class="muted">· issue #412 ·</span> Started · <a href="#">Open conversation</a> · <a href="b-history.html">All firings</a></dd>
+      </dl>
+    </article>
+    <article class="trg-rule" data-lamp="call">
+      <header class="trg-rule-head">
+        <div class="trg-rule-id">
+          <h3 class="trg-rule-name">Weekday dependency check <span class="tag">home-lab</span></h3>
+          <p class="trg-rule-state"><strong>Skipped its last firing</strong> · next in 23h</p>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-secondary">Run now</button>
+          <button type="button" class="btn btn-secondary">Edit</button>
+          <button type="button" class="btn btn-ghost">Turn off</button>
+        </div>
+      </header>
+      <dl class="trg-rule-body">
+        <dt>When</dt><dd>Monday to Friday at 09:30 <span class="muted">· America/New_York</span></dd>
+        <dt>Ask</dt><dd class="trg-clamp">Check for dependency updates. Queue one task for each update that has a security fix, and list the rest in your reply.</dd>
+        <dt>Last</dt><dd>1h ago <span class="muted">· scheduled 09:30 ·</span> <span class="warn-text">Skipped: the factory was paused</span> · <a href="b-history.html">All firings</a></dd>
+      </dl>
+    </article>
+    <article class="trg-rule" data-lamp="off">
+      <header class="trg-rule-head">
+        <div class="trg-rule-id">
+          <h3 class="trg-rule-name">Stale PR nudge <span class="tag">onett</span></h3>
+          <p class="trg-rule-state"><strong>Off</strong></p>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-secondary">Run now</button>
+          <button type="button" class="btn btn-secondary">Edit</button>
+          <button type="button" class="btn btn-ghost">Turn on</button>
+        </div>
+      </header>
+      <dl class="trg-rule-body">
+        <dt>When</dt><dd>Every 6 hours <span class="muted">· America/New_York</span></dd>
+        <dt>Ask</dt><dd class="trg-clamp">List pull requests that have had no activity for three days and say what each one is waiting for.</dd>
+        <dt>Last</dt><dd>21d ago <span class="muted">· scheduled 12:00 ·</span> Started · <a href="#">Open conversation</a> · <a href="b-history.html">All firings</a></dd>
+      </dl>
+    </article>
+  </section>
+  <section class="section trg-log" aria-labelledby="trg-log-h">
+    <h2 id="trg-log-h">Recent firings <span class="section-note">all triggers</span></h2>
+    <h3 class="trg-day trg-day-first">Today</h3>
+    <ol class="trg-feed">
+      <li class="trg-fire">
+        <time class="trg-fire-time">09:58</time>
+        <span class="trg-status"><span class="trg-lamp trg-lamp-ok" aria-hidden="true"></span>Started</span>
+        <div class="trg-fire-body"><strong>Triage new issues</strong> <span class="muted">·</span> <a href="#">issue #412</a><span class="trg-sub"><a href="#">Open conversation</a></span></div>
+      </li>
+      <li class="trg-fire">
+        <time class="trg-fire-time">09:30</time>
+        <span class="trg-status"><span class="trg-lamp trg-lamp-warn" aria-hidden="true"></span>Skipped</span>
+        <div class="trg-fire-body"><strong>Weekday dependency check</strong> <span class="muted">· scheduled 09:30</span><span class="trg-sub warn-text">the factory was paused</span></div>
+      </li>
+      <li class="trg-fire">
+        <time class="trg-fire-time">05:00</time>
+        <span class="trg-status"><span class="trg-lamp trg-lamp-ok" aria-hidden="true"></span>Started</span>
+        <div class="trg-fire-body"><strong>Morning issue sweep</strong> <span class="muted">· scheduled 05:00</span><span class="trg-sub"><a href="#">Open conversation</a></span></div>
+      </li>
+      <li class="trg-fire">
+        <time class="trg-fire-time">00:00</time>
+        <span class="trg-status"><span class="trg-lamp trg-lamp-ok" aria-hidden="true"></span>Started</span>
+        <div class="trg-fire-body"><strong>Triage new issues</strong> <span class="muted">·</span> <a href="#">issue #411</a><span class="trg-sub"><a href="#">Open conversation</a></span></div>
+      </li>
+    </ol>
+    <h3 class="trg-day">Yesterday</h3>
+    <ol class="trg-feed">
+      <li class="trg-fire">
+        <time class="trg-fire-time">21:14</time>
+        <span class="trg-status"><span class="trg-lamp trg-lamp-warn" aria-hidden="true"></span>Skipped</span>
+        <div class="trg-fire-body"><strong>Triage new issues</strong> <span class="muted">·</span> <a href="#">issue #411</a><span class="trg-sub warn-text">over the daily budget</span></div>
+      </li>
+      <li class="trg-fire">
+        <time class="trg-fire-time">14:12</time>
+        <span class="trg-status"><span class="trg-lamp trg-lamp-ok" aria-hidden="true"></span>Started</span>
+        <div class="trg-fire-body"><strong>Morning issue sweep</strong> <span class="muted">· run now by bcraig</span><span class="trg-sub"><a href="#">Open conversation</a></span></div>
+      </li>
+      <li class="trg-fire">
+        <time class="trg-fire-time">09:30</time>
+        <span class="trg-status"><span class="trg-lamp trg-lamp-ok" aria-hidden="true"></span>Started</span>
+        <div class="trg-fire-body"><strong>Weekday dependency check</strong> <span class="muted">· scheduled 09:30</span><span class="trg-sub"><a href="#">Open conversation</a></span></div>
+      </li>
+      <li class="trg-fire">
+        <time class="trg-fire-time">05:00</time>
+        <span class="trg-status"><span class="trg-lamp trg-lamp-warn" aria-hidden="true"></span>Skipped</span>
+        <div class="trg-fire-body"><strong>Morning issue sweep</strong> <span class="muted">· scheduled 05:00</span><span class="trg-sub warn-text">the factory was paused</span></div>
+      </li>
+    </ol>
+    <h3 class="trg-day">Tue 10 Nov</h3>
+    <ol class="trg-feed">
+      <li class="trg-fire">
+        <time class="trg-fire-time">09:30</time>
+        <span class="trg-status"><span class="trg-lamp trg-lamp-ok" aria-hidden="true"></span>Started</span>
+        <div class="trg-fire-body"><strong>Weekday dependency check</strong> <span class="muted">· scheduled 09:30</span><span class="trg-sub"><a href="#">Open conversation</a></span></div>
+      </li>
+      <li class="trg-fire">
+        <time class="trg-fire-time">09:12</time>
+        <span class="trg-status"><span class="trg-lamp trg-lamp-danger" aria-hidden="true"></span>Failed</span>
+        <div class="trg-fire-body"><strong>Bug reports</strong> <span class="muted">·</span> <a href="#">issue #88</a><span class="trg-sub danger-text">onett was shutting down</span></div>
+      </li>
+      <li class="trg-fire">
+        <time class="trg-fire-time">05:00</time>
+        <span class="trg-status"><span class="trg-lamp trg-lamp-ok" aria-hidden="true"></span>Started</span>
+        <div class="trg-fire-body"><strong>Morning issue sweep</strong> <span class="muted">· scheduled 05:00</span><span class="trg-sub"><a href="#">Open conversation</a></span></div>
+      </li>
+    </ol>
+  </section>
+</div>
+</main>
+</div>
+</body>
+</html>

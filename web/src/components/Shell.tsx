@@ -8,6 +8,7 @@ import { BrandMark } from './BrandMark';
 import { LiveIndicator } from './LiveIndicator';
 import { PauseSwitch } from './PauseSwitch';
 import { RailLamps } from './RailLamps';
+import './Shell.css';
 
 const NAV: { to: string; label: string; end?: boolean; approvals?: boolean; blocked?: boolean; admin?: boolean }[] = [
   { to: '/', label: 'Overview', end: true },
@@ -21,6 +22,7 @@ const NAV: { to: string; label: string; end?: boolean; approvals?: boolean; bloc
   { to: '/signals', label: 'Signals' },
   { to: '/friction', label: 'Friction' },
   { to: '/loops', label: 'Loops' },
+  { to: '/triggers', label: 'Triggers' },
   { to: '/agents', label: 'Agents' },
   { to: '/config', label: 'Config' },
   { to: '/users', label: 'Users', admin: true },

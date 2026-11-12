@@ -142,3 +142,19 @@ func (s *server) listTriggerFirings(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, nonNil(fs))
 }
+
+// listAllTriggerFirings is the log of recent firings across every trigger. A firing carries its
+// trigger's ID, not its name: the caller joins it with GET /triggers.
+func (s *server) listAllTriggerFirings(w http.ResponseWriter, r *http.Request) {
+	limit, err := queryLimit(r.URL.Query(), 50)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	fs, err := s.opts.Store.ListAllTriggerFirings(r.Context(), limit)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, nonNil(fs))
+}
