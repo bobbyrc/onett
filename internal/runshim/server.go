@@ -108,7 +108,12 @@ func Run(ctx context.Context, spec Spec) error {
 	select {
 	case <-s.quit:
 	case <-ctx.Done():
-		_ = sysproc.KillGroup(s.st.AgentPGID, syscall.SIGKILL)
+		s.mu.Lock()
+		exited := s.st.Exited
+		s.mu.Unlock()
+		if !exited { // the group ID may be reused once the agent is gone
+			_ = sysproc.KillGroup(s.st.AgentPGID, syscall.SIGKILL)
+		}
 		select {
 		case <-s.finished:
 		case <-time.After(5 * time.Second):
@@ -244,7 +249,7 @@ func (s *shim) readStderr(r *os.File) {
 	defer r.Close()
 	br := bufio.NewReaderSize(r, 64<<10)
 	for {
-		line, err := readLine(br, MaxLine)
+		line, err := readLine(br, maxStderrLine)
 		if text := strings.TrimRight(line, "\r\n"); text != "" {
 			s.mu.Lock()
 			s.st.StderrTail = append(s.st.StderrTail, text)
@@ -469,10 +474,11 @@ func (s *shim) serveConn(c net.Conn) {
 		s.mu.Unlock()
 	}()
 	w := &connWriter{enc: json.NewEncoder(c)}
-	dec := json.NewDecoder(bufio.NewReaderSize(c, 64<<10))
+	br := bufio.NewReaderSize(c, 64<<10)
 
+	// A request over maxRequest ends the connection: see readJSON.
 	var req request
-	if err := dec.Decode(&req); err != nil {
+	if err := readJSON(br, maxRequest, &req); err != nil {
 		return
 	}
 	if req.Op != opHello {
@@ -491,7 +497,7 @@ func (s *shim) serveConn(c net.Conn) {
 	var replaying atomic.Bool
 	for {
 		var req request
-		if err := dec.Decode(&req); err != nil {
+		if err := readJSON(br, maxRequest, &req); err != nil {
 			return
 		}
 		// Each request runs on its own goroutine, so a write_stdin stuck on a full pipe does not

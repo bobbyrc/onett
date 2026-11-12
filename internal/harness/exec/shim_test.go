@@ -2,12 +2,11 @@ package exec
 
 import (
 	"os"
-	"syscall"
 	"testing"
-	"time"
 
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/runshim"
+	"github.com/bobbyrc/onett/internal/runshim/shimtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +16,7 @@ const shimReexec = "ONETT_EXEC_TEST_RUNSHIM"
 // TestMain lets the test binary act as `onett run-shim`, so no built onett is needed.
 func TestMain(m *testing.M) {
 	if os.Getenv(shimReexec) == "1" {
-		os.Exit(runshim.Main(os.Args[1:], os.Stderr))
+		os.Exit(shimtest.Main())
 	}
 	os.Exit(m.Run())
 }
@@ -31,7 +30,8 @@ func TestPluginRunsThroughTheShim(t *testing.T) {
 	wantEvents, wantRes := run(t, direct, spec)
 
 	dir := t.TempDir()
-	waitShimGone(t, dir, spec.RunID)
+	// Stop the shim and wait for it before the temp directory is removed.
+	t.Cleanup(func() { shimtest.StopAll(t, dir) })
 	shimmed := newHarness(t, harness.Config{
 		Command: pluginCommand(t), Args: []string{"--cfg"},
 		Shim: &harness.ShimOptions{
@@ -58,20 +58,4 @@ func TestPluginRunsThroughTheShim(t *testing.T) {
 	log, err := os.ReadFile(runshim.StreamPath(runshim.RunDir(dir, spec.RunID)))
 	require.NoError(t, err)
 	assert.NotEmpty(t, log)
-}
-
-// waitShimGone registers a cleanup that waits for the run's shim process to exit, so it is not
-// still writing into dir when the test's temp directory is removed.
-func waitShimGone(t *testing.T, dir, runID string) {
-	t.Cleanup(func() {
-		st, err := runshim.ReadStatus(runshim.RunDir(dir, runID))
-		if err != nil {
-			return
-		}
-		for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
-			if syscall.Kill(st.ShimPID, 0) == syscall.ESRCH {
-				return
-			}
-		}
-	})
 }

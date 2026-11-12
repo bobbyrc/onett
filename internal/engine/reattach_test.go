@@ -22,6 +22,7 @@ import (
 	"github.com/bobbyrc/onett/internal/harness"
 	_ "github.com/bobbyrc/onett/internal/harness/exec" // registers the "exec" harness type
 	"github.com/bobbyrc/onett/internal/runshim"
+	"github.com/bobbyrc/onett/internal/runshim/shimtest"
 	"github.com/bobbyrc/onett/internal/scm"
 	scmfake "github.com/bobbyrc/onett/internal/scm/fake"
 	"github.com/bobbyrc/onett/internal/store"
@@ -34,7 +35,7 @@ const shimReexec = "ONETT_ENGINE_TEST_RUNSHIM"
 
 func TestMain(m *testing.M) {
 	if os.Getenv(shimReexec) == "1" {
-		os.Exit(runshim.Main(os.Args[1:], os.Stderr))
+		os.Exit(shimtest.Main())
 	}
 	os.Exit(m.Run())
 }
@@ -80,6 +81,8 @@ type reattachFixture struct {
 	st      store.Store
 	scm     *scmfake.Fake
 	cfg     *config.Config
+	// logOut, when set, receives the engines' log; nil discards it.
+	logOut io.Writer
 }
 
 func newReattachFixture(t *testing.T, stall, runTimeout time.Duration) *reattachFixture {
@@ -87,8 +90,10 @@ func newReattachFixture(t *testing.T, stall, runTimeout time.Duration) *reattach
 	root := t.TempDir()
 	f := &reattachFixture{t: t, dataDir: filepath.Join(root, "data"), gate: filepath.Join(root, "gate")}
 	// Registered right after TempDir, so it runs after the engines have stopped and just before the
-	// directory is removed (cleanups run last-in first-out).
-	t.Cleanup(f.killLeftovers)
+	// directory is removed (cleanups run last-in first-out). A test that ends early, or a shim that
+	// has not yet seen its ack, would otherwise leave a process running, and still writing into the
+	// directory while TempDir removes it ("directory not empty").
+	t.Cleanup(func() { shimtest.StopAll(t, f.dataDir) })
 	bare, clone := filepath.Join(root, "remote.git"), filepath.Join(root, "clone")
 	rtSeedRepo(t, bare)
 	agent := filepath.Join(root, "agent.sh")
@@ -130,7 +135,11 @@ agents:
 // return, as a daemon exit does; the shim and the agent are left running.
 func (f *reattachFixture) engine(now func() time.Time) (e *Engine, stop func()) {
 	f.t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	out := io.Writer(io.Discard)
+	if f.logOut != nil {
+		out = f.logOut
+	}
+	logger := slog.New(slog.NewTextHandler(out, nil))
 	e, err := New(Deps{
 		Config:     f.cfg,
 		Store:      f.st,
@@ -228,37 +237,6 @@ func (f *reattachFixture) waitShimGone(runID string) {
 	rtWait(f.t, 15*time.Second, "shim to exit", func() bool {
 		return syscall.Kill(st.ShimPID, 0) == syscall.ESRCH
 	})
-}
-
-// killLeftovers kills every shim and agent a run left in the data directory and waits until they
-// are gone. A test that ends early (or a shim that has not yet seen its ack) would otherwise leave
-// a process still writing into the directory while TempDir removes it, which fails the test with
-// "directory not empty".
-func (f *reattachFixture) killLeftovers() {
-	dirs, _ := filepath.Glob(filepath.Join(f.dataDir, "runs", "*"))
-	var pids []int
-	for _, d := range dirs {
-		st, err := runshim.ReadStatus(d)
-		if err != nil {
-			continue
-		}
-		if st.AgentPGID > 1 {
-			_ = syscall.Kill(-st.AgentPGID, syscall.SIGKILL)
-		}
-		if st.ShimPID > 1 {
-			_ = syscall.Kill(st.ShimPID, syscall.SIGKILL)
-			pids = append(pids, st.ShimPID)
-		}
-		if st.AgentPGID > 1 {
-			pids = append(pids, -st.AgentPGID)
-		}
-	}
-	deadline := time.Now().Add(15 * time.Second)
-	for _, pid := range pids {
-		for syscall.Kill(pid, 0) != syscall.ESRCH && time.Now().Before(deadline) {
-			time.Sleep(20 * time.Millisecond)
-		}
-	}
 }
 
 func (f *reattachFixture) shimStatus(runID string) runshim.Status {

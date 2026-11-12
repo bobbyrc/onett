@@ -50,7 +50,7 @@ run one package or test: `mise exec -- go test -race -count=1 -run TestName ./in
 | `cmd/onett/` | the one binary: `serve` and every CLI command (an API client) |
 | `internal/domain/` | shared types: Task, Run, Event, Approval, Deployment, Signal, Friction, outbox |
 | `internal/config/` | `onett.yaml` schema, defaults (`defaults.go`), loading and validation |
-| `internal/engine/` | scheduler, run supervisor, PR shepherd, loops (`loop_*.go`), prompts, redaction |
+| `internal/engine/` | scheduler, run supervisor, PR shepherd, loops (`loop_*.go`), triggers (`trigger.go`, `loop_triggers.go`), prompts, redaction |
 | `internal/engine/prompts/` | the built-in role prompts given to agents |
 | `internal/store/` | `Store` interface; `store/sqlite` implements it (migrations in `migrations.go`) |
 | `internal/harness/` | `Harness` interface; `claude/`, `codex/`, `exec/`, and `fake/` for tests |
@@ -76,7 +76,8 @@ reviewer's approval.
    environment. Never pass `GH_TOKEN`, the API token or provider keys to an agent, including in
    examples and docs.
 4. **A denial or a stall is terminal.** A denied tool call, or no output for the stall timeout,
-   blocks the task with the reason. Never add a retry or a workaround for a denial.
+   blocks the task with the reason. Never add a retry or a workaround for a denial. Only a person
+   retries a task that a denial stopped: the agent token is refused (`auth.RetryDenied`).
 5. **Merges are pinned.** `gh pr merge --match-head-commit`: an approval covers one commit, and a
    changed PR withdraws it.
 6. **Status changes are compare-and-set.** Automatic task transitions name the status they expect,
@@ -100,16 +101,27 @@ reviewer's approval.
 11. **Local by default.** The API binds to loopback, needs the bearer token or a signed-in
     session, and refuses unknown Host headers (DNS-rebinding guard). Remote access is opt-in
     through `public_url` and `allowed_hosts`.
-12. **Config and users change only through a person.** Editing `onett.yaml` and managing users
-    need a signed-in owner session. The API token, which the orchestrator agent holds, can never
-    do either (`auth.TokenAllows`), so an agent cannot rewrite its own policy or environment.
-    Every new route declares the action it needs (read, operate or administer).
+12. **Config, users and triggers change only through a person.** Editing `onett.yaml`, managing
+    users, and creating, changing, deleting, enabling, disabling or manually firing a trigger
+    (a rule that starts an orchestrator turn by itself) need a signed-in owner session. Neither
+    API token can do any of them (`auth.TokenAllows`): not the owner token the CLI uses, and not
+    the agent token the orchestrator agent holds, which is also refused a person's decisions (the
+    list is `agentRefused` in `internal/auth`). So an agent cannot rewrite its own policy or
+    environment, change which triggers exist, or take the owner's decisions. Either token may
+    read triggers and their history. Known gap, not closed here: a `github_issue`
+    trigger fires for any issue GitHub attributes to the owner, a member or a collaborator, and
+    an agent that can use the owner's `gh` login can open one. So issue text is always evidence
+    (invariant 8), and each trigger starts at most 20 firings an hour. Every new route declares
+    the action it needs (read, operate or administer), and a route that takes a person's
+    decision refuses the agent token.
 
 Changes to `internal/engine/prompts/**`, `internal/policy/**`, `internal/config/defaults.go`,
 `internal/sysproc/**`, `internal/engine/loop_shepherd.go`, `internal/engine/helpers.go`,
 `internal/auth/**`, `internal/api/auth.go` and `internal/api/routes.go` are rated **high** risk by
 a built-in rule, and `AGENTS.md`, `CLAUDE.md` and `onett.yaml` files are
-**medium**: the owner approves them. Do not move logic out of those files to avoid the rule.
+**medium**: the owner approves them. Changes to `.claude/**`, `.mcp.json` and `.codex/**` (the
+agent CLIs' own settings, hooks and MCP servers) are rated **high** too. Do not move logic out of
+those files to avoid the rule.
 
 ## Go conventions
 
@@ -166,6 +178,9 @@ and match the existing spelling and tone.
 - Status colours and labels come from `src/lib/status.ts`; every colour has a text label.
 - No inline scripts (the server's CSP forbids them). Rendered Markdown goes through the sanitiser
   in `components/Markdown.tsx`; do not render agent text as raw HTML.
+- Do not run Prettier on `web/`: there is no Prettier config, so `prettier --write` rewrites
+  whole files (quotes, imports); match the surrounding style, and `npm run lint` (ESLint) is the
+  only style check.
 - Check a UI change in a real browser at desktop and phone width against a throwaway daemon, not
   only with tests. Screenshots for a UI PR: `npm run shots:chat` for the Chat page and
   `npm run shots` for every other page (mocked backend, no daemon or token); details in

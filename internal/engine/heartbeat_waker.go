@@ -57,16 +57,24 @@ func (w operationsWaker) WakeHeartbeat(ctx context.Context, d HeartbeatDigest) e
 		return fmt.Errorf("operations conversation: %w", err)
 	}
 	prompt := heartbeatPrompt(d, e.Config())
+	_, err = e.wakeConversation(ctx, conv, prompt, "heartbeat")
+	return err
+}
 
+// wakeConversation posts prompt to conv as an internal message and runs an orchestrator turn there,
+// the same way a chat follow-up does. When a turn is already running in conv, the message is queued
+// and goes out when that turn ends: behind it, never beside it. label names the caller in the event
+// text ("heartbeat"). It returns the stored message.
+func (e *Engine) wakeConversation(ctx context.Context, conv domain.Conversation, prompt, label string) (domain.ChatMessage, error) {
 	won := false
-	conv, err = e.d.Store.UpdateConversation(ctx, conv.ID, func(c *domain.Conversation) error {
+	conv, err := e.d.Store.UpdateConversation(ctx, conv.ID, func(c *domain.Conversation) error {
 		if !c.Busy {
 			c.Busy, won = true, true
 		}
 		return nil
 	})
 	if err != nil {
-		return err
+		return domain.ChatMessage{}, err
 	}
 	msg := domain.ChatMessage{ConversationID: conv.ID, Role: "system", Kind: domain.ChatKindInternal, Text: prompt}
 	if !won {
@@ -74,39 +82,39 @@ func (w operationsWaker) WakeHeartbeat(ctx context.Context, d HeartbeatDigest) e
 		msg.Queued = true
 		stored, err := e.d.Store.AppendChatMessage(ctx, msg)
 		if err != nil {
-			return err
+			return domain.ChatMessage{}, err
 		}
-		e.d.Bus.Emit(ctx, domain.EvChatMessage, conv.Project, "", "", "heartbeat queued for the orchestrator", stored)
+		e.d.Bus.Emit(ctx, domain.EvChatMessage, conv.Project, "", "", label+" queued for the orchestrator", stored)
 		// The turn may have ended before the message was stored; nobody would send it then.
 		if now, err := e.d.Store.GetConversation(ctx, conv.ID); err == nil && !now.Busy {
 			if err := e.FlushChat(ctx, conv.ID); err != nil && !errors.Is(err, errStopped) {
-				return err
+				return domain.ChatMessage{}, err
 			}
 		}
-		return nil
+		return stored, nil
 	}
 
 	queued, err := e.claimQueued(ctx, conv.ID)
 	if err != nil {
 		e.releaseConversation(ctx, conv.ID)
-		return err
+		return domain.ChatMessage{}, err
 	}
 	stored, err := e.d.Store.AppendChatMessage(ctx, msg)
 	if err != nil {
 		_, ids := messageTexts(queued)
 		e.restoreQueued(ctx, ids)
 		e.releaseConversation(ctx, conv.ID)
-		return err
+		return domain.ChatMessage{}, err
 	}
-	e.d.Bus.Emit(ctx, domain.EvChatMessage, conv.Project, "", "", "heartbeat: orchestrator woken", stored)
+	e.d.Bus.Emit(ctx, domain.EvChatMessage, conv.Project, "", "", label+": orchestrator woken", stored)
 	texts, ids := chatTexts(queued)
 	texts, ids = append(texts, prompt), append(ids, stored.ID)
 	if err := e.startTurn(ctx, conv, texts, ids); err != nil {
 		_, qids := messageTexts(queued)
 		e.restoreQueued(ctx, qids)
-		return err
+		return domain.ChatMessage{}, err
 	}
-	return nil
+	return stored, nil
 }
 
 // heartbeatPrompt is the internal message the Operations turn is given. Item summaries quote

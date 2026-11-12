@@ -24,6 +24,12 @@ var defaultSandboxArgs = []string{"--approve-for-me"}
 // no shell.
 const resumeSandboxOverride = `sandbox_mode="workspace-write"`
 
+// noProjectDocOverride leaves the tree's AGENTS.md files out of the prompt
+// (harness.Spec.NoProjectConfig). Codex adds them whatever the project's trust; a zero byte
+// budget drops them and keeps the owner's own $CODEX_HOME/AGENTS.md. `codex exec resume` takes
+// -c as well.
+const noProjectDocOverride = "project_doc_max_bytes=0"
+
 // instructionSeparator joins Spec.Instructions and Spec.Prompt on stdin, because codex has no
 // flag for a system prompt.
 const instructionSeparator = "\n\n---\n\n"
@@ -154,6 +160,10 @@ func buildArgs(cfg harness.Config, spec harness.Spec) []string {
 	}
 	args = append(args, cfg.Args...)
 	args = append(args, spec.Args...)
+	if spec.NoProjectConfig {
+		// After the extras, so it wins over a budget set there.
+		args = append(args, "-c", noProjectDocOverride)
+	}
 	if spec.PermissionMode != "" {
 		// A mode chosen for the conversation replaces the default and wins over the profile's.
 		args = append(args, permissionArgs(spec.PermissionMode, resume)...)

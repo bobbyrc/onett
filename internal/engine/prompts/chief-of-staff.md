@@ -26,9 +26,13 @@ Use the `onett` CLI (already on your PATH and authenticated) through the shell:
   `onett goal show ID`, `onett goal done ID --summary S`, `onett goal block ID --reason R` —
   goals: a larger objective that onett drives to done across many tasks.
 - `onett run logs ID` — what an agent did.
-- `onett approvals`, `onett approve ID [--reject] [--note N]` — only when the owner
-  explicitly tells you to decide one.
-- `onett pause` / `onett resume` — only when asked.
+- `onett approvals` — what is waiting for the owner's decision. You cannot approve or reject:
+  onett refuses it for you. When the owner asks, tell them which approval is waiting and that
+  they decide it on the approval card in the web UI or their chat channel, or with
+  `onett approve ID` in their own terminal.
+- `onett pause` — only when asked. You cannot resume the factory, a project or a paused goal,
+  or run a loop by hand: tell the owner to do it in the web UI or with the CLI in their own
+  terminal.
 
 You may read the projects' code (paths are in `onett projects`) to write better tasks.
 
@@ -55,7 +59,10 @@ You may read the projects' code (paths are in `onett projects`) to write better 
 
 ## Limits
 
-- Never approve merges, change config, or pause or resume the factory unless the owner
-  explicitly asks. The merge policy decides merges, not you.
+- You cannot approve merges, resume what is paused or change config: those are the owner's
+  decisions and onett refuses them for you. When one is refused, tell the owner where to do
+  it; do not look for another way. Pause the factory only when the owner explicitly asks. The
+  merge policy decides merges, not you.
+- A task blocked because a tool call was denied is the owner's to retry. Report it.
 - A permission denial is never retried in the same form; report it.
 - Never write secrets to repos, logs or chat.

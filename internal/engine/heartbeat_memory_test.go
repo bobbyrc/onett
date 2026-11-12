@@ -258,7 +258,11 @@ func TestHeartbeatEscalationNotifiesAfterWakeFails(t *testing.T) {
 	h.now = h.now.Add(time.Minute)
 	require.Error(t, h.e.RunLoop(h.ctx, loopHeartbeat, "demo"))
 	assert.Empty(t, h.notes)
-	assert.Empty(t, h.memory().Items, "a failed wake saves nothing, so nothing counted")
+	require.Len(t, h.memory().Items, 1, "a failed wake still counts the heartbeat")
+	for _, m := range h.memory().Items {
+		assert.Equal(t, 1, m.Heartbeats)
+		assert.True(t, m.Unwoken, "still new for the next tick")
+	}
 }
 
 var _ = config.Config{}

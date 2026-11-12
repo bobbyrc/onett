@@ -22,7 +22,7 @@ type doctor struct {
 	failures int
 }
 
-// line prints one check: a status (ok, warn or FAIL), its message and, when there is one, the
+// line prints one check: a status (ok, warn, skip or FAIL), its message and, when there is one, the
 // fix hint. Only FAIL counts toward the exit code.
 func (d *doctor) line(status, msg, fix string) {
 	if status == "FAIL" {
@@ -45,11 +45,12 @@ func (d *doctor) fail(msg, fix string) { d.line("FAIL", msg, fix) }
 func cmdDoctor(e *env, args []string) error {
 	fs := newFlagSet("doctor", e)
 	cfgFlag := fs.String("config", "", "config file (default $ONETT_CONFIG or ~/.config/onett/onett.yaml)")
+	noDaemon := fs.Bool("no-daemon", false, "skip the checks that contact the daemon, to validate a config file on its own")
 	positional, err := parseArgs(fs, args)
 	if err != nil {
 		return err
 	}
-	if err := requireArgs(positional, 0, "doctor [--config P]"); err != nil {
+	if err := requireArgs(positional, 0, "doctor [--config P] [--no-daemon]"); err != nil {
 		return err
 	}
 	path, err := configPath(*cfgFlag)
@@ -60,7 +61,13 @@ func cmdDoctor(e *env, args []string) error {
 	d := &doctor{out: e.out}
 	cfg, cfgErr := loadConfig(path)
 	if cfgErr != nil {
-		d.fail("config: "+cfgErr.Error(), "fix the file, or run `onett init` to write one")
+		// loadConfig's message already says to run `onett init` when there is no file; for a file
+		// that exists, init would refuse, so the hint is to fix it.
+		fix := "fix the settings the message names in " + path
+		if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+			fix = ""
+		}
+		d.fail("config: "+cfgErr.Error(), fix)
 	} else {
 		d.ok("config loads: " + path)
 		d.checkDataDir(cfg.Server.DataDir)
@@ -74,8 +81,12 @@ func cmdDoctor(e *env, args []string) error {
 		inferSelfUpdate(cfg, path, "")
 		d.checkSelfUpdate(cfg)
 	}
-	d.checkDaemon(apiBaseURL(cfg))
-	d.checkPreflight()
+	if *noDaemon {
+		d.line("skip", "daemon: not checked (--no-daemon)", "")
+	} else {
+		d.checkDaemon(apiBaseURL(cfg))
+		d.checkPreflight()
+	}
 
 	if d.failures > 0 {
 		return fmt.Errorf("%d check(s) failed", d.failures)
@@ -242,7 +253,7 @@ func (d *doctor) checkProjects(cfg *config.Config) {
 
 		switch info, err := os.Stat(p.Path); {
 		case err == nil && info.IsDir():
-			d.ok(fmt.Sprintf("project %s: clone at %s", name, p.Path))
+			d.checkClone(name, p.Path)
 		case err == nil:
 			d.warn(fmt.Sprintf("project %s: %s exists but is not a directory", name, p.Path),
 				"move it aside, or set path for the project in the config")
@@ -259,6 +270,31 @@ func (d *doctor) checkProjects(cfg *config.Config) {
 			d.ok(fmt.Sprintf("project %s: not paused", name))
 		}
 	}
+}
+
+// checkClone checks an existing project directory the way the engine will use it. A directory
+// with no .git is cloned into, which git allows only when it is empty. A checkout needs an
+// origin remote: every run starts with `git fetch origin` and ends with a push to it, so without
+// one the first task blocks after its attempts. The remote's URL is not printed: it can hold a
+// token.
+func (d *doctor) checkClone(name, path string) {
+	if _, err := os.Stat(filepath.Join(path, ".git")); os.IsNotExist(err) {
+		if entries, err := os.ReadDir(path); err == nil && len(entries) == 0 {
+			d.ok(fmt.Sprintf("project %s: %s is empty; it will be cloned there", name, path))
+			return
+		}
+		d.fail(fmt.Sprintf("project %s: %s is not a git checkout and is not empty, so onett cannot clone into it", name, path),
+			"point path at a clone of the repository, or remove path so onett clones it itself")
+		return
+	}
+	// Hooks are off, as in internal/workspace, so nothing in the checkout runs.
+	out, err := runExternal("git", "-c", "core.hooksPath=/dev/null", "-C", path, "remote", "get-url", "origin")
+	if err != nil {
+		d.fail(fmt.Sprintf("project %s: clone at %s has no usable origin remote (%s)", name, path, firstLine(out, err)),
+			"onett fetches from and pushes to origin: run `git -C "+path+" remote add origin URL`, or remove path so onett clones the repository itself")
+		return
+	}
+	d.ok(fmt.Sprintf("project %s: clone at %s", name, path))
 }
 
 // checkSelfUpdate says whether the daemon will keep itself current. It is silent when there is
@@ -293,6 +329,11 @@ func (d *doctor) checkDaemon(base string) {
 		return
 	}
 	d.ok(fmt.Sprintf("daemon: running at %s (version %s)", base, h.Version))
+	// A daemon started before the last build keeps running the old code until it is restarted.
+	if h.Version != version {
+		d.warn(fmt.Sprintf("daemon: runs version %s, but this onett is version %s", h.Version, version),
+			"restart the daemon (stop `onett serve` and start it again) so it runs this build")
+	}
 }
 
 // checkPreflight reports the daemon's own last check of each project's tool directories. It has

@@ -44,7 +44,7 @@ func (l *eventLog) get() []string {
 // the environment variable named by "token_env".
 func registerSupType(t *testing.T, typ string, log *eventLog, failStart *atomic.Bool) {
 	t.Helper()
-	channel.Register(typ, channel.Registration{
+	channel.RegisterForTest(t, typ, channel.Registration{
 		SkipApprovalsForNotifier: "log",
 		Factory: func(c config.Channel, env channel.Env) (channel.Starter, error) {
 			id, _ := c.Options["id"].(string)

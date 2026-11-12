@@ -59,7 +59,7 @@ For each session onett starts the command with:
 | working directory            | the run's git worktree                                                                   |
 | stdin                        | the prompt (the same text as in `ONETT_PROMPT_FILE`)                                   |
 | `ONETT_PROMPT_FILE`        | path to a file holding the task prompt                                                   |
-| `ONETT_INSTRUCTIONS_FILE`  | path to a file holding the system instructions (role, rules, outbox contract); empty if none |
+| `ONETT_INSTRUCTIONS_FILE`  | path to a file holding the system instructions (role, rules, outbox contract); the file is empty if there are none |
 | `ONETT_MODEL`              | the model name from the role; empty if none                                              |
 | `ONETT_RESUME_SESSION`     | a session ID to continue; empty for a new session                                        |
 | `env`                        | the harness `env`, then the role `env`, added to the inherited environment               |
@@ -68,8 +68,11 @@ The two prompt files are temporary. Onett deletes them once the process has exit
 result has been collected. The plugin must not expect them to exist after it exits.
 
 Everything the agent does must happen inside the working directory. The agent reports back to
-onett through `.onett-run/result.json` in the worktree (the outbox, described in
-[design.md](design.md)). The protocol below is only for the live stream.
+onett through the outbox: the folder `.onett-run/` in the worktree, which git ignores. Onett
+puts that folder's full path in the `ONETT_OUTBOX` environment variable, so the
+`$ONETT_OUTBOX/result.json` that agent prompts name and `<worktree>/.onett-run/result.json` are
+the same file (described in [design.md](design.md)). The protocol below is only for the live
+stream.
 
 ### Output protocol
 
@@ -187,8 +190,10 @@ evidence is the last 4 KB of stdout followed by stderr. Before evidence (deploy 
 failure notes) is stored or handed to an agent, onett replaces secret values with `***`: the value
 of every environment variable (onett's own and the project's `env`) whose name has a segment such
 as `TOKEN`, `SECRET`, `PASSWORD`, `PASS`, `PASSWD`, `KEY`, `AUTH`, `APIKEY`, `CREDENTIAL`, `DSN`,
-`COOKIE` or `PAT` (plural forms count too, such as `TOKENS` or `KEYS`), and any URL with credentials
-in it. Values shorter than 8 characters are left alone.
+`COOKIE` or `PAT` (or the plural of one with an S, such as `TOKENS` or `PASSWORDS`), and any URL
+with credentials in it. Values shorter than 8 characters are left alone; the
+password inside such a URL is also replaced wherever it appears on its own, if it has 6
+characters or more.
 
 | Option     | Required | Default | Meaning                                                              |
 |------------|----------|---------|----------------------------------------------------------------------|

@@ -103,6 +103,69 @@ export interface GoalDetail {
   tasks: Task[];
 }
 
+export type TriggerKind = 'schedule' | 'github_issue';
+
+export type TriggerFiringCause = 'schedule' | 'github_issue' | 'manual';
+
+export type TriggerFiringOutcome = 'started' | 'skipped' | 'failed';
+
+export interface TriggerFiring {
+  id: string;
+  trigger_id: string;
+  at: string;
+  cause: TriggerFiringCause;
+  scheduled_for?: string;
+  issue_number?: number;
+  issue_url?: string;
+  by?: string;
+  outcome: TriggerFiringOutcome;
+  reason?: string;
+  conversation_id?: string;
+  message_id?: string;
+}
+
+// A trigger is an owner-defined rule that starts an orchestrator turn; only a signed-in owner
+// can change one.
+export interface Trigger {
+  id: string;
+  name: string;
+  kind: TriggerKind;
+  project: string;
+  prompt: string;
+  enabled: boolean;
+  cron?: string;
+  time_zone?: string;
+  next_run_at?: string;
+  label?: string;
+  issues_after?: string;
+  conversation_id?: string;
+  created_at: string;
+  updated_at: string;
+  last_firing?: TriggerFiring;
+}
+
+/** Body of POST /triggers. */
+export interface TriggerCreate {
+  name: string;
+  kind: TriggerKind;
+  project: string;
+  prompt: string;
+  enabled?: boolean;
+  cron?: string;
+  time_zone?: string;
+  label?: string;
+}
+
+/** Body of PATCH /triggers/{id}. A field left out is unchanged. */
+export interface TriggerPatch {
+  name?: string;
+  prompt?: string;
+  enabled?: boolean;
+  cron?: string;
+  time_zone?: string;
+  label?: string;
+}
+
 export interface Run {
   id: string;
   task_id: string;
@@ -243,6 +306,7 @@ export interface Friction {
   count: number;
   issue_url?: string;
   issue_state?: 'open' | 'closed';
+  issue?: number;
   created_at: string;
   updated_at: string;
 }
@@ -260,7 +324,8 @@ export interface Conversation {
   closed_at?: string;
   closed_by?: string;
   closed_reason?: string;
-  /** "operations" for the conversation the heartbeat wakes; empty for an ordinary chat. */
+  /** "operations" for the conversation the heartbeat wakes, "trigger" for a trigger's
+   * conversation (its settings are not applied); empty for an ordinary chat. */
   kind?: string;
   settings?: ConversationSettings;
 }

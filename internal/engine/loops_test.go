@@ -334,8 +334,9 @@ projects:
 	env := lpNewEngine(t, doc)
 
 	rows := env.e.Loops(env.ctx)
-	if len(rows) != 20 {
-		t.Fatalf("got %d rows, want 10 loops x 2 projects", len(rows))
+	// Counted from loopNames, so adding a loop does not have to change this test.
+	if want := len(loopNames) * 2; len(rows) != want {
+		t.Fatalf("got %d rows, want %d (%d loops x 2 projects)", len(rows), want, len(loopNames))
 	}
 	var keys []string
 	for _, r := range rows {

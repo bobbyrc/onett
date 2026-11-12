@@ -98,7 +98,7 @@ Owner decisions and open items are the unchecked `OWNER:` lines below.
 - [x] deploy/observe/notify: exit 0 with a lingering background child must stay a success (kill the group), not ErrWaitDelay → a good release failed/rolled back
 - [x] sysproc.Wait: also kill the leftover process group after a non-zero exit (no orphans either way)
 - [x] EnsureClone leaves the clone checked out on the remote HEAD (main), not the project's default_branch — the orchestrator reading project.path saw only main's README. Keep the clone's checkout at origin/<default_branch> (detached) after each fetch
-- [ ] friction: semantic duplicates need judgment — periodically queue a triager task "consolidate duplicate friction issues" (close dupes with a link)
+- [ ] friction: semantic duplicates need judgment — periodically queue a triager task "consolidate duplicate friction issues" (close dupes with a link). Since PR #350 a new report is attached to an open issue by text match or by the agent's checked claim; consolidating the duplicates already filed is still open
 - [x] openapi.yaml + web/src/types.ts: add 'retro' to the loop names / loops config shape
 - [x] OWNER (done): approve or reject dogfood PR #14 (retro's implementer-prompt change; high risk = onett's own instructions). My approval attempt was refused as self-approval — correctly; it is yours. My read: safe and useful; one hint (GOMODCACHE→/tmp with GOPROXY=off) is slightly off. — owner rejected #14 (2026-10-28); PR closed
 - [ ] OWNER: friction #4, #5, #6 are all the Codex sandbox (no localhost listeners, no module cache); they resolve with your Codex network decision. #3 closed as a duplicate of #5

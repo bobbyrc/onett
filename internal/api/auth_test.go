@@ -155,7 +155,7 @@ func TestSetupCreatesOwnerOnce(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.JSONEq(t, `{"setup_required":true,"user":null}`, rec.Body.String())
 
-	body := `{"username":"owner","password":"` + testPassword + `"}`
+	body := `{"username":"owner","password":"` + testPassword + `","code":"` + auth.SetupCode(testToken) + `"}`
 	rec = x.authReq(t, http.MethodPost, "/api/v1/auth/setup", body)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	assert.Contains(t, rec.Body.String(), `"role":"owner"`)
@@ -164,7 +164,7 @@ func TestSetupCreatesOwnerOnce(t *testing.T) {
 	assert.Equal(t, http.SameSiteStrictMode, cookie.SameSite)
 	assert.Equal(t, "/", cookie.Path)
 
-	rec = x.authReq(t, http.MethodPost, "/api/v1/auth/setup", `{"username":"second","password":"`+testPassword+`"}`)
+	rec = x.authReq(t, http.MethodPost, "/api/v1/auth/setup", `{"username":"second","password":"`+testPassword+`","code":"`+auth.SetupCode(testToken)+`"}`)
 	assert.Equal(t, http.StatusConflict, rec.Code)
 	assert.JSONEq(t, `{"error":"an owner account already exists"}`, rec.Body.String())
 
@@ -175,7 +175,7 @@ func TestSetupCreatesOwnerOnce(t *testing.T) {
 
 func TestSetupRejectsShortPassword(t *testing.T) {
 	x := newHarness(t)
-	rec := x.authReq(t, http.MethodPost, "/api/v1/auth/setup", `{"username":"owner","password":"short"}`)
+	rec := x.authReq(t, http.MethodPost, "/api/v1/auth/setup", `{"username":"owner","password":"short","code":"`+auth.SetupCode(testToken)+`"}`)
 	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
 	assert.JSONEq(t, `{"error":"password must be at least 12 characters"}`, rec.Body.String())
 

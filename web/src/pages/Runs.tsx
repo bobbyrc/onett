@@ -130,7 +130,16 @@ export function Runs() {
       <ErrorLine error={runs.error} />
       {runs.isPending ? <p className="muted">Loading runs…</p> : null}
       {runs.isSuccess ? (
-        <Table columns={columns} rows={rows} rowKey={(r) => r.id} empty="No runs match these filters." />
+        <Table
+          columns={columns}
+          rows={rows}
+          rowKey={(r) => r.id}
+          empty={
+            project || status
+              ? 'No runs match these filters.'
+              : 'No runs yet. A run is one agent session: one appears when a task starts or you message an agent in Chat.'
+          }
+        />
       ) : null}
     </>
   );
