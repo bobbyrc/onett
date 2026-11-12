@@ -233,10 +233,26 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 		e.requeueOrBlock(bg, t.ID, "workspace setup failed", err.Error())
 		return
 	}
-	// A branch with an open PR may have fallen behind the default branch. Merge the base in
-	// before the agent starts, so its conflicts are its to resolve.
+	// A branch that already holds work may have fallen behind the default branch: one with an
+	// open PR, or one with commits an earlier attempt left behind (a task that started, then
+	// reported depends_on, is told its worktree has the code it waited for). Merge the base in
+	// before the agent starts, so its conflicts are its to resolve. A branch cut from the default
+	// branch just now holds nothing to merge into.
 	var conflicts []string
-	if t.PRNumber != 0 {
+	stale := t.PRNumber != 0
+	if !stale {
+		contained, err := e.d.Workspaces.IsAncestor(ctx, repo, ws.StartSHA, ws.BaseRef)
+		if err != nil {
+			if stopped() {
+				return
+			}
+			e.finishRun(bg, run.ID, domain.RunFailed, "compare with base: "+err.Error())
+			e.requeueOrBlock(bg, t.ID, "could not compare the branch with "+ws.BaseRef, err.Error())
+			return
+		}
+		stale = !contained
+	}
+	if stale {
 		conflicts, err = e.d.Workspaces.MergeBase(ctx, repo, ws)
 		if err != nil {
 			if stopped() {

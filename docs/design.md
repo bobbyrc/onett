@@ -156,7 +156,9 @@ queued ─► running ─► review ─► merged ─► deploying ─► done
 - Agents never commit (Codex's sandbox keeps `.git` read-only, so they could not anyway). When
   the run ends with changes, onett commits them with the agent's PR title, pushes branch
   `onett/<task-id-suffix>-<slug>` and opens a PR; the task moves to `review`.
-- Before a re-run on a branch that already has a PR, onett merges the default branch in. If
+- Before a re-run on a branch that already holds work (an open PR, or commits an earlier attempt
+  left behind), onett merges the default branch in, so a task that waited for another task starts
+  on that task's code even when it had already begun. If
   that conflicts, the agent is given the conflicted files to resolve; leftover conflict
   markers fail the attempt instead of being committed.
 - In `review` the shepherd waits for CI, dispatches a `reviewer` run when the policy requires
@@ -167,6 +169,10 @@ queued ─► running ─► review ─► merged ─► deploying ─► done
   If the PR merges but the write that records it fails, the task is not blocked as a failed merge:
   it stays in `review` or `awaiting_approval`, and the shepherd's next pass sees the PR merged and
   moves the task to `merged`. Onett never calls merge a second time for it.
+  A merge call that reports an error is not believed before the PR has been read: `gh` can fail
+  after GitHub accepted the merge. A PR that did merge is recorded as merged; when the PR cannot be
+  read either, the outcome is unknown, so the task is left where it is for the shepherd's next pass
+  and is not blocked.
   When CI fails, the task is re-queued with the failed run's log from the PR head commit as
   evidence. The shepherd takes that verdict only once every CI run of the head commit has ended:
   the `gh` CLI prints no log of a run that is still going, not even for a job in it that has
@@ -330,7 +336,9 @@ the code a normal turn uses: the reply is stored once, the session id kept, the 
 released and, for a goal turn (`goal_turn` on the run), the goal's progress check runs on the real
 result, judged from the goal's `last_turn_at` because the in-memory snapshot is gone. If a turn's
 shim is gone, `recover` does not fail the turn: it re-runs it by resuming the conversation's session
-with a note that onett restarted. An interrupted goal turn is taken back out of `turns` and its
+with a note that onett restarted. That a restart ended the turn's run is read from the stored run
+too, so a start that failed after ending the run still re-runs the turn on the next start.
+An interrupted goal turn is taken back out of `turns` and its
 re-run is not judged, so a restart can neither use up a goal's turns nor block it.
 
 ### Risk and auto-merge **(review)**

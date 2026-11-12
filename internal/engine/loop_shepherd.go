@@ -42,6 +42,18 @@ func (e *mergedUnrecordedError) Error() string {
 
 func (e *mergedUnrecordedError) Unwrap() error { return e.err }
 
+// mergeUnconfirmedError is returned by mergeTask when the merge call failed and the PR could not
+// be read afterwards, so whether the PR merged is unknown. A caller must not block the task as if
+// the merge had been refused: the task stays where it is, and the next shepherd pass, which reads
+// the PR first, records the merge or judges the PR again.
+type mergeUnconfirmedError struct{ err, readErr error }
+
+func (e *mergeUnconfirmedError) Error() string {
+	return fmt.Sprintf("%v (the PR could not be read to see whether it merged: %v)", e.err, e.readErr)
+}
+
+func (e *mergeUnconfirmedError) Unwrap() error { return e.err }
+
 // shepherdLoop moves each task in review or awaiting_approval through CI, review, policy and
 // merge. Each task is handled on its own, and one task's error does not stop the others.
 func (e *Engine) shepherdLoop(ctx context.Context, p *config.Project) error {
@@ -265,6 +277,13 @@ func (e *Engine) mergeRefused(ctx context.Context, s scm.SCM, t domain.Task, jud
 			"task", t.ID, "pr", t.PRNumber, "merge_err", mergeErr, "err", err)
 		return nil
 	}
+	if pr.State != "open" {
+		// Merged or closed after all, so this was no refusal. The next pass reads the PR first
+		// and records what happened.
+		e.d.Logger.Info("PR is no longer open after a failed merge call; task stays in review for the next pass",
+			"task", t.ID, "pr", t.PRNumber, "state", pr.State, "merge_err", mergeErr)
+		return nil
+	}
 	if pr.HeadSHA != judged {
 		e.d.Logger.Info("PR head moved before auto-merge; task stays in review for re-evaluation",
 			"task", t.ID, "pr", t.PRNumber, "judged", judged, "head", pr.HeadSHA)
@@ -458,8 +477,10 @@ func (e *Engine) backToReview(ctx context.Context, taskID string, cause error) e
 // mergeTask merges a task's PR at headSHA, moves the task to merged, emits pr.merged and kicks
 // the deploy watch. The shepherd (auto-merge) and approval decisions both call it. The task must
 // be in review or awaiting_approval; otherwise it returns a notMergeableError and merges nothing.
-// Once the PR has merged, the only error it returns is a mergedUnrecordedError: the merge happened
-// and the task could not be marked merged.
+// A merge call that fails is not believed before the PR has been read: a PR that did merge is
+// recorded like any other merge, and when the PR cannot be read the error is a
+// mergeUnconfirmedError. Once the PR has merged, the only error it returns is a
+// mergedUnrecordedError: the merge happened and the task could not be marked merged.
 func (e *Engine) mergeTask(ctx context.Context, taskID, headSHA string) error {
 	t, err := e.d.Store.GetTask(ctx, taskID)
 	if err != nil {
@@ -476,11 +497,18 @@ func (e *Engine) mergeTask(ctx context.Context, taskID, headSHA string) error {
 	if err != nil {
 		return fmt.Errorf("scm: %w", err)
 	}
-	if err := s.MergePR(ctx, t.PRNumber, headSHA); err != nil {
-		return fmt.Errorf("merge PR #%d: %w", t.PRNumber, err)
-	}
+	// gh can report an error for a merge GitHub accepted (a timeout, a dropped connection), so the
+	// PR is read before a failed merge call is believed. Merge itself is never called twice.
+	mergeErr := s.MergePR(ctx, t.PRNumber, headSHA)
 	pr, err := s.GetPR(ctx, t.PRNumber)
-	if err != nil {
+	switch {
+	case mergeErr != nil && err != nil:
+		return &mergeUnconfirmedError{err: fmt.Errorf("merge PR #%d: %w", t.PRNumber, mergeErr), readErr: err}
+	case mergeErr != nil && pr.State != "merged":
+		return fmt.Errorf("merge PR #%d: %w", t.PRNumber, mergeErr)
+	case mergeErr != nil:
+		e.d.Logger.Warn("the merge call reported an error, but the PR is merged", "task", taskID, "pr", t.PRNumber, "err", mergeErr)
+	case err != nil:
 		// The merge happened. Leave the task alone; the next shepherd pass sees the PR merged.
 		e.d.Logger.Error("PR merged but could not be read back", "task", taskID, "pr", t.PRNumber, "err", err)
 		return nil

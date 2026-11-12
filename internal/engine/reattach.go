@@ -225,7 +225,7 @@ func (e *Engine) resumeChat(ctx context.Context, conv domain.Conversation, agent
 // rerunInterrupted is recover's answer to an orchestrator turn whose agent is gone (its shim did
 // not survive, or run_shim was off): rather than lose the turn it starts a new one that resumes
 // the conversation's session with chatInterruptedNote. The conversation stays busy for it.
-// endedByRestart holds the runs recover itself just ended; a busy conversation whose run ended on
+// endedByRestart holds the runs recover ended on any start; a busy conversation whose run ended on
 // its own (a crash between storing the reply and clearing the flag) finished its turn, so it is
 // only released. An interrupted goal turn is exempt from max_goal_turns: the re-run takes its
 // place in the goal's count rather than adding one, and is then judged by the goal guard like any
