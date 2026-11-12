@@ -45,8 +45,8 @@ const (
 	ResumeFactory PersonAction = "resume_factory"
 	// ResumeProject is clearing a project pause.
 	ResumeProject PersonAction = "resume_project"
-	// ResumePausedGoal is resuming a goal that someone paused.
-	ResumePausedGoal PersonAction = "resume_paused_goal"
+	// ChangePausedGoal is resuming, blocking or finishing a goal that someone paused.
+	ChangePausedGoal PersonAction = "resume_paused_goal"
 	// RunLoop is running a loop by hand, which also runs a loop that is disabled.
 	RunLoop PersonAction = "run_loop"
 	// ResetGoalBudget is giving a blocked goal a fresh turn budget when it is resumed.
@@ -65,7 +65,7 @@ var agentRefused = map[PersonAction]string{
 	ApproveMerge:      "approving or rejecting a merge is the owner's decision; tell the owner to use the approval card in the web UI or their chat channel, or to run `onett approve` in their own terminal",
 	ResumeFactory:     "resuming the factory is the owner's decision; tell the owner to resume it in the web UI or to run `onett resume` in their own terminal",
 	ResumeProject:     "resuming a project is the owner's decision; tell the owner to resume it on the Projects page or to run `onett project resume` in their own terminal",
-	ResumePausedGoal:  "resuming a paused goal is the owner's decision; tell the owner to resume it on the goal's page or to run `onett goal resume` in their own terminal",
+	ChangePausedGoal:  "a paused goal is the owner's to resume, block or finish; tell the owner to do it on the goal's page or to run `onett goal resume` in their own terminal",
 	RunLoop:           "running a loop by hand is the owner's decision; tell the owner to run it on the Loops page or with `onett loop run` in their own terminal",
 	ResetGoalBudget:   "a fresh turn budget for a blocked goal is the owner's decision",
 	WriteConversation: "only the owner writes in an orchestrator conversation",

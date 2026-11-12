@@ -76,7 +76,8 @@ reviewer's approval.
    environment. Never pass `GH_TOKEN`, the API token or provider keys to an agent, including in
    examples and docs.
 4. **A denial or a stall is terminal.** A denied tool call, or no output for the stall timeout,
-   blocks the task with the reason. Never add a retry or a workaround for a denial.
+   blocks the task with the reason. Never add a retry or a workaround for a denial. Only a person
+   retries a task that a denial stopped: the agent token is refused (`auth.RetryDenied`).
 5. **Merges are pinned.** `gh pr merge --match-head-commit`: an approval covers one commit, and a
    changed PR withdraws it.
 6. **Status changes are compare-and-set.** Automatic task transitions name the status they expect,
@@ -94,9 +95,12 @@ reviewer's approval.
     session, and refuses unknown Host headers (DNS-rebinding guard). Remote access is opt-in
     through `public_url` and `allowed_hosts`.
 12. **Config and users change only through a person.** Editing `onett.yaml` and managing users
-    need a signed-in owner session. The API token, which the orchestrator agent holds, can never
-    do either (`auth.TokenAllows`), so an agent cannot rewrite its own policy or environment.
-    Every new route declares the action it needs (read, operate or administer).
+    need a signed-in owner session. Neither API token can do either (`auth.TokenAllows`): not the
+    owner token the CLI uses, and not the agent token the orchestrator agent holds, which is also
+    refused a person's decisions (the list is `agentRefused` in `internal/auth`). So an agent
+    cannot rewrite its own policy or environment, or take the owner's decisions. Every new route
+    declares the action it needs (read, operate or administer), and a route that takes a
+    person's decision refuses the agent token.
 
 Changes to `internal/engine/prompts/**`, `internal/policy/**`, `internal/config/defaults.go`,
 `internal/sysproc/**`, `internal/engine/loop_shepherd.go`, `internal/engine/helpers.go`,

@@ -11,6 +11,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/api"
 	"github.com/bobbyrc/onett/internal/attach"
+	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/notify"
@@ -122,9 +123,21 @@ func (e *Engine) cancelTree(ctx context.Context, id string) error {
 
 // RetryTask re-queues a blocked, failed or cancelled task with its attempts reset. A note is
 // appended to the body as guidance for the next agent. Reviews of the old attempt that have not
-// finished are cancelled, so the new head gets a review of its own.
+// finished are cancelled, so the new head gets a review of its own. The agent token cannot retry
+// a task blocked by a denial, and its note is headed as the orchestrator's.
 func (e *Engine) RetryTask(ctx context.Context, id, note string) error {
-	_, err := e.setTask(ctx, id, "re-queued by owner", func(t *domain.Task) error {
+	t, err := e.d.Store.GetTask(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := e.refuseAgentOnDenial(ctx, t); err != nil {
+		return err
+	}
+	by, heading := "owner", "## Note from the owner"
+	if auth.IsAgent(ctx) {
+		by, heading = "the orchestrator", "## Note from the orchestrator"
+	}
+	_, err = e.setTask(ctx, id, "re-queued by "+by, func(t *domain.Task) error {
 		switch t.Status {
 		case domain.TaskBlocked, domain.TaskFailed, domain.TaskCancelled:
 		default:
@@ -135,7 +148,7 @@ func (e *Engine) RetryTask(ctx context.Context, id, note string) error {
 		t.BlockedReason = ""
 		t.FollowUpPending = false
 		if note != "" {
-			t.Body += "\n\n## Note from the owner\n\n" + note
+			t.Body += "\n\n" + heading + "\n\n" + note
 		}
 		return nil
 	})

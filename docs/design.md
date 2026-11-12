@@ -470,7 +470,9 @@ the goal active but queued no task, retried none and did not finish or block the
 second chance (the next check-in opens by saying so and the loop wakes at once), and a second such
 turn in a row blocks it; so does reaching `limits.max_goal_turns` (default 40). Blocking, and `onett goal done`, notify the
 owner. A task that blocks inside an active goal does not notify: the goal's orchestrator handles it
-first, and the owner hears only if the goal blocks. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
+first, and the owner hears only if the goal blocks. The exception is a task that a denial stopped
+(a refused tool call): only a person retries it (invariant 4), so it notifies at once and the
+orchestrator's retry is refused. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
 Goals add no new way to act: the orchestrator still only queues tasks, and merges still wait for
 the project's policy (the owner only under `supervised`). `loops.goals.enabled: false` turns the
 loop off.

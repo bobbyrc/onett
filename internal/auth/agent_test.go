@@ -67,7 +67,7 @@ func TestAgentTokenCannotResumeFactory(t *testing.T) { assertRefused(t, ResumeFa
 
 func TestAgentTokenCannotResumeProject(t *testing.T) { assertRefused(t, ResumeProject) }
 
-func TestAgentTokenCannotResumePausedGoal(t *testing.T) { assertRefused(t, ResumePausedGoal) }
+func TestAgentTokenCannotChangePausedGoal(t *testing.T) { assertRefused(t, ChangePausedGoal) }
 
 func TestAgentTokenCannotRunLoop(t *testing.T) { assertRefused(t, RunLoop) }
 

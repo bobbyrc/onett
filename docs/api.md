@@ -9,11 +9,17 @@ LogLine, Event, Approval, Deployment, Signal, Friction, Conversation, ChatMessag
 
 Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 
-- **The API token** (`Authorization: Bearer <token>`) is for the CLI and the orchestrator agent.
-  It lives at `<data_dir>/token` (created on first start, mode 600). It can read everything and
-  do what operators do (approve, retry, cancel, pause, create tasks, chat, run loops, reload
-  config). It can **never** edit the config file or manage users. `GET /events` also accepts
-  `?token=` because browsers' `EventSource` cannot set headers.
+- **The API tokens** (`Authorization: Bearer <token>`). The **owner token** is for the owner's
+  CLI. It lives at `<data_dir>/token` (created on first start, mode 600). It can read everything
+  and do what operators do (approve, retry, cancel, pause, create tasks, chat, run loops, reload
+  config). The **agent token** is what the orchestrator agent is given. It is derived from the
+  owner token (HMAC-SHA256, so nothing more is stored) and can do the same except a person's
+  decisions, which answer 403 with the reason: `POST /approvals/{id}/decide`,
+  `POST /control/resume`, `POST /projects/{name}/resume`, `POST /goals/{id}/resume`, `/done` and
+  `/block` for a paused goal, `POST /loops/{name}/run`, `POST /conversations/{id}/messages` and
+  `/flush`, and `POST /tasks/{id}/retry` or `/messages` for a task that a denial stopped. Neither
+  token can **ever** edit the config file or manage users. `GET /events` also accepts `?token=`
+  because browsers' `EventSource` cannot set headers.
 - **A signed-in person** uses the `onett_session` cookie, set by `POST /auth/setup` (the first
   account) or `POST /auth/login`. The cookie is HttpOnly and SameSite=Strict, lasts 30 days, and
   is `Secure` when `server.public_url` is https. Sign-out (`POST /auth/logout`) ends the session.
@@ -57,7 +63,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 |---|---|---|
 | `GET /health` | | `{"ok":true,"version":"…","started_at":"…"}`; `started_at` changes when the daemon restarts |
 | `GET /auth/state` | | `{"setup_required":bool,"user":User\|null}` (never 401) |
-| `POST /auth/setup` | `{"username","password"}`; only while no user exists | `User` and sets the cookie (200); 409 once a user exists; 503 busy |
+| `POST /auth/setup` | `{"username","password","code"}`; only while no user exists. `code` is the setup code that `onett open` puts after `#` in the address it opens | `User` and sets the cookie (200); 403 without the right code; 409 once a user exists; 503 busy |
 | `POST /auth/login` | `{"username","password"}` | `User` and sets the cookie (200); 401 wrong credentials; 429 locked; 503 busy |
 | `POST /auth/logout` | | 204, clears the cookie; session only (token gets 403) |
 | `POST /auth/password` | `{"current","new"}` | 204; 403 wrong current password; 429 too many wrong guesses (same count rules as sign-in, keyed to the user); 503 busy; other sessions end; session only |
@@ -101,7 +107,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /goals` | `?project=&status=active,blocked&limit=` | `[]Goal` |
 | `POST /goals` | `{"project","title","body"}` | `Goal` (201): active, with its own orchestrator conversation (`conversation_id`) |
 | `GET /goals/{id}` | | `{"goal":Goal,"tasks":[]Task}`: the tasks created with this `goal_id`, newest first |
-| `POST /goals/{id}/pause`, `POST /goals/{id}/resume` | | `Goal`; 409 unless the goal is active (pause) or paused or blocked (resume); resuming a blocked goal resets its turn count so a goal that hit `max_goal_turns` gets a fresh budget |
+| `POST /goals/{id}/pause`, `POST /goals/{id}/resume` | | `Goal`; 409 unless the goal is active (pause) or paused or blocked (resume); resuming a blocked goal resets its turn count so a goal that hit `max_goal_turns` gets a fresh budget, except with the agent token, which resumes it with the count it has |
 | `POST /goals/{id}/done` | `{"summary":"…"}` (required) | `Goal`; notifies the owner (normal priority); 409 when already done |
 | `POST /goals/{id}/block` | `{"reason":"…"}` (required) | `Goal`; notifies the owner (high priority); 409 unless active or paused |
 | `GET /runs` | `?task_id=&project=&status=&limit=` | `[]Run` |

@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/bobbyrc/onett/internal/attach"
+	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
 	agentharness "github.com/bobbyrc/onett/internal/harness"
@@ -282,7 +283,7 @@ func (s *server) sendTaskMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	m, err := s.opts.Controller.SendTaskMessage(r.Context(), chi.URLParam(r, "id"), in.Text, author)
 	if err != nil {
-		s.fail(w, err)
+		s.failPerson(w, err)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, m)
@@ -401,7 +402,7 @@ func (s *server) retryTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.opts.Controller.RetryTask(r.Context(), chi.URLParam(r, "id"), body.Note); err != nil {
-		s.fail(w, err)
+		s.failPerson(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -498,6 +499,9 @@ func (s *server) listApprovals(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) decideApproval(w http.ResponseWriter, r *http.Request) {
+	if refused(w, r, auth.ApproveMerge) {
+		return
+	}
 	var body struct {
 		// Approve is a pointer so that an omitted field is distinguishable from false. An omitted
 		// approve must not silently reject the approval.
@@ -615,6 +619,9 @@ func (s *server) listProjects(w http.ResponseWriter, r *http.Request) {
 // setProjectPaused pauses or resumes one project. The response reports the state after the call.
 func (s *server) setProjectPaused(paused bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !paused && refused(w, r, auth.ResumeProject) {
+			return
+		}
 		name := chi.URLParam(r, "name")
 		if err := s.opts.Controller.SetProjectPaused(r.Context(), name, paused); err != nil {
 			s.fail(w, err)
@@ -807,6 +814,9 @@ func (s *server) getControl(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) setPaused(paused bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !paused && refused(w, r, auth.ResumeFactory) {
+			return
+		}
 		var err error
 		if paused {
 			info := domain.PauseInfo{Reason: domain.PauseOwner, By: "api token"}
@@ -849,6 +859,9 @@ func (s *server) listLoops(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) runLoop(w http.ResponseWriter, r *http.Request) {
+	if refused(w, r, auth.RunLoop) {
+		return
+	}
 	name := chi.URLParam(r, "name")
 	if err := s.opts.Controller.RunLoop(r.Context(), name, r.URL.Query().Get("project")); err != nil {
 		s.fail(w, err)
@@ -976,6 +989,10 @@ func (s *server) sendMessage(w http.ResponseWriter, r *http.Request) {
 	if s.refuseTaskConversation(w, r) {
 		return
 	}
+	// An orchestrator conversation holds the owner's words, so the agent token cannot write there.
+	if refused(w, r, auth.WriteConversation) {
+		return
+	}
 	var in struct {
 		Text        string   `json:"text"`
 		Attachments []string `json:"attachments"`
@@ -1054,6 +1071,10 @@ func (s *server) putConversationSettings(w http.ResponseWriter, r *http.Request)
 
 func (s *server) flushConversation(w http.ResponseWriter, r *http.Request) {
 	if s.refuseTaskConversation(w, r) {
+		return
+	}
+	// An orchestrator conversation holds the owner's words, so the agent token cannot write there.
+	if refused(w, r, auth.WriteConversation) {
 		return
 	}
 	if err := s.opts.Controller.FlushChat(r.Context(), chi.URLParam(r, "id")); err != nil {

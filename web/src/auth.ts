@@ -89,8 +89,8 @@ export async function signIn(username: string, password: string): Promise<void> 
 }
 
 /** Creates the first owner account and signs in as it. Rejects with 409 when one already exists. */
-export async function setUp(username: string, password: string): Promise<void> {
-  const user = await api.setupOwner(username, password);
+export async function setUp(username: string, password: string, code: string): Promise<void> {
+  const user = await api.setupOwner(username, password, code);
   dispatch({ type: 'signed-in', user });
 }
 

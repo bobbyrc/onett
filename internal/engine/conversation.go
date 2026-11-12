@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bobbyrc/onett/internal/api"
+	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/store"
@@ -280,13 +281,24 @@ func (e *Engine) SendTaskMessage(ctx context.Context, taskID, text, author strin
 	if err != nil {
 		return domain.ChatMessage{}, err
 	}
+	// A message re-queues a blocked task, so for the agent it is a retry: refused when the
+	// task is blocked by a denial. Checked before the conversation is created.
+	if auth.IsAgent(ctx) {
+		l, err := e.lineage(ctx, root)
+		if err != nil {
+			return domain.ChatMessage{}, err
+		}
+		if err := e.refuseAgentOnDenial(ctx, l.tasks[len(l.tasks)-1]); err != nil {
+			return domain.ChatMessage{}, err
+		}
+	}
 	conv, l, err := e.sendableConversation(ctx, root)
 	if err != nil {
 		return domain.ChatMessage{}, err
 	}
 	msg := domain.ChatMessage{ConversationID: conv.ID, Role: "user", Text: text, Queued: true, Author: author}
 	if l.live != "" {
-		switch err := e.deliverToRun(ctx, l.live, text); {
+		switch err := e.deliverToRunAs(ctx, l.live, text, author); {
 		case err == nil:
 			msg.Queued, msg.RunID = false, l.live
 		case errors.Is(err, errRunNotLive), errors.Is(err, harness.ErrInputClosed):
@@ -410,8 +422,12 @@ func (e *Engine) continueConversation(ctx context.Context, rootID string) {
 		e.startFollowUp(ctx, root, newest)
 	case slices.Contains([]domain.TaskStatus{domain.TaskBlocked, domain.TaskFailed, domain.TaskReview,
 		domain.TaskAwaitingApproval, domain.TaskDone}, newest.Status):
+		by := "an owner message"
+		if !slices.ContainsFunc(msgs, func(m domain.ChatMessage) bool { return m.Queued && m.Author == "" }) {
+			by = "an orchestrator message"
+		}
 		_, applied, err := e.setTaskFrom(ctx, newest.ID, []domain.TaskStatus{newest.Status},
-			"re-queued by an owner message", func(x *domain.Task) error {
+			"re-queued by "+by, func(x *domain.Task) error {
 				x.Status = domain.TaskQueued
 				x.Attempts = 0
 				x.BlockedReason = ""
@@ -603,4 +619,35 @@ func (e *Engine) closeOnFinished(ctx context.Context, t domain.Task, summary str
 	if err := e.closeConversation(ctx, root, "agent", reason); err != nil && !errors.Is(err, api.ErrConflict) {
 		e.d.Logger.Error("finished: close conversation", "task", root.ID, "err", err)
 	}
+}
+
+// blockedByDenial reports whether t stopped after its latest run was denied a tool call and has
+// not been re-queued since. A denial is terminal (invariant 4): only a person retries it. A
+// cancelled or failed task counts as well as a blocked one, so cancelling a denied task does not
+// make it retryable.
+func (e *Engine) blockedByDenial(ctx context.Context, t domain.Task) (bool, error) {
+	if !slices.Contains([]domain.TaskStatus{domain.TaskBlocked, domain.TaskFailed, domain.TaskCancelled}, t.Status) {
+		return false, nil
+	}
+	runs, err := e.d.Store.ListRuns(ctx, store.RunFilter{TaskID: t.ID, Limit: 1})
+	if err != nil {
+		return false, err
+	}
+	return len(runs) == 1 && runs[0].Status == domain.RunDenied, nil
+}
+
+// refuseAgentOnDenial returns the agent token's refusal when t is blocked by a denial, and nil
+// for a person or for any other task.
+func (e *Engine) refuseAgentOnDenial(ctx context.Context, t domain.Task) error {
+	if !auth.IsAgent(ctx) {
+		return nil
+	}
+	denied, err := e.blockedByDenial(ctx, t)
+	if err != nil {
+		return err
+	}
+	if denied {
+		return auth.Refused(ctx, auth.RetryDenied)
+	}
+	return nil
 }

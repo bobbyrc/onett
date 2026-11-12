@@ -1746,14 +1746,14 @@ paths:
       operationId: setupOwner
       tags: [auth]
       summary: Create the first account, as an owner.
-      description: Allowed only while no user exists. The check and the insert happen in one transaction, so two racing requests cannot both succeed. On success the response sets the session cookie.
+      description: Allowed only while no user exists, and only with the setup code that `onett open` puts in the address it opens; a missing or wrong code answers 403. The check and the insert happen in one transaction, so two racing requests cannot both succeed. On success the response sets the session cookie.
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Credentials'
+              $ref: '#/components/schemas/SetupRequest'
       responses:
         '200':
           description: The owner account, with the session cookie set.
@@ -2509,6 +2509,19 @@ components:
           type: string
         password:
           type: string
+
+    SetupRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password, code]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        code:
+          type: string
+          description: The setup code from the address that onett open opens.
 
     NewUser:
       type: object
