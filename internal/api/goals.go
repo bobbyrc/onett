@@ -87,7 +87,7 @@ func (s *server) goalStatus(to domain.GoalStatus) http.HandlerFunc {
 		}
 		g, err := s.opts.Controller.SetGoalStatus(r.Context(), chi.URLParam(r, "id"), to, text)
 		if err != nil {
-			s.fail(w, err)
+			s.failPerson(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, g)

@@ -108,8 +108,18 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
 
 - **Agents judge, code gates.** Agents write code, review diffs and triage issues. Deterministic Go
   code does everything that leaves the machine: commits, pushes, PRs, merges, deploys and rollbacks.
-- **Agents cannot approve their own work.** Worker agents get no API token. Only the chief of staff
-  does, and it uses the CLI. A reviewer agent runs in the branch it reviews, but its CLI does not
+- **Agents cannot approve their own work.** Worker agents get no API token: inside an agent run
+  the `onett` CLI never reads your token file, so a worker has nothing to call the API with. The
+  chief of staff gets a lesser **agent token**, derived from yours, and uses the CLI with it. That
+  token can queue, retry, cancel and pause, but a person's decisions are refused: approving or
+  rejecting a merge, resuming the factory or a project, changing a goal you paused, running a loop
+  by hand, writing in a chat as you, giving a blocked goal a fresh turn budget, and retrying a
+  task that a denial stopped. Inside an agent run the commands that act on this machine with your
+  authority (`token`, `user`, `service`, `init`, `open`, `backup`, `project add`, and `serve` for the chief
+  of staff) refuse to run. This boundary is the API's and the CLI's: an agent that
+  deliberately reads `<data_dir>/token` as your user is stopped only by isolating agents (see
+  [docs/proposals/agent-isolation.md](docs/proposals/agent-isolation.md)).
+  A reviewer agent runs in the branch it reviews, but its CLI does not
   load that branch's own agent configuration: Claude Code takes no settings, hooks, MCP servers,
   skills or instruction files (`CLAUDE.md`, `AGENTS.md`) from it. Onett puts the base branch's
   root `AGENTS.md` and `CLAUDE.md` (up to 32 KiB each) in the reviewer's prompt instead, so the
@@ -118,11 +128,12 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   branch's code as your user. For Codex see the known limit below.
 - **People sign in; config, users and triggers change only through them.** The web UI signs people
   in with a username and password (roles: viewer reads, operator also acts on work, owner also
-  edits `onett.yaml`, manages users and manages triggers). The API token, which the CLI and the
-  chief of staff hold, can read and act but can never edit the config, users or triggers, so an
+  edits `onett.yaml`, manages users and manages triggers). Neither API token (yours, which the CLI
+  uses, or the chief of staff's agent token) can edit the config, users or triggers, so an
   agent cannot rewrite its own policy or environment or change which triggers exist. The first
-  visit to a new instance creates the owner account, so create it before you make onett reachable
-  from other machines. Behind an HTTPS proxy, set `server.public_url` to the `https://` address so
+  account is created from the page `onett open` opens: it carries a setup code made from your
+  token file, so another local process cannot create the owner account first. Behind an HTTPS
+  proxy, set `server.public_url` to the `https://` address so
   the session cookie is marked Secure. This boundary is the API's: agents still run as your user,
   so one that can write `onett.yaml` or the database file directly is limited only by its harness
   until agents are isolated (see
@@ -169,11 +180,15 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   approval is withdrawn and the PR is checked again.
 - **Denials and stalls stop, they do not retry.** A denied tool call, or no output for
   `limits.stall_timeout` (default 15 minutes), ends the run and blocks the task with the reason.
+  Only a person retries a task that a denial stopped: the chief of staff's retry is refused, and
+  inside a goal you are notified at once.
 - **Pause switch.** `onett pause` stops new runs and loop actions. Running agents finish. A
   single project pauses with `onett project pause NAME` (`resume` undoes it) or on the web UI's
   Projects page; this survives restarts, but a `paused: true` in `onett.yaml` can only be cleared
   in the file. While paused, the `deploy_watch` and `prod_watch` loops keep running, so a release
-  already in flight is still health-checked and rolled back.
+  already in flight is still health-checked and rolled back. The chief of staff can pause but
+  cannot resume the factory, a project or a goal you paused: only a person does that, in the web
+  UI, a chat channel or their own terminal.
 - **Project setup and checks.** A project's `setup` commands run in each fresh worktree before the
   agent starts (install dependencies). Its `checks` (name, `run` shell command, optional `timeout`,
   default 10m) run after the agent finishes and before onett commits and pushes. A failing check

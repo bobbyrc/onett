@@ -6,12 +6,15 @@ import { Button } from '../components/Button';
 import { Field } from '../components/Field';
 import { errorMessage } from '../lib/format';
 import { usePageTitle } from '../lib/pageTitle';
+import { setupCodeFromHash } from '../lib/setupCode';
 
 const MIN_PASSWORD = 12;
 
 /**
  * The sign-in sheet. With `setup` true it creates the first owner account instead: onett has
- * no users yet. `expired` shows that a signed-in session ended and asks for sign-in again.
+ * no users yet. Creating the first account needs the setup code from the address `onett open`
+ * opens; without it the sheet says to run that command. `expired` shows that a signed-in session
+ * ended and asks for sign-in again.
  */
 export function SignIn({ setup, expired }: { setup: boolean; expired: boolean }) {
   const [mode, setMode] = useState<'setup' | 'signin'>(setup ? 'setup' : 'signin');
@@ -25,6 +28,22 @@ export function SignIn({ setup, expired }: { setup: boolean; expired: boolean })
   const [busy, setBusy] = useState(false);
   const creating = mode === 'setup';
   usePageTitle(creating ? 'Create the owner account' : 'Sign in');
+  // `onett open` puts the setup code after # in the address. It is read once, then removed
+  // from the address bar so it does not stay in the page's address.
+  const [code, setCode] = useState(() => setupCodeFromHash(window.location.hash));
+  useEffect(() => {
+    // A link pasted into a page that is already open changes only the hash, with no reload.
+    const onHashChange = () => {
+      const pasted = setupCodeFromHash(window.location.hash);
+      if (pasted) setCode(pasted);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+  useEffect(() => {
+    if (code) window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, [code]);
+  const needsLink = creating && !code;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -35,7 +54,7 @@ export function SignIn({ setup, expired }: { setup: boolean; expired: boolean })
     }
     setBusy(true);
     try {
-      if (creating) await setUp(username, password);
+      if (creating) await setUp(username, password, code);
       else await signIn(username, password);
       // On success the App switches to the signed-in screen and this sheet unmounts.
     } catch (err) {
@@ -46,6 +65,8 @@ export function SignIn({ setup, expired }: { setup: boolean; expired: boolean })
         setNotice('An owner account already exists. Sign in.');
         setPassword('');
         setConfirm('');
+      } else if (err instanceof ApiError && creating && err.status === 403) {
+        setError('This setup link is not valid. Run onett open again.');
       } else if (err instanceof ApiError && !creating && err.status === 401) {
         setError('Wrong username or password.');
       } else if (err instanceof ApiError && !creating && err.status === 429) {
@@ -65,57 +86,69 @@ export function SignIn({ setup, expired }: { setup: boolean; expired: boolean })
         </span>
         <h1>{creating ? 'Create the owner account' : 'Sign in'}</h1>
 
-        {creating ? (
+        {needsLink ? (
           <p className="muted">
-            This account can change settings and add other people. Create it before you make onett reachable from
-            other machines.
+            To create the first account, run <code>onett open</code> in a terminal on the machine that runs onett. It
+            opens this page with a setup link.
           </p>
-        ) : null}
-        {!creating && expired ? <p className="muted">Your session ended. Sign in again.</p> : null}
-        {notice ? <p className="muted">{notice}</p> : null}
+        ) : (
+          <>
+            {creating ? (
+              <p className="muted">
+                This account can change settings and add other people. Create it before you make onett reachable from
+                other machines.
+              </p>
+            ) : null}
+            {!creating && expired ? <p className="muted">Your session ended. Sign in again.</p> : null}
+            {notice ? <p className="muted">{notice}</p> : null}
 
-        <Field label="Username" hint={creating ? 'Lowercase letters, digits, dots, dashes and underscores.' : undefined}>
-          <input
-            type="text"
-            name="username"
-            autoComplete="username"
-            autoFocus
-            required
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-          />
-        </Field>
-        <Field label="Password" hint={creating ? `At least ${MIN_PASSWORD} characters.` : undefined}>
-          <input
-            type="password"
-            name="password"
-            autoComplete={creating ? 'new-password' : 'current-password'}
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </Field>
-        {creating ? (
-          <Field label="Confirm password">
-            <input
-              type="password"
-              name="confirm"
-              autoComplete="new-password"
-              required
-              value={confirm}
-              onChange={(event) => setConfirm(event.target.value)}
-            />
-          </Field>
-        ) : null}
+            <Field
+              label="Username"
+              hint={creating ? 'Lowercase letters, digits, dots, dashes and underscores.' : undefined}
+            >
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                autoFocus
+                required
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+              />
+            </Field>
+            <Field label="Password" hint={creating ? `At least ${MIN_PASSWORD} characters.` : undefined}>
+              <input
+                type="password"
+                name="password"
+                autoComplete={creating ? 'new-password' : 'current-password'}
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </Field>
+            {creating ? (
+              <Field label="Confirm password">
+                <input
+                  type="password"
+                  name="confirm"
+                  autoComplete="new-password"
+                  required
+                  value={confirm}
+                  onChange={(event) => setConfirm(event.target.value)}
+                />
+              </Field>
+            ) : null}
 
-        {error ? (
-          <p className="error-line" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <Button type="submit" variant="primary" disabled={busy}>
-          {creating ? 'Create account' : 'Sign in'}
-        </Button>
+            {error ? (
+              <p className="error-line" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <Button type="submit" variant="primary" disabled={busy}>
+              {creating ? 'Create account' : 'Sign in'}
+            </Button>
+          </>
+        )}
       </form>
     </div>
   );

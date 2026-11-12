@@ -28,8 +28,9 @@ Managed, later (do not build these yet, but do not close them off):
   onett instance per customer, running the same code as self-hosted; true multi-tenancy is a
   later choice. Keep all state behind `store.Store` so another database can be added.
 - **Auth:** people already sign in with accounts and sessions (roles viewer, operator, owner;
-  `docs/proposals/accounts-and-config-editor.md`), and the API token is for the CLI and the
-  orchestrator only. Still to come: GitHub access moves from the user's `gh` login to a GitHub
+  `docs/proposals/accounts-and-config-editor.md`), and the API tokens are for the CLI (the owner
+  token) and the orchestrator (a lesser agent token, `docs/proposals/token-boundary.md`) only.
+  Still to come: GitHub access moves from the user's `gh` login to a GitHub
   App, which also gives agents a bot identity.
 - **Agent isolation is mandatory** when customers' code and agents run on shared hardware:
   containers or VMs per run (option B in `docs/proposals/agent-isolation.md`), never option C.
@@ -450,7 +451,7 @@ A new effort has no such request, and neither has clearing a model back to a def
 does not name: those cannot be done in place, so the next turn replaces the process and resumes
 the session with the new flags. The choices per harness are
 listed in one place each (`choices.go` in the adapter). Only a signed-in person may change the
-settings: the API token, which the orchestrator holds, cannot widen its own permissions.
+settings: the agent token, which the orchestrator holds, cannot widen its own permissions.
 
 The owner can keep typing while the orchestrator works. If its harness takes input mid-run, the
 message goes straight to the live agent. Otherwise it is queued (`Queued` on the message) and
@@ -525,7 +526,9 @@ the goal active but queued no task, retried none and did not finish or block the
 second chance (the next check-in opens by saying so and the loop wakes at once), and a second such
 turn in a row blocks it; so does reaching `limits.max_goal_turns` (default 40). Blocking, and `onett goal done`, notify the
 owner. A task that blocks inside an active goal does not notify: the goal's orchestrator handles it
-first, and the owner hears only if the goal blocks. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
+first, and the owner hears only if the goal blocks. The exception is a task that a denial stopped
+(a refused tool call): only a person retries it (invariant 4), so it notifies at once and the
+orchestrator's retry is refused. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
 Goals add no new way to act: the orchestrator still only queues tasks, and merges still wait for
 the project's policy (the owner only under `supervised`). `loops.goals.enabled: false` turns the
 loop off.
@@ -680,7 +683,8 @@ A task agent's conversation stays open until something closes it, and closing on
 close it. The agent, by setting `"finished": true` in a completed or no-changes report, closed by
 `agent` with its summary as the reason (a blocked or failed report, and reviews, are ignored). The orchestrator, with `onett task close-conversation
 ID --reason R` (`POST /tasks/{id}/conversation/close`), closed by `orchestrator`. The owner, by
-cancelling the task (closed by `owner:<username>`, or `orchestrator` when the API token cancels)
+cancelling the task (closed by `owner:<username>`, `owner` for the owner's CLI, or `orchestrator` when the agent
+token cancels)
 or through the same route. A closed conversation refuses new messages; messages already queued
 stay queued and visible but are never delivered, because `continueConversation` does nothing for
 a closed one. Closing twice is a conflict. Retrying a cancelled task leaves the conversation closed, and the

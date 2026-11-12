@@ -25,8 +25,8 @@ type Controller interface {
 	// CreateTask validates the project, fills Role from routing when empty, sets MaxAttempts
 	// from limits, queues the task and wakes the scheduler.
 	CreateTask(ctx context.Context, t domain.Task) (domain.Task, error)
-	// CancelTask cancels the task. by names who asked ("orchestrator" or "owner:<username>"); it is
-	// recorded as the closer of the task agent's conversation.
+	// CancelTask cancels the task. by names who asked ("orchestrator", "owner" or
+	// "owner:<username>"); it is recorded as the closer of the task agent's conversation.
 	CancelTask(ctx context.Context, id, by string) error
 	// RetryTask re-queues a blocked, failed or cancelled task with Attempts reset to 0.
 	// A non-empty note is appended to the task body as human guidance.

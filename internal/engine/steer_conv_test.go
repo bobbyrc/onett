@@ -49,7 +49,7 @@ func TestDeliverToLiveSteerableRun(t *testing.T) {
 		return e.deliverToRun(ctx, runID, "hi") == nil
 	}, 5*time.Second, 5*time.Millisecond)
 
-	assert.Equal(t, ownerPrompt([]string{"hi"}), <-got)
+	assert.Equal(t, messagesPrompt([]domain.ChatMessage{{Text: "hi"}}), <-got)
 	logs, err := r.st.ListRunLogs(ctx, runID, 0, 100)
 	require.NoError(t, err)
 	var owner []string
@@ -145,6 +145,6 @@ func TestSendRacingRunEndIsQueuedOrDelivered(t *testing.T) {
 	}
 	require.NotEmpty(t, delivered)
 	for _, d := range delivered {
-		assert.True(t, set[ownerPrompt([]string{d})], "delivered but never received: %s", d)
+		assert.True(t, set[messagesPrompt([]domain.ChatMessage{{Text: d}})], "delivered but never received: %s", d)
 	}
 }

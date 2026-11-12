@@ -11,6 +11,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/api"
 	"github.com/bobbyrc/onett/internal/attach"
+	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/notify"
@@ -22,7 +23,8 @@ var _ api.Controller = (*Engine)(nil)
 
 // CreateTask queues a task from an owner or API client. Client-supplied identity and run
 // state (ID, status, attempts, branch, PR and SHA fields, risk, timestamps) are discarded.
-// Review tasks are created by onett when a pull request is ready, never by a client.
+// Review tasks and conversation follow-ups are created by onett (when a pull request is ready, or
+// when the owner continues a conversation), never by a client.
 func (e *Engine) CreateTask(ctx context.Context, t domain.Task) (domain.Task, error) {
 	switch t.Kind {
 	case "", domain.KindFeature, domain.KindBugfix, domain.KindIssue, domain.KindIncident,
@@ -31,6 +33,11 @@ func (e *Engine) CreateTask(ctx context.Context, t domain.Task) (domain.Task, er
 		return domain.Task{}, fmt.Errorf("%w: review tasks are created by onett", api.ErrInvalid)
 	default:
 		return domain.Task{}, fmt.Errorf("%w: unknown task kind %q", api.ErrInvalid, t.Kind)
+	}
+	if t.Source == domain.SourceConversation {
+		// A conversation follow-up joins its parent's conversation and resumes that agent's
+		// session, so only onett creates one (startFollowUp), never a client.
+		return domain.Task{}, fmt.Errorf("%w: conversation follow-ups are created by onett", api.ErrInvalid)
 	}
 	if err := e.checkGoalTask(ctx, t); err != nil {
 		return domain.Task{}, err
@@ -122,9 +129,21 @@ func (e *Engine) cancelTree(ctx context.Context, id string) error {
 
 // RetryTask re-queues a blocked, failed or cancelled task with its attempts reset. A note is
 // appended to the body as guidance for the next agent. Reviews of the old attempt that have not
-// finished are cancelled, so the new head gets a review of its own.
+// finished are cancelled, so the new head gets a review of its own. The agent token cannot retry
+// a task blocked by a denial, and its note is headed as the orchestrator's.
 func (e *Engine) RetryTask(ctx context.Context, id, note string) error {
-	_, err := e.setTask(ctx, id, "re-queued by owner", func(t *domain.Task) error {
+	t, err := e.d.Store.GetTask(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := e.refuseAgentOnDenial(ctx, t); err != nil {
+		return err
+	}
+	by, heading := "owner", "## Note from the owner"
+	if auth.IsAgent(ctx) {
+		by, heading = "the orchestrator", "## Note from the orchestrator"
+	}
+	_, err = e.setTask(ctx, id, "re-queued by "+by, func(t *domain.Task) error {
 		switch t.Status {
 		case domain.TaskBlocked, domain.TaskFailed, domain.TaskCancelled:
 		default:
@@ -135,7 +154,7 @@ func (e *Engine) RetryTask(ctx context.Context, id, note string) error {
 		t.BlockedReason = ""
 		t.FollowUpPending = false
 		if note != "" {
-			t.Body += "\n\n## Note from the owner\n\n" + note
+			t.Body += "\n\n" + heading + "\n\n" + note
 		}
 		return nil
 	})

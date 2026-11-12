@@ -59,11 +59,14 @@ func passwordLimitKey(username string) string {
 // checks). Requests with neither header, such as the CLI's, pass.
 var crossOrigin = http.NewCrossOriginProtection()
 
-// principal is who a request is made by. A token principal is the CLI or the orchestrator agent
-// and has no user. A user principal is a signed-in person, with the session that authenticated
-// them so that a password change can keep that session alive.
+// principal is who a request is made by. A token principal is the owner's CLI (the owner token)
+// or the orchestrator agent (the agent token) and has no user. A user principal is a signed-in
+// person, with the session that authenticated them so that a password change can keep that
+// session alive. agent is true when the request used the agent token (auth.AgentToken). token is
+// true for both tokens, so everything refused to a token is refused to the agent too.
 type principal struct {
 	token     bool
+	agent     bool
 	user      domain.User
 	sessionID string
 }
@@ -89,8 +92,13 @@ var errNoSession = errors.New("no valid session")
 func (s *server) principal(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		if s.tokenMatches(r) {
-			next.ServeHTTP(w, r.WithContext(withPrincipal(ctx, principal{token: true})))
+		if token, agent := s.bearer(r); token {
+			if agent {
+				// The mark travels with the request into the engine, which is where the
+				// state-dependent refusals are decided (see auth.Refused).
+				ctx = auth.WithAgent(ctx)
+			}
+			next.ServeHTTP(w, r.WithContext(withPrincipal(ctx, principal{token: true, agent: agent})))
 			return
 		}
 		user, sid, err := s.sessionUser(r)
@@ -114,9 +122,10 @@ func (s *server) principal(next http.Handler) http.Handler {
 	})
 }
 
-// tokenMatches reports whether the request carries the API token. An empty configured token
-// never matches, because ConstantTimeCompare alone would treat two empty values as equal.
-func (s *server) tokenMatches(r *http.Request) bool {
+// bearer reports whether the request carries a token, and whether it is the agent token. An
+// empty configured token never matches, because ConstantTimeCompare alone would treat two empty
+// values as equal.
+func (s *server) bearer(r *http.Request) (token, agent bool) {
 	tok := ""
 	if h := r.Header.Get("Authorization"); len(h) > len("Bearer ") && strings.EqualFold(h[:len("Bearer ")], "Bearer ") {
 		tok = h[len("Bearer "):]
@@ -125,10 +134,16 @@ func (s *server) tokenMatches(r *http.Request) bool {
 	if tok == "" && r.URL.Path == "/api/v1/events" {
 		tok = r.URL.Query().Get("token")
 	}
-	if tok == "" || s.opts.Token == "" {
-		return false
+	if tok == "" {
+		return false, false
 	}
-	return subtle.ConstantTimeCompare([]byte(tok), []byte(s.opts.Token)) == 1
+	if s.opts.Token != "" && subtle.ConstantTimeCompare([]byte(tok), []byte(s.opts.Token)) == 1 {
+		return true, false
+	}
+	if s.agentToken != "" && subtle.ConstantTimeCompare([]byte(tok), []byte(s.agentToken)) == 1 {
+		return true, true
+	}
+	return false, false
 }
 
 // sessionUser resolves the session cookie on r to its user and session ID. A missing, unknown or
@@ -200,6 +215,27 @@ func userPrincipal(w http.ResponseWriter, r *http.Request) (principal, bool) {
 	return p, true
 }
 
+// refused answers 403 with the reason and reports true when the caller is the agent token and
+// a is a person's decision. auth.Refused holds the list.
+func refused(w http.ResponseWriter, r *http.Request, a auth.PersonAction) bool {
+	if err := auth.Refused(r.Context(), a); err != nil {
+		writeErrorMsg(w, http.StatusForbidden, err.Error())
+		return true
+	}
+	return false
+}
+
+// failPerson is fail for the handlers whose controller call can refuse the agent token for a
+// reason that depends on state (a paused goal, a task blocked by a denial). That refusal is
+// answered 403 with its reason; every other error goes to fail.
+func (s *server) failPerson(w http.ResponseWriter, err error) {
+	if errors.Is(err, auth.ErrPersonOnly) {
+		writeErrorMsg(w, http.StatusForbidden, err.Error())
+		return
+	}
+	s.fail(w, err)
+}
+
 // cookie returns the session cookie with the attributes onett always uses. Secure is set when
 // the public URL is https or the request itself came over TLS. maxAge -1 clears the cookie.
 func (s *server) cookie(r *http.Request, value string, maxAge int) *http.Cookie {
@@ -239,10 +275,19 @@ type authState struct {
 	User          *domain.User `json:"user"`
 }
 
-// credentials is the body of POST /auth/setup and POST /auth/login.
+// credentials is the body of POST /auth/login only.
 type credentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+// setupRequest is the body of POST /auth/setup. Code is the setup code (auth.SetupCode), which
+// `onett open` puts in the address it opens: it proves the account is being created by the
+// person who runs this machine, not by any local process that asks.
+type setupRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Code     string `json:"code"`
 }
 
 func (s *server) authState(w http.ResponseWriter, r *http.Request) {
@@ -264,14 +309,19 @@ func (s *server) authState(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// authSetup creates the first account, as an owner. The store refuses unless no user exists.
+// authSetup creates the first account, as an owner. It needs the setup code, and the store refuses
+// unless no user exists.
 func (s *server) authSetup(w http.ResponseWriter, r *http.Request) {
 	if !sameOrigin(w, r) {
 		return
 	}
-	var in credentials
+	var in setupRequest
 	if err := readJSON(w, r, &in); err != nil {
 		s.fail(w, err)
+		return
+	}
+	if s.setupCode == "" || subtle.ConstantTimeCompare([]byte(in.Code), []byte(s.setupCode)) != 1 {
+		writeErrorMsg(w, http.StatusForbidden, "setup needs the link from `onett open`: run it on the machine that runs onett")
 		return
 	}
 	if err := auth.ValidateUsername(in.Username); err != nil {

@@ -9,11 +9,17 @@ LogLine, Event, Approval, Deployment, Signal, Friction, Conversation, ChatMessag
 
 Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 
-- **The API token** (`Authorization: Bearer <token>`) is for the CLI and the orchestrator agent.
-  It lives at `<data_dir>/token` (created on first start, mode 600). It can read everything and
-  do what operators do (approve, retry, cancel, pause, create tasks, chat, run loops, reload
-  config). It can **never** edit the config file or manage users. `GET /events` also accepts
-  `?token=` because browsers' `EventSource` cannot set headers.
+- **The API tokens** (`Authorization: Bearer <token>`). The **owner token** is for the owner's
+  CLI. It lives at `<data_dir>/token` (created on first start, mode 600). It can read everything
+  and do what operators do (approve, retry, cancel, pause, create tasks, chat, run loops, reload
+  config). The **agent token** is what the orchestrator agent is given. It is derived from the
+  owner token (HMAC-SHA256, so nothing more is stored) and can do the same except a person's
+  decisions, which answer 403 with the reason: `POST /approvals/{id}/decide`,
+  `POST /control/resume`, `POST /projects/{name}/resume`, `POST /goals/{id}/resume`, `/done` and
+  `/block` for a paused goal, `POST /loops/{name}/run`, `POST /conversations/{id}/messages` and
+  `/flush`, and `POST /tasks/{id}/retry` or `/messages` for a task that a denial stopped. Neither
+  token can **ever** edit the config file or manage users. `GET /events` also accepts `?token=`
+  because browsers' `EventSource` cannot set headers.
 - **A signed-in person** uses the `onett_session` cookie, set by `POST /auth/setup` (the first
   account) or `POST /auth/login`. The cookie is HttpOnly and SameSite=Strict, lasts 30 days, and
   is `Secure` when `server.public_url` is https. Sign-out (`POST /auth/logout`) ends the session.
@@ -57,7 +63,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 |---|---|---|
 | `GET /health` | | `{"ok":true,"version":"…","started_at":"…"}`; `started_at` changes when the daemon restarts |
 | `GET /auth/state` | | `{"setup_required":bool,"user":User\|null}` (never 401) |
-| `POST /auth/setup` | `{"username","password"}`; only while no user exists | `User` and sets the cookie (200); 409 once a user exists; 503 busy |
+| `POST /auth/setup` | `{"username","password","code"}`; only while no user exists. `code` is the setup code that `onett open` puts after `#` in the address it opens | `User` and sets the cookie (200); 403 without the right code; 409 once a user exists; 503 busy |
 | `POST /auth/login` | `{"username","password"}` | `User` and sets the cookie (200); 401 wrong credentials; 429 locked; 503 busy |
 | `POST /auth/logout` | | 204, clears the cookie; session only (token gets 403) |
 | `POST /auth/password` | `{"current","new"}` | 204; 403 wrong current password; 429 too many wrong guesses (same count rules as sign-in, keyed to the user); 503 busy; other sessions end; session only |
@@ -88,20 +94,20 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `DELETE /projects/{name}` | `?force=true` | `ConfigSaved` (owner); removes the block from `onett.yaml` and reloads; 409 while the project has queued or running tasks (unless `force`); 404 unknown; deletes no files |
 | `POST /projects/{name}/pause`, `POST /projects/{name}/resume` | | `{"paused":bool,"paused_by":""\|"config"\|"owner"}` (409 resuming a project paused in config) |
 | `GET /tasks` | `?project=&status=queued,running&kind=&goal_id=&sort=pickup\|created&limit=` | `[]Task`, in pickup order by default: running (oldest start first); review, approval, merged, deploying; queued in the scheduler's claim order; queued tasks waiting on others; blocked; then finished, newest first. A claimable queued task has `queue_position` (overall) and `project_queue_position` (among its project). `sort=created` is newest created first |
-| `POST /tasks` | `NewTask` | `Task` (201) |
+| `POST /tasks` | `NewTask` | `Task` (201); 400 for `source: "conversation"`, which only onett creates |
 | `GET /tasks/{id}` | | `TaskDetail` |
 | `GET /tasks/{id}/conversation` | | `TaskConversation`: the task agent's root task, follow-up tasks, runs across them (oldest first), messages, `live_run_id`, and `can_send` with a `reason` when false. A follow-up task id returns its root's conversation. |
-| `POST /tasks/{id}/messages` | `{"text":"…"}` | `ChatMessage` (202). Messages the task's agent (the root task or any follow-up id). A live agent that takes input gets it at once (`run_id` set); otherwise it is queued (`queued: true`) and the next run resumes the agent's session with it, started now when no run is live. 409 with the `reason` when the agent cannot be messaged. A signed-in person or the API token; a token's message is stored with `author: "orchestrator"` (a person's has no `author`) |
+| `POST /tasks/{id}/messages` | `{"text":"…"}` | `ChatMessage` (202). Messages the task's agent (the root task or any follow-up id). A live agent that takes input gets it at once (`run_id` set); otherwise it is queued (`queued: true`) and the next run resumes the agent's session with it, started now when no run is live. 409 with the `reason` when the agent cannot be messaged. A signed-in person or either token; the agent token's message is stored with `author: "orchestrator"` (a person's, and the owner token's, has no `author`). 403 for the agent token when a denial stopped the task |
 | `POST /tasks/{id}/conversation/flush` | | 202; starts the follow-up for queued messages now (the way past a denied, stalled, timed-out or failed run); no-op when none are queued. A signed-in person only (the API token gets 403) |
 | `POST /tasks/{id}/conversation/close` | `{"reason":"…"}` | 204; closes the task agent's conversation: it can no longer be messaged and queued messages stay queued, never delivered. Marks the conversation only; the task is untouched. Closed by `orchestrator` (the API token) or `owner:<username>`; 409 when already closed. Emits `conversation.updated` |
 | `POST /tasks/{id}/conversation/reopen` | | 204; reopens a closed conversation. A signed-in person only (the API token gets 403); 409 when it is open. Emits `conversation.updated` |
 | `GET /agent-conversations` | | `[]AgentConversation`: root tasks with a run; open ones first, then ones closed or active in the last 7 days; at most 100 |
 | `POST /tasks/{id}/cancel` | | 204; also closes the task agent's conversation (by `owner:<username>` or `orchestrator`) |
-| `POST /tasks/{id}/retry` | `{"note":"…"}` (optional) | 204 |
+| `POST /tasks/{id}/retry` | `{"note":"…"}` (optional) | 204; 403 for the agent token when a denial stopped the task or its review |
 | `GET /goals` | `?project=&status=active,blocked&limit=` | `[]Goal` |
 | `POST /goals` | `{"project","title","body"}` | `Goal` (201): active, with its own orchestrator conversation (`conversation_id`) |
 | `GET /goals/{id}` | | `{"goal":Goal,"tasks":[]Task}`: the tasks created with this `goal_id`, newest first |
-| `POST /goals/{id}/pause`, `POST /goals/{id}/resume` | | `Goal`; 409 unless the goal is active (pause) or paused or blocked (resume); resuming a blocked goal resets its turn count so a goal that hit `max_goal_turns` gets a fresh budget |
+| `POST /goals/{id}/pause`, `POST /goals/{id}/resume` | | `Goal`; 409 unless the goal is active (pause) or paused or blocked (resume); resuming a blocked goal resets its turn count so a goal that hit `max_goal_turns` gets a fresh budget, except with the agent token, which resumes it with the count it has |
 | `POST /goals/{id}/done` | `{"summary":"…"}` (required) | `Goal`; notifies the owner (normal priority); 409 when already done |
 | `POST /goals/{id}/block` | `{"reason":"…"}` (required) | `Goal`; notifies the owner (high priority); 409 unless active or paused |
 | `GET /triggers` | | `[]TriggerView`, oldest first; each carries its newest firing as `last_firing` |

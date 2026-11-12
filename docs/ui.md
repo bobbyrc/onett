@@ -127,7 +127,10 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
 
 Until someone signs in, the page shows one sheet on the charcoal board. If onett has no
 accounts yet, the sheet is **Create the owner account**: a username, a password typed twice
-(at least 12 characters) and "Create account". That first account is the owner. Once accounts
+(at least 12 characters) and "Create account". That first account is the owner. The form shows
+only when the page was opened from the link `onett open` gives, which carries a setup code after
+`#`; opened any other way, the sheet says to run `onett open` on the machine that runs onett.
+Once accounts
 exist, the sheet is **Sign in**: a username, a password and "Sign in". A wrong username or
 password says so, and too many wrong attempts are refused for a few minutes.
 
@@ -375,8 +378,8 @@ Close asks for a reason. A closed conversation replaces the composer with "Close
 <reason>", shown as plain text, and a **Reopen** button for operators and owners. When the server
 refuses a message (a 409) the composer shows its reason. Retrying a cancelled task does not reopen
 its conversation: the owner reopens it. Send now, and editing or cancelling a queued
-message are for signed-in people only; the API token gets 403. The token (the orchestrator) can
-send a message, which the thread labels "Orchestrator". Viewers read the thread and see a muted
+message are for signed-in people only; an API token gets 403. The agent token (the orchestrator)
+can send a message, which the thread labels "Orchestrator". Viewers read the thread and see a muted
 line, "Viewers can read conversations but not send messages.", in place of the composer.
 
 **Goals** (`/goals`) — table: status, goal (links to the detail), project, turns, updated and the
@@ -670,7 +673,7 @@ The live event stream needs a session cookie, which a token is not, so the scrip
 WebSocket locally (it accepts and confirms subscriptions). The sidebar light therefore reads "live"
 in these shots, but no live events arrive.
 
-The API token cannot read owner-only data, so Agents, Config and Users show "forbidden" in these
+An API token cannot read owner-only data, so Agents, Config and Users show "forbidden" in these
 shots. That is on purpose: giving the token (or a screenshot mode) owner powers would break the
 rule that an agent cannot reach the owner's settings. The script prints a `note:` for each route
 that got a 403, so it is not mistaken for a UI bug; use `npm run shots:chat`-style mocks to

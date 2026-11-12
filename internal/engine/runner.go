@@ -349,13 +349,12 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 	}
 	if len(claimed) > 0 {
 		st.fail = e.failFollowUp(claimed)
-		texts, _ := messageTexts(claimed)
 		if prev, ok := e.resumeSession(bg, root); ok {
-			prompt = ownerPrompt(texts) + attNote + "\n\n" + mergeConflictSection(p, conflicts) + setupNote
+			prompt = messagesPrompt(claimed) + attNote + "\n\n" + mergeConflictSection(p, conflicts) + setupNote
 			prompt = strings.TrimRight(prompt, "\n") + "\n\n" + resumeReportReminder
 			resumeID = prev.SessionID
 		} else {
-			prompt += "\n\n" + ownerPrompt(texts)
+			prompt += "\n\n" + messagesPrompt(claimed)
 		}
 	}
 

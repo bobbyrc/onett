@@ -92,6 +92,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		usage(stderr)
 		return 2
 	}
+	if err := refuseInAgentRun(args); err != nil {
+		return exitCode(e, err)
+	}
 	switch args[0] {
 	case "help", "-h", "-help", "--help":
 		usage(stdout)
@@ -270,10 +273,16 @@ func apiBaseURL(cfg *config.Config) string {
 	return defaultAPIBase
 }
 
-// apiToken is $ONETT_TOKEN, else the token file in the config's data directory.
+// apiToken is $ONETT_TOKEN, else the token file in the config's data directory. Inside an agent
+// run it is $ONETT_TOKEN only.
 func apiToken(cfg *config.Config) (string, error) {
 	if v := os.Getenv("ONETT_TOKEN"); v != "" {
 		return v, nil
+	}
+	if insideAgentRun() {
+		// The token file is the owner's. The orchestrator is given its own token in
+		// ONETT_TOKEN, and worker agents are given none.
+		return "", errors.New("no token: inside an agent run the CLI uses only ONETT_TOKEN, and worker agents have no API access")
 	}
 	if cfg != nil {
 		if t, err := readToken(cfg.Server.DataDir); err == nil {

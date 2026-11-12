@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/domain"
 )
 
@@ -31,7 +32,11 @@ func TestCloseAndReopenConversationRoutes(t *testing.T) {
 	rec := x.call(t, http.MethodPost, "/api/v1/tasks/t1/conversation/close", `{"reason":"merged"}`)
 	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
 	assert.Equal(t, "t1", x.ctl.chatConvID)
-	assert.Equal(t, "orchestrator|merged", x.ctl.chatText, "the API token is the orchestrator")
+	assert.Equal(t, "owner|merged", x.ctl.chatText, "the owner token is the owner's CLI")
+
+	rec = x.authReq(t, http.MethodPost, "/api/v1/tasks/t1/conversation/close", `{"reason":"merged"}`, withToken(auth.AgentToken(testToken)))
+	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
+	assert.Equal(t, "orchestrator|merged", x.ctl.chatText, "the agent token is the orchestrator")
 
 	rec = x.call(t, http.MethodPost, "/api/v1/tasks/t1/conversation/close", `{"reason":"x","bogus":1}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)

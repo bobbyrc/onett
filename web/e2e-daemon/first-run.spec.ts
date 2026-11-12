@@ -57,7 +57,7 @@ async function saveVisualEditor() {
 }
 
 test('create the owner account and see the unfinished checklist', async () => {
-  await page.goto(`${daemon.url}/`);
+  await page.goto(daemon.setupUrl);
   await page.locator('input[name=username]').fill('owner');
   await page.locator('input[name=password]').fill(PASSWORD);
   await page.locator('input[name=confirm]').fill(PASSWORD);
