@@ -8,8 +8,8 @@ export function isNotFound(error: unknown): boolean {
   return error instanceof ApiError && error.status === 404;
 }
 
-/** The page for a task, run or goal ID the server does not know: a heading, why, and a way back. */
-export function NotFound({ what }: { what: 'task' | 'run' | 'goal' }) {
+/** The page for a task, run, goal or trigger ID the server does not know: a heading, why, and a way back. */
+export function NotFound({ what }: { what: 'task' | 'run' | 'goal' | 'trigger' }) {
   return (
     <>
       <PageHeader title={`${what[0].toUpperCase()}${what.slice(1)} not found`} />

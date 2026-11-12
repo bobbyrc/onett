@@ -127,6 +127,18 @@ func (s *Store) ListTriggerFirings(ctx context.Context, triggerID string, limit 
 	return out, nil
 }
 
+// ListAllTriggerFirings returns the newest firings across every trigger, newest first. A limit of
+// 0 means 50.
+// shortcut: no index covers "at" alone, so this sorts the whole table; add one when firings are many.
+func (s *Store) ListAllTriggerFirings(ctx context.Context, limit int) ([]domain.TriggerFiring, error) {
+	out, err := queryDocs[domain.TriggerFiring](ctx, s.db,
+		"SELECT data FROM trigger_firings ORDER BY at DESC, id DESC LIMIT ?", limitOr(limit, 50))
+	if err != nil {
+		return nil, fmt.Errorf("list all trigger firings: %w", err)
+	}
+	return out, nil
+}
+
 // TriggerFiringsSince returns the firings of one trigger at or after since, newest first.
 func (s *Store) TriggerFiringsSince(ctx context.Context, triggerID string, since time.Time) ([]domain.TriggerFiring, error) {
 	out, err := queryDocs[domain.TriggerFiring](ctx, s.db,

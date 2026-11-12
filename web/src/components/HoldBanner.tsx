@@ -1,6 +1,6 @@
 import { useStats } from '../queries';
 import { useNow } from '../lib/clock';
-import { parseTime } from '../lib/time';
+import { formatDateTime, parseTime } from '../lib/time';
 import { Callout } from './Callout';
 
 /**
@@ -23,7 +23,7 @@ export function HoldBanner() {
         return (
           <Callout key={hold.harness} tone="info" title={`${hold.harness} is rate limited`}>
             New runs wait until{' '}
-            <time dateTime={until.toISOString()} title={until.toLocaleString()}>
+            <time dateTime={until.toISOString()} title={formatDateTime(until)}>
               {until.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </time>
             .

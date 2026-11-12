@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview mockup · Direction A · bad day</title>
+<link rel="stylesheet" href="../../../web/src/styles.css">
+<link rel="stylesheet" href="mock.css">
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <span class="wordmark"><svg class="brand-mark" viewBox="106 106 300 300" aria-hidden="true" focusable="false"><path d="M383.5 244.8 A128 128 0 1 1 267.2 128.5" fill="none" stroke="currentColor" stroke-width="44" stroke-linecap="round"/><path d="M329.4 151.1 A128 128 0 0 1 360.9 182.6" fill="none" stroke="var(--lamp-call)" stroke-width="44" stroke-linecap="round"/></svg> onett</span>
+  <span class="topbar-right">
+    <a class="topbar-approvals" href="#"><span class="count-badge">1<span> approval</span></span></a>
+    <a class="topbar-approvals" href="#"><span class="count-badge stop">8<span> blocked</span></span></a>
+    <button type="button" class="btn btn-secondary menu-button">Menu</button>
+  </span>
+</header>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand"><span class="wordmark"><svg class="brand-mark" viewBox="106 106 300 300" aria-hidden="true" focusable="false"><path d="M383.5 244.8 A128 128 0 1 1 267.2 128.5" fill="none" stroke="currentColor" stroke-width="44" stroke-linecap="round"/><path d="M329.4 151.1 A128 128 0 0 1 360.9 182.6" fill="none" stroke="var(--lamp-call)" stroke-width="44" stroke-linecap="round"/></svg> onett</span></div>
+  <nav aria-label="Main">
+    <a class="nav-item active" href="#"><span>Overview</span></a>
+    <a class="nav-item" href="#"><span>Projects</span></a>
+    <a class="nav-item" href="#"><span>Chat</span></a>
+    <a class="nav-item" href="#"><span>Goals</span></a>
+    <a class="nav-item" href="#"><span>Tasks</span><span class="count-badge stop">8<span class="sr-only"> blocked</span></span></a>
+    <a class="nav-item" href="#"><span>Approvals</span><span class="count-badge">1<span class="sr-only"> awaiting approval</span></span></a>
+    <a class="nav-item" href="#"><span>Runs</span></a>
+    <a class="nav-item" href="#"><span>Deploys</span></a>
+    <a class="nav-item" href="#"><span>Signals</span></a>
+    <a class="nav-item" href="#"><span>Friction</span></a>
+    <a class="nav-item" href="#"><span>Loops</span></a>
+    <a class="nav-item" href="#"><span>Agents</span></a>
+    <a class="nav-item" href="#"><span>Config</span></a>
+    <a class="nav-item" href="#"><span>Users</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="account">
+      <div class="account-row"><span class="account-name">robin<span class="account-role"> owner</span></span><button type="button" class="link-button">Sign out</button></div>
+      <button type="button" class="link-button">Change password</button>
+    </div>
+    <div class="pause-switch"><span class="pause-state"><span class="lamp lamp-run" aria-hidden="true"></span>Running</span><button type="button" class="btn btn-secondary pause-button">Pause</button></div>
+    <div class="live live-on" role="status"><span class="dot" aria-hidden="true"></span>live</div>
+  </div>
+</aside>
+<main class="main"><div class="overview">
+<h1 class="sr-only">Overview</h1>
+<section class="board" aria-label="Projects" style="--board-windows:4">
+<div class="board-windows">
+<a href="#" class="board-window lamp-stop"><span class="board-lamp" aria-hidden="true"></span><span class="board-name">widgets</span><span class="board-count">7 blocked</span><span class="board-detail">1 cause · 2 loops failing</span><span class="board-deploy">Deployed · 1d ago</span></a>
+<a href="#" class="board-window lamp-stop"><span class="board-lamp" aria-hidden="true"></span><span class="board-name">onett</span><span class="board-count">1 blocked</span><span class="board-detail">1 needs you · 1 running · 2 queued</span><span class="board-deploy">Deployed · 2h ago</span></a>
+<a href="#" class="board-window lamp-run"><span class="board-lamp" aria-hidden="true"></span><span class="board-name">home-lab</span><span class="board-count">1 running</span><span class="board-deploy">No deployer</span></a>
+<a href="#" class="board-window"><span class="board-lamp" aria-hidden="true"></span><span class="board-name">dotfiles</span><span class="board-count">idle</span><span class="board-deploy">No deployer</span></a>
+</div>
+<div class="board-line"><span class="board-line-state"><span class="lamp lamp-run" aria-hidden="true"></span>Line running</span><span class="board-line-stats"><span><b>2</b> active</span><span><b>2</b> queued</span><span><b>$6.10</b> today</span></span></div>
+</section>
+
+<div class="overview-grid">
+<section class="section needs-you has-items" aria-labelledby="needs-you">
+<h2 id="needs-you">Needs you <span class="section-note">5 things · oldest 8h ago</span></h2>
+
+<article class="call-item is-stop">
+<div class="call-title"><span class="lamp lamp-stop" aria-hidden="true"></span><h3>7 tasks blocked: workspace setup failed</h3></div>
+<p class="call-meta">Blocked · widgets · one cause · since 10:21 (3h ago)</p>
+<div class="call-body">
+<div class="callout callout-danger" role="alert">
+<p class="mk-label">The step that failed</p>
+<pre class="mk-output">git fetch origin: exit status 128
+fatal: unable to access 'https://github.com/acme/widgets.git/': Could not resolve host: github.com</pre>
+<button type="button" class="link-button blocked-reason-toggle">Show full output</button>
+</div>
+<p class="mk-label">Blocked by it</p>
+<ul class="mk-tasklist">
+<li><a href="#">Add a changelog file</a><span class="mk-side">attempt 3 of 3</span></li>
+<li><a href="#">Rework the export pipeline so that very long task titles wrap instead of pushing the table off the screen on small phones</a><span class="mk-side">attempt 3 of 3</span></li>
+<li><a href="#">Fix flaky widget cache test</a><span class="mk-side">attempt 3 of 3</span></li>
+</ul>
+<button type="button" class="link-button small">Show all 7</button>
+<div class="row-actions mk-actions"><button type="button" class="btn btn-secondary">Retry all 7</button><button type="button" class="btn btn-danger">Cancel all 7</button></div>
+<p class="mk-note">Retry runs workspace setup again for each task. If git fetch still fails, they block again.</p>
+</div>
+</article>
+
+<article class="call-item is-stop">
+<div class="call-title"><span class="lamp lamp-stop" aria-hidden="true"></span><h3>2 loops are failing on widgets</h3></div>
+<p class="call-meta">Loops · widgets · since 10:24 (3h ago)</p>
+<div class="call-body">
+<ul class="mk-looprows">
+<li><div class="mk-loop-head"><b>Issue Intake</b><span class="mk-side">could not list issues · failed 13 times · last 2m ago</span></div><pre class="mk-output">gh issue list: exit status 4
+To get started with GitHub CLI, please run: gh auth login</pre></li>
+<li><div class="mk-loop-head"><b>Friction</b><span class="mk-side">could not list issue states · failed 13 times · last 2m ago</span></div><pre class="mk-output">gh issue list: exit status 4
+To get started with GitHub CLI, please run: gh auth login</pre></li>
+</ul>
+<div class="row-actions mk-actions"><button type="button" class="btn btn-secondary">Open Loops</button><button type="button" class="link-button small">Show full error</button></div>
+</div>
+</article>
+
+<article class="call-item is-stop">
+<div class="call-title"><span class="lamp lamp-stop" aria-hidden="true"></span><h3><a href="#">Ship the first public release of widgets</a></h3></div>
+<p class="call-meta">Blocked goal · widgets · 2h ago</p>
+<div class="call-body">
+<div class="callout callout-danger" role="alert"><div class="blocked-reason-text">The orchestrator made no progress on its last turn.</div></div>
+<div class="row-actions"><button type="button" class="btn btn-secondary">Open goal</button></div>
+</div>
+</article>
+
+<article class="call-item is-stop">
+<div class="call-title"><span class="lamp lamp-stop" aria-hidden="true"></span><h3><a href="#">Publish agent screenshots from the outbox into the PR body</a></h3></div>
+<p class="call-meta">Blocked · onett · attempt 1 of 3 · 8h ago</p>
+<div class="call-body">
+<div class="callout callout-danger" role="alert"><div class="blocked-reason-text">Run was denied: Bash(git push origin HEAD) is not allowed. Onett pushes branches itself; the agent must not.</div></div>
+<div class="row-actions"><button type="button" class="btn btn-secondary">Retry</button><button type="button" class="btn btn-danger">Cancel task</button></div>
+</div>
+</article>
+<article class="call-item approval-card">
+<div class="call-title"><span class="lamp lamp-call" aria-hidden="true"></span><h3><a href="#">Show elapsed time on running tool rows from tool_progress</a></h3></div>
+<p class="call-meta">Waiting on you · merge · onett · requested 12m ago</p>
+<div class="call-body">
+<dl class="gate">
+<dt>Risk</dt>
+<dd><span class="badge tone-warn">Medium</span><ul class="reasons"><li>Touches web/src/components/Transcript.tsx (user-visible behaviour)</li><li>Diff is 412 lines, over the 400-line default</li></ul></dd>
+<dt>Covers commit</dt>
+<dd><code>9f3c1a7</code> on <a href="#">PR #297</a><span class="muted"> · a new push withdraws this approval</span></dd>
+</dl>
+<p>Medium risk: touches user-visible behaviour in web/src/components/Transcript.tsx. Reviewer approved at 9f3c1a7.</p>
+<div class="decide">
+<label class="field"><span class="field-label">Note (optional)</span><input type="text"></label>
+<div class="row-actions"><button type="button" class="btn btn-primary">Approve merge</button><button type="button" class="btn btn-danger">Reject</button></div>
+</div>
+<section class="approval-section"><h4>What changed</h4><p>Added a ToolElapsed component fed by tool_progress lines and tests for the formatting.</p></section>
+<section class="approval-section"><h4>Reviewer</h4><p>Approve. The timer stops when the tool result arrives; tests cover the formatting.</p></section>
+</div>
+</article>
+</section>
+<div class="overview-side">
+<section class="section" aria-labelledby="live-runs">
+<h2 id="live-runs">Live runs <span class="section-note">2 active</span></h2>
+<div class="run-axis" aria-hidden="true"><div class="run-axis-ticks"><span>0m</span><span>15m</span><span>30m</span><span>45m</span><span>1h</span></div></div>
+<ul class="run-list">
+<li class="run-item"><div class="run-item-head"><a href="#">Fix chat threads: system-started turns, viewport scroll, internal links</a><button type="button" class="btn btn-ghost">Cancel</button></div><div class="run-item-meta"><span>Senior Engineer · onett</span><span>41m 00s · <span class="warn-text">quiet for 7m</span></span></div><div class="run-track" aria-hidden="true"><span class="run-flow" style="width:57%"></span><span class="run-quiet" style="left:57%;width:11%"></span></div></li>
+<li class="run-item"><div class="run-item-head"><a href="#">Tune the backup schedule</a><button type="button" class="btn btn-ghost">Cancel</button></div><div class="run-item-meta"><span>Senior Engineer · home-lab</span><span>11m 00s · output 20s ago</span></div><div class="run-track" aria-hidden="true"><span class="run-flow" style="width:18%"></span></div></li>
+</ul>
+</section>
+<section class="section heartbeat-card" aria-labelledby="heartbeat">
+<h2 id="heartbeat">Heartbeat <span class="section-note">on · next check in 9m</span></h2>
+<p class="mk-hb-lead">Every 15 minutes the orchestrator looks over each project and deals with what it can. Last check 6m ago.</p>
+<p class="mk-label">It is watching 33 things</p>
+<ul class="mk-watch">
+<li><span class="n">21</span><a href="#">failed runs</a></li>
+<li><span class="n">8</span><a href="#">blocked tasks</a></li>
+<li><span class="n">2</span><a href="#">failing loops</a></li>
+<li><span class="n">1</span><a href="#">blocked goal</a></li>
+<li><span class="n">1</span><a href="#">approval waiting</a></li>
+</ul>
+<p class="mk-note">These are the 5 things in Needs you, counted run by run. In the last 24 hours it acted on 0 and told you about 3.</p>
+<p class="heartbeat-link"><a href="#">Open Operations</a></p>
+</section>
+<section class="section" aria-labelledby="activity">
+<h2 id="activity">Activity <span class="section-note">newest first</span></h2>
+<ol class="feed mk-feed">
+<li class="feed-row"><time class="feed-time">13:40</time><span class="feed-message"><span class="lamp lamp-stop" aria-hidden="true"></span><a href="#">Issue Intake</a> failed: gh issue list, exit status 4 <span class="mk-times">· 13 times since 10:24</span></span><span class="mk-where">widgets</span></li>
+<li class="feed-row"><time class="feed-time">13:40</time><span class="feed-message"><span class="lamp lamp-stop" aria-hidden="true"></span><a href="#">Friction</a> failed: gh issue list, exit status 4 <span class="mk-times">· 13 times since 10:24</span></span><span class="mk-where">widgets</span></li>
+<li class="feed-row"><time class="feed-time">13:31</time><span class="feed-message">Senior Engineer started on <a href="#">Tune the backup schedule</a></span><span class="mk-where">home-lab</span></li>
+<li class="feed-row"><time class="feed-time">13:30</time><span class="feed-message"><span class="lamp lamp-call" aria-hidden="true"></span>Merge approval asked: <a href="#">Show elapsed time on running tool rows from tool_progress</a></span><span class="mk-where">onett</span></li>
+<li class="feed-row"><time class="feed-time">11:42</time><span class="feed-message"><span class="lamp lamp-stop" aria-hidden="true"></span>Goal blocked: <a href="#">Ship the first public release of widgets</a></span><span class="mk-where">widgets</span></li>
+<li class="feed-row"><time class="feed-time">10:36</time><span class="feed-message">Told you: 7 tasks blocked on widgets</span></li>
+<li class="feed-row"><time class="feed-time">10:27</time><span class="feed-message"><span class="lamp lamp-stop" aria-hidden="true"></span>7 tasks blocked: workspace setup failed <span class="mk-times">· 10:21 to 10:27</span></span><span class="mk-where">widgets</span></li>
+<li class="feed-row"><time class="feed-time">05:40</time><span class="feed-message"><span class="lamp lamp-stop" aria-hidden="true"></span>Blocked: <a href="#">Publish agent screenshots from the outbox into the PR body</a></span><span class="mk-where">onett</span></li>
+<li class="feed-row"><time class="feed-time">Wed 22:10</time><span class="feed-message"><span class="lamp lamp-stop" aria-hidden="true"></span>Rolled back 0e8ebaa: health check timed out</span><span class="mk-where">onett</span></li>
+</ol>
+<button type="button" class="link-button small feed-more">Show all 100</button>
+</section>
+</div>
+</div>
+</div></main>
+</div>
+</body>
+</html>

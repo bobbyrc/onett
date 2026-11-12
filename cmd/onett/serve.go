@@ -193,15 +193,17 @@ func cmdServe(e *env, args []string) error {
 	// POST /restart signals this channel; the main loop below then shuts down and restarts.
 	restartCh := make(chan struct{}, 1)
 	handler := api.NewServer(api.Options{
-		Store:            st,
-		Bus:              bus,
-		Controller:       eng,
-		Token:            token,
-		Version:          version,
-		SecureCookies:    strings.HasPrefix(cfg.Server.PublicURL, "https://"),
-		AllowedHostsFunc: func() []string { return serveAllowedHosts(eng.Config().Server) },
-		Secrets:          secretStore,
-		Attachments:      attachments,
+		Store:      st,
+		Bus:        bus,
+		Controller: eng,
+		Token:      token,
+		Version:    version,
+		// Asked on every request, like the allowed hosts below: a reload that changes
+		// public_url to or from https changes the cookie's Secure flag without a restart.
+		SecureCookiesFunc: func() bool { return strings.HasPrefix(eng.Config().Server.PublicURL, "https://") },
+		AllowedHostsFunc:  func() []string { return serveAllowedHosts(eng.Config().Server) },
+		Secrets:           secretStore,
+		Attachments:       attachments,
 		ChannelTest: func(ctx context.Context, ch config.Channel) error {
 			sup := sup.Load()
 			if sup == nil {

@@ -38,6 +38,12 @@ export function respond(path: string): Json | undefined {
       };
     case 'goals':
       return a ? { goal: f.goals[0], tasks: f.tasks } : f.goals;
+    case 'triggers':
+      if (!a) return f.triggers;
+      if (b === 'firings') return f.triggerFirings.filter((x) => x.trigger_id === a);
+      return f.triggers.find((t) => t.id === a) ?? f.triggers[0];
+    case 'trigger-firings':
+      return f.triggerFirings;
     case 'runs':
       if (!a) return f.runs;
       return b === 'logs' ? f.logs : (f.runs.find((r) => r.id === a) ?? f.runs[0]);
@@ -49,6 +55,8 @@ export function respond(path: string): Json | undefined {
       return f.signals;
     case 'friction':
       return f.friction;
+    case 'problems':
+      return f.problems;
     case 'loops':
       return f.loops;
     case 'agents':

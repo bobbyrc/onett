@@ -300,19 +300,17 @@ func (e *Engine) recover(ctx context.Context) error {
 	// reattached holds the tasks whose run was picked up again: they are still running.
 	reattached := map[string]bool{}
 	reattachedRuns := map[string]bool{} // by run ID: includes orchestrator turns, which have no task
-	endedByRestart := map[string]bool{} // by run ID: runs this sweep ended, as opposed to ones that had finished
 	for _, r := range runs {
 		if e.reattachRun(ctx, r) {
 			reattached[r.TaskID] = true
 			reattachedRuns[r.ID] = true
 			continue
 		}
-		status, msg := domain.RunFailed, "onett restarted during this run"
+		status, msg := domain.RunFailed, restartedRunError
 		if e.interruptible(ctx, r) {
 			status, msg = domain.RunInterrupted, "onett restarted and the agent's shim is gone; the run resumes from its session"
 			e.ingestStreamLog(ctx, r)
 		}
-		endedByRestart[r.ID] = true
 		now := e.d.Now().UTC()
 		if _, err := e.d.Store.UpdateRun(ctx, r.ID, func(r *domain.Run) error {
 			r.Status, r.Error, r.EndedAt = status, msg, &now
@@ -377,8 +375,13 @@ func (e *Engine) recover(ctx context.Context) error {
 		}
 		if c.Busy {
 			// An orchestrator turn that lost its agent is run again; any other busy
-			// conversation is released.
-			if e.rerunInterrupted(ctx, c, endedByRestart) {
+			// conversation is released. Whether a restart ended the turn's run is read from the
+			// stored run, so a start that failed after ending the run is finished by the next one.
+			ended, err := e.turnEndedByRestart(ctx, c.ActiveRunID)
+			if err != nil {
+				return err
+			}
+			if e.rerunInterrupted(ctx, c, map[string]bool{c.ActiveRunID: ended}) {
 				continue
 			}
 			if _, err := e.d.Store.UpdateConversation(ctx, c.ID, func(c *domain.Conversation) error {
@@ -407,6 +410,28 @@ func (e *Engine) interruptedByRestart(ctx context.Context, taskID string) (bool,
 	}
 	return len(runs) == 1 && runs[0].Status == domain.RunInterrupted, nil
 }
+
+// turnEndedByRestart reports whether recover ended the run of a busy conversation, on this start
+// or on an earlier one that failed or was killed before it reached the conversation. A run that
+// ended by itself (a crash between storing the reply and clearing the busy flag) finished its
+// turn. Like interruptedByRestart, the answer is read from the run row, not kept in memory.
+func (e *Engine) turnEndedByRestart(ctx context.Context, runID string) (bool, error) {
+	if runID == "" {
+		return false, nil
+	}
+	r, err := e.d.Store.GetRun(ctx, runID)
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return r.Status == domain.RunFailed && r.Error == restartedRunError, nil
+}
+
+// restartedRunError is the error recover gives a run it ends as failed. recover reads it back as
+// well: see turnEndedByRestart.
+const restartedRunError = "onett restarted during this run"
 
 // controlLoop is the LoopState name that persists the pause switch (Cursor "paused").
 const controlLoop = "control"

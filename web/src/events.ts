@@ -328,6 +328,7 @@ export function keysFor(ev: OnettEvent): QueryKey[] {
 
   if (ev.type.startsWith('task.')) {
     add(keys.tasksAll, keys.stats, keys.goalsDetailAll);
+    if (ev.type === 'task.updated') add(keys.problemsAll);
     if (taskId) add(keys.task(taskId));
   } else if (ev.type === 'run.updated') {
     add(keys.runsAll, keys.stats);
@@ -340,7 +341,7 @@ export function keysFor(ev: OnettEvent): QueryKey[] {
   } else if (ev.type === 'deploy.updated') {
     add(keys.deploymentsAll);
   } else if (ev.type === 'goal.updated') {
-    add(keys.goalsAll);
+    add(keys.goalsAll, keys.problemsAll);
     const data = ev.data as { id?: unknown } | undefined;
     if (typeof data?.id === 'string') add(keys.goal(data.id));
   } else if (ev.type === 'signal.new') {
@@ -361,7 +362,19 @@ export function keysFor(ev: OnettEvent): QueryKey[] {
     add(keys.tasksAll);
     if (taskId) add(keys.task(taskId));
   } else if (ev.type === 'loop.error') {
-    add(keys.loopsAll);
+    add(keys.loopsAll, keys.problemsAll);
+  } else if (ev.type === 'notification') {
+    add(keys.problemsAll);
+  } else if (ev.type === 'trigger.updated' || ev.type === 'trigger.deleted') {
+    add(keys.triggersAll);
+    const data = ev.data as { id?: unknown } | undefined;
+    if (typeof data?.id === 'string') add(keys.trigger(data.id));
+    // A deleted trigger takes its firings with it.
+    if (ev.type === 'trigger.deleted') add(keys.triggerFiringsAll);
+  } else if (ev.type === 'trigger.fired') {
+    add(keys.triggersAll, keys.triggerFiringsAll);
+    const data = ev.data as { trigger_id?: unknown } | undefined;
+    if (typeof data?.trigger_id === 'string') add(keys.trigger(data.trigger_id));
   } else if (ev.type === 'system') {
     add(keys.control, keys.stats, keys.projectsAll);
   }

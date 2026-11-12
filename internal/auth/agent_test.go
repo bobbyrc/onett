@@ -49,7 +49,7 @@ func TestEmptyOwnerTokenDerivesNothing(t *testing.T) {
 
 func assertRefused(t *testing.T, a PersonAction) {
 	t.Helper()
-	err := Refused(WithAgent(context.Background()), a)
+	err := Refused(WithAgent(context.Background(), AgentAllowances{}), a)
 	if err == nil {
 		t.Fatalf("Refused(agent, %q) = nil, want ErrPersonOnly", a)
 	}
@@ -78,7 +78,7 @@ func TestAgentTokenCannotWriteConversation(t *testing.T) { assertRefused(t, Writ
 func TestAgentTokenCannotRetryDenied(t *testing.T) { assertRefused(t, RetryDenied) }
 
 func TestRefusedAllowsUnlistedAction(t *testing.T) {
-	if err := Refused(WithAgent(context.Background()), PersonAction("not_listed")); err != nil {
+	if err := Refused(WithAgent(context.Background(), AgentAllowances{}), PersonAction("not_listed")); err != nil {
 		t.Errorf("Refused for an unlisted action = %v, want nil", err)
 	}
 }
@@ -87,7 +87,40 @@ func TestIsAgent(t *testing.T) {
 	if IsAgent(context.Background()) {
 		t.Error("IsAgent(background) = true, want false")
 	}
-	if !IsAgent(WithAgent(context.Background())) {
+	if !IsAgent(WithAgent(context.Background(), AgentAllowances{})) {
 		t.Error("IsAgent(WithAgent) = false, want true")
+	}
+}
+
+func TestOwnerSettingLiftsApproveMerge(t *testing.T) {
+	ctx := context.Background()
+	if err := Refused(WithAgent(ctx, AgentAllowances{ApproveMerges: true}), ApproveMerge); err != nil {
+		t.Errorf("Refused with ApproveMerges = %v, want nil", err)
+	}
+	for _, al := range []AgentAllowances{{Resume: true}, {}} {
+		if err := Refused(WithAgent(ctx, al), ApproveMerge); !errors.Is(err, ErrPersonOnly) {
+			t.Errorf("Refused(%+v, ApproveMerge) = %v, want an error wrapping ErrPersonOnly", al, err)
+		}
+	}
+}
+
+func TestOwnerSettingLiftsResumes(t *testing.T) {
+	ctx := context.Background()
+	for _, a := range []PersonAction{ResumeFactory, ResumeProject, ChangePausedGoal} {
+		if err := Refused(WithAgent(ctx, AgentAllowances{Resume: true}), a); err != nil {
+			t.Errorf("Refused(Resume, %q) = %v, want nil", a, err)
+		}
+		if err := Refused(WithAgent(ctx, AgentAllowances{ApproveMerges: true}), a); !errors.Is(err, ErrPersonOnly) {
+			t.Errorf("Refused(ApproveMerges, %q) = %v, want an error wrapping ErrPersonOnly", a, err)
+		}
+	}
+}
+
+func TestOwnerSettingsNeverLiftTheOtherActions(t *testing.T) {
+	ctx := WithAgent(context.Background(), AgentAllowances{ApproveMerges: true, Resume: true})
+	for _, a := range []PersonAction{RunLoop, ResetGoalBudget, WriteConversation, RetryDenied} {
+		if err := Refused(ctx, a); !errors.Is(err, ErrPersonOnly) {
+			t.Errorf("Refused(all settings on, %q) = %v, want an error wrapping ErrPersonOnly", a, err)
+		}
 	}
 }

@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -95,10 +96,16 @@ func (s *server) setUserRole(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, u)
 }
 
-// setUserPassword resets a user's password. When the caller changes their own password, their
-// current session is kept; every other session of that user ends.
+// setUserPassword resets another user's password and ends all of that user's sessions. A person
+// changes their own password with POST /auth/password, which asks for the current one, so the
+// reset that asks for nothing is not offered for the caller's own account. It does not stop a
+// stolen owner session from doing an owner's other work, such as adding an account.
 func (s *server) setUserPassword(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
+	if p, ok := principalFrom(r.Context()); ok && !p.token && strings.EqualFold(p.user.Username, name) {
+		writeErrorMsg(w, http.StatusForbidden, "change your own password with POST /auth/password, which asks for the current one")
+		return
+	}
 	var in struct {
 		Password string `json:"password"`
 	}
@@ -115,11 +122,7 @@ func (s *server) setUserPassword(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	keep := ""
-	if p, ok := principalFrom(r.Context()); ok && !p.token && p.user.Username == name {
-		keep = p.sessionID
-	}
-	if err := s.opts.Store.SetUserPassword(r.Context(), name, hash, keep); err != nil {
+	if err := s.opts.Store.SetUserPassword(r.Context(), name, hash, ""); err != nil {
 		s.fail(w, err)
 		return
 	}

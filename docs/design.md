@@ -30,6 +30,9 @@ Managed, later (do not build these yet, but do not close them off):
 - **Auth:** people already sign in with accounts and sessions (roles viewer, operator, owner;
   `docs/proposals/accounts-and-config-editor.md`), and the API tokens are for the CLI (the owner
   token) and the orchestrator (a lesser agent token, `docs/proposals/token-boundary.md`) only.
+  The agent token is refused a person's decisions; the owner can allow two of them in
+  `onett.yaml`, both off by default: approving merges (`chat.agent_may_approve_merges`) and
+  resuming what is paused (`chat.agent_may_resume`).
   Still to come: GitHub access moves from the user's `gh` login to a GitHub
   App, which also gives agents a bot identity.
 - **Agent isolation is mandatory** when customers' code and agents run on shared hardware:
@@ -118,6 +121,14 @@ paths or accounts, nothing that assumes one machine and one person) when it cost
   (`github_issue:42`, `signal:<fingerprint>`, `chat:<conversation>`).
 - **Run** — one attempt at a task by one harness session, in its own git worktree, with a
   streamed log, cost, and an outcome.
+  A run that publishes its work, or ends with nothing to publish, removes its worktree. Any
+  other run leaves it, because it may hold work the agent did not commit. A leftover worktree
+  stays for as long as its task can run again (queued, waiting, running, in review, awaiting
+  approval, blocked or failed): the task's next run commits that work to the task's branch
+  ("WIP: work from an earlier attempt") and removes the old worktree. When the task is done,
+  merged, deploying or cancelled, a sweep that runs after every run and at start removes its
+  leftover worktrees. A cancelled task can still be retried by a person, and by then the sweep
+  has deleted its uncommitted work **(review)**.
 - **Outbox** — files an agent writes in `<worktree>/.onett-run/` to report back:
   `result.json` (status, summary, self-assessed risk, PR title/body, follow-up tasks, friction).
   Files, not network calls, so it works inside sandboxed harnesses such as Codex's.
@@ -156,7 +167,9 @@ queued ─► running ─► review ─► merged ─► deploying ─► done
 - Agents never commit (Codex's sandbox keeps `.git` read-only, so they could not anyway). When
   the run ends with changes, onett commits them with the agent's PR title, pushes branch
   `onett/<task-id-suffix>-<slug>` and opens a PR; the task moves to `review`.
-- Before a re-run on a branch that already has a PR, onett merges the default branch in. If
+- Before a re-run on a branch that already holds work (an open PR, or commits an earlier attempt
+  left behind), onett merges the default branch in, so a task that waited for another task starts
+  on that task's code even when it had already begun. If
   that conflicts, the agent is given the conflicted files to resolve; leftover conflict
   markers fail the attempt instead of being committed.
 - In `review` the shepherd waits for CI, dispatches a `reviewer` run when the policy requires
@@ -167,11 +180,25 @@ queued ─► running ─► review ─► merged ─► deploying ─► done
   If the PR merges but the write that records it fails, the task is not blocked as a failed merge:
   it stays in `review` or `awaiting_approval`, and the shepherd's next pass sees the PR merged and
   moves the task to `merged`. Onett never calls merge a second time for it.
+  A merge call that reports an error is not believed before the PR has been read: `gh` can fail
+  after GitHub accepted the merge. A PR that did merge is recorded as merged; when the PR cannot be
+  read either, the outcome is unknown, so the task is left where it is for the shepherd's next pass
+  and is not blocked.
+  When CI fails, the task is re-queued with the failed run's log from the PR head commit as
+  evidence. The shepherd takes that verdict only once every CI run of the head commit has ended:
+  the `gh` CLI prints no log of a run that is still going, not even for a job in it that has
+  already failed, and a note without the log leaves the next attempt guessing.
 - Every automatic status change is guarded by the status it expects, atomically. A run or loop
   that finishes after you cancelled or blocked a task cannot revive it.
 - An agent-reported failure, failing CI, a merge conflict or "request changes" from the
   reviewer re-queues the task for another implementer run on the same branch, up to
-  `max_attempts`, then `blocked` (`running → queued → running …`; not drawn above).
+  `max_attempts`, then `blocked` (`running → queued → running …`; not drawn above). A block
+  made that way records its cause (`blocked_cause`, such as `workspace setup failed`), the
+  underlying error (`blocked_detail`, redacted and cut to its last 2,000 characters) and its time
+  (`blocked_at`). `GET /problems` groups blocked tasks by cause, so seven tasks blocked by one
+  broken setup show as one problem; it also lists failing loops, with the streak of failed passes
+  from the loop alert, and blocked goals. Each problem says when the owner was last told, from the
+  heartbeat's memory and the loop alert. The Overview page reads it.
 - After merge, if the project has a deployer, the deploy watch takes it through `deploying`;
   a failed health window rolls back, opens an `incident` task, and notifies you.
 
@@ -326,12 +353,14 @@ the code a normal turn uses: the reply is stored once, the session id kept, the 
 released and, for a goal turn (`goal_turn` on the run), the goal's progress check runs on the real
 result, judged from the goal's `last_turn_at` because the in-memory snapshot is gone. If a turn's
 shim is gone, `recover` does not fail the turn: it re-runs it by resuming the conversation's session
-with a note that onett restarted. An interrupted goal turn is taken back out of `turns` and its
+with a note that onett restarted. That a restart ended the turn's run is read from the stored run
+too, so a start that failed after ending the run still re-runs the turn on the next start.
+An interrupted goal turn is taken back out of `turns` and its
 re-run is not judged, so a restart can neither use up a goal's turns nor block it.
 
 ### Risk and auto-merge **(review)**
 
-Risk is `low < medium < high`. Final risk = max(rules matched by the diff, agent's own rating).
+Risk is `low < medium < high`. Final risk = max(rules matched by the diff, agent's own rating, the reviewer's rating).
 Default policy: every level auto-merges after green CI and an approving reviewer run; risk is
 still computed and recorded on every PR. The built-in `supervised` policy (a project opts in
 with `policy: supervised`) auto-merges only `low`; `medium` and `high` need your approval. Default high-risk paths: migrations, auth, CI/deploy config, secrets,
@@ -666,9 +695,9 @@ running while paused, only to record what it skipped.
 The API token can read triggers and their firings, but it cannot change or fire them (invariant 12
 in `AGENTS.md`). The CLI is read-only: `onett trigger list` and `onett trigger history ID`.
 
-This design depends on two things fixed in a separate token-boundary change, not here: the API
-token can approve merges and post into any conversation, and before any account exists a local
-process can become owner (see "Who can do what" in the proposal).
+This design depends on two things the token-boundary change fixed (`docs/proposals/token-boundary.md`):
+the orchestrator's agent token cannot approve merges or write in an orchestrator conversation, and
+creating the first account, the owner's, needs the setup code that `onett open` puts in the address it opens.
 
 Details and the API: `docs/proposals/triggers.md`.
 

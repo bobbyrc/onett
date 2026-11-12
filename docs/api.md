@@ -17,10 +17,15 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
   decisions, which answer 403 with the reason: `POST /approvals/{id}/decide`,
   `POST /control/resume`, `POST /projects/{name}/resume`, `POST /goals/{id}/resume`, `/done` and
   `/block` for a paused goal, `POST /loops/{name}/run`, `POST /conversations/{id}/messages` and
-  `/flush`, and `POST /tasks/{id}/retry` or `/messages` for a task that a denial stopped. Neither
-  token can **ever** edit the config file or manage users. `GET /events` also accepts `?token=`
-  because browsers' `EventSource` cannot set headers.
-- **A signed-in person** uses the `onett_session` cookie, set by `POST /auth/setup` (the first
+  `/flush`, and `POST /tasks/{id}/retry` or `/messages` for a task that a denial stopped. The
+  owner can lift two groups in `onett.yaml`, both off by default: `chat.agent_may_approve_merges`
+  lifts the refusal of `/approvals/{id}/decide`, and `chat.agent_may_resume` lifts those of
+  `/control/resume`, `/projects/{name}/resume` and the paused-goal routes. Neither
+  token can **ever** edit the config file or manage users. A token is read only from the
+  `Authorization` header, never from the URL.
+- **A signed-in person** uses the session cookie (`onett_session_<port>`, named after the port
+  onett listens on, so two onetts on one host keep separate sessions; a browser still sends it to
+  every port on that host, so open a second onett under another host name), set by `POST /auth/setup` (the first
   account) or `POST /auth/login`. The cookie is HttpOnly and SameSite=Strict, lasts 30 days, and
   is `Secure` when `server.public_url` is https. Sign-out (`POST /auth/logout`) ends the session.
   Changing a password ends that user's other sessions. What a person may do depends on their role:
@@ -36,7 +41,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
   site gets 403. Requests with no `Sec-Fetch-Site` or `Origin` header (the CLI's) pass.
 
 - Errors are `{"error": "<message>"}` with:
-  - 400 invalid request (bad JSON, unknown field, bad value in the URL or query).
+  - 400 invalid request (bad JSON, unknown field, data after the JSON value, bad value in the URL or query).
   - 401 no valid token or session. A wrong username or password on sign-in also gets 401, with
     the same message for both.
   - 403 `"forbidden"`: signed in, or with the token, but the role or token may not do this. Also
@@ -49,6 +54,8 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
     hidden and the error is logged).
   - 503 `"busy; try again"`: the server is already running its maximum of four password checks
     (sign-in, setup and password change) and none freed within five seconds. Retry after a moment.
+    A client address other than loopback may hold two of the four at once (a public IPv6 /64
+    counts as one address), so one address cannot keep everyone else out.
   - 422 the input is well formed but not acceptable. Usually `{"error": "..."}`. A config that does
     not validate gets `{"error": "...", "problems": [{"path","message"}]}`, where `path` is the
     dotted setting (`""` when the message names none).
@@ -76,16 +83,17 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /users` | | `[]User` (owner) |
 | `POST /users` | `{"username","password","role"}` | `User` (201, owner); 409 taken |
 | `POST /users/{name}/role` | `{"role"}` | `User` (owner); 409 last owner |
-| `POST /users/{name}/password` | `{"password"}` | 204 (owner); ends that user's other sessions |
+| `POST /users/{name}/password` | `{"password"}` | 204 (owner); ends that user's sessions; 403 for your own account: change it with `POST /auth/password`, which asks for the current password |
 | `DELETE /users/{name}` | | 204 (owner); 409 last owner |
 | `GET /config/file` | | `{"path","version","text"}` (owner) |
 | `PUT /config/file` | `{"version","text"}` | `ConfigSaved` (owner); 409 stale version; 422 `problems` |
 | `GET /config/document` | | `{"path","version","document","schema","default_routing"}` (owner); `default_routing` maps each task kind to its built-in agent |
 | `PATCH /config/document` | `{"version","changes":[{"op":"set"\|"delete","path":[...],"value"}]}` | `ConfigSaved` (owner); keeps comments |
-| `GET /events` | `?after=<id>&token=` | SSE stream (below) |
+| `GET /events` | `?after=<id>` | SSE stream (below) |
 | `GET /ws` | `?after=<id>` | WebSocket stream for the web UI (below) |
 | `GET /events/history` | `?after=&project=&task_id=&limit=` (default 500) | `[]Event` |
 | `GET /stats` | | `Stats` |
+| `GET /problems` | | `[]Problem`: what is wrong per project, one entry per cause |
 | `GET /control` | | `{"paused":bool,"pause":PauseView\|null}` |
 | `POST /control/pause` | | `{"paused":bool,"pause":PauseView\|null}` |
 | `POST /control/resume` | | `{"paused":false,"pause":null}`; clears the reason |
@@ -117,6 +125,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `DELETE /triggers/{id}` | | 204 (owner); deletes the trigger and its firings, not its conversation |
 | `POST /triggers/{id}/run` | | `TriggerFiring` (owner), the one it recorded (cause `manual`). Schedule triggers only: 409 for `github_issue`. Works on a disabled trigger and does not change `next_run_at` |
 | `GET /triggers/{id}/firings` | `?limit=` (default 200) | `[]TriggerFiring`, newest first. `started` means handed to the trigger's conversation; when the message named by `message_id` has `queued: true` and no `run_id`, the prompt is still waiting there. A firing is recorded as `skipped` with a reason when the factory or project is paused, the daily budget is reached, the harness is rate-limited, or the trigger already started 20 firings in the last hour |
+| `GET /trigger-firings` | `?limit=` (default 50) | `[]TriggerFiring` across all triggers, newest first: the log of recent firings. A firing carries `trigger_id`, not the trigger's name; join it with `GET /triggers` |
 | `GET /runs` | `?task_id=&project=&status=&limit=` | `[]Run` |
 | `GET /runs/{id}` | | `Run` |
 | `GET /runs/{id}/logs` | `?after=<seq>&limit=` (default 1000) | `[]LogLine` |
@@ -241,6 +250,18 @@ case the approval is recorded as rejected and the task goes back to review so on
 // "operations_conversation_id":"…" (absent until the Operations conversation exists) and
 // "quiet_now":true while its quiet hours are on
 
+// Problem: one thing that is wrong in a project. "kind" is blocked_tasks (the tasks blocked for one
+// cause, with "count", "tasks" and "last_at"), failing_loops (with "loops": each failing loop's
+// "name", "fails" and "since") or blocked_goal (with "goal_id"). "title" is one line, redacted and
+// cut at 200 characters. "detail" is one to three lines, at most 300 characters in all: the first
+// line of the underlying error and its last two, each redacted and cut from its start. "told_at"
+// is when the owner was last notified about it, and is absent when they were not.
+// A project's blocked tasks are read 1,000 at most.
+{"kind":"blocked_tasks","project":"onett","key":"blocked_tasks:onett:9f2c1a7e",
+ "title":"workspace setup failed","detail":"fatal: unable to access …",
+ "count":7,"since":"…","last_at":"…","told_at":"…",
+ "tasks":[{"id":"t_…","title":"…","attempts":3,"max_attempts":3}]}
+
 // AgentView
 {"name":"senior-engineer","title":"Senior Engineer","origin":"builtin","disabled":false,
  "harness":"codex","harness_type":"codex",
@@ -336,5 +357,5 @@ Rules:
 - The Origin header, when present, must name this server's host and port, or the upgrade gets 403.
   A page on another site cannot open the socket with the user's cookie. Clients with no Origin
   (the CLI, scripts) are accepted.
-- Credentials are the bearer header or the session cookie. `?token=` is not accepted on this route.
+- Credentials are the bearer header or the session cookie. A token in the URL is not accepted on any route.
 - A signed-out or demoted user's socket closes within one ping interval.

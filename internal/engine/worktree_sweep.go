@@ -16,11 +16,12 @@ import (
 
 // sweepWorktrees removes worktrees that runs left behind in project p's directory. runTask
 // removes a run's worktree only when the run publishes or finishes cleanly, so a run that is
-// re-queued, fails, is blocked, stalls, times out or is cancelled keeps its worktree. Each
-// retry gets a new one, and a project's setup can leave about 100 MB of dependencies in each.
-// A blocked task keeps its newest worktree so a person can inspect what the agent did. Every
-// other leftover is removed. Problems are logged and never returned: this is housekeeping, and
-// it must not fail a run or delay the engine's start.
+// re-queued, fails, is blocked, stalls, times out or is cancelled keeps its worktree, and a
+// project's setup can leave about 100 MB of dependencies in each. A leftover worktree may hold
+// the only copy of work the agent did not commit, so it is removed only once its task cannot
+// run again (see taskMayRunAgain). Until then it stays, and the task's next run saves that work
+// as a commit when it takes the branch (workspace.Prepare). Problems are logged and never
+// returned: this is housekeeping, and it must not fail a run or delay the engine's start.
 func (e *Engine) sweepWorktrees(ctx context.Context, p *config.Project) {
 	dir := filepath.Join(e.d.Workspaces.Root, p.Name)
 	entries, err := os.ReadDir(dir)
@@ -69,6 +70,7 @@ func (e *Engine) sweepWorktrees(ctx context.Context, p *config.Project) {
 // as well. A live run is kept even when its row says it ended: runTask sets EndedAt before it
 // publishes or removes its own worktree, so the row alone cannot tell a finished run from one
 // still finishing.
+// An ended run's worktree is leftover only when its task cannot run again.
 func (e *Engine) leftoverRun(ctx context.Context, runID string) (domain.Run, bool) {
 	e.runsMu.Lock()
 	_, live := e.active[runID]
@@ -92,19 +94,23 @@ func (e *Engine) leftoverRun(ctx context.Context, runID string) (domain.Run, boo
 		e.d.Logger.Warn("read task for worktree sweep", "run", runID, "task", run.TaskID, "err", err)
 		return run, false
 	}
-	if task.Status != domain.TaskBlocked {
-		return run, true
+	return run, !taskMayRunAgain(task.Status)
+}
+
+// taskMayRunAgain reports whether a task in status s can still get a run on its branch. Only a
+// task that has landed (done, merged, deploying) or was cancelled cannot. Every other status
+// counts as "may run again", and so does a status added later: keeping a worktree too long
+// costs disk, removing one too early loses work.
+//
+// shortcut: a person can retry a cancelled task, and by then the sweep has removed its
+// uncommitted work. Keeping every cancelled task's worktree would fill the disk; keep only the
+// ones with uncommitted work once internal/workspace can report that.
+func taskMayRunAgain(s domain.TaskStatus) bool {
+	switch s {
+	case domain.TaskDone, domain.TaskMerged, domain.TaskDeploying, domain.TaskCancelled:
+		return false
 	}
-	// A blocked task is waiting for a person, who may want to look at the newest attempt's
-	// worktree. Older attempts of the same task are no use to them. ListRuns returns newest
-	// first, so the first row is the newest attempt.
-	runs, err := e.d.Store.ListRuns(ctx, store.RunFilter{TaskID: task.ID})
-	if err != nil {
-		e.d.Logger.Warn("list runs for worktree sweep", "task", task.ID, "err", err)
-		return run, false
-	}
-	newest := len(runs) > 0 && runs[0].ID == runID
-	return run, !newest
+	return true
 }
 
 // removeUnregisteredDir deletes the directory of run runID in projectDir when it is no longer a

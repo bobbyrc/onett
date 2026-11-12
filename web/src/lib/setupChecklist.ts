@@ -1,4 +1,5 @@
 import type { AgentView, ProjectView, SecretView, Stats } from '../types';
+import { OWNER_UNREACHABLE_MESSAGE } from './ownerUnreachable';
 
 export interface SetupStep {
   id: 'project' | 'agents' | 'policy' | 'reach' | 'secrets';
@@ -7,6 +8,10 @@ export interface SetupStep {
   detail: string;
   done: boolean;
   to: string;
+  /** The label of the button that does the step, e.g. "Add a project". */
+  action: string;
+  /** True when the step cannot be done yet because it waits for a project. */
+  waits?: boolean;
 }
 
 /** The data the checklist reads. `undefined` means not loaded yet (or not allowed): the step is left out. */
@@ -33,6 +38,7 @@ export function setupSteps(in_: SetupInputs): SetupStep[] {
       detail: projects.length > 0 ? `${projects.length} configured` : 'No project yet: tell onett which repository to work on.',
       done: projects.length > 0,
       to: '/projects',
+      action: 'Add a project',
     });
   }
   if (agents) {
@@ -50,6 +56,7 @@ export function setupSteps(in_: SetupInputs): SetupStep[] {
       detail,
       done: ready > 0,
       to: '/config?section=agents',
+      action: 'Open agents',
     });
   }
   if (projects) {
@@ -60,15 +67,18 @@ export function setupSteps(in_: SetupInputs): SetupStep[] {
       detail: projects.length > 0 ? 'Every project has a policy (the default counts)' : 'Add a project first; the default policy applies to it.',
       done: projects.length > 0,
       to: '/config?section=policies',
+      action: 'Choose a policy',
+      waits: projects.length === 0,
     });
   }
   if (stats) {
     steps.push({
       id: 'reach',
       label: 'Reach me',
-      detail: stats.owner_unreachable ? 'Set up a notifier or channel (see the warning on this page).' : 'A notifier or channel can reach you',
+      detail: stats.owner_unreachable ? OWNER_UNREACHABLE_MESSAGE : 'A notifier or channel can reach you',
       done: !stats.owner_unreachable,
       to: '/config?mode=setup',
+      action: 'Set up a channel',
     });
   }
   if (secrets) {
@@ -79,6 +89,7 @@ export function setupSteps(in_: SetupInputs): SetupStep[] {
       detail: missing.length > 0 ? `Not set: ${missing.map((s) => s.name).join(', ')}` : 'Every secret the config refers to is set',
       done: missing.length === 0,
       to: '/config?mode=secrets',
+      action: 'Set secrets',
     });
   }
   return steps;

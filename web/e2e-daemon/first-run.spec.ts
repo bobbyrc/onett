@@ -63,19 +63,22 @@ test('create the owner account and see the unfinished checklist', async () => {
   await page.locator('input[name=confirm]').fill(PASSWORD);
   await page.getByRole('button', { name: 'Create account' }).click();
 
-  const card = page.locator('.setup-checklist');
-  await expect(card.getByRole('heading', { name: 'Finish setting up onett' })).toBeVisible();
-  const step = (label: string) => card.locator('li', { has: page.getByRole('link', { name: label, exact: true }) });
-  // Needing a person: a project, a policy for it, and a way to reach the owner.
-  await expect(step('Add a project')).toContainText('To do');
-  await expect(step('Choose a policy')).toContainText('To do');
-  await expect(step('Reach me')).toContainText('To do');
+  // With no project the steps are a row of stations, named by a heading only screen readers see.
+  const card = page.getByRole('region', { name: 'Finish setting up onett' });
+  await expect(card).toBeVisible();
+  // By the step's own label: another step's detail may mention it ("Add a project first; …").
+  const step = (label: string) => card.locator('li').filter({ has: page.getByText(label, { exact: true }) });
+  // Needing a person: a project (the next step), a policy for it (which waits for the project),
+  // and a way to reach the owner.
+  await expect(step('Add a project')).toContainText('next');
+  await expect(step('Choose a policy')).toContainText('waits for a project');
+  await expect(step('Reach me')).toContainText('to do');
   // "Agents ready" depends on the host: the default agents need the claude or codex CLI on PATH,
   // which a dev machine has and a clean CI runner does not. So it is not asserted here; the
   // agent step below adds a fake agent that needs no CLI, which makes it done on any host.
   await expect(step('Agents ready')).toBeVisible();
   // No config refers to a secret yet, so none can be missing.
-  await expect(step('Secrets set')).toContainText('Done');
+  await expect(step('Secrets set')).toContainText('done');
   await page.screenshot({ path: `${SCREENSHOTS}/overview-before.png`, fullPage: true });
 });
 

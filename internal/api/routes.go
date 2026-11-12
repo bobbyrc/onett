@@ -16,6 +16,7 @@ func (s *server) apiRoutes(r chi.Router) {
 	s.read(r, "/ws", s.eventsWS)
 	s.read(r, "/events/history", s.eventHistory)
 	s.read(r, "/stats", s.stats)
+	s.read(r, "/problems", s.listProblems)
 
 	s.read(r, "/control", s.getControl)
 	s.operate(r, http.MethodPost, "/control/pause", s.setPaused(true))
@@ -105,6 +106,7 @@ func (s *server) apiRoutes(r chi.Router) {
 	s.administer(r, http.MethodDelete, "/triggers/{id}", s.deleteTrigger)
 	s.administer(r, http.MethodPost, "/triggers/{id}/run", s.runTrigger)
 	s.read(r, "/triggers/{id}/firings", s.listTriggerFirings)
+	s.read(r, "/trigger-firings", s.listAllTriggerFirings)
 }
 
 // read, operate and administer mount a handler under the action it needs. Every route in

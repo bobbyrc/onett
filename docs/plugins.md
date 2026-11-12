@@ -525,7 +525,7 @@ projects:
 {"id": "2026-10-28-1", "title": "Add a /healthz endpoint", "body": "It returns 200 when the DB is up.", "kind": "feature", "priority": 1}
 ```
 
-- A line that is not JSON, or lacks `id` or `title`, is skipped. Each run logs one warning that counts
+- A line that is not JSON, has a field that is not in the table, or lacks `id` or `title`, is skipped. Each run logs one warning that counts
   the skipped lines. The run still succeeds.
 - A non-zero exit or a timeout is an error for that source. Its items from that run are not used,
   and the error shows as the loop's last error in the web UI. Other sources still run.

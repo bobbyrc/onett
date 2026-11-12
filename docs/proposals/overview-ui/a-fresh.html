@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview mockup · Direction A · fresh install</title>
+<link rel="stylesheet" href="../../../web/src/styles.css">
+<link rel="stylesheet" href="mock.css">
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <span class="wordmark"><svg class="brand-mark" viewBox="106 106 300 300" aria-hidden="true" focusable="false"><path d="M383.5 244.8 A128 128 0 1 1 267.2 128.5" fill="none" stroke="currentColor" stroke-width="44" stroke-linecap="round"/><path d="M329.4 151.1 A128 128 0 0 1 360.9 182.6" fill="none" stroke="var(--lamp-call)" stroke-width="44" stroke-linecap="round"/></svg> onett</span>
+  <span class="topbar-right">
+    <button type="button" class="btn btn-secondary menu-button">Menu</button>
+  </span>
+</header>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand"><span class="wordmark"><svg class="brand-mark" viewBox="106 106 300 300" aria-hidden="true" focusable="false"><path d="M383.5 244.8 A128 128 0 1 1 267.2 128.5" fill="none" stroke="currentColor" stroke-width="44" stroke-linecap="round"/><path d="M329.4 151.1 A128 128 0 0 1 360.9 182.6" fill="none" stroke="var(--lamp-call)" stroke-width="44" stroke-linecap="round"/></svg> onett</span></div>
+  <nav aria-label="Main">
+    <a class="nav-item active" href="#"><span>Overview</span></a>
+    <a class="nav-item" href="#"><span>Projects</span></a>
+    <a class="nav-item" href="#"><span>Chat</span></a>
+    <a class="nav-item" href="#"><span>Goals</span></a>
+    <a class="nav-item" href="#"><span>Tasks</span></a>
+    <a class="nav-item" href="#"><span>Approvals</span></a>
+    <a class="nav-item" href="#"><span>Runs</span></a>
+    <a class="nav-item" href="#"><span>Deploys</span></a>
+    <a class="nav-item" href="#"><span>Signals</span></a>
+    <a class="nav-item" href="#"><span>Friction</span></a>
+    <a class="nav-item" href="#"><span>Loops</span></a>
+    <a class="nav-item" href="#"><span>Agents</span></a>
+    <a class="nav-item" href="#"><span>Config</span></a>
+    <a class="nav-item" href="#"><span>Users</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="account">
+      <div class="account-row"><span class="account-name">robin<span class="account-role"> owner</span></span><button type="button" class="link-button">Sign out</button></div>
+      <button type="button" class="link-button">Change password</button>
+    </div>
+    <div class="pause-switch"><span class="pause-state"><span class="lamp lamp-run" aria-hidden="true"></span>Running</span><button type="button" class="btn btn-secondary pause-button">Pause</button></div>
+    <div class="live live-on" role="status"><span class="dot" aria-hidden="true"></span>live</div>
+  </div>
+</aside>
+<main class="main"><div class="overview">
+<h1 class="sr-only">Overview</h1>
+<section class="card setup-checklist" aria-labelledby="finish-setup">
+<h2 id="finish-setup">Finish setting up onett</h2>
+<ol class="mk-steps">
+<li class="is-next"><span aria-hidden="true">○</span><span><span class="mk-step-label">Add a project</span> <span class="mk-step-detail">· To do. Tell onett which repository to work on.</span></span><button type="button" class="btn btn-primary">Add a project</button></li>
+<li class="is-done"><span aria-hidden="true">✓</span><span><span class="mk-step-label">Agents ready</span> <span class="mk-step-detail">· Done. 8 agents ready</span></span></li>
+<li><span aria-hidden="true">○</span><span><span class="mk-step-label">Choose a policy</span> <span class="mk-step-detail">· Waits for a project. The default policy applies to it.</span></span></li>
+<li><span aria-hidden="true">○</span><span><span class="mk-step-label">Reach me</span> <span class="mk-step-detail">· To do. Only the log notifier is configured, so onett cannot tell you when it needs you.</span></span><button type="button" class="btn btn-secondary">Set up a channel</button></li>
+<li class="is-done"><span aria-hidden="true">✓</span><span><span class="mk-step-label">Secrets set</span> <span class="mk-step-detail">· Done. Every secret the config refers to is set</span></span></li>
+</ol>
+<button type="button" class="link-button small">Dismiss</button>
+</section>
+
+<section class="board" aria-label="Projects">
+<div class="board-windows"><p class="board-empty">No projects yet. <a href="#" style="color:inherit">Add a project</a> and its window appears here.</p></div>
+<div class="board-line"><span class="board-line-state"><span class="lamp lamp-run" aria-hidden="true"></span>Line running</span><span class="board-line-stats"><span><b>0</b> active</span><span><b>0</b> queued</span><span><b>$0.00</b> today</span></span></div>
+</section>
+
+<div class="overview-grid">
+<section class="section needs-you" aria-labelledby="needs-you">
+<h2 id="needs-you">Needs you</h2>
+<div class="empty">Nothing needs you. Approvals and blocked work appear here.</div>
+</section>
+<div class="overview-side">
+<section class="section" aria-labelledby="live-runs">
+<h2 id="live-runs">Live runs</h2>
+<div class="empty">No runs are active. Queued work starts when a slot is free.</div>
+</section>
+<section class="section" aria-labelledby="activity">
+<h2 id="activity">Activity <span class="section-note">newest first</span></h2>
+<div class="empty">No activity yet. Events appear here as work moves.</div>
+</section>
+</div>
+</div>
+</div></main>
+</div>
+</body>
+</html>
