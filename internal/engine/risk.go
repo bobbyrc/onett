@@ -4,7 +4,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
+	"github.com/bobbyrc/onett/internal/policy"
 )
 
 // reviewerReasonPrefix marks a risk reason as the reviewer's.
@@ -60,5 +62,65 @@ func raiseForReviewer(x *domain.Task, risk domain.Risk, reasons []string) {
 		if r := reviewerReasonPrefix + why; !slices.Contains(x.RiskReasons, r) {
 			x.RiskReasons = append(x.RiskReasons, r)
 		}
+	}
+}
+
+// agentRatedLabel starts the reason policy.Evaluate gives when an agent's rating is the highest:
+// "agent rated risk high: <the agent's reasons>".
+const agentRatedLabel = "agent rated risk "
+
+// unwrapAgentReason takes the policy's label off a reason, however often it was put on, so that
+// the reasons under it can be given to the policy again without being labelled twice. A label
+// with nothing under it gives "".
+func unwrapAgentReason(r string) string {
+	for {
+		rest, ok := strings.CutPrefix(r, agentRatedLabel)
+		if !ok {
+			return r
+		}
+		_, r, _ = strings.Cut(rest, ": ")
+	}
+}
+
+// decideRisk applies pol to the change of task t. The stored rating goes in as the agent's
+// rating, so the decision is never lower than what is stored. The stored reasons are a mix of
+// what agents said and what an earlier decision wrote, and giving the latter back to the policy
+// made every pass label them again. So only the agents' part goes in: the stored reasons that
+// the policy does not give by itself, with an earlier label taken off. A reviewer's reasons that
+// the policy leaves out, because its rules alone reach the rating, are added back. The result is
+// stable: a task that holds a decision gets the same risk and reasons from the next call.
+func decideRisk(pol config.Policy, in policy.Input, t domain.Task) policy.Decision {
+	in.AgentRisk, in.AgentRiskReasons = t.Risk, nil
+	own := policy.Evaluate(pol, in).Reasons
+	var said []string
+	for _, r := range t.RiskReasons {
+		if slices.Contains(own, r) {
+			continue
+		}
+		if r = unwrapAgentReason(r); r != "" {
+			said = append(said, r)
+		}
+	}
+	in.AgentRiskReasons = said
+	d := policy.Evaluate(pol, in)
+	for _, r := range reviewerReasons(said) {
+		kept := slices.ContainsFunc(d.Reasons, func(have string) bool { return strings.Contains(have, r) })
+		if !kept {
+			d.Reasons = append(d.Reasons, r)
+		}
+	}
+	return d
+}
+
+// storeDecision returns the shepherd's write of decision d on a task it read as read. The write
+// is skipped when the task has been rated again since, by a reviewer's verdict for example: the
+// decision was made without that rating, so the next pass decides again.
+func storeDecision(read domain.Task, d policy.Decision) func(*domain.Task) error {
+	return func(x *domain.Task) error {
+		if x.Risk != read.Risk || !slices.Equal(x.RiskReasons, read.RiskReasons) {
+			return errSkip
+		}
+		x.Risk, x.RiskReasons = d.Risk, d.Reasons
+		return nil
 	}
 }
