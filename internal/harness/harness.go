@@ -35,6 +35,11 @@ type Spec struct {
 	// AllowedTools are tool permission rules the run is pre-approved for, in the agent CLI's own
 	// syntax (claude-code: "Bash(onett:*)"). Adapters without such rules ignore them.
 	AllowedTools []string
+	// NoProjectConfig asks the adapter to keep Workdir from configuring the agent: it loads no
+	// settings, hooks, MCP servers or instruction files (CLAUDE.md, AGENTS.md) from the tree. It
+	// is set for a review, whose worktree holds the change under review, so that the change cannot
+	// steer its own reviewer. Adapters without such files ignore it.
+	NoProjectConfig bool
 	// ConversationID and KeepAlive ask for a long-lived agent process shared by the turns of
 	// one conversation. With both set, an adapter that supports it (claude-code) writes Prompt
 	// to the conversation's live process instead of starting a new one, and starts one, resuming

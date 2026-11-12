@@ -146,20 +146,14 @@ func (e *Engine) shepherdTask(ctx context.Context, s scm.SCM, p *config.Project,
 	if t, ok, err = e.freshShepherdTask(ctx, t.ID); err != nil || !ok {
 		return err
 	}
-	d := policy.Evaluate(e.Config().PolicyFor(p.Name), policy.Input{
-		Kind:             t.Kind,
-		Files:            files,
-		AgentRisk:        t.Risk,
-		AgentRiskReasons: t.RiskReasons,
-		Labels:           pr.Labels,
-		Source:           t.Source,
-	})
+	d := decideRisk(e.Config().PolicyFor(p.Name), policy.Input{
+		Kind:   t.Kind,
+		Files:  files,
+		Labels: pr.Labels,
+		Source: t.Source,
+	}, t)
 	if d.Risk != t.Risk || !slices.Equal(d.Reasons, t.RiskReasons) {
-		saved, applied, err := e.setTaskFrom(ctx, t.ID, shepherdStatuses, "risk "+string(d.Risk), func(x *domain.Task) error {
-			x.Risk = d.Risk
-			x.RiskReasons = d.Reasons
-			return nil
-		})
+		saved, applied, err := e.setTaskFrom(ctx, t.ID, shepherdStatuses, "risk "+string(d.Risk), storeDecision(t, d))
 		if err != nil || !applied {
 			return err
 		}

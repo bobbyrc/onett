@@ -205,7 +205,13 @@ process per message, read about 65k input tokens per turn at a 18-34% cache hit 
 about 18k at 78-80%. With `isolate: true` the claude harness adds `--strict-mcp-config` (no MCP
 servers) and `--setting-sources project,local` (no user-level hooks, plugins or permissions; the
 repository's own settings and CLAUDE.md still load, and the login is untouched). The owner's
-`args` come after these and can override them. The orchestrator's system prompt is identical on
+`args` come after these and can override them. A review run is the exception: its worktree is
+the change under review, so onett adds `--strict-mcp-config` and a `--setting-sources` without
+`project` and `local` after the owner's `args` (`user`, or none when isolated), and for Codex
+`-c project_doc_max_bytes=0`. The reviewer still gets the project's rules: onett reads the root
+`AGENTS.md` and `CLAUDE.md` from the base branch with git and puts them in the review prompt,
+each cut at 32 KiB, and a `CLAUDE.md` that only imports `AGENTS.md` is not repeated. The
+orchestrator's system prompt is identical on
 every turn of a conversation, and the changing list of projects and agents rides in the user
 message instead. Each run records the cached and cache-written parts of its input
 (`cached_input_tokens`, `cache_write_tokens`); `onett run show` and the run page show the hit
