@@ -182,8 +182,10 @@ Codex signed in with ChatGPT) are left out, and a harness's `billing` setting ov
 The budget is checked before each run starts and counts runs in flight too, but a running run
 counts as $0 until it ends unless its harness is Claude Code with a `price` that has a
 `cached_input_per_mtok` rate: then onett counts the run's prompt tokens so far at that rate, a
-low estimate that the reported cost replaces when the run ends. Codex reports no cost, so give
-its harness a `price` to count an estimate (shown as `~$0.42`).
+low estimate that the reported cost replaces when the run ends. On a subscription, set that
+harness's `billing: subscription` too: the mode is otherwise detected only when a run ends, so
+the estimate would count while the run is going. Codex reports no cost, so give its harness a
+`price` to count an estimate (shown as `~$0.42`).
 
 Check the setup before you start the daemon:
 
@@ -306,10 +308,11 @@ itself (task sources `followup` and `retro`) `medium`, so under `supervised` it 
 repository that always runs CI, set the policy's `require_checks: true`: a PR with no checks then
 waits instead of being treated as "no CI".
 
-The retro loop files one improve task a day from recent blocked tasks, friction and incidents. It is
-on by default only for the `self_project`. A friction report of a problem that already has an open
-issue is added to that issue as a comment instead of filing a duplicate: onett matches it by the
-words of its title and body, or the agent names the issue and onett checks that claim.
+The retro loop files one improve task a day from recent blocked tasks, friction (what agents
+report slowed them down) and incidents. It is on by default only for the `self_project`. A
+friction report of a problem that already has an open issue is added to that issue as a comment
+instead of filing a duplicate: onett matches it by the words of its title and body, or the agent
+names the issue and onett checks that claim.
 
 ## 8. Answer approvals
 
