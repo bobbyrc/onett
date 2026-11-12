@@ -127,8 +127,13 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   claude.ai, Codex signed in with ChatGPT) report only an API-price estimate that nobody is billed
   for, so they are left out and `onett status` shows them separately. Onett detects the mode per
   run; a harness's `billing` (`auto`, `metered` or `subscription`) overrides detection, and a run
-  whose mode is unknown counts. A run's cost is recorded when it ends, so runs in flight count only after they finish
-  and the total can overshoot. Codex reports no cost, so it counts only if its
+  whose mode is unknown counts. The budget is checked before each run starts, and it counts what runs in flight
+  have cost so far when onett can tell. Claude Code reports a run's cost, and Codex its tokens, only when the run ends, so
+  a running run counts as $0 until then and runs started together can still overshoot. Give a Claude Code harness a
+  `price` with a `cached_input_per_mtok` rate and onett counts a running run's prompt tokens so far at that rate: a low
+  estimate that the reported cost replaces when the run ends, and that a run stopped before it reports a cost keeps. On a
+  subscription, set that harness's `billing: subscription` too: the mode is otherwise detected only when a run ends.
+  Codex reports no cost, so it counts only if its
   harness has a `price` (per-million-token rates), which gives an estimate shown as `~$0.42`.
 - **Risk only goes up.** Final risk is the highest of the rules the diff matches and the agent's own
   rating. An agent cannot lower it.
