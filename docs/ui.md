@@ -491,7 +491,7 @@ in. With no loops configured the page says so and links to Config's Loops group
 **Users** (`/users`, owners only; anyone else is sent to Overview) — a table of accounts:
 username (your own row says "(you)"), role, added (a relative time, or a calendar date once it is 30 days old; the full timestamp shows on hover) and actions. The role is a
 select that saves as soon as it changes; changing your own role reloads your session so the
-menus match it. "Set password" opens a field under that row with Save and Cancel. "Remove"
+menus match it. "Set password" opens a field under that row with Save and Cancel; your own row has none, because "Change password" in the account panel asks for the current password. "Remove"
 asks for confirmation, and is not offered on the only owner's row, because the server always
 refuses that. "Add user" opens a sheet above the table with username, password and
 role (default operator) and "Create user" or "Cancel". The server's message is shown under the
