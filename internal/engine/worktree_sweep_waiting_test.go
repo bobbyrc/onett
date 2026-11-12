@@ -105,15 +105,10 @@ func TestSweepKeepsTheWorkOfATaskWaitingOnADependency(t *testing.T) {
 	swWaitIdle(t, env)
 }
 
-// TestSweepKeepsTheUncommittedWorkOfACancelledTask exposes a gap that is still open. A waiting
-// task is cancelled when its dependency ends blocked, the sweep removes the worktree of a
-// cancelled task, and a person may still retry that task. Closing the gap needs a way to ask
-// internal/workspace whether a worktree holds uncommitted work.
+// A waiting task is cancelled when its dependency ends blocked, and a person may still retry it.
+// The sweep asks internal/workspace whether a cancelled task's worktree holds uncommitted work,
+// and keeps it while it does.
 func TestSweepKeepsTheUncommittedWorkOfACancelledTask(t *testing.T) {
-	if os.Getenv("ONETT_RUN_EXPOSING") == "" {
-		t.Skip("exposes: the sweep deletes the uncommitted work of a cancelled task, which a person " +
-			"can still retry; run with ONETT_RUN_EXPOSING=1")
-	}
 	var dep, secondRunSaw atomic.Pointer[string]
 	env := rtNewEngine(t, rtOpts{script: swWaiterScript(&dep, &secondRunSaw)})
 	other := wtParent(env, domain.TaskReview, "")

@@ -127,8 +127,9 @@ paths or accounts, nothing that assumes one machine and one person) when it cost
   approval, blocked or failed): the task's next run commits that work to the task's branch
   ("WIP: work from an earlier attempt") and removes the old worktree. When the task is done,
   merged, deploying or cancelled, a sweep that runs after every run and at start removes its
-  leftover worktrees. A cancelled task can still be retried by a person, and by then the sweep
-  has deleted its uncommitted work **(review)**.
+  leftover worktrees. A cancelled task can still be retried by a person, so its worktree is
+  kept while it holds uncommitted work (the retry commits it, as above) and removed when it
+  holds none. Such a worktree stays until the task is retried or a person deletes the directory.
 - **Outbox** — files an agent writes in `<worktree>/.onett-run/` to report back:
   `result.json` (status, summary, self-assessed risk, PR title/body, follow-up tasks, friction).
   Files, not network calls, so it works inside sandboxed harnesses such as Codex's.

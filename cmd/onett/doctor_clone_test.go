@@ -33,37 +33,20 @@ func cloneRunner(t *testing.T, remoteOut string, remoteErr error) *[]runCall {
 	})
 }
 
-func TestDoctorCloneFailsWithoutOrigin(t *testing.T) {
+// A checkout needs no origin remote of its own: onett fetches from the project's configured repo
+// and writes origin into the checkout itself. So doctor accepts any checkout and runs no git in it.
+func TestDoctorCloneNeedsNoOriginRemote(t *testing.T) {
 	healthyDaemon(t)
 	f := newDoctorFixture(t, "")
 	require.NoError(t, os.MkdirAll(filepath.Join(f.clone, ".git"), 0o755))
 	calls := cloneRunner(t, "error: No such remote 'origin'\n", errors.New("exit status 2"))
 
-	code, out, errOut := runCLI("doctor", "--config", f.cfg)
-	assert.Equal(t, 1, code, out+errOut)
-	assertLine(t, out, "FAIL", "project onett: clone at "+f.clone+" has no usable origin remote (error: No such remote 'origin')")
-	assertLine(t, out, "FAIL", "remote add origin")
-
-	found := false
-	for _, c := range *calls {
-		if c.name == "git" && slices.Contains(c.args, "remote") {
-			found = true
-			assert.Equal(t, []string{"-c", "core.hooksPath=/dev/null", "-C", f.clone, "remote", "get-url", "origin"}, c.args)
-		}
-	}
-	assert.True(t, found, "doctor should ask git for the origin remote")
-}
-
-func TestDoctorCloneOKWithOriginAndHidesURL(t *testing.T) {
-	healthyDaemon(t)
-	f := newDoctorFixture(t, "")
-	require.NoError(t, os.MkdirAll(filepath.Join(f.clone, ".git"), 0o755))
-	cloneRunner(t, "https://user:sekret-token@github.com/o/r.git\n", nil)
-
 	code, out, _ := runCLI("doctor", "--config", f.cfg)
 	assert.Equal(t, 0, code, out)
 	assertLine(t, out, "ok", "project onett: clone at "+f.clone)
-	assert.NotContains(t, out, "sekret-token")
+	for _, c := range *calls {
+		assert.False(t, c.name == "git" && slices.Contains(c.args, "remote"), "doctor runs no git in the checkout")
+	}
 }
 
 func TestDoctorCloneFailsForNonEmptyNonCheckout(t *testing.T) {

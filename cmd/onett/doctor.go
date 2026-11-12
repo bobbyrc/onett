@@ -273,10 +273,9 @@ func (d *doctor) checkProjects(cfg *config.Config) {
 }
 
 // checkClone checks an existing project directory the way the engine will use it. A directory
-// with no .git is cloned into, which git allows only when it is empty. A checkout needs an
-// origin remote: every run starts with `git fetch origin` and ends with a push to it, so without
-// one the first task blocks after its attempts. The remote's URL is not printed: it can hold a
-// token.
+// with no .git is cloned into, which git allows only when it is empty. A checkout needs no
+// origin remote of its own: onett fetches from and pushes to the project's configured repo, and
+// writes origin into the checkout itself (internal/workspace), so no git runs here.
 func (d *doctor) checkClone(name, path string) {
 	if _, err := os.Stat(filepath.Join(path, ".git")); os.IsNotExist(err) {
 		if entries, err := os.ReadDir(path); err == nil && len(entries) == 0 {
@@ -285,13 +284,6 @@ func (d *doctor) checkClone(name, path string) {
 		}
 		d.fail(fmt.Sprintf("project %s: %s is not a git checkout and is not empty, so onett cannot clone into it", name, path),
 			"point path at a clone of the repository, or remove path so onett clones it itself")
-		return
-	}
-	// Hooks are off, as in internal/workspace, so nothing in the checkout runs.
-	out, err := runExternal("git", "-c", "core.hooksPath=/dev/null", "-C", path, "remote", "get-url", "origin")
-	if err != nil {
-		d.fail(fmt.Sprintf("project %s: clone at %s has no usable origin remote (%s)", name, path, firstLine(out, err)),
-			"onett fetches from and pushes to origin: run `git -C "+path+" remote add origin URL`, or remove path so onett clones the repository itself")
 		return
 	}
 	d.ok(fmt.Sprintf("project %s: clone at %s", name, path))

@@ -537,6 +537,20 @@ func (m *Manager) HeadSHA(ctx context.Context, ws Workspace) (string, error) {
 	return sha, nil
 }
 
+// HasUncommittedWork reports whether the worktree holds changes that no commit has: modified,
+// staged or untracked files. Ignored files and the outbox do not count. It only reads (git is
+// told not to take the index lock) and runs like every other local command, with no credentials.
+func (m *Manager) HasUncommittedWork(ctx context.Context, ws Workspace) (bool, error) {
+	if err := requireWorktree(ws.Dir); err != nil {
+		return false, err
+	}
+	out, err := git(ctx, ws.Dir, "--no-optional-locks", "status", "--porcelain", "--ignore-submodules=all")
+	if err != nil {
+		return false, fmt.Errorf("status of %s: %w", ws.Dir, err)
+	}
+	return out != "", nil
+}
+
 // Push pushes the worktree's branch to origin. It uses --force-with-lease because agents may
 // rebase their own branch, but the lease names the value Prepare saw on origin (ws.RemoteSHA),
 // not git's remote-tracking ref. A fetch by any other task moves that ref, so comparing against it

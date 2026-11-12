@@ -130,8 +130,7 @@ func TestDoctorAllHealthy(t *testing.T) {
 	for _, c := range *calls {
 		names = append(names, c.name+" "+strings.Join(c.args, " "))
 	}
-	remote := "git -c core.hooksPath=/dev/null -C " + f.clone + " remote get-url origin"
-	assert.Equal(t, []string{"git --version", "gh auth status", "claude --version", "codex --version", remote, remote}, names)
+	assert.Equal(t, []string{"git --version", "gh auth status", "claude --version", "codex --version"}, names)
 }
 
 func TestDoctorFailsWhenUsedHarnessIsMissing(t *testing.T) {
