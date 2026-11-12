@@ -191,9 +191,8 @@ a.sheet-count:hover .sheet-count-n {
     font-size: 22px;
   }
 
-  /* Five labels share a phone row, so each is small and never breaks inside a word. */
+  /* Five labels share a phone row, so each is set tighter and never breaks inside a word. */
   .sheet-count-label {
-    font-size: 10px;
     letter-spacing: 0.02em;
     overflow-wrap: normal;
     word-break: keep-all;

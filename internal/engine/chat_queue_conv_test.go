@@ -62,7 +62,7 @@ func TestChatMessageWhileBusyIsDeliveredToSteerableTurn(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, runID, msg.RunID, "a message the live agent accepted names its run")
 	assert.False(t, msg.Queued)
-	assert.Equal(t, ownerPrompt([]string{"also this"}), <-got)
+	assert.Equal(t, messagesPrompt([]domain.ChatMessage{{Text: "also this"}}), <-got)
 	ctWaitIdle(t, r, convID)
 }
 

@@ -1,0 +1,4 @@
+/* The board is dark: a link in its empty text takes the text's colour, not the page's link colour. */
+.board-empty a {
+  color: inherit;
+}

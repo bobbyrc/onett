@@ -235,7 +235,8 @@
   }
 }
 
-/* On a phone the seven stations share the width, with tighter labels, instead of scrolling. */
+/* On a phone the seven stations share the width instead of scrolling. The names keep their 12px
+   and give up their letter-spacing: that is what lets "Deploying" fit a 360px screen. */
 @media (max-width: 520px) {
   .task-line {
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -243,7 +244,6 @@
   }
 
   .task-station-label {
-    font-size: 10px;
-    letter-spacing: 0.02em;
+    letter-spacing: 0;
   }
 }

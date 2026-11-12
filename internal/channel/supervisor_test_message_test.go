@@ -22,7 +22,7 @@ func (b testerBot) SendTest(context.Context) error { b.sent.add("test " + b.id);
 
 func registerTesterType(t *testing.T, typ string, sent *eventLog, err error) {
 	t.Helper()
-	channel.Register(typ, channel.Registration{
+	channel.RegisterForTest(t, typ, channel.Registration{
 		Factory: func(c config.Channel, env channel.Env) (channel.Starter, error) {
 			if env.Getenv("SUP_TOKEN") == "" {
 				return nil, assert.AnError

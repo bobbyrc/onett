@@ -81,18 +81,14 @@ func ReattachProcess(ctx context.Context, p ProcSpec, from int64) (*Proc, error)
 	if p.Shim == nil || p.RunID == "" {
 		return nil, errors.New("reattach: needs a run ID and shim options")
 	}
-	runDir := runshim.RunDir(p.Shim.DataDir, p.RunID)
-	sock := ""
-	if st, err := runshim.ReadStatus(runDir); err == nil {
-		sock = st.Socket
+	// The shim's status file says where its socket is and which process the shim is, so the dial
+	// can refuse another process that answers there. Every shim writes the file before it
+	// listens, so a run without one has no shim to reach.
+	st, err := runshim.ReadStatus(runshim.RunDir(p.Shim.DataDir, p.RunID))
+	if err != nil {
+		return nil, fmt.Errorf("reattach %s: %w", p.RunID, err)
 	}
-	if sock == "" {
-		var err error
-		if sock, err = runshim.SocketPath(p.Shim.DataDir, p.RunID); err != nil {
-			return nil, fmt.Errorf("reattach %s: %w", p.RunID, err)
-		}
-	}
-	client, err := runshim.Dial(sock)
+	client, err := runshim.DialStatus(st)
 	if err != nil {
 		return nil, fmt.Errorf("reattach %s: %w", p.RunID, err)
 	}

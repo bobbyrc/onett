@@ -57,7 +57,7 @@ async function saveVisualEditor() {
 }
 
 test('create the owner account and see the unfinished checklist', async () => {
-  await page.goto(`${daemon.url}/`);
+  await page.goto(daemon.setupUrl);
   await page.locator('input[name=username]').fill('owner');
   await page.locator('input[name=password]').fill(PASSWORD);
   await page.locator('input[name=confirm]').fill(PASSWORD);
@@ -83,10 +83,9 @@ test('add a project from Projects', async () => {
   await page.getByRole('link', { name: 'Projects', exact: true }).click();
   await page.getByRole('button', { name: 'Add project' }).click();
   const dialog = page.getByRole('dialog', { name: 'Add project' });
-  // A field's accessible name includes its hint, so match on the start of it.
-  await dialog.getByRole('textbox', { name: /^Name / }).fill('widgets');
-  await dialog.getByRole('textbox', { name: /^Repository / }).fill('acme/widgets');
-  await dialog.getByRole('textbox', { name: /^Local path / }).fill(daemon.repoDir);
+  await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill('widgets');
+  await dialog.getByRole('textbox', { name: 'Repository', exact: true }).fill('acme/widgets');
+  await dialog.getByRole('textbox', { name: 'Local path', exact: true }).fill(daemon.repoDir);
   await dialog.getByRole('button', { name: 'Add project' }).click();
   await expect(dialog).toBeHidden();
   const sheet = page.locator('article.project-sheet', { hasText: 'widgets' });

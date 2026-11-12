@@ -108,6 +108,14 @@ func DefaultRules() []Rule {
 				"**/*.key",
 			},
 		},
+		// These files configure the agent CLIs themselves: hooks that run commands, permission
+		// rules, MCP servers, skills. A change to them changes what later agent runs in the
+		// repository may do, so it is rated high wherever in the tree it sits.
+		{
+			Risk:   domain.RiskHigh,
+			Reason: "agent CLI settings, hooks or MCP servers",
+			Paths:  []string{"**/.claude/**", "**/.mcp.json", "**/.codex/**"},
+		},
 		{
 			Risk:   domain.RiskMedium,
 			Reason: "agent instructions or onett config",

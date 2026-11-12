@@ -236,6 +236,7 @@
   width: 100%;
   margin-bottom: 14px;
   text-align: left;
+  text-decoration: none;
 }
 
 .chat-page .conv-heading-quiet {

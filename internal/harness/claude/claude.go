@@ -28,6 +28,20 @@ const fullAccessPermissionMode = "bypassPermissions"
 // permissions but keeps the repository's own settings and CLAUDE.md, and leaves the login alone.
 var isolationArgs = []string{"--strict-mcp-config", "--setting-sources", "project,local"}
 
+// noProjectConfigArgs keep the working tree from configuring the agent
+// (harness.Spec.NoProjectConfig). Claude Code reads hooks, permission rules, CLAUDE.md, AGENTS.md,
+// skills, commands and subagents from its "project" and "local" setting sources, which are files
+// in the tree, and MCP servers from the tree's .mcp.json. --setting-sources without those two
+// drops the first group and --strict-mcp-config drops the MCP servers. The owner's own "user"
+// source stays, unless the harness is isolated and already runs without it.
+func noProjectConfigArgs(cfg harness.Config) []string {
+	sources := "user"
+	if cfg.Isolate {
+		sources = ""
+	}
+	return []string{"--strict-mcp-config", "--setting-sources", sources}
+}
+
 func init() {
 	harness.Register(harnessType, func(cfg harness.Config) (harness.Harness, error) {
 		return &runner{cfg: cfg}, nil
@@ -275,6 +289,11 @@ func buildArgs(cfg harness.Config, spec harness.Spec) []string {
 	// --allowedTools in the extras cannot drop a rule onett asks for.
 	for _, rule := range spec.AllowedTools {
 		args = append(args, "--allowedTools", rule)
+	}
+	if spec.NoProjectConfig {
+		// After the extras, because the last --setting-sources wins: nothing before it can bring
+		// the tree's settings back.
+		args = append(args, noProjectConfigArgs(cfg)...)
 	}
 	// A mode chosen for the conversation comes last so it wins over the profile's own flag.
 	switch {

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -29,7 +30,8 @@ type Store struct {
 }
 
 // Open opens the database at path, creating it if needed, and applies pending migrations. The
-// path ":memory:" opens a private in-memory database.
+// path ":memory:" opens a private in-memory database. A database file is made readable by its
+// owner only (see makePrivate).
 func Open(path string) (*Store, error) {
 	memory := path == ":memory:"
 	dsn := "file:" + path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)" +
@@ -37,6 +39,11 @@ func Open(path string) (*Store, error) {
 	if memory {
 		// Shared-cache memory DBs are named; the UUID keeps each Open private.
 		dsn = "file:mem" + uuid.NewString() + "?mode=memory&cache=shared"
+	}
+	if !memory {
+		if err := makePrivate(path); err != nil {
+			return nil, fmt.Errorf("open sqlite %s: %w", path, err)
+		}
 	}
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -62,6 +69,32 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	return &Store{db: db}, nil
+}
+
+// makePrivate makes the database at path readable and writable by its owner only. The file is
+// created here because SQLite would create it with the process's default mode, usually readable
+// by everyone, and it holds run logs, task text and session hashes. A database an older onett
+// created is tightened the same way. SQLite gives the -wal and -shm files it creates the mode of
+// the main file; the ones already on disk are tightened here.
+func makePrivate(path string) error {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	for _, p := range []string{path, path + "-wal", path + "-shm"} {
+		err := os.Chmod(p, 0o600)
+		if err == nil || errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		// Some filesystems cannot change a mode. That is fine when the file is private already.
+		if fi, serr := os.Stat(p); serr != nil || fi.Mode().Perm()&0o077 != 0 {
+			return fmt.Errorf("make %s readable by its owner only: %w", p, err)
+		}
+	}
+	return nil
 }
 
 // Close releases the database.

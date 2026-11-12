@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/client"
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/stretchr/testify/assert"
@@ -396,10 +397,11 @@ func TestServeEnvsKeepTokenOutOfAgents(t *testing.T) {
 	t.Setenv("PATH", "/usr/bin:/bin")
 	agent, orchestrator := serveEnvs("/opt/onett/bin/onett", "127.0.0.1:7777", "secret-token")
 
-	assert.Equal(t, map[string]string{"PATH": "/opt/onett/bin" + string(os.PathListSeparator) + "/usr/bin:/bin"}, agent)
+	assert.Equal(t, map[string]string{}, agent)
 	assert.Equal(t, map[string]string{
+		"PATH":        "/opt/onett/bin" + string(os.PathListSeparator) + "/usr/bin:/bin",
 		"ONETT_API":   "http://127.0.0.1:7777",
-		"ONETT_TOKEN": "secret-token",
+		"ONETT_TOKEN": auth.AgentToken("secret-token"),
 	}, orchestrator)
 }
 

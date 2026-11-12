@@ -157,6 +157,13 @@ func serviceInstall(e *env, cfgFlag string) error {
 	if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
 		return readErr
 	}
+	if readErr == nil {
+		// Writing over a file keeps its mode, and this one can hold secrets: one that an older
+		// onett or an editor left readable by everyone is made private first.
+		if err := os.Chmod(plist, 0o600); err != nil {
+			return fmt.Errorf("make %s private: %w", plist, err)
+		}
+	}
 	if readErr == nil && string(existing) == body {
 		fmt.Fprintf(e.out, "already installed: %s\n", plist)
 		// A failed earlier install or update can leave the plist on disk with the job unloaded;

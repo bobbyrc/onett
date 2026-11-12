@@ -13,7 +13,17 @@ export function parseTime(value: string | Date | null | undefined): Date | null 
   return date;
 }
 
-/** "just now", "12s ago", "3m ago", "2h ago", "4d ago", then a calendar date. */
+/** A calendar date with the month as a word ("Aug 7, 2026" or "7 Aug 2026", by locale), so day and month cannot be confused. */
+export function formatDate(date: Date, locale?: string): string {
+  return date.toLocaleDateString(locale, { dateStyle: 'medium' });
+}
+
+/** The same date with the time to the second ("Aug 7, 2026, 3:04:05 PM"), for hover titles. */
+export function formatDateTime(date: Date, locale?: string): string {
+  return date.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'medium' });
+}
+
+/** "just now", "12s ago", "3m ago", "2h ago", "4d ago", then a date with the month as a word. */
 export function formatRelative(date: Date, now: number): string {
   const diff = now - date.getTime();
   if (diff < -5 * SECOND) return `in ${formatDuration(-diff)}`;
@@ -22,7 +32,7 @@ export function formatRelative(date: Date, now: number): string {
   if (diff < HOUR) return `${Math.floor(diff / MINUTE)}m ago`;
   if (diff < DAY) return `${Math.floor(diff / HOUR)}h ago`;
   if (diff < 30 * DAY) return `${Math.floor(diff / DAY)}d ago`;
-  return date.toLocaleDateString();
+  return formatDate(date);
 }
 
 /** "12s", "3m 04s", "1h 05m". Negative input is treated as zero. */

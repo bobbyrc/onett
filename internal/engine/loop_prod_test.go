@@ -149,20 +149,24 @@ func TestLoopProdIncidentIncludesServiceLogs(t *testing.T) {
 	if len(incidents) != 1 {
 		t.Fatalf("got %d incidents, want 1", len(incidents))
 	}
-	want := "\n## Evidence\n\n" + evidenceNote + "\n\n```\n== service logs (echo prod-log-line) ==\nprod-log-line\n```\n"
+	want := "\n## Evidence\n\n" + evidenceNote + "\n\n```\n== signal (sentry) ==\nTitle: TypeError: boom\nLevel: error\nCulprit: \nURL: https://sentry.example/1\nRelease: \n== service logs (echo prod-log-line) ==\nprod-log-line\n```\n"
 	if !strings.Contains(incidents[0].Body, want) {
 		t.Fatalf("incident body lacks the evidence section:\n%s", incidents[0].Body)
 	}
 }
 
-// Without a logs command, a prod incident body is unchanged.
-func TestLoopProdIncidentWithoutLogsHasNoEvidence(t *testing.T) {
+// Without a logs command, a prod incident's evidence is the signal alone.
+func TestLoopProdIncidentWithoutLogsHasOnlySignalEvidence(t *testing.T) {
 	env := lpNewEngine(t, lpDoc(t, lpPath(t), "", ""))
 	env.obs.obs = []domain.SignalObservation{lpObservation("error", 5, time.Now())}
 
 	env.run(loopProdWatch)
 
-	if body := env.tasks(domain.KindIncident)[0].Body; strings.Contains(body, "## Evidence") {
-		t.Fatalf("incident has an evidence section without a logs command:\n%s", body)
+	body := env.tasks(domain.KindIncident)[0].Body
+	if !strings.Contains(body, "== signal (sentry) ==") {
+		t.Fatalf("incident lacks the signal evidence:\n%s", body)
+	}
+	if strings.Contains(body, "== service logs") {
+		t.Fatalf("incident has service logs without a logs command:\n%s", body)
 	}
 }
