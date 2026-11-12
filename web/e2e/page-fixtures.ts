@@ -268,14 +268,15 @@ export const runs: Run[] = [
   },
 ];
 
-const L = (run: string, seq: number, kind: LogLine['kind'], text: string, minutes: number, tool_id?: string): LogLine => ({
-  run_id: run,
-  seq,
-  kind,
-  text,
-  tool_id,
-  time: ago(minutes),
-});
+// A run's log is ordered by seq, and the UI builds row IDs from it, so a seq used twice in one
+// run draws duplicate rows. Refuse it here, where the mistake is made.
+const usedSeqs = new Set<string>();
+const L = (run: string, seq: number, kind: LogLine['kind'], text: string, minutes: number, tool_id?: string): LogLine => {
+  const key = `${run}:${seq}`;
+  if (usedSeqs.has(key)) throw new Error(`page-fixtures: log seq ${seq} is used twice in run ${run}`);
+  usedSeqs.add(key);
+  return { run_id: run, seq, kind, text, tool_id, time: ago(minutes) };
+};
 
 export const runLogs: LogLine[] = [
   L(IDS.run, 1, 'prompt', 'Show elapsed time on running tool rows from tool_progress. The agent emits a tool_progress heartbeat while a tool call runs.', 180),

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useCan } from '../auth';
 import { useStats } from '../queries';
+import { useRouteTitle } from '../lib/pageTitle';
 import { AccountPanel } from './AccountPanel';
 import { BrandMark } from './BrandMark';
 import { LiveIndicator } from './LiveIndicator';
@@ -49,6 +50,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  useRouteTitle();
   const stats = useStats();
   const administer = useCan('administer');
   const pending = stats.data?.approvals_pending ?? 0;
@@ -79,6 +82,18 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app">
+      {/* The first Tab stop: past the navigation, straight to the page. */}
+      <a
+        className="btn btn-primary skip-link"
+        href="#main"
+        onClick={(event) => {
+          // Move focus without leaving "#main" in the address bar.
+          event.preventDefault();
+          mainRef.current?.focus();
+        }}
+      >
+        Skip to content
+      </a>
       <header className="topbar">
         <Wordmark />
         <span className="topbar-right">
@@ -130,7 +145,9 @@ export function Shell({ children }: { children: ReactNode }) {
           <LiveIndicator />
         </div>
       </aside>
-      <main className="main">{children}</main>
+      <main ref={mainRef} id="main" tabIndex={-1} className="main">
+        {children}
+      </main>
     </div>
   );
 }
