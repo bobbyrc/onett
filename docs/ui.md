@@ -79,7 +79,7 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
 ## Shell
 
 - Left rail 216px in `--board`: wordmark "onett" in Barlow Condensed after the brand mark, a
-  loop in the text colour with one call-yellow lit segment (work going round the line); nav items: Overview, Projects, Chat, Tasks, Approvals, Runs, Deploys,
+  loop in the text colour with one call-yellow lit segment (work going round the line); nav items: Overview, Projects, Chat, Goals, Tasks, Approvals, Runs, Deploys,
   Signals, Friction, Loops, Agents, Config, and Users (owners only). Approvals carries a
   yellow count badge when approvals wait; Tasks a red one when tasks are blocked (each count
   has screen-reader text). The active item is lit (`--board-2` background, white text).
@@ -424,8 +424,9 @@ running) come first; the rest keep the server's order, newest first. Filters: pr
 On a phone the status is the card's title row and the task comes second, because the stacked
 table always takes the first column as the title.
 
-**Deploys** (`/deploys`) — table: project, ref (short SHA mono), state, URL, task, started,
-updated, notes.
+**Deploys** (`/deploys`) — table: project, ref (short SHA mono), state (the deploy's notes sit
+under it in muted text), URL, task, started, updated and Log (a View button that opens the
+release's log in a dialog; a dash when there is none). Filter: project.
 
 **Signals** (`/signals`) — table: project, source, title (links to URL), level, count, last
 seen, task link.
@@ -447,7 +448,7 @@ window beside the rail), the table becomes one sheet per loop, with a row for ea
 in.
 
 **Users** (`/users`, owners only; anyone else is sent to Overview) — a table of accounts:
-username (your own row says "(you)"), role, added (relative time) and actions. The role is a
+username (your own row says "(you)"), role, added (a relative time, or a calendar date once it is 30 days old; the full timestamp shows on hover) and actions. The role is a
 select that saves as soon as it changes; changing your own role reloads your session so the
 menus match it. "Set password" opens a field under that row with Save and Cancel. "Remove"
 asks for confirmation. "Add user" opens a sheet above the table with username, password and
@@ -526,8 +527,15 @@ the author (and the reviewer) looks at them. The two Playwright configs for the 
 (`playwright.config.ts`, `playwright.shots.config.ts`) each pick a free port when they start, so
 runs in parallel worktrees never collide; set `ONETT_MOBILE_PORT` or `ONETT_SHOTS_PORT` to pin one.
 
-Every chat UI PR shows before and after screenshots. One command takes them, one script
-publishes them:
+Every chat UI PR shows before and after screenshots. One command takes them; who publishes them
+depends on who is working:
+
+- **An agent that onett runs** (`ONETT_OUTBOX` is set in its environment) holds no GitHub access
+  and cannot run the script below. It copies the PNGs into `$ONETT_OUTBOX/shots/before/` and
+  `$ONETT_OUTBOX/shots/after/`, and onett publishes them with the run; see "Agents that onett
+  runs" below.
+- **A person, or an interactive agent that can push to the repository**, publishes them with
+  `scripts/pr-shots.sh`:
 
 ```sh
 cd web && npm run shots:chat && cd ..    # on the base commit
@@ -548,7 +556,10 @@ two runs of the same code give the same pixels. It is not part of `npm run test:
 `scripts/pr-shots.sh <label>` copies those PNGs to a branch `pr-assets/<current-branch>/<label>`
 (an orphan branch, created on first use) in a temporary git worktree, pushes it, and prints a
 Markdown table with permanent `raw.githubusercontent.com/<repo>/<commit-sha>/...` image links.
-Paste the `before` and `after` tables into the PR description.
+Paste the `before` and `after` tables into the PR description. Your own branch and working tree
+are not touched, and the worktree is removed when the script exits. The script reads only
+`web/e2e-results/chat-shots/`, so it publishes the chat shots and not those of `npm run shots`.
+Never merge a `pr-assets` branch.
 
 ### Any other page: `npm run shots`
 
@@ -585,19 +596,20 @@ opposite, layout-stress data for `npm run test:mobile`.
 
 The clock is frozen, the timezone is UTC, animations are off and the browser rasterises in software,
 so two runs of the same code give identical PNGs, and it can run at the same time as
-`npm run test:mobile`. Take the shots on the base commit and on your head, look at the pages you
-changed, and copy those PNGs to `$ONETT_OUTBOX/shots/before/` and `.../after/` (see below; at most
-48 files, so only touched pages). `shoot-live.mjs` shows the same pages with real data but needs
-an API token that worker agents do not hold.
+`npm run test:mobile`. Take the shots on the base commit and on your head and look at the pages you
+changed. An agent that onett runs then copies those PNGs to `$ONETT_OUTBOX/shots/before/` and
+`.../after/` (see below; at most 48 files, so only touched pages). `shoot-live.mjs` shows the same
+pages with real data but needs an API token that worker agents do not hold.
 
-Worker agents hold no GitHub access and cannot run the script. They copy the PNGs into
-`$ONETT_OUTBOX/shots/before/` and `$ONETT_OUTBOX/shots/after/` instead. When onett publishes a
-run, it pushes each label directory (only plain `*.png` files, at most 48 of 8 MB, no symlinks)
+### Agents that onett runs: `$ONETT_OUTBOX/shots/`
+
+Worker agents (the agents that onett runs, as opposed to a person or an interactive agent) hold
+no GitHub access and cannot run `scripts/pr-shots.sh`. They copy the PNGs, from either command,
+into `$ONETT_OUTBOX/shots/before/` and `$ONETT_OUTBOX/shots/after/` instead. When onett publishes
+a run, it pushes each label directory (only plain `*.png` files, at most 48 of 8 MB, no symlinks)
 to the same `pr-assets/<branch>/<label>` branch and adds a "Screenshots: <label>" section of
 `raw.githubusercontent.com` image links to the PR description. This needs a GitHub project
-(`repo: owner/name`); a failure is logged and does not fail the run. Your own branch and working tree
-are not touched, and the worktree is removed when the script exits. Never merge a `pr-assets`
-branch.
+(`repo: owner/name`); a failure is logged and does not fail the run.
 
 ### Real-app shots: `scripts/shoot-live.mjs`
 
