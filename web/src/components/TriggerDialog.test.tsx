@@ -160,4 +160,13 @@ describe('TriggerDialog: an existing trigger', () => {
     expect(mocks.patch.mutate).toHaveBeenCalledTimes(1);
     expect(mocks.patch.mutate.mock.calls[0][0]).toEqual({ id: 't1', patch: { name: 'New name' } });
   });
+
+  it('sends only what this dialog changed, not a switch-off made while it was open', () => {
+    const { rerender } = render(<TriggerDialog trigger={trigger()} onClose={() => {}} />);
+    rerender(<TriggerDialog trigger={trigger({ enabled: false })} onClose={() => {}} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'New name' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(mocks.patch.mutate).toHaveBeenCalledTimes(1);
+    expect(mocks.patch.mutate.mock.calls[0][0]).toEqual({ id: 't1', patch: { name: 'New name' } });
+  });
 });

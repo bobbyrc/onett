@@ -234,12 +234,12 @@ describe('Triggers list', () => {
     expect(log.getByRole('link', { name: 'Open conversation' }).getAttribute('href')).toBe('/chat/c1');
   });
 
-  it('on a phone, the Firings tab shows the log alone and is selected', () => {
+  it('on a phone, the Firings button shows the log alone and is pressed', () => {
     const { container } = renderPage();
-    const firingsTab = screen.getByRole('tab', { name: 'Firings' });
-    fireEvent.click(firingsTab);
+    const firingsButton = screen.getByRole('button', { name: 'Firings' });
+    fireEvent.click(firingsButton);
     expect(container.querySelector('.trg-cols')?.classList.contains('tab-firings')).toBe(true);
-    expect(firingsTab.getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByRole('tab', { name: 'Triggers' }).getAttribute('aria-selected')).toBe('false');
+    expect(firingsButton.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Triggers' }).getAttribute('aria-pressed')).toBe('false');
   });
 });

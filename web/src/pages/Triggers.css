@@ -286,9 +286,11 @@
   border: 0;
 }
 
-/* The card's name opens the trigger's own page. */
+/* The card's name opens the trigger's own page. A long name wraps inside the card. */
 .trg-rule-name a {
+  min-width: 0;
   color: inherit;
+  overflow-wrap: anywhere;
 }
 
 /* A custom cron expression is typed in the monospace face it is shown in. */

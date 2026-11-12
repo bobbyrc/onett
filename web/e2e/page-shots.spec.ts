@@ -164,7 +164,7 @@ const SCENES: Scene[] = [
   { route: '/tasks', variant: 'emptyTasks', name: 'tasks_empty' },
   { route: '/runs', variant: 'emptyRuns', name: 'runs_empty' },
   // Triggers: an issue trigger's page, the states the plain routes do not show, the phone's
-  // second tab, the dialog, and a trigger's conversation in Chat (its settings are fixed).
+  // second tab and the dialog.
   { route: `/triggers/${d.IDS.issueTrigger}`, variant: 'default' },
   { route: '/triggers', variant: 'emptyTriggers', name: 'triggers_empty' },
   { route: '/triggers', variant: 'viewer', name: 'triggers_readonly' },
@@ -173,7 +173,6 @@ const SCENES: Scene[] = [
   { route: '/triggers', variant: 'default', name: 'triggers_new', press: 'New trigger' },
   { route: '/triggers', variant: 'default', name: 'triggers_edit_schedule', press: 'Edit Weekday dependency check' },
   { route: '/triggers', variant: 'default', name: 'triggers_edit_issue', press: 'Edit Bug reports' },
-  { route: `/chat/${d.IDS.triggerChat}`, variant: 'default' },
 ];
 
 const fileName = (s: Scene) =>

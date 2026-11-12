@@ -85,23 +85,11 @@ export function Triggers() {
       <ErrorLine error={triggers.error ?? firings.error} />
       <ErrorLine error={run.error ?? patch.error} />
 
-      <div className="segmented trg-tabs" role="tablist" aria-label="Triggers and firings">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab !== 'firings'}
-          className={tab !== 'firings' ? 'on' : undefined}
-          onClick={() => setTab('')}
-        >
+      <div className="segmented trg-tabs" role="group" aria-label="Show">
+        <button type="button" aria-pressed={tab !== 'firings'} className={tab !== 'firings' ? 'on' : undefined} onClick={() => setTab('')}>
           Triggers
         </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'firings'}
-          className={tab === 'firings' ? 'on' : undefined}
-          onClick={() => setTab('firings')}
-        >
+        <button type="button" aria-pressed={tab === 'firings'} className={tab === 'firings' ? 'on' : undefined} onClick={() => setTab('firings')}>
           Firings
         </button>
       </div>

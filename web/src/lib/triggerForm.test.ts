@@ -219,6 +219,24 @@ describe('patchBody', () => {
     const v = { ...initialValues(t, undefined, '', ''), preset: withPreset({ repeat: 'daily', time: '06:00' }) };
     expect(patchBody(t, v)).toEqual({});
   });
+
+  it('does not send a stored schedule the form only spells differently', () => {
+    const t = trig({ cron: '0 9 * * 1,2,3,4,5' });
+    expect(patchBody(t, { ...initialValues(t, undefined, 'UTC', ''), name: 'New name' })).toEqual({ name: 'New name' });
+  });
+
+  it('does not send a stored schedule that differs only in padding or spacing', () => {
+    const daily = trig({ cron: '00 09 * * *' });
+    expect(patchBody(daily, { ...initialValues(daily, undefined, 'UTC', ''), name: 'New name' })).toEqual({ name: 'New name' });
+    const spaced = trig({ cron: '0  5 * * *' });
+    expect(patchBody(spaced, { ...initialValues(spaced, undefined, 'UTC', ''), name: 'New name' })).toEqual({ name: 'New name' });
+  });
+
+  it('sends a changed day set of a stored schedule in the form spelling', () => {
+    const t = trig({ cron: '0 9 * * 1,2,3,4,5' });
+    const v = { ...initialValues(t, undefined, 'UTC', ''), preset: withPreset({ repeat: 'days', time: '09:00', days: [1, 2, 3] }) };
+    expect(patchBody(t, v)).toEqual({ cron: '0 9 * * 1-3' });
+  });
 });
 
 describe('firesSentence', () => {

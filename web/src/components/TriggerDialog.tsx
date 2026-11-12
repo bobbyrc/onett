@@ -50,6 +50,9 @@ export function TriggerDialog({ trigger, starter, onClose }: { trigger?: Trigger
   const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
   const [values, setValues] = useState<TriggerFormValues>(() => initialValues(trigger, starter, browserZone, ''));
   const [problem, setProblem] = useState<string | null>(null);
+  // The trigger as it was when the dialog opened. An edit sends what this dialog changed, not
+  // what changed elsewhere meanwhile: sending "on" again would re-arm an issue trigger.
+  const [original] = useState(trigger);
 
   const projectNames = (projects.data ?? []).map((p) => p.name);
   const project = trigger ? trigger.project : values.project || projectNames[0] || '';
@@ -66,16 +69,16 @@ export function TriggerDialog({ trigger, starter, onClose }: { trigger?: Trigger
     const next = formProblem(toSend);
     setProblem(next);
     if (next) return;
-    if (!trigger) {
+    if (!original) {
       create.mutate(createBody(toSend), { onSuccess: onClose });
       return;
     }
-    const patch = patchBody(trigger, toSend);
+    const patch = patchBody(original, toSend);
     if (Object.keys(patch).length === 0) {
       onClose();
       return;
     }
-    patchTrigger.mutate({ id: trigger.id, patch }, { onSuccess: onClose });
+    patchTrigger.mutate({ id: original.id, patch }, { onSuccess: onClose });
   };
 
   return (

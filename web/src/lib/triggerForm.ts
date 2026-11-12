@@ -112,7 +112,10 @@ export function patchBody(trigger: Trigger, v: TriggerFormValues): TriggerPatch 
   if (v.enabled !== trigger.enabled) patch.enabled = v.enabled;
   if (trigger.kind === 'schedule') {
     const cron = presetToCron(v.preset) ?? '';
-    if (cron !== (trigger.cron ?? '')) patch.cron = cron;
+    const stored = trigger.cron ?? '';
+    // The form may spell a stored schedule differently (1,2,3,4,5 as 1-5). That is not a change.
+    const storedAsForm = presetToCron(cronToPreset(stored)) ?? stored;
+    if (cron !== stored && cron !== storedAsForm) patch.cron = cron;
     if (v.timeZone !== (trigger.time_zone ?? '')) patch.time_zone = v.timeZone;
   } else {
     const label = v.label.trim();

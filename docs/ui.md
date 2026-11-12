@@ -499,31 +499,33 @@ in. With no loops configured the page says so and links to Config's Loops group
 **Triggers** (`/triggers`) — rules the owner writes that start the orchestrator on their own: on a
 schedule, or when a new issue is opened in a project's repository. Two columns. On the left,
 **Rules**: one card per trigger, sorted by name with switched-off triggers last, and beside the
-heading "5 on · 1 off · 1 failing" (failing in red when any). A card has a lamp bar down its
-left edge and the same thing in words under its name: green "On" (with "next in 17h 00m", or
-"waits for the next issue"), yellow "Skipped its last firing", red "Last firing failed", grey
-"On · not fired yet" or "Off". The name opens the trigger's own page; the project is a tag beside
-it. Three rows follow. **When**: the schedule in words and its time zone ("Every day at 05:00 ·
-UTC", "daemon's time zone" when none is set), or "A new issue in owner/repo · label bug" ("any
-label" without one). **Ask**: the prompt, cut at two lines. **Last**: the last firing, as "6h ago
-· scheduled 05:00 · Started", with "Open conversation" when it started, the reason in yellow or
-red when it was skipped or failed ("Skipped: the factory was paused"), and "All firings", which
-also opens the trigger's page; "never" before the first firing. On the right, **Recent firings**:
-the newest 50 firings of every trigger from `GET /trigger-firings`, grouped under Today,
-Yesterday and dates, each with its clock time, a lamp and "Started", "Skipped" or "Failed", the
-trigger's name (taken from the list of triggers), what caused it ("scheduled 09:30", "run now by
-bcraig", or "issue #412" as a link to the issue), and under it "Open conversation" or the
-reason. Under 760px the two columns are two tabs, Triggers and Firings; the choice is in the URL
-(`?tab=firings`). With no triggers the left column says "No triggers. A trigger starts the
-orchestrator on its own, on a schedule or when a new issue is opened." and, for an owner, offers
-two examples ("Every day at 05:00" and "A new issue is opened"), each with **Use this**; the
-right column says "Nothing has fired yet. Each firing is listed here with what started it and
-what came of it." Only an owner sees **New trigger** in the header and, on each card, **Run
-now** (schedule triggers only: an issue trigger cannot be fired by hand), **Edit** and **Turn
-off** or **Turn on**; everyone else sees "Only an owner can add or change triggers." and no
-controls. Run now reads "Running…" until the server answers, then a line says "Fired <name>.",
-or "Skipped <name>: <reason>." when the firing was skipped. Turn off and Turn on save at once.
-Clock times are the browser's; the time in "scheduled 05:00" is in the trigger's own zone.
+heading "5 on · 1 off · 1 failing" (failing in red when any). A card has a lamp bar down its left
+edge and the same thing in words under its name: green "On" (with "next in 17h 00m", or "waits for
+the next issue"), yellow "Skipped its last firing", red "Last firing failed", grey "On · not fired
+yet" or "Off". The name opens the trigger's own page; the project is a tag beside it. Three rows
+follow. **When**: the schedule in words and its time zone ("Every day at 05:00 · UTC", "daemon's
+time zone" when none is set), or "A new issue in owner/repo · label bug" ("any label" without one).
+**Ask**: the prompt, cut at two lines. **Last**: the last firing, as "6h ago · scheduled 05:00 ·
+Started", with "Open conversation" when it started, the reason in yellow or red when it was skipped
+or failed ("Skipped: the factory was paused"), and "All firings", which also opens the trigger's
+page; "never" before the first firing. On the right, **Recent firings**: the newest 50 firings of
+every trigger from `GET /trigger-firings`, grouped under Today, Yesterday and dates, each with its
+clock time, a lamp and "Started", "Skipped" or "Failed", the trigger's name (taken from the list of
+triggers), what caused it ("scheduled 09:30", "run now by bcraig", or "issue #412" as a link to the
+issue), and under it "Open conversation" or the reason. Under 760px the two columns are shown one at
+a time, chosen with two buttons, Triggers and Firings; the choice is in the URL (`?tab=firings`).
+With no triggers the left column says "No triggers. A trigger starts the orchestrator on its own, on
+a schedule or when a new issue is opened." and, for an owner, offers two examples ("Every day at
+05:00" and "A new issue is opened"), each with **Use this**; the right column says "Nothing has
+fired yet. Each firing is listed here with what started it and what came of it." Only an owner sees
+**New trigger** in the header and, on each card, **Run now** (schedule triggers only: an issue
+trigger cannot be fired by hand), **Edit** and **Turn off** or **Turn on**; everyone else sees "Only
+an owner can add or change triggers." and no controls. Run now reads "Running…" until the server
+answers, then a line says "Fired <name>.", or "Skipped <name>: <reason>." when the firing was
+skipped. Turn off and Turn on save at once. Clock times are the browser's; the time in "scheduled
+05:00" is in the trigger's own zone. A trigger with no zone of its own runs in the daemon's zone,
+which the browser does not know, so its times are shown in the browser's zone: right when the two
+are the same.
 
 **New trigger / Edit trigger** — one dialog for both. A new trigger has Name and Project, then
 **Starts**: "On a schedule" or "On a new issue". Kind and project cannot be changed later, so
@@ -697,8 +699,8 @@ chat run with no task (`runs_<id>`) and a goal check-in conversation (`chat_<id>
 there are an empty page (`triggers_empty`), the read-only list and trigger page a viewer sees
 (`triggers_readonly`, `trigger_readonly`), the phone's Firings tab (`triggers_firings`), the dialog
 for a new trigger and for editing one of each kind (`triggers_new`, `triggers_edit_schedule`,
-`triggers_edit_issue`: a scene's `press` names a button to press before the shot), an issue
-trigger's page, and a trigger's conversation in Chat.
+`triggers_edit_issue`: a scene's `press` names a button to press before the shot), and an issue
+trigger's page.
 
 The shots cut each page at the window height, so anything below the fold is not in them, and a
 cut-off edge can look like a bug. For long pages, lists and anything below the fold, run
