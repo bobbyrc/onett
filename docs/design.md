@@ -718,6 +718,15 @@ web/                  React + Vite + TypeScript UI (built into internal/api/webd
   session; the token is generated on first start at `<data_dir>/token` (mode 600). Remote access
   is opt-in: reach it over a VPN such as Tailscale or through a reverse proxy with TLS, and name
   the address in `server.public_url` or `server.allowed_hosts` (see the Host check below).
+- `onett backup FILE` writes a consistent copy of the database (`<data_dir>/onett.db`) that is
+  safe to take while the daemon runs: SQLite's `VACUUM INTO` reads one snapshot. The copy holds
+  password hashes and sign-in sessions, so it is not an API route: a route would need a signed-in
+  owner, and the API token, which the orchestrator agent holds, must never be able to fetch it.
+  Instead the command reads the database file itself on the daemon's machine, as
+  `onett user reset-password` does, and writes the copy with mode 600, never over an existing
+  file. It refuses inside an agent run (`ONETT_RUN_ID` or `ONETT_ROLE` is set) and refuses a
+  destination inside a git repository or worktree, where the copy could be committed or read by
+  an agent. Restore is in the README, "Backup and restore".
 - Agents never get push credentials from onett; onett pushes. Harness permissions are
   configured per agent profile (`claude-code` defaults to `--permission-mode auto` plus the
   role's pre-approved `tools` rules; `codex` defaults to `--approve-for-me`, its workspace-write sandbox with automatic review

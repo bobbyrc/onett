@@ -274,6 +274,7 @@ as in `onett task create -h`.
 | `loops` | list recurring loops |
 | `loop run NAME` | run a loop now |
 | `user reset-password NAME` | give a user a new random password and sign them out everywhere |
+| `backup FILE` | write a consistent copy of the database to FILE, safe while the daemon runs; run it on the daemon's machine (see [Backup and restore](#backup-and-restore)) |
 | `pause` | stop starting runs and loops (`status` shows who paused it and since when) |
 | `resume` | resume a paused factory |
 | `chat` | message the chief of staff and print its reply |
@@ -338,6 +339,43 @@ in the plist, the `PATH` of the shell you run it from and every variable your co
 as `${NAME}`. The plist is readable only by you, because those values can be secrets. Install
 from a shell where `onett serve` works. To change a recorded value, run `service uninstall`
 and then `service install` again.
+
+### Backup and restore
+
+Everything onett remembers is in one SQLite database, `onett.db` in the data directory
+(`server.data_dir`): tasks, runs and their logs, approvals, releases, goals, triggers, loop state,
+chat, users and sign-in sessions. `onett backup FILE` writes a consistent copy of it to FILE. It is
+safe while the daemon runs: the copy is the database as it was at one moment, and the daemon keeps
+working.
+
+```sh
+mkdir -p ~/onett-backups
+./onett backup ~/onett-backups/onett-$(date +%F).db
+```
+
+Run it on the machine that runs the daemon: the command reads the database file itself, not the
+API. The copy holds password hashes and sign-in sessions, so:
+
+- it is written readable only by you (mode 0600), and never over an existing file;
+- the command refuses a destination inside a git repository or worktree, where the file could be
+  committed or read by an agent;
+- the command refuses to run inside an agent run.
+
+A backup that is killed part-way can leave an empty FILE and a `FILE.partial` beside it. Delete both
+and run it again.
+
+The backup does not include what lives outside the database: the config file, `secrets.env`, the
+API token (`token` in the data directory) and the files of chat attachments (`attachments/` in the
+data directory). Copy those yourself if you need them.
+
+To restore:
+
+1. Stop the daemon (`./onett service uninstall`, or stop `onett serve`).
+2. In the data directory, delete `onett.db-wal` and `onett.db-shm` if they exist. They are SQLite's
+   side files for the old database and must not be applied to the restored one.
+3. Copy the backup over `onett.db`.
+4. Start the daemon again (`./onett service install`, or `onett serve`), with the onett version
+   that took the backup or a newer one.
 
 ### Goals: unattended multi-step work
 
