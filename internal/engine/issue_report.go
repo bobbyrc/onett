@@ -17,7 +17,8 @@ const issueReportMax = 3000
 // ended without a pull request. A task with a PR reports through the PR, whose "Fixes #N" closes
 // the issue on merge. The comment is posted once per task and status: LoopState
 // "issue_report:<task id>" keeps the status last reported. Failures are logged, never returned.
-// It runs in its own goroutine (see setTask), so it never delays the status write.
+// It runs in its own goroutine (see setTask), so it never delays the status write. The text is
+// agent-written and the tracker may be public, so it is redacted first.
 func (e *Engine) reportToIssue(ctx context.Context, t domain.Task) {
 	n, ok := issueNumberOf(t)
 	if !ok || !t.Status.Terminal() || t.PRNumber != 0 {
@@ -59,6 +60,9 @@ func (e *Engine) reportToIssue(ctx context.Context, t domain.Task) {
 		e.d.Logger.Error("issue report: scm", "project", t.Project, "err", err)
 		return
 	}
+	// Redact before issueReportBody trims the text: a secret cut in half no longer matches.
+	env := evidenceEnv(p)
+	t.Summary, t.BlockedReason = redactSecrets(t.Summary, env), redactSecrets(t.BlockedReason, env)
 	if err := s.CommentIssue(ctx, n, issueReportBody(t)); err != nil {
 		e.d.Logger.Warn("issue report: comment", "project", t.Project, "issue", n, "err", err)
 		return

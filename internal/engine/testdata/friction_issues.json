@@ -1,0 +1,77 @@
+[
+  {
+    "number": 121,
+    "title": "Flaky telegram test TestApprovalCallbackDecidesAndEdits",
+    "body": "Timed out waiting for edit (3s) in a full parallel `go test -race ./...`; passes alone."
+  },
+  {
+    "number": 179,
+    "title": "runshim TestStatusReportsExitCodeAndStderr is flaky under load",
+    "body": "Failed once in a full parallel run (exit code 0 instead of 3) and passed alone and with -count=3."
+  },
+  {
+    "number": 224,
+    "title": "Mobile e2e silently reuses another worktree's preview server on port 4173",
+    "body": "web/playwright.config.ts sets reuseExistingServer when not in CI, so with two worktrees running test:mobile the second run tests the first worktree's build, not its own. I got identical before/after screenshots until I noticed. Use a per-worktree port or reuseExistingServer: false."
+  },
+  {
+    "number": 227,
+    "title": "test:mobile reuses any server already on port 4173",
+    "body": "playwright.config.ts has reuseExistingServer and a fixed port 4173. With another task's vite preview already listening there, test:mobile silently tested that other worktree's build (spurious failures). Make the port configurable (env var) or fail when the served build is not this checkout's."
+  },
+  {
+    "number": 230,
+    "title": "Playwright configs hardcode ports 4173/4174 and fail when parallel tasks hold them",
+    "body": "playwright.config.ts and playwright.shots.config.ts use fixed ports with strictPort and no reuse, so two agents running test:mobile or shots:chat at once collide. Allow a PORT env override."
+  },
+  {
+    "number": 231,
+    "title": "Playwright config hardcodes port 4173",
+    "body": "web/playwright.config.ts fixes PORT=4173 with --strictPort, so parallel worktrees/agents collide and test:mobile fails to start. Allow an env override."
+  },
+  {
+    "number": 233,
+    "title": "test:mobile fails when port 4173 is taken",
+    "body": "playwright.config.ts hardcodes PORT 4173 with --strictPort; a busy port aborts the run. Allow an env override."
+  },
+  {
+    "number": 235,
+    "title": "Playwright preview server port 4173 is fixed",
+    "body": "web/playwright config binds 4173; if anything else holds it the e2e run fails with 'Port 4173 is already in use'. Use a free port or reuseExistingServer."
+  },
+  {
+    "number": 238,
+    "title": "shots:chat fails when port 4174 is already in use",
+    "body": "web/playwright.shots.config.ts hardcodes port 4174 with reuseExistingServer:false, so two agents (or a stray preview) running shots:chat at once collide. Consider an env override such as SHOTS_PORT."
+  },
+  {
+    "number": 241,
+    "title": "shots:chat has no way to pick another port",
+    "body": "playwright.shots.config.ts hardcodes 4174 with reuseExistingServer:false, so shots fail when another agent's preview holds the port. Read the port from an env var (e.g. SHOTS_PORT)."
+  },
+  {
+    "number": 249,
+    "title": "Fixed ports 4173/4174 in playwright configs collide with other running agents",
+    "body": "test:mobile and shots:chat use fixed preview ports and fail with 'Port already in use' when another agent or run holds them (reuseExistingServer is false). I used temporary config copies on other ports. Consider picking a free port per run."
+  },
+  {
+    "number": 253,
+    "title": "Chat shots and mobile checks fail when another worktree holds ports 4174/4173",
+    "body": "playwright.shots.config.ts and playwright.config.ts use fixed ports with reuseExistingServer:false, so two tasks running shots at once collide. Allow a PORT env override."
+  },
+  {
+    "number": 259,
+    "title": "Playwright preview ports are hardcoded and collide between parallel tasks",
+    "body": "playwright.config.ts (4173) and playwright.shots.config.ts (4174) use fixed ports; with concurrent tasks `npm run test:mobile` fails with port in use. Allow a PORT env override."
+  },
+  {
+    "number": 264,
+    "title": "playwright.shots.config.ts fixed port 4174 collides with another running preview",
+    "body": "npm run shots:chat fails with 'port 4174 already used' when another worktree's preview is up. Allow PORT to be overridden by an env var."
+  },
+  {
+    "number": 320,
+    "title": "npm run test:mobile picks up any extra *.spec.ts in web/e2e",
+    "body": "playwright.config.ts has no testMatch, so a temporary spec (for example, a full-page copy of page-shots.spec.ts made to see below the fold) runs inside `npm run test:mobile` too, and page-shots.spec.ts has no fullPage option. The phone Overview puts the project band below Needs you, under the fold, so the standard shots never show it. A `SHOTS_FULL_PAGE=1` switch in page-shots.spec.ts would let agents see the whole page without temporary specs."
+  }
+]
