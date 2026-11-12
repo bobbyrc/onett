@@ -184,6 +184,22 @@ var migrations = []string{
 		size INTEGER NOT NULL,
 		PRIMARY KEY (task_id, attachment_id)
 	);`,
+	// Triggers are owner-defined rules that start an orchestrator turn; trigger_firings records
+	// each time one fired. issue_number is 0 unless the firing was for a GitHub issue.
+	`CREATE TABLE triggers (
+		id TEXT PRIMARY KEY,
+		project TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		data TEXT NOT NULL
+	);
+	CREATE TABLE trigger_firings (
+		id TEXT PRIMARY KEY,
+		trigger_id TEXT NOT NULL,
+		issue_number INTEGER NOT NULL DEFAULT 0,
+		at INTEGER NOT NULL,
+		data TEXT NOT NULL
+	);
+	CREATE INDEX trigger_firings_trigger ON trigger_firings (trigger_id, at);`,
 }
 
 // migrate applies every migration whose version is not yet recorded, each in its own transaction.

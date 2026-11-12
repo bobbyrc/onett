@@ -60,9 +60,12 @@ func commandList() []command {
 		{"agents", "list agent roles", cmdAgents},
 		{"config", "print the redacted config, or --reload it", cmdConfig},
 		{"task", "create, list, show, cancel and retry tasks", cmdTask},
-		{"goal", "create, list, show, pause, resume and finish goals the orchestrator works on unattended", cmdGoal},
+		{"goal", "create, list, show, pause, resume and finish goals the chief of staff works on unattended", cmdGoal},
+		{"trigger", "list triggers and their firing history (only a signed-in owner creates or changes triggers)", cmdTrigger},
 		{"run", "list, show, cancel and print logs of agent runs", cmdRun},
 		{"deploys", "list releases, or show one with its log: deploys show ID", cmdDeploys},
+		{"signals", "list production signals, or show one: signals show ID", cmdSignals},
+		{"friction", "list friction agents reported, or show one with its body: friction show ID", cmdFriction},
 		{"approvals", "list approvals waiting for a decision", cmdApprovals},
 		{"approve", "approve or reject an approval", cmdApprove},
 		{"events", "show history, or follow the event stream", cmdEvents},
@@ -70,9 +73,11 @@ func commandList() []command {
 		{"loop", "run a loop now: loop run NAME [--project P]", cmdLoop},
 		{"project", "add a project to the config, or pause or resume one: project add|pause|resume", cmdProject},
 		{"user", "reset a sign-in password on this machine: user reset-password NAME", cmdUser},
+		{"backup", "write a copy of the database, on this machine: backup FILE", cmdBackup},
 		{"pause", "stop starting runs and loops", cmdPause},
 		{"resume", "resume a paused factory", cmdResume},
-		{"chat", "message the orchestrator and print its reply", cmdChat},
+		{"chat", "message the chief of staff and print its reply", cmdChat},
+		{"conversations", "list chats with the chief of staff (--tasks: the task agents' conversations), or print one: conversations show ID | show --task TASK_ID", cmdConversations},
 		{"service", "install, uninstall or check the launchd service that keeps serve running", cmdService},
 		{"doctor", "check the setup: config, git, gh, harness CLIs, projects and the daemon", cmdDoctor},
 		{"version", "print the onett version", cmdVersion},
@@ -151,6 +156,8 @@ const (
 		"Run \"onett task <verb> -h\" for a verb's flags."
 	goalHelp = "usage: onett goal create|list|show|pause|resume|done|block [flags] [arguments]\n" +
 		"Run \"onett goal <verb> -h\" for a verb's flags."
+	triggerHelp = "usage: onett trigger list|history [flags] [arguments]\n" +
+		"Run \"onett trigger <verb> -h\" for a verb's flags."
 	runHelp = "usage: onett run list|show|cancel|logs [flags] [arguments]\n" +
 		"Run \"onett run <verb> -h\" for a verb's flags."
 	projectHelp = "usage: onett project add|pause|resume NAME [flags]\n" +
@@ -465,8 +472,19 @@ func joinNonZero(counts map[string]int) string {
 	return strings.Join(parts, " ")
 }
 
-// stdinIsTerminal reports whether stdin is an interactive terminal (a character device).
-func stdinIsTerminal() bool {
-	fi, err := os.Stdin.Stat()
-	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+// stdinIsTerminal reports whether stdin is an interactive terminal.
+func stdinIsTerminal() bool { return isTerminal(os.Stdin) }
+
+// isTerminal reports whether f is a character device other than the null device. `< /dev/null`
+// is what a script, cron or a service manager gives a command; it is a character device, as a
+// terminal is, but nobody is there to answer a question.
+// shortcut: another non-terminal character device (/dev/zero) still counts as a terminal; a true
+// isatty check needs golang.org/x/term as a direct dependency.
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	if err != nil || fi.Mode()&os.ModeCharDevice == 0 {
+		return false
+	}
+	null, err := os.Stat(os.DevNull)
+	return err != nil || !os.SameFile(fi, null)
 }

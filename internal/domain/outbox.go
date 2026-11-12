@@ -1,5 +1,10 @@
 package domain
 
+import (
+	"strconv"
+	"strings"
+)
+
 // OutboxDir is the directory, relative to a run's worktree, where the agent writes its report.
 // It is excluded from git through .git/info/exclude.
 const OutboxDir = ".onett-run"
@@ -67,10 +72,29 @@ type FollowupTask struct {
 	Kind  TaskKind `json:"kind,omitempty"`
 }
 
+// IssueRef is an issue number as an agent wrote it. Agents get the type wrong ("224", "#224"),
+// and one bad optional value must not void a whole report, so anything that is not a positive
+// whole number decodes as 0: no issue named.
+type IssueRef int
+
+// UnmarshalJSON accepts a number, or a string holding one with an optional leading "#".
+func (r *IssueRef) UnmarshalJSON(b []byte) error {
+	s := strings.TrimPrefix(strings.TrimSpace(strings.Trim(string(b), `"`)), "#")
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 0 {
+		n = 0
+	}
+	*r = IssueRef(n)
+	return nil
+}
+
 // FrictionReport is something that slowed the agent down.
 type FrictionReport struct {
 	Title string `json:"title"`
 	Body  string `json:"body"`
 	// Target is "project" (the repo being worked on) or "onett" (the factory itself).
 	Target string `json:"target"`
+	// Issue is the number of the open friction issue the agent says this report is another
+	// sighting of; 0 when it names none. Onett checks the claim before it uses it.
+	Issue IssueRef `json:"issue,omitempty"`
 }

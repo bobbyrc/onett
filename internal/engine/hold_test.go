@@ -52,12 +52,13 @@ func TestHoldIgnoresResetTimeInThePast(t *testing.T) {
 	assert.Equal(t, now.Add(holdBackoffStart), h.Until)
 }
 
-// limitOnce hits the rate limit on its first run and behaves like a no-op agent after that.
-func limitOnce(resetIn time.Duration, calls *atomic.Int32) hfake.Script {
+// limitOnce hits the rate limit on its first run, with a reset at resetAt, and behaves like a
+// no-op agent after that.
+func limitOnce(resetAt time.Time, calls *atomic.Int32) hfake.Script {
 	return func(ctx context.Context, spec harness.Spec, emit func(harness.Event)) (harness.Result, error) {
 		if calls.Add(1) == 1 {
 			return harness.Result{IsError: true, RateLimit: &harness.RateLimit{
-				ResetAt: time.Now().Add(resetIn), Message: "usage limit reached",
+				ResetAt: resetAt, Message: "usage limit reached",
 			}}, nil
 		}
 		return hfake.DefaultScript(ctx, spec, emit)
@@ -68,6 +69,10 @@ func TestRateLimitedRunHoldsHarnessAndResumes(t *testing.T) {
 	old := holdMargin
 	holdMargin = 0
 	t.Cleanup(func() { holdMargin = old })
+	// The engine's clock is the test's, so the hold lasts until the test ends it. With a hold of
+	// real seconds, a loaded machine let it lapse before the "still held" checks below had run.
+	clock := &fakeClock{t: time.Now()}
+	resetAt := clock.Now().Add(time.Hour)
 
 	var calls atomic.Int32
 	env := rtNewEngine(t, rtOpts{
@@ -76,7 +81,8 @@ func TestRateLimitedRunHoldsHarnessAndResumes(t *testing.T) {
 		projectExtra: map[string]string{
 			"other": "    agents:\n      implementer: {harness: alt, prompt: builtin:implementer}\n",
 		},
-		scriptFor: map[string]hfake.Script{"fake": limitOnce(1500*time.Millisecond, &calls), "alt": hfake.DefaultScript},
+		scriptFor: map[string]hfake.Script{"fake": limitOnce(resetAt, &calls), "alt": hfake.DefaultScript},
+		now:       clock.Now,
 	})
 
 	held := env.create(domain.Task{Project: "demo", Title: "Held task", Body: "no-op"})
@@ -102,6 +108,7 @@ func TestRateLimitedRunHoldsHarnessAndResumes(t *testing.T) {
 	assert.EqualValues(t, 1, calls.Load(), "no run started on the held harness")
 
 	// When the hold expires the task runs on its own.
+	clock.set(resetAt.Add(time.Second))
 	done := env.waitStatus(held.ID, domain.TaskDone)
 	assert.Equal(t, 1, done.Attempts)
 	assert.EqualValues(t, 2, calls.Load())

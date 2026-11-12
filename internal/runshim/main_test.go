@@ -1,17 +1,19 @@
-package runshim
+package runshim_test
 
 import (
 	"os"
 	"testing"
+
+	"github.com/bobbyrc/onett/internal/runshim"
+	"github.com/bobbyrc/onett/internal/runshim/shimtest"
 )
 
-// reexecEnv makes the test binary act as `onett run-shim`, so the detached-launch path can be
-// tested without a built onett binary.
-const reexecEnv = "ONETT_RUNSHIM_REEXEC"
-
+// TestMain lets the test binary act as `onett run-shim` when runshim.ReexecEnv is set. The shim
+// comes from shimtest, so it stops when the test binary that started it is gone. TestMain is in
+// package runshim_test because shimtest imports runshim.
 func TestMain(m *testing.M) {
-	if os.Getenv(reexecEnv) == "1" {
-		os.Exit(Main(os.Args[1:], os.Stderr))
+	if os.Getenv(runshim.ReexecEnv) == "1" {
+		os.Exit(shimtest.Main())
 	}
 	os.Exit(m.Run())
 }

@@ -41,10 +41,12 @@ func (e *Engine) schedule(ctx context.Context) {
 		return
 	}
 	cfg := e.Config()
-	if cfg.Limits.DailyBudgetUSD > 0 && !e.withinDailyBudget(ctx, cfg.Limits.DailyBudgetUSD) {
-		return
-	}
 	for ctx.Err() == nil {
+		// Checked before every claim, not once per pass: a run this pass just started, or one
+		// still in flight, may have spent what was left.
+		if cfg.Limits.DailyBudgetUSD > 0 && !e.withinDailyBudget(ctx, cfg.Limits.DailyBudgetUSD) {
+			return
+		}
 		perProject, total := e.activeTaskRuns()
 		if total >= cfg.Limits.MaxConcurrentRuns {
 			return
@@ -74,9 +76,10 @@ func (e *Engine) schedule(ctx context.Context) {
 }
 
 // withinDailyBudget reports whether new task runs may start: the cost of runs started since local
-// midnight is below budget. It fails closed: if the cost cannot be read, nothing starts. The first
-// time the budget is reached on a local date, it records a system event and sends a high-priority
-// notification. Runs already in progress are not affected.
+// midnight is below budget. A run still in flight counts with its cost so far (see costSoFar),
+// which is $0 when its harness reports nothing until the run ends. It fails closed: if the cost
+// cannot be read, nothing starts. The first time the budget is reached on a local date, it records
+// a system event and sends a high-priority notification. Runs already in progress are not stopped.
 func (e *Engine) withinDailyBudget(ctx context.Context, budget float64) bool {
 	now := e.d.Now()
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())

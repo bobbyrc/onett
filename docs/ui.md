@@ -57,12 +57,24 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
   stop. The tone names in `src/lib/status.ts` are unchanged; the stylesheet maps them to lamps.
 - **RiskBadge**: condensed caps on one fixed ramp, the same everywhere: low outlined, medium on
   call yellow, high on stop red, unrated as quiet muted text.
-- **RelTime**: "3m ago", full timestamp in `title`.
+- **RelTime**: "3m ago", full timestamp in `title`, with the month as a word ("Aug 7, 2026,
+  3:04:05 PM"). A time over 30 days old shows as a date
+  with the month as a word ("Aug 7, 2026" or "7 Aug 2026", by the browser's locale), so day and
+  month cannot be confused.
 - **Agent names**: wherever the UI shows an agent or role as text it uses `agentLabel` (`web/src/lib/agentLabel.ts`):
   the agent's title, else its key in Title Case ("implementer-claude" → "Implementer Claude", "sre" → "SRE").
   URLs, form values, config, the API and the CLI keep the raw key; each Agents page card shows it as a small mono line.
 - **IdChip**: last 8 chars of an ID in monospace (IDs are UUIDv7, whose leading chars are a
-  timestamp shared by IDs created close together), copies the full ID on click.
+  timestamp shared by IDs created close together), copies the full ID on click. The chip is 17px
+  high; like the text links (`.link-button`), it has an invisible pad above and below, so the
+  area that takes a tap is at least 24px high.
+- **Modal**: a dialog over the page. Opening it moves keyboard focus to the first control in its
+  body (a field with `autoFocus` keeps it), Tab and Shift+Tab stay inside it and wrap at the ends,
+  and closing it (Esc, the "×", or a click on the backdrop) puts focus back on the control that
+  opened it.
+- **Field**: a label wrapped around its control, with an optional hint under it. The hint is
+  outside the label and linked with `aria-describedby`, so a screen reader reads "Name" as the
+  field's name and the hint as its description.
 - **Empty**: muted centred line in a dashed rule saying what would appear here and why it is
   empty.
 - **Markdown**: marked + dompurify. A fenced code block gets a header bar with its language (or "text"), a Copy button (copies the raw code; "Copied" shows for 1.5 s) and a Wrap toggle (`aria-pressed`; long lines scroll sideways by default). Colours come from highlight.js, loaded on first use as a separate chunk (`src/lib/hljsCore.ts`: go, js/ts, json, bash, yaml, diff, python, sql, css, html/xml, markdown); other languages stay plain. The highlighter runs on the block's text and its output is sanitised again, allowing only `<span class="hljs-*">`. Token colours are `--tok-*` variables in `CodeBlock.css`, for light and dark.
@@ -78,8 +90,14 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
 
 ## Shell
 
+- Tab title: every page names its browser tab "<page> · onett" (`src/lib/pageTitle.ts`). The route
+  names it first ("Tasks", or "Task 9W4Y6ABC" for a detail page that is still loading); a page
+  heading (`PageHeader`) then names it after its own text, so a task or goal page carries the
+  task's or goal's title. A run page keeps "Run <short ID>".
+- Skip link: the first Tab stop on every page is "Skip to content", hidden until it has focus. It
+  moves focus to the main area, past the navigation.
 - Left rail 216px in `--board`: wordmark "onett" in Barlow Condensed after the brand mark, a
-  loop in the text colour with one call-yellow lit segment (work going round the line); nav items: Overview, Projects, Chat, Tasks, Approvals, Runs, Deploys,
+  loop in the text colour with one call-yellow lit segment (work going round the line); nav items: Overview, Projects, Chat, Goals, Tasks, Approvals, Runs, Deploys,
   Signals, Friction, Loops, Agents, Config, and Users (owners only). Approvals carries a
   yellow count badge when approvals wait; Tasks a red one when tasks are blocked (each count
   has screen-reader text). The active item is lit (`--board-2` background, white text).
@@ -89,7 +107,8 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
   each linking to that project's tasks. More than eight projects show the eight most urgent and
   an "All projects" row. Hidden on Overview, which has the full board, and under 760px.
 - Rail footer: the **account panel**, then the **pause switch**. The account panel shows the
-  signed-in username, the role in muted lower case, a "Sign out" link and a "Change password"
+  signed-in username, the role in muted lower case in parentheses ("bcraig (owner)"; a screen
+  reader hears "role: owner"), a "Sign out" link and a "Change password"
   link. Change password opens a dialog (current password, new password of at least 12
   characters, confirm); on success it says "Password changed." for three seconds. The dialog
   is drawn over the page, not inside the rail. The pause switch is the line's cord: a dark
@@ -183,9 +202,10 @@ as a fallback.
   the agent's line breaks and wraps long flags and paths inside the box, so Retry and Cancel stay
   in view.
 - **Owner-unreachable banner**: above the board, a red callout "Nobody will be told" while
-  `/stats` says `owner_unreachable` (only the log notifier, no channel). It names the fix (set
-  up Telegram, Discord or ntfy) and lists each blocked goal as "Goal X is blocked and you have
-  not been notified: reason".
+  `/stats` says `owner_unreachable` (only the log notifier, no channel). For an owner it links
+  to the fix, Config's Setup tab (`/config?mode=setup`), where Telegram, Discord or ntfy is set up;
+  anyone else is told an owner can do that. It lists each blocked goal as "Goal X is blocked and you
+  have not been notified: reason".
 - **Rate-limit holds**: under the board, an info note per harness held for a rate limit (from
   `holds` in `/stats`): "claude is rate limited. New runs wait until 15:04." Gone once the hold lifts.
 - **Board**: a charcoal band with one window per project (from `/projects`). A window's lamp
@@ -198,8 +218,10 @@ as a fallback.
   the project's tasks. At the right end, the line window: "Line running" or "Line paused", active
   runs, queued tasks and cost today. Windows are 208px, and the band is only as wide as its
   windows and the line window, so one project is a small board, not a wide empty one; when the
-  windows do not fit in one row they wrap into a grid that fills the main column. Empty: "No
-  projects yet." On a phone the band sits inside the page margins with one row per project (the
+  windows do not fit in one row they wrap into a grid that fills the main column. Empty:
+  "No projects yet", with a link to the Projects page, where an owner adds one (anyone else is
+  told an owner can).
+  On a phone the band sits inside the page margins with one row per project (the
   lamp as a side bar, name and reason on the first line, the other counts and the last deploy
   under them) and the line window on one row.
 - Below, two columns (one on a phone, with Needs you moved above the setup card and the board
@@ -230,7 +252,8 @@ repo (a muted link to `https://github.com/<repo>`) and the lamp's label in words
 "1 needs you". On the right is the pause toggle (secondary "Pause" / danger-fill
 "Paused — Resume"). When the project is paused in onett.yaml, the toggle is replaced by a muted
 "Paused in onett.yaml" label, because the file wins and the UI cannot unpause it. Below the name
-is a row of five counts: queued, running, review, needs you (awaiting approval) and blocked. Each
+is a row of five counts: queued, running, review, needs you (awaiting approval) and blocked, with
+12px labels at every width. Each
 non-zero count links to `/tasks`, filtered by that project and status. Blocked is red and needs
 you is yellow. Zero counts are muted and are not links. One muted line follows with the default
 branch, the deployer type (or "no deployer") and the observers (or "no observers"). The last line
@@ -363,11 +386,17 @@ line, "Viewers can read conversations but not send messages.", in place of the c
 controls. Filters: project and status. Controls follow the API's rules: Pause on an active goal,
 Resume on a paused or blocked one, Block on an active or paused one, Mark done on any goal not
 done. Done and Block open a text box first, because the API requires a summary or a reason. The
-controls need the operate action. **Goal detail** (`/goals/:id`): title and status, the controls,
+controls need the operate action.
+With no goals the page says how to start one: ask the orchestrator in Chat, or run
+`onett goal create --project P --title T`; with a filter set it says
+"No goals match these filters."
+**Goal detail** (`/goals/:id`): title and status, the controls,
 the project, the turn count, a link to the goal's conversation in Chat, the summary (a callout
 when blocked), the goal text and the tasks queued for it under a Tasks section heading. The goal
 text is rendered Markdown, 20px below the meta line; there, as in task bodies, a heading has 20px
-above it and 6px below, and paragraphs and lists 8px below. `goal.updated` events refresh both.
+above it and 6px below, and paragraphs and lists 8px below. An ID the server does not know shows
+"Goal not found", one line saying why, and a Back to goals
+button. `goal.updated` events refresh both.
 
 **Tasks** (`/tasks`) — filter bar: project select, status chips (multi-select; default
 "active" = queued, running, review, awaiting_approval, merged, deploying, blocked), kind
@@ -379,11 +408,14 @@ other tasks (says what for); Blocked; and Finished, collapsed. "New task" opens 
 title, body (textarea, Markdown), role (optional; lists agents), priority (number). Table
 columns: status, title (with kind tag and source muted under it), project, role, risk, PR
 (#123 link), attempts (`1/3`), updated.
+Each column but the title has a set width, so the columns line up from one section to the next;
+the title takes the rest.
 
 **Task detail** (`/tasks/:id`) — a header row with the title, StatusPill and the Cancel and Retry
 actions (role-gated as before). Under it, one muted line: kind · project · role · from source, then
 the IdChip and, once the task has run, an "Open conversation" link to `/chat/task/:id`. Below that is the task's line: seven lamps (Queued, Running, Review, Approval, Merged,
-Deploying, Done) joined by a rule. Passed stations show the done lamp; the current one lights in
+Deploying, Done) joined by a rule. The station names are 12px at every width; under 520px they
+give up their letter-spacing so all seven fit. Passed stations show the done lamp; the current one lights in
 its tone (running blinks); a stop is red and its label reads Blocked, Failed or Cancelled; skipped
 stations are hollow; stations not yet reached are dim. From 960px the page has two columns: the
 main column, and a 300px spec sheet that stays in view. The sheet lists risk with its reasons,
@@ -394,6 +426,8 @@ that the project is paused, and pending approvals with their decide controls); S
 (Markdown, when present); Runs (# is the attempt number in start order, then status, harness ·
 model, started, duration, cost and link); Subtasks (when there are any); Decided approvals (one
 compact row each: decision, title, time and note).
+An ID the server does not know (deleted, or a wrong link) shows "Task not found", one line saying
+why, and a Back to tasks button instead.
 
 **Run detail** (`/runs/:id`) — header: "role · project" with the StatusPill, and Cancel run on
 the right while the run is active (operators only). Under it, muted: harness · model, then the
@@ -412,6 +446,8 @@ collapsed to 3 lines with "show more"; `denial` on a red-tinted line with a "DEN
 the text; `prompt` (what onett gave the agent to start the run) a muted block labelled "Prompt"; `owner` (a message from the owner) a line labelled "You"; `stderr` muted italic; `error` red; `system` muted. The time gutter is 64px (52px on a
 phone). Logs load from `/runs/:id/logs` and then append `run.log` events for this run,
 deduplicated by `seq`.
+An ID the server does not know shows "Run not found", one line saying why, and a Back to runs
+button instead.
 
 **Approvals** (`/approvals`) — pending by default, with a Pending / All control in the header.
 The list is at most 920px wide so the agent-written prose stays readable. Pending with nothing
@@ -425,10 +461,12 @@ The task cell shows the task's title as a link to the run's page, with a smaller
 giving the project and the task's short ID (a link to the task). Active runs (starting or
 running) come first; the rest keep the server's order, newest first. Filters: project, status.
 On a phone the status is the card's title row and the task comes second, because the stacked
-table always takes the first column as the title.
+table always takes the first column as the title. With no runs at all the page says
+"No runs yet" and what a run is; "No runs match these filters" appears only when a filter is set.
 
-**Deploys** (`/deploys`) — table: project, ref (short SHA mono), state, URL, task, started,
-updated, notes.
+**Deploys** (`/deploys`) — table: project, ref (short SHA mono), state (the deploy's notes sit
+under it in muted text), URL, task, started, updated and Log (a View button that opens the
+release's log in a dialog; a dash when there is none). Filter: project.
 
 **Signals** (`/signals`) — table: project, source, title (links to URL), level, count, last
 seen, task link.
@@ -447,13 +485,15 @@ outlined button that reads "Running…" and is disabled until the run returns; t
 the table says "Ran Issue Intake for onett." Above the table, one muted line counts loops on, off
 and failing (failing in red when any). When the main column is under 880px (a phone, or a narrow
 window beside the rail), the table becomes one sheet per loop, with a row for each project it runs
-in.
+in. With no loops configured the page says so and links to Config's Loops group
+(`/config?section=loops`).
 
 **Users** (`/users`, owners only; anyone else is sent to Overview) — a table of accounts:
-username (your own row says "(you)"), role, added (relative time) and actions. The role is a
+username (your own row says "(you)"), role, added (a relative time, or a calendar date once it is 30 days old; the full timestamp shows on hover) and actions. The role is a
 select that saves as soon as it changes; changing your own role reloads your session so the
 menus match it. "Set password" opens a field under that row with Save and Cancel. "Remove"
-asks for confirmation. "Add user" opens a sheet above the table with username, password and
+asks for confirmation, and is not offered on the only owner's row, because the server always
+refuses that. "Add user" opens a sheet above the table with username, password and
 role (default operator) and "Create user" or "Cancel". The server's message is shown under the
 table when it refuses a change, such as demoting or removing the last owner.
 
@@ -529,8 +569,15 @@ the author (and the reviewer) looks at them. The two Playwright configs for the 
 (`playwright.config.ts`, `playwright.shots.config.ts`) each pick a free port when they start, so
 runs in parallel worktrees never collide; set `ONETT_MOBILE_PORT` or `ONETT_SHOTS_PORT` to pin one.
 
-Every chat UI PR shows before and after screenshots. One command takes them, one script
-publishes them:
+Every chat UI PR shows before and after screenshots. One command takes them; who publishes them
+depends on who is working:
+
+- **An agent that onett runs** (`ONETT_OUTBOX` is set in its environment) holds no GitHub access
+  and cannot run the script below. It copies the PNGs into `$ONETT_OUTBOX/shots/before/` and
+  `$ONETT_OUTBOX/shots/after/`, and onett publishes them with the run; see "Agents that onett
+  runs" below.
+- **A person, or an interactive agent that can push to the repository**, publishes them with
+  `scripts/pr-shots.sh`:
 
 ```sh
 cd web && npm run shots:chat && cd ..    # on the base commit
@@ -551,7 +598,10 @@ two runs of the same code give the same pixels. It is not part of `npm run test:
 `scripts/pr-shots.sh <label>` copies those PNGs to a branch `pr-assets/<current-branch>/<label>`
 (an orphan branch, created on first use) in a temporary git worktree, pushes it, and prints a
 Markdown table with permanent `raw.githubusercontent.com/<repo>/<commit-sha>/...` image links.
-Paste the `before` and `after` tables into the PR description.
+Paste the `before` and `after` tables into the PR description. Your own branch and working tree
+are not touched, and the worktree is removed when the script exits. The script reads only
+`web/e2e-results/chat-shots/`, so it publishes the chat shots and not those of `npm run shots`.
+Never merge a `pr-assets` branch.
 
 ### Any other page: `npm run shots`
 
@@ -588,19 +638,20 @@ opposite, layout-stress data for `npm run test:mobile`.
 
 The clock is frozen, the timezone is UTC, animations are off and the browser rasterises in software,
 so two runs of the same code give identical PNGs, and it can run at the same time as
-`npm run test:mobile`. Take the shots on the base commit and on your head, look at the pages you
-changed, and copy those PNGs to `$ONETT_OUTBOX/shots/before/` and `.../after/` (see below; at most
-48 files, so only touched pages). `shoot-live.mjs` shows the same pages with real data but needs
-an API token that worker agents do not hold.
+`npm run test:mobile`. Take the shots on the base commit and on your head and look at the pages you
+changed. An agent that onett runs then copies those PNGs to `$ONETT_OUTBOX/shots/before/` and
+`.../after/` (see below; at most 48 files, so only touched pages). `shoot-live.mjs` shows the same
+pages with real data but needs an API token that worker agents do not hold.
 
-Worker agents hold no GitHub access and cannot run the script. They copy the PNGs into
-`$ONETT_OUTBOX/shots/before/` and `$ONETT_OUTBOX/shots/after/` instead. When onett publishes a
-run, it pushes each label directory (only plain `*.png` files, at most 48 of 8 MB, no symlinks)
+### Agents that onett runs: `$ONETT_OUTBOX/shots/`
+
+Worker agents (the agents that onett runs, as opposed to a person or an interactive agent) hold
+no GitHub access and cannot run `scripts/pr-shots.sh`. They copy the PNGs, from either command,
+into `$ONETT_OUTBOX/shots/before/` and `$ONETT_OUTBOX/shots/after/` instead. When onett publishes
+a run, it pushes each label directory (only plain `*.png` files, at most 48 of 8 MB, no symlinks)
 to the same `pr-assets/<branch>/<label>` branch and adds a "Screenshots: <label>" section of
 `raw.githubusercontent.com` image links to the PR description. This needs a GitHub project
-(`repo: owner/name`); a failure is logged and does not fail the run. Your own branch and working tree
-are not touched, and the worktree is removed when the script exits. Never merge a `pr-assets`
-branch.
+(`repo: owner/name`); a failure is logged and does not fail the run.
 
 ### Real-app shots: `scripts/shoot-live.mjs`
 

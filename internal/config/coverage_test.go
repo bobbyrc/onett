@@ -170,21 +170,24 @@ func TestConfigCoverageDoc(t *testing.T) {
 
 // coverageDocTail is hand-written. It lists what the daemon reads from outside onett.yaml, found
 // by searching non-test Go code for os.Getenv, os.LookupEnv, ${NAME} expansion, the launchd plist
-// generator and the *_env option keys. It feeds the planned "secrets from the UI" work.
+// generator and the *_env option keys. The secret values among them can be set from the Config
+// page's Secrets tab (internal/api/secrets.go), which writes secrets.env.
 const coverageDocTail = `
 ## Settings outside onett.yaml
 
-Things the daemon reads from its environment or from files, which a user may need to set. None of
-them can be set from the Config page today. Secrets are never written into onett.yaml: the file
-names an environment variable and the daemon reads the value from its environment.
+Things the daemon reads from its environment or from files, which a user may need to set. The
+Config page's Secrets tab sets secret values: it writes them as ` + "`NAME=value`" + ` lines to ` + "`secrets.env`" + `
+(listed below), which the daemon loads into its environment, and it never shows a saved value
+again. Secrets are never written into onett.yaml: the file names an environment variable and the
+daemon reads the value from its environment.
 
 ### Secrets and credentials
 
 | Name | Used for | Read in |
 |---|---|---|
 | ` + "`GH_TOKEN`" + ` (or any credential the ` + "`gh`" + ` CLI accepts, such as ` + "`GITHUB_TOKEN`" + ` or ` + "`gh auth login`" + `) | pull requests, CI status, merge, issue intake | ` + "`internal/scm/github/github.go`" + ` (runs ` + "`gh`" + ` with onett's environment) |
-| the variable named by a telegram channel's ` + "`options.bot_token_env`" + ` | Telegram two-way bot | ` + "`cmd/onett/serve.go`" + ` (` + "`resolveChannels`" + `, via ` + "`channel.Env.Getenv`" + `) |
-| the variable named by a discord channel's ` + "`options.bot_token_env`" + ` | Discord two-way bot | same |
+| the variable named by a telegram channel's ` + "`options.bot_token_env`" + ` | Telegram two-way bot | ` + "`internal/channel/telegram/register.go`" + ` (via ` + "`channel.Env.Getenv`" + `) |
+| the variable named by a discord channel's ` + "`options.bot_token_env`" + ` | Discord two-way bot | ` + "`internal/channel/discord/register.go`" + ` (via ` + "`channel.Env.Getenv`" + `) |
 | the variable named by a telegram notifier's ` + "`options.bot_token_env`" + ` | Telegram notifications | ` + "`internal/notify/telegram.go`" + ` |
 | the variable named by a discord notifier's ` + "`options.webhook_url_env`" + ` | Discord webhook URL (a secret) | ` + "`internal/notify/discord.go`" + ` |
 | the variable named by an ntfy notifier's ` + "`options.token_env`" + ` (optional) | ntfy access token | ` + "`internal/notify/ntfy.go`" + ` |
@@ -206,12 +209,12 @@ environment too.
 | ` + "`ONETT_API`" + ` | server URL the CLI talks to | ` + "`cmd/onett/main.go`" + `, ` + "`setup.go`" + ` |
 | ` + "`ONETT_TOKEN`" + ` | API token for the CLI when it cannot read the token file | ` + "`cmd/onett/main.go`" + `, ` + "`setup.go`" + ` |
 | ` + "`ONETT_GOAL`" + `, ` + "`ONETT_CONVERSATION_ID`" + `, ` + "`ONETT_RUN_ID`" + ` | set by onett for agents; the CLI reads them to attribute tasks and requests | ` + "`cmd/onett/commands.go`" + `, ` + "`internal/client/client.go`" + ` |
-| ` + "`~/.config/onett/secrets.env`" + ` | ` + "`KEY=value`" + ` lines loaded into the environment before the config is read; variables already set win | ` + "`cmd/onett/serve.go`" + ` (` + "`loadSecretsFile`" + `), ` + "`cmd/onett/user.go`" + ` |
+| ` + "`~/.config/onett/secrets.env`" + ` | ` + "`KEY=value`" + ` lines loaded into the environment before the config is read; variables already set win | ` + "`internal/secrets/secrets.go`" + ` (` + "`Store.Load`" + `), called from ` + "`cmd/onett/serve.go`" + ` and ` + "`cmd/onett/user.go`" + ` |
 | ` + "`<data_dir>/token`" + ` | the API bearer token | ` + "`cmd/onett/main.go`" + ` (` + "`tokenPath`" + `) |
 | the launchd plist | ` + "`onett service install`" + ` copies each variable referenced as ` + "`${NAME}`" + ` in the config, plus ` + "`PATH`" + `, from the installing shell into the plist | ` + "`cmd/onett/service.go`" + ` |
 
 The options that are not secrets (` + "`allowed_user_ids`" + `, ` + "`state_file`" + `, ` + "`chat_id`" + `, ` + "`topic`" + `,
 ` + "`server`" + `, ` + "`api_url`" + `, ` + "`username`" + `, ...) and the names of the variables that hold the secrets (the
 ` + "`*_env`" + ` options) can be set from the Config page: the ` + "`options`" + ` of a notifier, channel, deploy block or
-observer has typed fields for each type. Only the secret values themselves cannot be set there.
+observer has typed fields for each type. The secret values themselves are set on its Secrets tab.
 `

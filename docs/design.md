@@ -322,6 +322,23 @@ this release. If verification fails: `deployer.rollback(previous healthy)`, reco
 error, or still not ready after `deploy.timeout`) is failed without a rollback, since nothing
 new is serving; it still opens an incident and blocks the task.
 
+A release is stored as `pending` and marked `deploying` just before its deploy command starts, so
+the record says whether the command may have run. If the daemon stops while the command runs (a
+restart, a crash, a reboot), onett never sees the command's result. It does not run the command a
+second time; at the next start it judges the release by what is serving. The release goes
+straight to the health window: it is kept if it passes, and rolled back like any other release
+that fails verification. Without a `health_url` there is nothing to check, so such a release is
+failed and rolled back to the last healthy one. A graceful stop kills the command along with the
+daemon, but after a crash the command can keep running on its own. So onett writes the command's
+process ID to `deploy-<release id>.pid` in the data directory while it runs, and after a restart
+waits for that process to exit (for at most `deploy.timeout`) before it judges the release. The
+provider ID of an interrupted release stays empty, because the command's output was lost; a
+later rollback to that release passes an empty `ONETT_ROLLBACK_ID` with the ref. A health check
+shows that something healthy is serving, not which version: a command killed before it switched
+versions leaves the old version serving, and the release is still kept **(review)**. A release
+still `pending` at start-up never ran its command (the daemon died between the two writes); it is
+failed without a rollback, since nothing changed.
+
 The evidence on a release and its incident is the deploy command's output tail and, on failure,
 the output of the project's `deploy.logs` command. Secret values (environment variables named
 like `*_TOKEN`, `*_SECRET`, `*_KEY`, ..., and URLs with credentials) are replaced with `***` before
@@ -350,6 +367,31 @@ picks up issues labelled `onett` (configurable), so turning a friction issue int
 label — or automatic with `friction.auto_queue`. Comments from OWNER/MEMBER/COLLABORATOR are
 included in the task body; others are ignored.
 
+Before it opens an issue, the friction loop looks for an open one about the same problem, in three
+steps, and stops at the first that finds one. First, an issue with the same title is linked.
+Second, the reporting agent may have named one: each task prompt lists the project's open friction
+issues (number and title, the 20 most recently reported, redacted and labelled as data), and a
+friction entry can carry `"issue": <number>`. Go code accepts that claim only when the issue is
+open and a friction report of the same project is already linked to it; a rejected claim is logged
+and ignored. Third, the report's words are compared with each open friction issue's: titles that
+share half their words, or titles plus bodies that share a quarter (Jaccard similarity of the
+stemmed word sets), count as the same problem. A report matched in the second or third step is
+added to that issue as a "Reported again" comment with its full title and body, and its friction
+row is linked to the issue; once an issue has ten such comments, later reports are linked without
+a comment. The agent's claim can only attach a report to an issue: it cannot close or relabel one,
+and the report is always stored.
+
+The word comparison is strict on purpose. On the 84 friction issues filed up to 2026-11-06 it
+merged no two different problems and caught 18 of the 29 duplicates; the paraphrases it misses are
+what the agent's claim is for.
+
+Friction text, and the summary or blocked reason onett posts on an intake issue, are written by
+agents and go to a tracker that may be public. Both are redacted with `redactSecrets` before they
+are posted, and mention-quoted as before; the stored friction row keeps the original text. The
+friction loop opens at most 20 new issues per project per day. Once the day's 20 are used it stops
+filing until the next day: the remaining reports stay stored and unfiled, and a log line says how
+many.
+
 The self_update loop (`loops.self_update`, on by default for `self_project` once a command is set or inferred, `enabled: false` turns it off) keeps the
 running daemon current. The target is the newest release of the self project that is `healthy` and has been for
 `min_healthy`, even when newer releases exist (merges landing every few minutes would otherwise
@@ -371,6 +413,12 @@ restarts the daemon and rolls back on a failed health check; it leaves a result 
 daemon reports once. (The retired `max_defer` key is still accepted, ignored, with a warning in the
 log.) A PID lock file keeps one updater at a time, and a commit that fails three
 times (counted in memory) is skipped in favour of an older eligible release.
+The daemon writes its own timestamped lines (`<RFC 3339 UTC time> onett: ...`) into `self-update.log`
+around each attempt: the start with the target commit, a failure when the updater cannot start or
+exits non-zero, and the outcome (ok or rolled back) that the next daemon reports at startup. The
+updater's own output lines in between are not stamped. The updater must outlive the daemon it
+restarts, so its output goes straight to the file; stamping each line would put a pipe under it,
+and a pipe whose reader dies kills the writer (SIGPIPE) in the middle of an update.
 
 The retro loop (`loops.retro`, default every 24h) is the factory's retrospective. Each day, code
 gathers the evidence of the last `lookback` (blocked and failed tasks with their reasons,
@@ -390,11 +438,12 @@ task list`, `onett run logs`, and so on. Its answer streams back to the UI over 
 Each conversation may carry settings: a model, a reasoning effort and a permission mode, all
 optional (empty means the role's default from the config). The owner changes them in the composer
 footer; they apply from the next turn, and each run records the model, effort and permission mode
-it used. For Claude Code a settings change alters the long-lived process's fingerprint (its
-command line), so the next turn replaces the process and resumes the session with the new
-`--model`, `--effort` and `--permission-mode`. Claude's `control_request` messages
-(`set_model`, `set_permission_mode`) could change a live process in place, but that was not
-verified against the installed CLI, so it is not used **(review)**. The choices per harness are
+it used. For Claude Code a new model or permission mode reaches the long-lived process in place:
+onett writes a `set_model` or `set_permission_mode` control request to it ahead of the next
+message, so the process and its prompt cache stay (see "One agent process per conversation").
+A new effort has no such request, and neither has clearing a model back to a default the role
+does not name: those cannot be done in place, so the next turn replaces the process and resumes
+the session with the new flags. The choices per harness are
 listed in one place each (`choices.go` in the adapter). Only a signed-in person may change the
 settings: the agent token, which the orchestrator holds, cannot widen its own permissions.
 
@@ -493,7 +542,9 @@ goal, or whose goal is blocked, paused or done, stay in, and so do blocked goals
 The loop keeps the keys it has reported, with their first-seen times, in its `LoopState.Cursor`, so a
 restart does not repeat them. When the digest holds a key that is not stored, the loop calls
 `HeartbeatWaker.WakeHeartbeat`; otherwise nothing runs and no model is called. If the call fails, the
-keys are not stored and the next tick tries again. `quiet_hours` (`"22:00-07:00"`, daemon local time,
+tick still counts and escalates (see below) and then reports the error as the loop's failure; the
+new keys stay new, so the next tick wakes again, and the window for one-off items (runs, deploys,
+results) stays open so they are still in that digest. `quiet_hours` (`"22:00-07:00"`, daemon local time,
 may wrap midnight) skips the tick; what happened meanwhile is in the first digest after it. The
 loop records `next_run_at` and `item_count` in its `LoopState`. The waker (`heartbeat_waker.go`)
 posts the digest as a hidden internal message in one "Operations" conversation, created on first
@@ -516,8 +567,80 @@ call, and happens on unchanged digests too: once per key, the loop sends one hig
 notification (item, time open, actions tried, link to the Operations conversation) when the item
 reaches `escalate_after` heartbeats (default 3), or at once when a reply line says `escalate:`. The
 old cursor format (first-seen times only) is migrated on read.
-Not covered yet: a failed self-update is found from its system event, so it shows only while that
-event is in the project's recent events.
+A failed self-update (the updater could not start, exited non-zero, or was rolled back) is kept by
+the self_update loop in its own `LoopState` row (`self_update_failure`) and not found from its
+system event, which ages out. It stays in the digest until the daemon runs a version other than
+the one that failed to update, however it got there.
+
+Escalation depends on the heartbeat running at all, so a loop that keeps failing also tells the
+owner directly, in plain code with no model call (`internal/engine/loop_alert.go`). This covers
+every loop, the heartbeat included: an expired `gh` login shows up as `pr_shepherd` failing, a
+broken model call as `heartbeat` failing. After each pass `runLoopOnce` counts the loop's failed
+passes in a row for that project, whatever the error text (a text that changes every pass must not
+hide a loop that never succeeds). The owner gets one high-priority notification when both hold:
+at least 3 failed passes in a row, and a streak at least 10 minutes old (three failed passes of a
+30-second loop are a blip). It names the loop and project, the latest error (redacted like any
+loop error) and when the streak started. While the loop keeps failing it is repeated every 24h;
+the first successful pass ends the streak. The streak is kept in a `LoopState` row
+(`loop_alert:<loop>`), so a restart neither forgets it nor repeats the notification. The
+thresholds are constants, not config.
+
+### Triggers
+
+A trigger (`domain.Trigger`) is a rule a signed-in owner defines, on the Triggers page of the UI or
+through the API. When it fires, it starts one orchestrator turn with a prompt the owner wrote.
+There are two kinds: `schedule` (at times the owner sets) and `github_issue` (when a new issue is
+opened in the project's repository). Triggers are stored in the database (tables `triggers` and
+`trigger_firings`), not in `onett.yaml`. Only a signed-in owner can create, change, delete, enable,
+disable or fire one.
+
+Each trigger has its own orchestrator conversation, titled `Trigger: <name>`, created at its first
+firing. A firing posts one internal message there and starts a turn, or queues behind the turn
+already running, through `wakeConversation`, the same function the heartbeat uses. The owner's
+prompt comes first, between two marker lines that carry the firing's ID. For an issue, its title
+and body follow as redacted evidence inside a code fence, so issue text cannot pass as the owner's
+words. A firing that reads `started` can still be waiting: if its turn cannot start, or it sat
+behind a turn that then fails, is denied, stalls or times out, the prompt stays queued until the
+trigger's next firing or a person's message in that conversation. Onett does not retry after a
+denial or a stall.
+
+The conversation has the kind `trigger`. Every turn in it, whether a firing or a person typing
+there, runs with the orchestrator role's default model, reasoning effort and permission mode.
+Settings saved on it are stored but not applied, so an unattended run never inherits a setting
+someone chose later.
+
+A schedule is a five-field cron expression (minute, hour, day of month, month, day of week) plus an
+IANA time zone (a named zone such as `America/Chicago`, with its daylight-saving rules). The parser
+is in `internal/domain/trigger_cron.go` and needs no new dependency. A wall-clock time that the
+clocks skip fires once, at the jump. A time that happens twice fires the first time only. After
+downtime, a trigger makes one catch-up run and never a backlog.
+
+`github_issue` polls, because onett is local by default and cannot receive webhooks. About every 30
+seconds the `triggers` loop lists the project's open issues through the SCM plugin (the piece that
+talks to GitHub). An issue fires a trigger at most once. The firing row is the record, so a restart
+does not repeat it. Only issues created after the trigger was created or last enabled count. The
+author must be `OWNER`, `MEMBER` or `COLLABORATOR`. That rule is a filter against strangers, not
+proof that a person wrote the issue, so issue text is always evidence, whoever wrote it. Issues with
+the friction label never fire: those
+are onett's own reports, and letting them start turns could file more reports. While issue intake
+is on for the project, an issue carrying the intake label goes to intake instead, because intake has
+already made it a task.
+
+A trigger only starts a turn, and only when work may start. Before each firing onett checks the
+global pause, the project's pause, the daily budget, any rate-limit hold on the harness (the wait
+after an agent CLI reports a rate limit) and, last, the cap of 20 firings per trigger in any rolling
+hour. If one applies, the firing is recorded as `skipped` with a reason. A missed schedule time is
+gone. A skipped issue stays pending and fires when the condition clears. The `triggers` loop keeps
+running while paused, only to record what it skipped.
+
+The API token can read triggers and their firings, but it cannot change or fire them (invariant 12
+in `AGENTS.md`). The CLI is read-only: `onett trigger list` and `onett trigger history ID`.
+
+This design depends on two things fixed in a separate token-boundary change, not here: the API
+token can approve merges and post into any conversation, and before any account exists a local
+process can become owner (see "Who can do what" in the proposal).
+
+Details and the API: `docs/proposals/triggers.md`.
 
 ### Messaging a task's agent
 
@@ -588,7 +711,6 @@ internal/observe/     Observer interface; exec observer; sentry observer
 internal/notify/      Notifier interface; ntfy, discord, telegram, exec, log
 internal/channel/     two-way chat bots (telegram, discord) the daemon starts from the channels config; each type registers itself (`channel.Register`) and `channel/all` links them in
 internal/engine/      scheduler, supervisor, shepherd, loops, prompt assembly
-internal/chat/        orchestrator conversations
 internal/attach/      chat attachments: sanitised names, type sniffing, size limit, retention
 internal/api/         chi HTTP API + SSE + WebSocket + embedded web UI
 web/                  React + Vite + TypeScript UI (built into internal/api/webdist)
@@ -596,12 +718,22 @@ web/                  React + Vite + TypeScript UI (built into internal/api/webd
 
 ## Security defaults
 
-- Binds `127.0.0.1:7777`. Every API call needs `Authorization: Bearer <token>`; the token is
-  generated on first start at `<data_dir>/token` (mode 600). Expose remotely only over a VPN
-  such as Tailscale.
+- Binds `127.0.0.1:7777`. Every API call needs `Authorization: Bearer <token>` or a signed-in
+  session; the token is generated on first start at `<data_dir>/token` (mode 600). Remote access
+  is opt-in: reach it over a VPN such as Tailscale or through a reverse proxy with TLS, and name
+  the address in `server.public_url` or `server.allowed_hosts` (see the Host check below).
+- `onett backup FILE` writes a consistent copy of the database (`<data_dir>/onett.db`) that is
+  safe to take while the daemon runs: SQLite's `VACUUM INTO` reads one snapshot. The copy holds
+  password hashes and sign-in sessions, so it is not an API route: a route would need a signed-in
+  owner, and the API token, which the orchestrator agent holds, must never be able to fetch it.
+  Instead the command reads the database file itself on the daemon's machine, as
+  `onett user reset-password` does, and writes the copy with mode 600, never over an existing
+  file. It refuses inside an agent run (`ONETT_RUN_ID` or `ONETT_ROLE` is set) and refuses a
+  destination inside a git repository or worktree, where the copy could be committed or read by
+  an agent. Restore is in the README, "Backup and restore".
 - Agents never get push credentials from onett; onett pushes. Harness permissions are
-  configured per agent profile (`claude-code` defaults to `acceptEdits` plus an allowed-tools
-  list; `codex` defaults to `--approve-for-me`, its workspace-write sandbox with automatic review
+  configured per agent profile (`claude-code` defaults to `--permission-mode auto` plus the
+  role's pre-approved `tools` rules; `codex` defaults to `--approve-for-me`, its workspace-write sandbox with automatic review
   of escalations; resumed Codex sessions get the same workspace-write sandbox through a config
   override, since `codex exec resume` takes no sandbox flag).
 - Secrets for providers come from the environment or `~/.config/onett/secrets.env`.
@@ -626,9 +758,20 @@ web/                  React + Vite + TypeScript UI (built into internal/api/webd
   denial. Codex does not report sandbox refusals in machine-readable form (only in prose), so
   for Codex the "denial is terminal" rule relies on the prompt ("if denied, report blocked")
   and the stall timeout.
+- No harness reports a dollar cost while a run is going: Claude Code reports it, and Codex the
+  tokens to estimate it from, when the run ends. The daily budget is checked before each run
+  starts and sums today's runs, those in flight included, but a running run counts only what
+  onett can estimate. With a `price` on its harness that has a `cached_input_per_mtok` rate,
+  that is the prompt tokens of its requests so far (Claude Code streams each request's prompt
+  size) at that rate, the cheapest kind of input, with output left out, so the estimate stays
+  at or below the cost the run reports at the end and never stops runs on a guess that is too
+  high. A run stopped before it reports a cost keeps the estimate. The billing mode is also
+  detected only at the end, so the estimate of a run on a subscription counts while it runs
+  unless its harness says `billing: subscription`. Without such a `price`, and for Codex, a
+  running run counts as $0, so runs started together can still overshoot the budget.
 
 ## Not in v0
 
-Native/mobile apps (API is ready for them), multi-machine workers, a config editor in the UI
-(the UI shows config; edit the file), cost budgets beyond per-run limits, Vercel/Render native
+Native/mobile apps (API is ready for them), multi-machine workers, cost budgets finer than the
+one daily limit (`limits.daily_budget_usd`), Vercel/Render native
 deployers (use the `command` deployer with their CLIs meanwhile).

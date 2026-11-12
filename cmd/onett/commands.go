@@ -50,6 +50,8 @@ func splitList(s string) []string {
 
 // statusSnapshot is what `onett status` gathers in one pass.
 type statusSnapshot struct {
+	// Version is the daemon's version, from its health route; empty when that could not be read.
+	Version   string              `json:"version,omitempty"`
 	Stats     client.Stats        `json:"stats"`
 	Control   client.ControlState `json:"control"`
 	Approvals []domain.Approval   `json:"approvals"`
@@ -73,6 +75,10 @@ func cmdStatus(e *env, args []string) error {
 	}
 	ctx := context.Background()
 	var snap statusSnapshot
+	// The version is extra: status still reports when the health route cannot be read.
+	if h, err := c.Health(ctx); err == nil {
+		snap.Version = h.Version
+	}
 	if snap.Stats, err = c.Stats(ctx); err != nil {
 		return err
 	}
@@ -131,6 +137,9 @@ func writeStatus(w io.Writer, s statusSnapshot) error {
 		}
 	} else {
 		fmt.Fprintln(w, "Factory: running.")
+	}
+	if s.Version != "" {
+		fmt.Fprintf(w, "Daemon: version %s\n", oneLine(s.Version))
 	}
 	for _, h := range s.Stats.Holds {
 		fmt.Fprintln(w, holdLine(h, time.Now()))

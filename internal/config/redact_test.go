@@ -53,7 +53,7 @@ notify:
 	assert.Equal(t, "***", red.Projects["app"].Observe[0].Options["Password"])
 	assert.Equal(t, "acme", red.Projects["app"].Observe[0].Options["org"])
 	assert.Equal(t, "***", red.Notify[0].Options["api_key"])
-	assert.Equal(t, "public-topic", red.Notify[0].Options["topic"])
+	assert.Equal(t, "***", red.Notify[0].Options["topic"])
 
 	// The original is untouched.
 	assert.Equal(t, "abc123", cfg.Harness["exec"].Env["API_TOKEN"])
@@ -80,15 +80,15 @@ harnesses:
   exec:
     type: exec
     command: ["agent"]
-    args: ["--api-key=${ONETT_TEST_CLI_KEY}"]
 projects:
   app:
     repo: bob/app
-    instructions: "Use the key ${ONETT_TEST_INSTR_SECRET} for the API."
     deploy:
       type: command
+      logs: "tail -n 5 /var/log/${ONETT_TEST_INSTR_SECRET}.log"
       options:
         deploy: "vercel --token ${ONETT_TEST_VERCEL_TOKEN}"
+        status: "check --api-key=${ONETT_TEST_CLI_KEY}"
         label: "${ONETT_TEST_SHORT}-deploy${ONETT_TEST_EMPTY}"
 notify:
   - type: ntfy
@@ -102,8 +102,8 @@ notify:
 
 	assert.Equal(t, "/conf/onett.yaml", red.Path)
 	assert.Equal(t, "app", red.Projects["app"].Name)
-	assert.Equal(t, "--api-key=***", red.Harness["exec"].Args[0])
-	assert.Equal(t, "Use the key *** for the API.", red.Projects["app"].Instructions)
+	assert.Equal(t, "check --api-key=***", red.Projects["app"].Deploy.Options["status"])
+	assert.Equal(t, "tail -n 5 /var/log/***.log", red.Projects["app"].Deploy.Logs)
 	assert.Equal(t, "vercel --token ***", red.Projects["app"].Deploy.Options["deploy"])
 	assert.Equal(t, "https://ntfy.example/***", red.Notify[0].Options["url"])
 
@@ -120,6 +120,6 @@ notify:
 
 	// The original is untouched.
 	assert.Equal(t, "vercel --token vcp_live_secret_1", cfg.Projects["app"].Deploy.Options["deploy"])
-	assert.Equal(t, []string{"--api-key=harness-key-value"}, cfg.Harness["exec"].Args)
+	assert.Equal(t, "check --api-key=harness-key-value", cfg.Projects["app"].Deploy.Options["status"])
 	assert.Equal(t, "https://ntfy.example/abc123-topic-path", cfg.Notify[0].Options["url"])
 }

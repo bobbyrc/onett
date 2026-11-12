@@ -134,6 +134,11 @@ func (e *Engine) chatTurn(ctx context.Context, conv domain.Conversation, text st
 	if cur, err := e.d.Store.GetConversation(ctx, conv.ID); err == nil {
 		settings = cur.Settings
 	}
+	if conv.Kind == domain.ConversationTrigger {
+		// A trigger's turns run unattended, so they never inherit a setting someone chose for
+		// the conversation: always the role's defaults.
+		settings = domain.ConversationSettings{}
+	}
 	settings = effectiveSettings(agent, settings)
 
 	now := e.d.Now().UTC()

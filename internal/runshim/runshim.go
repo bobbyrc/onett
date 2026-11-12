@@ -120,12 +120,19 @@ func ReadStatus(runDir string) (Status, error) {
 
 // SocketPath returns the socket path for a run: <data_dir>/s/<8 chars>.sock, with the 8 characters
 // taken from a hash of the run ID. A data_dir so long that this would pass the socket path limit
-// falls back to /tmp/onett-<uid>/s/. The directory is created, mode 0700.
+// falls back to /tmp/onett-<uid>/s/. Every data dir on the machine shares that directory, so
+// there the name is taken from a hash of the data dir and the run ID: with the run ID alone, the
+// same run ID under two data dirs (two daemons, or two test runs) named one socket. The directory
+// is created, mode 0700.
 func SocketPath(dataDir, runID string) (string, error) {
-	sum := sha256.Sum256([]byte(runID))
-	name := hex.EncodeToString(sum[:])[:8] + ".sock"
+	name := socketName(runID)
 	dir := filepath.Join(dataDir, "s")
 	if len(filepath.Join(dir, name)) > maxSocketPath {
+		abs, err := filepath.Abs(dataDir)
+		if err != nil {
+			abs = dataDir
+		}
+		name = socketName(abs + "\x00" + runID)
 		dir = filepath.Join(os.TempDir(), fmt.Sprintf("onett-%d", os.Getuid()), "s")
 		if len(filepath.Join(dir, name)) > maxSocketPath {
 			dir = filepath.Join("/tmp", fmt.Sprintf("onett-%d", os.Getuid()), "s")
@@ -143,4 +150,10 @@ func SocketPath(dataDir, runID string) (string, error) {
 		return "", fmt.Errorf("socket dir %s must be a private directory (mode 0700)", dir)
 	}
 	return filepath.Join(dir, name), nil
+}
+
+// socketName is the socket file name for key: the first 8 hex characters of its hash.
+func socketName(key string) string {
+	sum := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(sum[:])[:8] + ".sock"
 }

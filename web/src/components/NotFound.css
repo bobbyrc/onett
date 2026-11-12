@@ -1,0 +1,4 @@
+/* The way back is a link drawn as a button, so it must not be underlined like a text link. */
+.not-found-back {
+  text-decoration: none;
+}

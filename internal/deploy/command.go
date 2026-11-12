@@ -32,6 +32,17 @@ func init() {
 	Register("command", newCommandDeployer)
 }
 
+// ProcessDeployer is a Deployer whose Deploy runs a local command. DeployProcess is Deploy, and
+// it calls started (when not nil) with the command's process ID once the command is running,
+// before it waits for it. The deploy loop records that ID, so that a daemon restarted after a
+// crash can tell whether the command is still running.
+type ProcessDeployer interface {
+	Deployer
+	DeployProcess(ctx context.Context, ref string, started func(pid int)) (Handle, error)
+}
+
+var _ ProcessDeployer = (*commandDeployer)(nil)
+
 // commandDeployer runs user-supplied shell commands for deploy, status and rollback. It is the
 // escape hatch for any platform: the command does the platform work and reports back on stdout.
 type commandDeployer struct {
@@ -68,12 +79,18 @@ func newCommandDeployer(cfg Config) (Deployer, error) {
 	}, nil
 }
 
-// Deploy runs the deploy command with ONETT_REF set. The last stdout line may be a JSON object
-// {"id","url","state"} or a bare URL; without either the ID is generated. Without a status command
-// the deploy is treated as synchronous and recorded as ready. The Handle carries the tail of the
-// command's output (the tail of stdout, then stderr) as Output.
+// Deploy is DeployProcess without the process ID callback.
 func (d *commandDeployer) Deploy(ctx context.Context, ref string) (Handle, error) {
-	stdout, output, err := d.runFiles(ctx, "deploy", d.deployCmd, sysproc.WaitKeepOnSuccess, "ONETT_REF="+ref)
+	return d.DeployProcess(ctx, ref, nil)
+}
+
+// DeployProcess runs the deploy command with ONETT_REF set. The last stdout line may be a JSON
+// object {"id","url","state"} or a bare URL; without either the ID is generated. Without a status
+// command the deploy is treated as synchronous and recorded as ready. The Handle carries the tail
+// of the command's output (the tail of stdout, then stderr) as Output. started, when not nil, is
+// called with the command's process ID once it is running (see ProcessDeployer).
+func (d *commandDeployer) DeployProcess(ctx context.Context, ref string, started func(pid int)) (Handle, error) {
+	stdout, output, err := d.runFiles(ctx, "deploy", d.deployCmd, sysproc.WaitKeepOnSuccess, started, "ONETT_REF="+ref)
 	if err != nil {
 		return Handle{}, err
 	}
@@ -113,7 +130,7 @@ func (d *commandDeployer) Rollback(ctx context.Context, id, ref string) error {
 	if d.rollbackCmd == "" {
 		return errors.New("deploy: no rollback command configured")
 	}
-	_, _, err := d.runFiles(ctx, "rollback", d.rollbackCmd, sysproc.WaitKeepOnSuccess, "ONETT_ROLLBACK_ID="+id, "ONETT_ROLLBACK_REF="+ref)
+	_, _, err := d.runFiles(ctx, "rollback", d.rollbackCmd, sysproc.WaitKeepOnSuccess, nil, "ONETT_ROLLBACK_ID="+id, "ONETT_ROLLBACK_REF="+ref)
 	return err
 }
 
@@ -154,8 +171,8 @@ func (d *commandDeployer) run(ctx context.Context, label, command string, wait f
 // It returns the last deployStdoutTail bytes of stdout, which the caller parses (its last
 // non-empty line is the result), and the last deployOutputTail bytes of stdout followed by
 // stderr. Unlike the pipe version, the two streams are not interleaved in the order they were
-// written.
-func (d *commandDeployer) runFiles(ctx context.Context, label, command string, wait func(*exec.Cmd) error, extra ...string) (stdout, output string, err error) {
+// written. started, when not nil, is called with the process ID after the command has started.
+func (d *commandDeployer) runFiles(ctx context.Context, label, command string, wait func(*exec.Cmd) error, started func(pid int), extra ...string) (stdout, output string, err error) {
 	ctx, cancel := context.WithTimeout(ctx, d.timeout)
 	defer cancel()
 
@@ -175,6 +192,9 @@ func (d *commandDeployer) runFiles(ctx context.Context, label, command string, w
 	cmd.Stderr = errFile
 	err = cmd.Start()
 	if err == nil {
+		if started != nil {
+			started(cmd.Process.Pid)
+		}
 		err = wait(cmd)
 	}
 

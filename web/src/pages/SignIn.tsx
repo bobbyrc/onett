@@ -5,6 +5,7 @@ import { BrandMark } from '../components/BrandMark';
 import { Button } from '../components/Button';
 import { Field } from '../components/Field';
 import { errorMessage } from '../lib/format';
+import { usePageTitle } from '../lib/pageTitle';
 import { setupCodeFromHash } from '../lib/setupCode';
 
 const MIN_PASSWORD = 12;
@@ -26,6 +27,7 @@ export function SignIn({ setup, expired }: { setup: boolean; expired: boolean })
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const creating = mode === 'setup';
+  usePageTitle(creating ? 'Create the owner account' : 'Sign in');
   // `onett open` puts the setup code after # in the address. It is read once, then removed
   // from the address bar so it does not stay in the page's address.
   const [code, setCode] = useState(() => setupCodeFromHash(window.location.hash));

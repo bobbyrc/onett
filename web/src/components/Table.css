@@ -1,0 +1,35 @@
+/* A table whose columns carry set widths (Column.width). Tables with the same columns, like the
+   Tasks sections, then line up down the page. The rules repeat `.table` to outrank the general
+   table rules in styles.css whatever order the two files load in. */
+@media (min-width: 760px) {
+  .table.table-fixed {
+    table-layout: fixed;
+    /* Under this the free-text column would be squeezed away, so the table scrolls sideways. */
+    min-width: var(--table-min-width);
+  }
+
+  /* The free-text column takes what the set widths leave. */
+  .table.table-fixed td.cell-wide,
+  .table.table-fixed th.cell-wide {
+    width: auto;
+    min-width: 0;
+  }
+
+  /* A cell of more than plain text (a status pill with a note under it) wraps inside its column
+     instead of running into the next one. Plain text keeps its one line and ellipsis. */
+  .table.table-fixed td:not(.cell-text) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .table.table-fixed td.cell-text {
+    max-width: none;
+  }
+}
+
+/* Stacked cards have no columns. */
+@media (max-width: 759px) {
+  .table.table-fixed colgroup {
+    display: none;
+  }
+}
