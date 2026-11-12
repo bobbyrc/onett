@@ -22,7 +22,7 @@ const cpsFailed = "release failed: health check failing; incident task inc-1"
 func cpsEnv(t *testing.T) (*lpEnv, lpRepo, *config.Project) {
 	t.Helper()
 	r := lpNewRepo(t)
-	env := lpNewEngine(t, lpDoc(t, r.clone, "    deploy:\n      type: test\n      verify_for: 10m\n", ""))
+	env := lpNewEngine(t, lpRepoDoc(t, r, "    deploy:\n      type: test\n      verify_for: 10m\n", ""))
 	p, err := env.e.project("demo")
 	require.NoError(t, err)
 	return env, r, p

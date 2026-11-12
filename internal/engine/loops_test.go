@@ -232,8 +232,6 @@ type lpRepo struct {
 // lpNewRepo creates a remote whose main branch has one commit, and a clone of it.
 func lpNewRepo(t *testing.T) lpRepo {
 	t.Helper()
-	// No test may reach a real host: git refuses every remote that is not a local path.
-	t.Setenv("GIT_ALLOW_PROTOCOL", "file")
 	root := t.TempDir()
 	r := lpRepo{
 		seed:   filepath.Join(root, "seed"),

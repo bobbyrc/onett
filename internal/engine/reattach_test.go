@@ -37,6 +37,9 @@ func TestMain(m *testing.M) {
 	if os.Getenv(shimReexec) == "1" {
 		os.Exit(shimtest.Main())
 	}
+	// No test may reach a real host: git refuses every remote that is not a local path, so a
+	// fixture that names a GitHub project fails at once instead of calling GitHub.
+	os.Setenv("GIT_ALLOW_PROTOCOL", "file")
 	os.Exit(m.Run())
 }
 
