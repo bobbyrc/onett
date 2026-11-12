@@ -416,6 +416,9 @@ code ~/.config/onett/secrets.env    # add lines like SENTRY_AUTH_TOKEN=...
 - In the config, `${NAME}` is replaced with the value of `NAME`. If `NAME` is not set, `onett serve`
   refuses to start and names the variable. A bare `$NAME` is left alone, so it can be used in shell
   commands such as the rollback above.
+  `${NAME}` is refused in text that reaches agents: an agent's `prompt_text`, `description` and
+  `args`, a harness's `args` and the arguments in its `command` (everything after the program
+  name), and a project's `instructions`.
 - After you edit `secrets.env` by hand, run `./onett config --reload` (or restart `onett serve`).
   An owner can also add, replace and remove secrets on the **Secrets** page; a saved value
   applies at once, including to chat bots and notifiers, without a restart.
