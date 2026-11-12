@@ -1,7 +1,9 @@
 package engine
 
 import (
+	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -34,6 +36,69 @@ const (
 	selfUpdateLockFile   = "self-update.lock"   // the updater's PID
 	selfUpdateResultFile = "self-update.result" // old, new, ref and status, written by update.sh
 )
+
+// selfUpdateFailureState is the LoopState name that keeps a project's last failed self-update (a
+// selfUpdateFailure as JSON in Cursor). The heartbeat lists it from here, not from its event,
+// because an event ages out while the daemon may still be running the version that failed to
+// update.
+const selfUpdateFailureState = "self_update_failure"
+
+// selfUpdateFailure is the last update that failed: it could not start, exited with an error, or
+// was rolled back.
+type selfUpdateFailure struct {
+	Ref     string    `json:"ref"`
+	Version string    `json:"version"` // the version the daemon ran when the update failed
+	Message string    `json:"message"`
+	At      time.Time `json:"at"`
+}
+
+// recordSelfUpdateFailure stores the failure, redacted, for the heartbeat. Each call replaces the whole row,
+// so the loop and the goroutine that waits for the updater cannot lose each other's write.
+func (e *Engine) recordSelfUpdateFailure(ctx context.Context, project, ref, message string) {
+	// The message can quote the updater's exit error or a rollback reason from its result file, and
+	// the heartbeat shows it to an agent, so it is redacted before it is stored. The updater runs
+	// with onett's own environment, so that is what could leak.
+	message = redactSecrets(message, os.Environ())
+	raw, err := json.Marshal(selfUpdateFailure{Ref: ref, Version: e.d.Version, Message: message, At: e.d.Now().UTC()})
+	if err == nil {
+		err = e.d.Store.SaveLoopState(ctx, domain.LoopState{Name: selfUpdateFailureState, Project: project, Cursor: string(raw)})
+	}
+	if err != nil {
+		e.d.Logger.Error("self_update: record failure", "err", err)
+	}
+}
+
+// openSelfUpdateFailure returns the project's last failed self-update while it is still open:
+// while the daemon runs the version that failed to update. Once it runs any other version, an
+// update has succeeded since (by this loop or by hand), so the failure is history.
+func (e *Engine) openSelfUpdateFailure(ctx context.Context, project string) (selfUpdateFailure, bool, error) {
+	st, err := e.d.Store.GetLoopState(ctx, selfUpdateFailureState, project)
+	if err != nil {
+		return selfUpdateFailure{}, false, err
+	}
+	var f selfUpdateFailure
+	if st.Cursor == "" || json.Unmarshal([]byte(st.Cursor), &f) != nil || f.Ref == "" || f.Version != e.d.Version {
+		return selfUpdateFailure{}, false, nil
+	}
+	return f, true, nil
+}
+
+// selfUpdateLog appends one timestamped line to self-update.log at path, so a reader can tell when
+// each attempt started and how it ended (#244). The updater's own lines in the same file are not
+// stamped: the updater must outlive the daemon it restarts, so its output goes straight to the
+// file, and stamping each line would put a pipe under it, whose reader dying would kill the
+// updater mid-update.
+func (e *Engine) selfUpdateLog(path, text string) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		e.d.Logger.Warn("self_update: write log", "err", err)
+		return
+	}
+	defer f.Close()
+	if _, err := fmt.Fprintf(f, "%s onett: %s\n", e.d.Now().UTC().Format(time.RFC3339), text); err != nil {
+		e.d.Logger.Warn("self_update: write log", "err", err)
+	}
+}
 
 // selfUpdateState is what the self_update loop remembers between ticks.
 type selfUpdateState struct {
@@ -100,6 +165,7 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 		return fmt.Errorf("self_update: %w", err)
 	}
 	logPath := filepath.Join(dataDir, selfUpdateLogFile)
+	e.selfUpdateLog(logPath, "starting update to "+dep.Ref+" (running "+version+")")
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return fmt.Errorf("self_update: open log: %w", err)
@@ -210,6 +276,8 @@ func (e *Engine) releaseInFlight(ctx context.Context) (bool, error) {
 func (e *Engine) selfUpdateFailed(ctx context.Context, project, ref, logPath, why string) {
 	e.selfUpd.fail(ref, 1)
 	tail := redactSecrets(logTail(logPath), os.Environ())
+	e.selfUpdateLog(logPath, "update to "+ref+" failed: "+why)
+	e.recordSelfUpdateFailure(ctx, project, ref, "self-update to "+shortSHA(ref)+" failed: "+why)
 	body := fmt.Sprintf("Update to %s %s (failure %d of %d).", shortSHA(ref), why, e.selfUpd.failures(ref), selfUpdateMaxFailures)
 	if tail != "" {
 		body += "\n\n" + tail
@@ -313,12 +381,14 @@ func (e *Engine) reportSelfUpdate(ctx context.Context) {
 			res[strings.TrimSpace(k)] = strings.TrimSpace(v)
 		}
 	}
+	logPath := filepath.Join(cfg.Server.DataDir, selfUpdateLogFile)
 	switch res["status"] {
 	case "ok":
 		if res["new"] == "" || res["new"] != e.d.Version {
 			return
 		}
 		msg := fmt.Sprintf("onett updated to %s (was %s)", res["new"], res["old"])
+		e.selfUpdateLog(logPath, fmt.Sprintf("update ok: now running %s (was %s)", res["new"], res["old"]))
 		e.d.Bus.Emit(ctx, domain.EvSystem, cfg.SelfProject, "", "", msg, nil)
 		e.notify(ctx, notify.PriorityNormal, msg, "", "")
 	case "rolled_back":
@@ -329,6 +399,8 @@ func (e *Engine) reportSelfUpdate(ctx context.Context) {
 		if reason := res["reason"]; reason != "" {
 			msg = fmt.Sprintf("onett self-update to %s was rolled back to %s: %s", res["new"], res["old"], reason)
 		}
+		e.selfUpdateLog(logPath, strings.TrimPrefix(msg, "onett "))
+		e.recordSelfUpdateFailure(ctx, cfg.SelfProject, cmp.Or(res["ref"], res["new"], "unknown"), msg)
 		e.d.Bus.Emit(ctx, domain.EvSystem, cfg.SelfProject, "", "", msg, nil)
 		e.notify(ctx, notify.PriorityHigh, msg, "See "+selfUpdateLogFile+" in the data directory. It will not be tried again for this commit.", "")
 	}

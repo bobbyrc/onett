@@ -117,6 +117,9 @@ type hbItemMemory struct {
 	Heartbeats int       `json:"heartbeats"`        // consecutive ticks (outside quiet hours) in the digest
 	Actions    []string  `json:"actions,omitempty"` // "RFC3339 time: line", newest last
 	Escalated  bool      `json:"escalated,omitempty"`
+	// Unwoken marks an item the orchestrator has not been shown because the wake failed. It stays
+	// new, so the next tick wakes again, while its heartbeats still count towards escalation.
+	Unwoken bool `json:"unwoken,omitempty"`
 }
 
 // heartbeatState is the loop's memory, kept in LoopState.Cursor: what it knows about each
@@ -255,7 +258,8 @@ func (e *Engine) readHeartbeatReplies(ctx context.Context, st *heartbeatState) (
 // heartbeatLoop builds the project's attention digest and wakes the orchestrator when it holds
 // an item not reported before. It does nothing during quiet hours, and no model call when the
 // digest is unchanged. It also keeps the per-item memory and escalates to the notifiers an item
-// that stays open for escalate_after heartbeats, or that the orchestrator escalated.
+// that stays open for escalate_after heartbeats, or that the orchestrator escalated. A failed wake
+// does not stop the tick: it still counts, escalates and saves, and then reports the error.
 func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 	now := e.d.Now()
 	hb := e.Config().LoopsFor(p.Name).Heartbeat
@@ -296,8 +300,11 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 		mem, known := prev.Items[it.Key]
 		if !known {
 			mem = hbItemMemory{FirstSeen: now.UTC()}
+		}
+		if !known || mem.Unwoken {
 			digest.NewKeys = append(digest.NewKeys, it.Key)
 		}
+		mem.Unwoken = false
 		mem.EntityID = it.EntityID
 		mem.Heartbeats++
 		cur.Items[it.Key] = mem
@@ -306,10 +313,21 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 	}
 	st.ItemCount = len(items)
 
+	var wakeErr error
 	if len(digest.NewKeys) > 0 {
-		// Not saved on failure, so the next tick tries again with the same new items.
-		if err := e.d.Heartbeat.WakeHeartbeat(ctx, digest); err != nil {
-			return fmt.Errorf("heartbeat: wake: %w", err)
+		if wakeErr = e.d.Heartbeat.WakeHeartbeat(ctx, digest); wakeErr != nil {
+			// The orchestrator has not seen the new items, so they stay new and the next tick wakes
+			// again; the window for one-off things (runs, deploys, results) stays where it was, so
+			// they are still in that digest. The tick itself goes on: counting and escalation are
+			// plain code, and a broken model call must not hide an open item from the owner.
+			for _, key := range digest.NewKeys {
+				mem := cur.Items[key]
+				mem.Unwoken = true
+				cur.Items[key] = mem
+			}
+			// since, not prev.BuiltAt: before the first digest that is zero, and the window would
+			// be worked out afresh, and so slide forward, on every failed tick.
+			cur.BuiltAt = since
 		}
 	}
 
@@ -332,7 +350,14 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 		return err
 	}
 	st.Cursor = string(raw)
-	return e.saveHeartbeat(ctx, st)
+	if err := e.saveHeartbeat(ctx, st); err != nil {
+		return err
+	}
+	if wakeErr != nil {
+		// Reported after the state is saved, so the loop still shows as failing and tries again.
+		return fmt.Errorf("heartbeat: wake: %w", wakeErr)
+	}
+	return nil
 }
 
 // fillHeartbeatView adds the heartbeat-only fields of GET /loops from the loop's state.
@@ -400,7 +425,7 @@ func hbTaskSettled(s domain.TaskStatus) bool {
 }
 
 // heartbeatItems collects every attention item of project p, sorted by kind then entity. since
-// starts the window for things that happen once (runs, deploys, results, self-update failures).
+// starts the window for things that happen once (runs, deploys, results).
 func (e *Engine) heartbeatItems(ctx context.Context, p *config.Project, stale time.Duration, since time.Time) ([]HeartbeatItem, error) {
 	env := evidenceEnv(p)
 	now := e.d.Now()
@@ -541,15 +566,12 @@ func (e *Engine) heartbeatItems(ctx context.Context, p *config.Project, stale ti
 		}
 	}
 
-	// The self-update loop reports a failed update as a system event, not as a loop error.
-	evs, err := e.d.Store.ListEvents(ctx, store.EventFilter{Project: p.Name, Limit: hbScanLimit})
-	if err != nil {
-		return nil, fmt.Errorf("list events: %w", err)
-	}
-	for _, ev := range evs {
-		if ev.Type == domain.EvSystem && strings.HasPrefix(ev.Message, "self-update to ") && strings.HasSuffix(ev.Message, " failed") && !ev.Time.Before(since) {
-			add(hbSelfUpdateFailure, fmt.Sprint(ev.ID), "", ev.Message)
-		}
+	// A failed self-update is kept by the self_update loop and stays here until the daemon runs
+	// another version. It is not found from its event: that ages out while the failure is open.
+	if f, ok, err := e.openSelfUpdateFailure(ctx, p.Name); err != nil {
+		return nil, fmt.Errorf("self-update failure: %w", err)
+	} else if ok {
+		add(hbSelfUpdateFailure, shortSHA(f.Ref), "", quote(f.Message))
 	}
 
 	for _, pf := range e.Preflight() {

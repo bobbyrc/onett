@@ -80,6 +80,8 @@ type reattachFixture struct {
 	st      store.Store
 	scm     *scmfake.Fake
 	cfg     *config.Config
+	// logOut, when set, receives the engines' log; nil discards it.
+	logOut io.Writer
 }
 
 func newReattachFixture(t *testing.T, stall, runTimeout time.Duration) *reattachFixture {
@@ -130,7 +132,11 @@ agents:
 // return, as a daemon exit does; the shim and the agent are left running.
 func (f *reattachFixture) engine(now func() time.Time) (e *Engine, stop func()) {
 	f.t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	out := io.Writer(io.Discard)
+	if f.logOut != nil {
+		out = f.logOut
+	}
+	logger := slog.New(slog.NewTextHandler(out, nil))
 	e, err := New(Deps{
 		Config:     f.cfg,
 		Store:      f.st,

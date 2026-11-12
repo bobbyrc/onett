@@ -61,6 +61,9 @@ func (e *Engine) reattachRun(ctx context.Context, r domain.Run) bool {
 		took = e.takeOver(ctx, r, log, cfg)
 	}
 	if took {
+		// The run's own log says this too, but the daemon log is where an operator looks after a
+		// restart, so each reattached run gets one line there.
+		log.Info("reattached to a run after restart", "shim_pid", st.ShimPID, "stream_offset", r.StreamOffset)
 		return true
 	}
 	// The shim is alive but the run cannot be supervised (its task moved on, the project or
