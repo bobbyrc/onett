@@ -337,8 +337,10 @@ goal. The web UI shows the conversation as a normal chat; it has no goals page y
 
 ### Retro loop and friction
 
-Agents list anything that slowed them down as `friction`. Onett files it as a GitHub issue and
-dedupes by title: a near-duplicate of an open issue becomes a comment on that issue. The retro loop
+Agents list anything that slowed them down as `friction`. Onett files it as a GitHub issue. A
+report of a problem that already has an open issue becomes a comment on that issue instead: onett
+matches it by the words of its title and body, or the agent names the issue and onett checks that
+claim. The retro loop
 (`loops.retro`, every 24h) hands the last day's blocked and failed tasks, friction, incidents and
 review rejections to the `platform-engineer` role as one task. It is on by default only for the project named
 by `self_project`; set `enabled: true` or `false` to override.
