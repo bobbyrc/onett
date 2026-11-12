@@ -70,7 +70,7 @@ func ghRunner(ctx context.Context, stdin string, args ...string) ([]byte, error)
 // OpenPR creates a pull request, adds its labels and returns it.
 func (g *GitHub) OpenPR(ctx context.Context, spec scm.PRSpec) (scm.PR, error) {
 	args := []string{"pr", "create", "--repo", g.Repo, "--head", spec.Head, "--base", spec.Base,
-		"--title", spec.Title, "--body-file", "-"}
+		"--title", quoteMentions(spec.Title), "--body-file", "-"}
 	if spec.Draft {
 		args = append(args, "--draft")
 	}
@@ -495,7 +495,7 @@ func decodeIssues(out []byte) ([]scm.Issue, error) {
 		is := scm.Issue{
 			Number:    r.Number,
 			URL:       r.URL,
-			Title:     r.Title,
+			Title:     unquoteMentions(r.Title),
 			Body:      r.Body,
 			State:     strings.ToLower(r.State),
 			CreatedAt: r.CreatedAt,
@@ -524,7 +524,7 @@ func (g *GitHub) CreateIssue(ctx context.Context, spec scm.IssueSpec) (scm.Issue
 	if err := g.ensureLabels(ctx, spec.Labels); err != nil {
 		return scm.Issue{}, err
 	}
-	args := []string{"issue", "create", "--repo", g.Repo, "--title", spec.Title, "--body-file", "-"}
+	args := []string{"issue", "create", "--repo", g.Repo, "--title", quoteMentions(spec.Title), "--body-file", "-"}
 	for _, l := range spec.Labels {
 		args = append(args, "--label", l)
 	}

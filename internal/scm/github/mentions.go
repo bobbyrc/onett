@@ -53,6 +53,13 @@ func quoteMentions(s string) string {
 	return b.String()
 }
 
+// unquoteMentions undoes the mark quoteMentions leaves after a plain @ in a title read back
+// from GitHub, so a title onett posted compares equal to the text it was posted from (the
+// friction loop looks for an existing issue by its title).
+func unquoteMentions(s string) string {
+	return strings.ReplaceAll(s, "@"+neutralizeMention, "@")
+}
+
 // skippedFences returns the fenced blocks that quoteMentions copies unchanged, keyed by the index of
 // the opening line, with the index of the closing line as the value. A fence is skipped only when
 // all of these hold:
