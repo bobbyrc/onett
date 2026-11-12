@@ -10,6 +10,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/runshim"
+	"github.com/bobbyrc/onett/internal/runshim/shimtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,27 +20,17 @@ const shimReexec = "ONETT_HARNESS_TEST_RUNSHIM"
 
 func TestMain(m *testing.M) {
 	if os.Getenv(shimReexec) == "1" {
-		os.Exit(runshim.Main(os.Args[1:], os.Stderr))
+		os.Exit(shimtest.Main())
 	}
 	os.Exit(m.Run())
 }
 
-func testShimOptions(t *testing.T, runID string) *ShimOptions {
+func testShimOptions(t *testing.T) *ShimOptions {
 	t.Helper()
 	dir := t.TempDir()
-	// The shim writes its final status after the daemon's last call; wait for the process to
-	// exit before the temp directory is removed.
-	t.Cleanup(func() {
-		st, err := runshim.ReadStatus(runshim.RunDir(dir, runID))
-		if err != nil {
-			return
-		}
-		for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
-			if syscall.Kill(st.ShimPID, 0) == syscall.ESRCH {
-				return
-			}
-		}
-	})
+	// Stop the test's shims and wait for them before the temp directory is removed: a shim writes
+	// its final status after the daemon's last call, and one whose test failed would keep running.
+	t.Cleanup(func() { shimtest.StopAll(t, dir) })
 	return &ShimOptions{
 		DataDir: dir,
 		Launch: runshim.Launch{
@@ -56,7 +47,7 @@ func startShimSh(t *testing.T, script string, extra ProcSpec) *Proc {
 	if extra.RunID == "" {
 		extra.RunID = "run-" + strings.ReplaceAll(t.Name(), "/", "-")
 	}
-	extra.Shim = testShimOptions(t, extra.RunID)
+	extra.Shim = testShimOptions(t)
 	return startSh(t, script, extra)
 }
 
@@ -109,7 +100,7 @@ func TestShimMatchesDirectProcess(t *testing.T) {
 
 func TestShimFailsToStartMissingCommand(t *testing.T) {
 	_, err := StartProcess(context.Background(), ProcSpec{
-		Command: []string{"/nonexistent/agent"}, Shim: testShimOptions(t, "missing"), RunID: "missing",
+		Command: []string{"/nonexistent/agent"}, Shim: testShimOptions(t), RunID: "missing",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "/nonexistent/agent")
@@ -148,7 +139,7 @@ func TestShimCancelStopsTheProcessGroup(t *testing.T) {
 func TestShimContextCancelCancels(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	p, err := StartProcess(ctx, ProcSpec{
-		Command: []string{"sleep", "60"}, ParseLine: textParser, Shim: testShimOptions(t, "ctx-cancel"), RunID: "ctx-cancel",
+		Command: []string{"sleep", "60"}, ParseLine: textParser, Shim: testShimOptions(t), RunID: "ctx-cancel",
 	})
 	require.NoError(t, err)
 	cancel()
