@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview mockup · Direction A · busy day</title>
+<link rel="stylesheet" href="../../../web/src/styles.css">
+<link rel="stylesheet" href="mock.css">
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <span class="wordmark"><svg class="brand-mark" viewBox="106 106 300 300" aria-hidden="true" focusable="false"><path d="M383.5 244.8 A128 128 0 1 1 267.2 128.5" fill="none" stroke="currentColor" stroke-width="44" stroke-linecap="round"/><path d="M329.4 151.1 A128 128 0 0 1 360.9 182.6" fill="none" stroke="var(--lamp-call)" stroke-width="44" stroke-linecap="round"/></svg> onett</span>
+  <span class="topbar-right">
+    <a class="topbar-approvals" href="#"><span class="count-badge">2<span> approvals</span></span></a>
+    <a class="topbar-approvals" href="#"><span class="count-badge stop">1<span> blocked</span></span></a>
+    <button type="button" class="btn btn-secondary menu-button">Menu</button>
+  </span>
+</header>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand"><span class="wordmark"><svg class="brand-mark" viewBox="106 106 300 300" aria-hidden="true" focusable="false"><path d="M383.5 244.8 A128 128 0 1 1 267.2 128.5" fill="none" stroke="currentColor" stroke-width="44" stroke-linecap="round"/><path d="M329.4 151.1 A128 128 0 0 1 360.9 182.6" fill="none" stroke="var(--lamp-call)" stroke-width="44" stroke-linecap="round"/></svg> onett</span></div>
+  <nav aria-label="Main">
+    <a class="nav-item active" href="#"><span>Overview</span></a>
+    <a class="nav-item" href="#"><span>Projects</span></a>
+    <a class="nav-item" href="#"><span>Chat</span></a>
+    <a class="nav-item" href="#"><span>Goals</span></a>
+    <a class="nav-item" href="#"><span>Tasks</span><span class="count-badge stop">1<span class="sr-only"> blocked</span></span></a>
+    <a class="nav-item" href="#"><span>Approvals</span><span class="count-badge">2<span class="sr-only"> awaiting approval</span></span></a>
+    <a class="nav-item" href="#"><span>Runs</span></a>
+    <a class="nav-item" href="#"><span>Deploys</span></a>
+    <a class="nav-item" href="#"><span>Signals</span></a>
+    <a class="nav-item" href="#"><span>Friction</span></a>
+    <a class="nav-item" href="#"><span>Loops</span></a>
+    <a class="nav-item" href="#"><span>Agents</span></a>
+    <a class="nav-item" href="#"><span>Config</span></a>
+    <a class="nav-item" href="#"><span>Users</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="account">
+      <div class="account-row"><span class="account-name">robin<span class="account-role"> owner</span></span><button type="button" class="link-button">Sign out</button></div>
+      <button type="button" class="link-button">Change password</button>
+    </div>
+    <div class="pause-switch"><span class="pause-state"><span class="lamp lamp-run" aria-hidden="true"></span>Running</span><button type="button" class="btn btn-secondary pause-button">Pause</button></div>
+    <div class="live live-on" role="status"><span class="dot" aria-hidden="true"></span>live</div>
+  </div>
+</aside>
+<main class="main"><div class="overview">
+<h1 class="sr-only">Overview</h1>
+<section class="card setup-checklist mk-setup-strip" aria-labelledby="finish-setup">
+<h2 id="finish-setup">Finish setting up onett</h2>
+<span class="mk-setup-left">4 of 5 done · left: <a href="#">Secrets set</a> (SLACK_BOT_TOKEN is not set)</span>
+<button type="button" class="link-button small">Show steps ▾</button>
+<button type="button" class="btn btn-secondary">Dismiss</button>
+</section>
+
+<section class="board" aria-label="Projects" style="--board-windows:4">
+<div class="board-windows">
+<a href="#" class="board-window lamp-stop"><span class="board-lamp" aria-hidden="true"></span><span class="board-name">onett</span><span class="board-count">1 blocked</span><span class="board-detail">1 needs you · 2 running · 1 queued</span><span class="board-deploy">Deployed · 2h ago</span></a>
+<a href="#" class="board-window lamp-call"><span class="board-lamp" aria-hidden="true"></span><span class="board-name">home-lab</span><span class="board-count">1 needs you</span><span class="board-deploy">No deployer</span></a>
+<a href="#" class="board-window lamp-run"><span class="board-lamp" aria-hidden="true"></span><span class="board-name">widgets</span><span class="board-count">1 running</span><span class="board-detail">3 queued</span><span class="board-deploy">Deployed · 1d ago</span></a>
+<a href="#" class="board-window"><span class="board-lamp" aria-hidden="true"></span><span class="board-name">dotfiles</span><span class="board-count">idle</span><span class="board-deploy">No deployer</span></a>
+</div>
+<div class="board-line"><span class="board-line-state"><span class="lamp lamp-run" aria-hidden="true"></span>Line running</span><span class="board-line-stats"><span><b>3</b> active</span><span><b>4</b> queued</span><span><b>$18.42</b> today</span></span></div>
+</section>
+
+<div class="overview-grid">
+<section class="section needs-you has-items" aria-labelledby="needs-you">
+<h2 id="needs-you">Needs you <span class="section-note">3 things · oldest 8h ago</span></h2>
+<article class="call-item is-stop">
+<div class="call-title"><span class="lamp lamp-stop" aria-hidden="true"></span><h3><a href="#">Publish agent screenshots from the outbox into the PR body</a></h3></div>
+<p class="call-meta">Blocked · onett · attempt 1 of 3 · 8h ago</p>
+<div class="call-body">
+<div class="callout callout-danger" role="alert"><div class="blocked-reason-text">Run was denied: Bash(git push origin HEAD) is not allowed. Onett pushes branches itself; the agent must not.</div></div>
+<div class="row-actions"><button type="button" class="btn btn-secondary">Retry</button><button type="button" class="btn btn-danger">Cancel task</button></div>
+</div>
+</article>
+<article class="call-item approval-card">
+<div class="call-title"><span class="lamp lamp-call" aria-hidden="true"></span><h3><a href="#">Rotate the backup bucket credentials</a></h3></div>
+<p class="call-meta">Waiting on you · merge · home-lab · requested 3h ago</p>
+<div class="call-body">
+<dl class="gate">
+<dt>Risk</dt>
+<dd><span class="badge tone-danger">High</span><ul class="reasons"><li>Touches infra/secrets/** (rule: secrets)</li></ul></dd>
+<dt>Covers commit</dt>
+<dd><code>41be0c2</code> on <a href="#">PR #58</a><span class="muted"> · a new push withdraws this approval</span></dd>
+</dl>
+<p>High risk: changes which credentials the nightly backup uses. Reviewer approved at 41be0c2.</p>
+<div class="decide">
+<label class="field"><span class="field-label">Note (optional)</span><input type="text"></label>
+<div class="row-actions"><button type="button" class="btn btn-primary">Approve merge</button><button type="button" class="btn btn-danger">Reject</button></div>
+</div>
+<section class="approval-section"><h4>What changed</h4><p>The backup job reads its bucket key from the new secret name; the old key is no longer referenced.</p></section>
+<section class="approval-section"><h4>Reviewer</h4><p>Approve. No secret value is in the diff; the old name is removed everywhere.</p></section>
+</div>
+</article>
+<article class="call-item approval-card">
+<div class="call-title"><span class="lamp lamp-call" aria-hidden="true"></span><h3><a href="#">Show elapsed time on running tool rows from tool_progress</a></h3></div>
+<p class="call-meta">Waiting on you · merge · onett · requested 12m ago</p>
+<div class="call-body">
+<dl class="gate">
+<dt>Risk</dt>
+<dd><span class="badge tone-warn">Medium</span><ul class="reasons"><li>Touches web/src/components/Transcript.tsx (user-visible behaviour)</li><li>Diff is 412 lines, over the 400-line default</li></ul></dd>
+<dt>Covers commit</dt>
+<dd><code>9f3c1a7</code> on <a href="#">PR #297</a><span class="muted"> · a new push withdraws this approval</span></dd>
+</dl>
+<p>Medium risk: touches user-visible behaviour in web/src/components/Transcript.tsx. Reviewer approved at 9f3c1a7.</p>
+<div class="decide">
+<label class="field"><span class="field-label">Note (optional)</span><input type="text"></label>
+<div class="row-actions"><button type="button" class="btn btn-primary">Approve merge</button><button type="button" class="btn btn-danger">Reject</button></div>
+</div>
+<section class="approval-section"><h4>What changed</h4><p>Added a ToolElapsed component fed by tool_progress lines and tests for the formatting.</p></section>
+<section class="approval-section"><h4>Reviewer</h4><p>Approve. The timer stops when the tool result arrives; tests cover the formatting.</p></section>
+</div>
+</article>
+</section>
+<div class="overview-side">
+<section class="section" aria-labelledby="live-runs">
+<h2 id="live-runs">Live runs <span class="section-note">3 active</span></h2>
+<div class="run-axis" aria-hidden="true"><div class="run-axis-ticks"><span>0m</span><span>15m</span><span>30m</span><span>45m</span><span>1h</span></div></div>
+<ul class="run-list">
+<li class="run-item"><div class="run-item-head"><a href="#">Fix chat threads: system-started turns, viewport scroll, internal links</a><button type="button" class="btn btn-ghost">Cancel</button></div><div class="run-item-meta"><span>Senior Engineer · onett</span><span>41m 00s · output 3m ago</span></div><div class="run-track" aria-hidden="true"><span class="run-flow" style="width:68%"></span></div></li>
+<li class="run-item"><div class="run-item-head"><a href="#">Fix flaky widget cache test</a><button type="button" class="btn btn-ghost">Cancel</button></div><div class="run-item-meta"><span>Senior Engineer · widgets</span><span>18m 00s · output 12s ago</span></div><div class="run-track" aria-hidden="true"><span class="run-flow" style="width:30%"></span></div></li>
+<li class="run-item"><div class="run-item-head"><a href="#">Chat with Chief of Staff</a><button type="button" class="btn btn-ghost">Cancel</button></div><div class="run-item-meta"><span>onett</span><span>7m 00s · output 30s ago</span></div><div class="run-track" aria-hidden="true"><span class="run-flow" style="width:12%"></span></div></li>
+</ul>
+</section>
+<section class="section heartbeat-card" aria-labelledby="heartbeat">
+<h2 id="heartbeat">Heartbeat <span class="section-note">on · next check in 6m</span></h2>
+<p class="mk-hb-lead">Every 15 minutes the orchestrator looks over each project and deals with what it can. Last check 9m ago.</p>
+<p class="mk-label">It is watching 3 things</p>
+<ul class="mk-watch">
+<li><span class="n">2</span><a href="#">approvals waiting</a></li>
+<li><span class="n">1</span><a href="#">blocked task</a></li>
+</ul>
+<p class="mk-note">These are the 3 things in Needs you. In the last 24 hours it acted on 7 and told you about 1.</p>
+<p class="heartbeat-link"><a href="#">Open Operations</a></p>
+</section>
+<section class="section" aria-labelledby="activity">
+<h2 id="activity">Activity <span class="section-note">newest first</span></h2>
+<ol class="feed mk-feed">
+<li class="feed-row"><time class="feed-time">14:03</time><span class="feed-message">Senior Engineer started on <a href="#">Fix flaky widget cache test</a></span><span class="mk-where">widgets</span></li>
+<li class="feed-row"><time class="feed-time">13:56</time><span class="feed-message">Deploy of 9f3c1a7 is healthy, verifying for 10m</span><span class="mk-where">onett</span></li>
+<li class="feed-row"><time class="feed-time">13:53</time><span class="feed-message"><span class="lamp lamp-call" aria-hidden="true"></span>Merge approval asked: <a href="#">Show elapsed time on running tool rows from tool_progress</a></span><span class="mk-where">onett</span></li>
+<li class="feed-row"><time class="feed-time">13:19</time><span class="feed-message">PR #284 opened for <a href="#">Fix chat threads: system-started turns, viewport scroll, internal links</a></span><span class="mk-where">onett</span></li>
+<li class="feed-row"><time class="feed-time">13:02</time><span class="feed-message">Goal check-in finished: <a href="#">Make the web UI feel finished</a></span><span class="mk-where">onett</span></li>
+<li class="feed-row"><time class="feed-time">11:05</time><span class="feed-message"><span class="lamp lamp-call" aria-hidden="true"></span>Merge approval asked: <a href="#">Rotate the backup bucket credentials</a></span><span class="mk-where">home-lab</span></li>
+<li class="feed-row"><time class="feed-time">06:00</time><span class="feed-message"><span class="lamp lamp-stop" aria-hidden="true"></span>Blocked: <a href="#">Publish agent screenshots from the outbox into the PR body</a></span><span class="mk-where">onett</span></li>
+<li class="feed-row"><time class="feed-time">Wed 22:10</time><span class="feed-message"><span class="lamp lamp-stop" aria-hidden="true"></span>Rolled back 0e8ebaa: health check timed out</span><span class="mk-where">onett</span></li>
+</ol>
+<button type="button" class="link-button small feed-more">Show all 100</button>
+</section>
+</div>
+</div>
+</div></main>
+</div>
+</body>
+</html>
