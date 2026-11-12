@@ -4,6 +4,7 @@ package scm
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -68,6 +69,10 @@ type IssueSpec struct {
 	Body   string
 	Labels []string
 }
+
+// ErrCIRunning is returned by CILog while a CI run of the PR's head commit has not ended. The
+// code host gives out no log of such a run, not even for a job in it that has already failed.
+var ErrCIRunning = errors.New("CI is still running")
 
 // SCM is scoped to one repository ("owner/name").
 type SCM interface {
