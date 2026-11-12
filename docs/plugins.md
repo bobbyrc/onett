@@ -190,8 +190,8 @@ evidence is the last 4 KB of stdout followed by stderr. Before evidence (deploy 
 failure notes) is stored or handed to an agent, onett replaces secret values with `***`: the value
 of every environment variable (onett's own and the project's `env`) whose name has a segment such
 as `TOKEN`, `SECRET`, `PASSWORD`, `PASS`, `PASSWD`, `KEY`, `AUTH`, `APIKEY`, `CREDENTIAL`, `DSN`,
-`COOKIE` or `PAT` (and the plurals `TOKENS`, `SECRETS`, `KEYS` and `CREDENTIALS`, but no other
-plural), and any URL with credentials in it. Values shorter than 8 characters are left alone; the
+`COOKIE` or `PAT` (or the plural of one with an S, such as `TOKENS` or `PASSWORDS`), and any URL
+with credentials in it. Values shorter than 8 characters are left alone; the
 password inside such a URL is also replaced wherever it appears on its own, if it has 6
 characters or more.
 

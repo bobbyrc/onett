@@ -109,7 +109,13 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
 - **Agents judge, code gates.** Agents write code, review diffs and triage issues. Deterministic Go
   code does everything that leaves the machine: commits, pushes, PRs, merges, deploys and rollbacks.
 - **Agents cannot approve their own work.** Worker agents get no API token. Only the chief of staff
-  does, and it uses the CLI.
+  does, and it uses the CLI. A reviewer agent runs in the branch it reviews, but its CLI does not
+  load that branch's own agent configuration: Claude Code takes no settings, hooks, MCP servers,
+  skills or instruction files (`CLAUDE.md`, `AGENTS.md`) from it. Onett puts the base branch's
+  root `AGENTS.md` and `CLAUDE.md` (up to 32 KiB each) in the reviewer's prompt instead, so the
+  reviewer holds a change to the project's merged rules, not to the branch's own copy of them.
+  This is not isolation: the project's `setup`, and anything the reviewer runs, still execute the
+  branch's code as your user. For Codex see the known limit below.
 - **People sign in; config, users and triggers change only through them.** The web UI signs people
   in with a username and password (roles: viewer reads, operator also acts on work, owner also
   edits `onett.yaml`, manages users and manages triggers). The API token, which the CLI and the
@@ -139,7 +145,8 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   [docs/proposals/agent-isolation.md](docs/proposals/agent-isolation.md).
 - **Self-assigned work is rated higher.** Follow-up and retro tasks (task sources `followup` and
   `retro`) are rated at least `medium` (under `supervised`, they wait for you) by a built-in policy rule, and so is any change to onett's
-  own gates and agent instructions (`high`). Add rules with a policy's `extra_rules`. Setting
+  own gates and agent instructions (`high`) or to the agent CLIs' own configuration (`.claude/`,
+  `.mcp.json`, `.codex/`; also `high`). Add rules with a policy's `extra_rules`. Setting
   `rules` instead **replaces** all the built-in rules, so copy back any you want to keep.
 - **Daily budget.** `limits.daily_budget_usd` stops new task runs once today's reported cost
   of pay-per-token runs reaches it. Runs on a flat-rate subscription (Claude Code signed in with
@@ -154,8 +161,9 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   subscription, set that harness's `billing: subscription` too: the mode is otherwise detected only when a run ends.
   Codex reports no cost, so it counts only if its
   harness has a `price` (per-million-token rates), which gives an estimate shown as `~$0.42`.
-- **Risk only goes up.** Final risk is the highest of the rules the diff matches and the agent's own
-  rating. An agent cannot lower it.
+- **Risk only goes up.** Final risk is the highest of the rules the diff matches, the agent's own
+  rating and the reviewer's. An agent cannot lower it: a rating recorded for a pull request stays
+  when a later run reports a lower one.
 - **Merges are pinned to a commit.** A merge uses `gh pr merge --match-head-commit`, so it merges the
   exact commit that CI and review judged. An approval covers one commit. If the PR changes, the
   approval is withdrawn and the PR is checked again.
@@ -177,7 +185,7 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   re-queue.
   A policy's `require_checks: true` makes a PR with no CI checks wait (then block after 30 minutes)
   instead of counting as "no CI"; use it for repositories that always run CI.
-- **Evidence is redacted, agent text cannot ping.** Deploy output, service logs, loop errors and
+- **Evidence is redacted, agent text cannot ping.** Deploy, setup and check output, service logs, loop errors and
   production signals have secret values (env vars named like `*_TOKEN`, `*_SECRET`, `*_KEY`, and
   URLs with credentials) replaced with `***` before they are stored or shown to an agent. Agent text
   posted to GitHub has its @mentions neutralised, so an agent cannot notify people.
@@ -188,7 +196,9 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   checks that the process answering on a run's socket is the shim it expects.
 - **Known limit with Codex.** Claude Code reports refused tool calls in machine-readable form.
   Codex reports sandbox refusals only in prose. For Codex, "a denial stops the task" therefore relies
-  on the agent prompt ("if denied, report blocked") and on the stall timeout.
+  on the agent prompt ("if denied, report blocked") and on the stall timeout. A Codex reviewer
+  leaves out the reviewed branch's `AGENTS.md`, but Codex still loads that branch's
+  `.codex/config.toml` if you have marked the repository as trusted in your Codex config.
 
 ## Quick start
 
@@ -269,15 +279,19 @@ as in `onett task create -h`.
 | `trigger list\|history ID` | List triggers and a trigger's firing history. Only a signed-in owner creates or changes triggers (in the UI or through the API); the CLI reads them. |
 | `run` | list, show, cancel and print logs of agent runs |
 | `deploys` | list releases, or show one with its log |
+| `signals [show ID]` | list production signals (problems an observer reported for a deployed project), or show one in full |
+| `friction [show ID]` | list friction (what slowed an agent down, as agents reported it), or show one with its body |
 | `approvals` | list approvals waiting for a decision |
 | `approve` | approve or reject an approval |
 | `events` | show history, or follow the event stream |
 | `loops` | list recurring loops |
 | `loop run NAME` | run a loop now |
 | `user reset-password NAME` | give a user a new random password and sign them out everywhere |
+| `backup FILE` | write a consistent copy of the database to FILE, safe while the daemon runs; run it on the daemon's machine (see [Backup and restore](#backup-and-restore)) |
 | `pause` | stop starting runs and loops (`status` shows who paused it and since when) |
 | `resume` | resume a paused factory |
 | `chat` | message the chief of staff and print its reply |
+| `conversations [--tasks]`, `conversations show ID\|--task TASK_ID` | list the chats with the chief of staff, or with `--tasks` the task agents' conversations; `show` prints one conversation's messages |
 | `service` | install, uninstall or check the launchd service that keeps serve running |
 | `doctor [--no-daemon]` | check the setup: config, git, gh, harness CLIs, each project's clone and the daemon; warns when the daemon runs a different version than this binary. `--no-daemon` skips the daemon checks, to validate a config file on its own |
 | `version` | print the onett version |
@@ -338,6 +352,43 @@ in the plist, the `PATH` of the shell you run it from and every variable your co
 as `${NAME}`. The plist is readable only by you, because those values can be secrets. Install
 from a shell where `onett serve` works. To change a recorded value, run `service uninstall`
 and then `service install` again.
+
+### Backup and restore
+
+Everything onett remembers is in one SQLite database, `onett.db` in the data directory
+(`server.data_dir`): tasks, runs and their logs, approvals, releases, goals, triggers, loop state,
+chat, users and sign-in sessions. `onett backup FILE` writes a consistent copy of it to FILE. It is
+safe while the daemon runs: the copy is the database as it was at one moment, and the daemon keeps
+working.
+
+```sh
+mkdir -p ~/onett-backups
+./onett backup ~/onett-backups/onett-$(date +%F).db
+```
+
+Run it on the machine that runs the daemon: the command reads the database file itself, not the
+API. The copy holds password hashes and sign-in sessions, so:
+
+- it is written readable only by you (mode 0600), and never over an existing file;
+- the command refuses a destination inside a git repository or worktree, where the file could be
+  committed or read by an agent;
+- the command refuses to run inside an agent run.
+
+A backup that is killed part-way can leave an empty FILE and a `FILE.partial` beside it. Delete both
+and run it again.
+
+The backup does not include what lives outside the database: the config file, `secrets.env`, the
+API token (`token` in the data directory) and the files of chat attachments (`attachments/` in the
+data directory). Copy those yourself if you need them.
+
+To restore:
+
+1. Stop the daemon (`./onett service uninstall`, or stop `onett serve`).
+2. In the data directory, delete `onett.db-wal` and `onett.db-shm` if they exist. They are SQLite's
+   side files for the old database and must not be applied to the restored one.
+3. Copy the backup over `onett.db`.
+4. Start the daemon again (`./onett service install`, or `onett serve`), with the onett version
+   that took the backup or a newer one.
 
 ### Goals: unattended multi-step work
 

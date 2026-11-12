@@ -500,6 +500,26 @@ touch anything your user can, so a prompt-injected or mistaken run can send data
 or damage files outside its worktree. Agents must never enable it themselves; if a task cannot be
 verified without it, report it as blocked.
 
+## 15. Back up and restore
+
+Onett keeps its whole history (tasks, runs, approvals, users, triggers, loop state) in one file:
+`onett.db` in the data directory. Take a copy of it while the daemon runs:
+
+```sh
+mkdir -p ~/onett-backups
+./onett backup ~/onett-backups/onett-$(date +%F).db
+```
+
+Run it on the machine that runs the daemon. The copy holds password hashes and sign-in sessions,
+so it is readable only by you, never replaces an existing file, cannot be written inside a git
+repository or worktree, and cannot be taken from inside an agent run. The config file,
+`secrets.env`, the API token and attachment files are not in it.
+
+To restore, stop the daemon, delete `onett.db-wal` and `onett.db-shm` from the data directory if
+they exist (side files of the old database), copy the backup over `onett.db`, and start the daemon
+with the onett version that took the backup or a newer one. The README's
+[Backup and restore](../README.md#backup-and-restore) section has the details.
+
 ## Try it without a paid agent
 
 You can watch the whole flow (task, run, pull request, review, merge) before you install or pay for

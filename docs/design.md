@@ -210,7 +210,13 @@ process per message, read about 65k input tokens per turn at a 18-34% cache hit 
 about 18k at 78-80%. With `isolate: true` the claude harness adds `--strict-mcp-config` (no MCP
 servers) and `--setting-sources project,local` (no user-level hooks, plugins or permissions; the
 repository's own settings and CLAUDE.md still load, and the login is untouched). The owner's
-`args` come after these and can override them. The orchestrator's system prompt is identical on
+`args` come after these and can override them. A review run is the exception: its worktree is
+the change under review, so onett adds `--strict-mcp-config` and a `--setting-sources` without
+`project` and `local` after the owner's `args` (`user`, or none when isolated), and for Codex
+`-c project_doc_max_bytes=0`. The reviewer still gets the project's rules: onett reads the root
+`AGENTS.md` and `CLAUDE.md` from the base branch with git and puts them in the review prompt,
+each cut at 32 KiB, and a `CLAUDE.md` that only imports `AGENTS.md` is not repeated. The
+orchestrator's system prompt is identical on
 every turn of a conversation, and the changing list of projects and agents rides in the user
 message instead. Each run records the cached and cache-written parts of its input
 (`cached_input_tokens`, `cache_write_tokens`); `onett run show` and the run page show the hit
@@ -739,6 +745,15 @@ web/                  React + Vite + TypeScript UI (built into internal/api/webd
 - The database (`onett.db` and its `-wal` and `-shm` files) is created mode 600 and set back to it
   at every start, so it does not rely on the data directory's mode. `onett service install` does
   the same for the service file, which can hold environment values.
+- `onett backup FILE` writes a consistent copy of the database (`<data_dir>/onett.db`) that is
+  safe to take while the daemon runs: SQLite's `VACUUM INTO` reads one snapshot. The copy holds
+  password hashes and sign-in sessions, so it is not an API route: a route would need a signed-in
+  owner, and the API token, which the orchestrator agent holds, must never be able to fetch it.
+  Instead the command reads the database file itself on the daemon's machine, as
+  `onett user reset-password` does, and writes the copy with mode 600, never over an existing
+  file. It refuses inside an agent run (`ONETT_RUN_ID` or `ONETT_ROLE` is set) and refuses a
+  destination inside a git repository or worktree, where the copy could be committed or read by
+  an agent. Restore is in the README, "Backup and restore".
 - Agents never get push credentials from onett; onett pushes. Harness permissions are
   configured per agent profile (`claude-code` defaults to `--permission-mode auto` plus the
   role's pre-approved `tools` rules; `codex` defaults to `--approve-for-me`, its workspace-write sandbox with automatic review
