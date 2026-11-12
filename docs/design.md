@@ -121,6 +121,14 @@ paths or accounts, nothing that assumes one machine and one person) when it cost
   (`github_issue:42`, `signal:<fingerprint>`, `chat:<conversation>`).
 - **Run** — one attempt at a task by one harness session, in its own git worktree, with a
   streamed log, cost, and an outcome.
+  A run that publishes its work, or ends with nothing to publish, removes its worktree. Any
+  other run leaves it, because it may hold work the agent did not commit. A leftover worktree
+  stays for as long as its task can run again (queued, waiting, running, in review, awaiting
+  approval, blocked or failed): the task's next run commits that work to the task's branch
+  ("WIP: work from an earlier attempt") and removes the old worktree. When the task is done,
+  merged, deploying or cancelled, a sweep that runs after every run and at start removes its
+  leftover worktrees. A cancelled task can still be retried by a person, and by then the sweep
+  has deleted its uncommitted work **(review)**.
 - **Outbox** — files an agent writes in `<worktree>/.onett-run/` to report back:
   `result.json` (status, summary, self-assessed risk, PR title/body, follow-up tasks, friction).
   Files, not network calls, so it works inside sandboxed harnesses such as Codex's.
