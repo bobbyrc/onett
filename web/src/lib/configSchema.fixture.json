@@ -188,7 +188,7 @@
           {
             "key": "price",
             "type": "section",
-            "help": "Price lets onett estimate the cost of runs whose harness reports tokens but no dollar cost (codex), so limits.daily_budget_usd counts them.",
+            "help": "Price lets onett estimate the cost of runs whose harness reports tokens but no dollar cost (codex), so limits.daily_budget_usd counts them. With a cached-input rate it also prices a run in flight (its prompt tokens so far at that rate), so the budget counts a running run before it ends.",
             "fields": [
               {
                 "key": "input_per_mtok",
