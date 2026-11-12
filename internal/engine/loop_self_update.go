@@ -105,7 +105,8 @@ func (e *Engine) selfUpdateLog(path, text string) {
 type selfUpdateState struct {
 	mu    sync.Mutex
 	fails map[string]int // failed attempts by full commit SHA
-	// fetched is the last release the clone was fetched for (see firstFetch).
+	// fetched is the last release the clone was fetched for, so that one release costs one
+	// successful fetch.
 	fetched string
 	// isAncestor replaces Workspaces.IsAncestor in tests whose releases are not real commits.
 	// Nil, as in production, means git.
@@ -127,17 +128,18 @@ func (s *selfUpdateState) fail(ref string, n int) {
 	s.fails[ref] += n
 }
 
-// firstFetch reports whether the clone has not yet been fetched for release ref, and remembers
-// that it now has. One fetch per release is enough: it brings a release commit the clone did not
-// have yet, and a running commit that is still unknown afterwards stays unknown on every pass.
-func (s *selfUpdateState) firstFetch(ref string) bool {
+// fetchedFor reports whether the clone has already been fetched for release ref.
+func (s *selfUpdateState) fetchedFor(ref string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.fetched == ref {
-		return false
-	}
+	return s.fetched == ref
+}
+
+// markFetched remembers that the clone was fetched for release ref.
+func (s *selfUpdateState) markFetched(ref string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.fetched = ref
-	return true
 }
 
 // selfUpdateLoop updates the running daemon to the self project's latest release once that
@@ -277,9 +279,12 @@ func (e *Engine) selfUpdateTarget(ctx context.Context, p *config.Project, minHea
 			continue
 		}
 		ahead, err := e.selfUpdateAhead(ctx, p, rev, d.Ref)
-		if err != nil && e.selfUpd.firstFetch(d.Ref) {
+		if err != nil && !e.selfUpd.fetchedFor(d.Ref) {
 			// Nothing fetches the clone when a release merges, so its commit may not be there yet.
+			// A fetch that fails is tried again on the next pass. One that worked is not repeated
+			// for this release: a commit that is still unknown after it stays unknown.
 			if ferr := e.d.Workspaces.Fetch(ctx, e.repoFor(p)); ferr == nil {
+				e.selfUpd.markFetched(d.Ref)
 				ahead, err = e.selfUpdateAhead(ctx, p, rev, d.Ref)
 			}
 		}

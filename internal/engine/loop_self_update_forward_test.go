@@ -227,3 +227,33 @@ func TestSelfUpdateFetchesAReleaseTheCloneLacks(t *testing.T) {
 		t.Fatalf("updater started for %s, want %s", got, newer)
 	}
 }
+
+// A fetch that fails is tried again on the next pass: the release's commit is still missing, and
+// giving up after one attempt would hold a good update back.
+func TestSelfUpdateRetriesAFetchThatFailed(t *testing.T) {
+	s, r := sufNew(t)
+	running := sufCommit(t, r, "running.txt")
+	newer := lpShippedCommit(t, r, "newer.txt") // on origin, not fetched into the clone
+	s.deploy(newer, domain.DeployHealthy, 20*time.Minute)
+	s.e.d.Version = running[:7]
+
+	gone := r.remote + ".gone" // the remote cannot be reached
+	if err := os.Rename(r.remote, gone); err != nil {
+		t.Fatal(err)
+	}
+	s.loop()
+	if n := s.started(); n != 0 {
+		t.Fatalf("started %d updaters for a release the clone does not have", n)
+	}
+
+	if err := os.Rename(gone, r.remote); err != nil { // the remote is back
+		t.Fatal(err)
+	}
+	s.loop()
+	if s.started() != 1 {
+		t.Fatalf("started %d updaters after the remote came back, want 1", s.started())
+	}
+	if got := s.startedRef(0); got != newer {
+		t.Fatalf("updater started for %s, want %s", got, newer)
+	}
+}
