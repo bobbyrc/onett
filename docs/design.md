@@ -349,6 +349,31 @@ picks up issues labelled `onett` (configurable), so turning a friction issue int
 label — or automatic with `friction.auto_queue`. Comments from OWNER/MEMBER/COLLABORATOR are
 included in the task body; others are ignored.
 
+Before it opens an issue, the friction loop looks for an open one about the same problem, in three
+steps, and stops at the first that finds one. First, an issue with the same title is linked.
+Second, the reporting agent may have named one: each task prompt lists the project's open friction
+issues (number and title, the 20 most recently reported, redacted and labelled as data), and a
+friction entry can carry `"issue": <number>`. Go code accepts that claim only when the issue is
+open and a friction report of the same project is already linked to it; a rejected claim is logged
+and ignored. Third, the report's words are compared with each open friction issue's: titles that
+share half their words, or titles plus bodies that share a quarter (Jaccard similarity of the
+stemmed word sets), count as the same problem. A report matched in the second or third step is
+added to that issue as a "Reported again" comment with its full title and body, and its friction
+row is linked to the issue; once an issue has ten such comments, later reports are linked without
+a comment. The agent's claim can only attach a report to an issue: it cannot close or relabel one,
+and the report is always stored.
+
+The word comparison is strict on purpose. On the 84 friction issues filed up to 2026-11-06 it
+merged no two different problems and caught 18 of the 29 duplicates; the paraphrases it misses are
+what the agent's claim is for.
+
+Friction text, and the summary or blocked reason onett posts on an intake issue, are written by
+agents and go to a tracker that may be public. Both are redacted with `redactSecrets` before they
+are posted, and mention-quoted as before; the stored friction row keeps the original text. The
+friction loop opens at most 20 new issues per project per day. Once the day's 20 are used it stops
+filing until the next day: the remaining reports stay stored and unfiled, and a log line says how
+many.
+
 The self_update loop (`loops.self_update`, on by default for `self_project` once a command is set or inferred, `enabled: false` turns it off) keeps the
 running daemon current. The target is the newest release of the self project that is `healthy` and has been for
 `min_healthy`, even when newer releases exist (merges landing every few minutes would otherwise

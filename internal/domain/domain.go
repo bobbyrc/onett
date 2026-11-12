@@ -371,9 +371,12 @@ type Friction struct {
 	IssueURL    string `json:"issue_url,omitempty"`
 	// IssueState is the filed issue's state as the friction loop last saw it: "open" or
 	// "closed"; empty until known.
-	IssueState string    `json:"issue_state,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	IssueState string `json:"issue_state,omitempty"`
+	// Issue is the open friction issue the reporting agent named as the same problem; 0 when it
+	// named none. The friction loop checks the claim before it attaches the report there.
+	Issue     int       `json:"issue,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // SourceConversation is Task.Source for a follow-up task made from a task agent conversation

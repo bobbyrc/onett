@@ -243,6 +243,7 @@ export interface Friction {
   count: number;
   issue_url?: string;
   issue_state?: 'open' | 'closed';
+  issue?: number;
   created_at: string;
   updated_at: string;
 }
