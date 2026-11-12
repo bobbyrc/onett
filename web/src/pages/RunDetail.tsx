@@ -13,6 +13,7 @@ import { Callout } from '../components/Callout';
 import { ErrorLine } from '../components/ErrorLine';
 import { IdChip } from '../components/IdChip';
 import { LogViewer } from '../components/LogViewer';
+import { NotFound, isNotFound } from '../components/NotFound';
 import { RelTime } from '../components/RelTime';
 import { StatusPill } from '../components/StatusPill';
 import './RunDetail.css';
@@ -28,7 +29,7 @@ export function RunDetail() {
   const now = useNow();
   const canOperate = useCan('operate');
 
-  if (run.isError) return <ErrorLine error={run.error} />;
+  if (run.isError) return isNotFound(run.error) ? <NotFound what="run" /> : <ErrorLine error={run.error} />;
   if (!run.data) return <p className="muted">Loading run…</p>;
 
   const r = run.data;

@@ -57,7 +57,10 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
   stop. The tone names in `src/lib/status.ts` are unchanged; the stylesheet maps them to lamps.
 - **RiskBadge**: condensed caps on one fixed ramp, the same everywhere: low outlined, medium on
   call yellow, high on stop red, unrated as quiet muted text.
-- **RelTime**: "3m ago", full timestamp in `title`.
+- **RelTime**: "3m ago", full timestamp in `title`, with the month as a word ("Aug 7, 2026,
+  3:04:05 PM"). A time over 30 days old shows as a date
+  with the month as a word ("Aug 7, 2026" or "7 Aug 2026", by the browser's locale), so day and
+  month cannot be confused.
 - **Agent names**: wherever the UI shows an agent or role as text it uses `agentLabel` (`web/src/lib/agentLabel.ts`):
   the agent's title, else its key in Title Case ("implementer-claude" → "Implementer Claude", "sre" → "SRE").
   URLs, form values, config, the API and the CLI keep the raw key; each Agents page card shows it as a small mono line.
@@ -180,9 +183,10 @@ as a fallback.
   the agent's line breaks and wraps long flags and paths inside the box, so Retry and Cancel stay
   in view.
 - **Owner-unreachable banner**: above the board, a red callout "Nobody will be told" while
-  `/stats` says `owner_unreachable` (only the log notifier, no channel). It names the fix (set
-  up Telegram, Discord or ntfy) and lists each blocked goal as "Goal X is blocked and you have
-  not been notified: reason".
+  `/stats` says `owner_unreachable` (only the log notifier, no channel). For an owner it links
+  to the fix, Config's Setup tab (`/config?mode=setup`), where Telegram, Discord or ntfy is set up;
+  anyone else is told an owner can do that. It lists each blocked goal as "Goal X is blocked and you
+  have not been notified: reason".
 - **Rate-limit holds**: under the board, an info note per harness held for a rate limit (from
   `holds` in `/stats`): "claude is rate limited. New runs wait until 15:04." Gone once the hold lifts.
 - **Board**: a charcoal band with one window per project (from `/projects`). A window's lamp
@@ -195,8 +199,10 @@ as a fallback.
   the project's tasks. At the right end, the line window: "Line running" or "Line paused", active
   runs, queued tasks and cost today. Windows are 208px, and the band is only as wide as its
   windows and the line window, so one project is a small board, not a wide empty one; when the
-  windows do not fit in one row they wrap into a grid that fills the main column. Empty: "No
-  projects yet." On a phone the band sits inside the page margins with one row per project (the
+  windows do not fit in one row they wrap into a grid that fills the main column. Empty:
+  "No projects yet", with a link to the Projects page, where an owner adds one (anyone else is
+  told an owner can).
+  On a phone the band sits inside the page margins with one row per project (the
   lamp as a side bar, name and reason on the first line, the other counts and the last deploy
   under them) and the line window on one row.
 - Below, two columns (one on a phone, with Needs you moved above the setup card and the board
@@ -360,11 +366,17 @@ line, "Viewers can read conversations but not send messages.", in place of the c
 controls. Filters: project and status. Controls follow the API's rules: Pause on an active goal,
 Resume on a paused or blocked one, Block on an active or paused one, Mark done on any goal not
 done. Done and Block open a text box first, because the API requires a summary or a reason. The
-controls need the operate action. **Goal detail** (`/goals/:id`): title and status, the controls,
+controls need the operate action.
+With no goals the page says how to start one: ask the orchestrator in Chat, or run
+`onett goal create --project P --title T`; with a filter set it says
+"No goals match these filters."
+**Goal detail** (`/goals/:id`): title and status, the controls,
 the project, the turn count, a link to the goal's conversation in Chat, the summary (a callout
 when blocked), the goal text and the tasks queued for it under a Tasks section heading. The goal
 text is rendered Markdown, 20px below the meta line; there, as in task bodies, a heading has 20px
-above it and 6px below, and paragraphs and lists 8px below. `goal.updated` events refresh both.
+above it and 6px below, and paragraphs and lists 8px below. An ID the server does not know shows
+"Goal not found", one line saying why, and a Back to goals
+button. `goal.updated` events refresh both.
 
 **Tasks** (`/tasks`) — filter bar: project select, status chips (multi-select; default
 "active" = queued, running, review, awaiting_approval, merged, deploying, blocked), kind
@@ -376,6 +388,8 @@ other tasks (says what for); Blocked; and Finished, collapsed. "New task" opens 
 title, body (textarea, Markdown), role (optional; lists agents), priority (number). Table
 columns: status, title (with kind tag and source muted under it), project, role, risk, PR
 (#123 link), attempts (`1/3`), updated.
+Each column but the title has a set width, so the columns line up from one section to the next;
+the title takes the rest.
 
 **Task detail** (`/tasks/:id`) — a header row with the title, StatusPill and the Cancel and Retry
 actions (role-gated as before). Under it, one muted line: kind · project · role · from source, then
@@ -391,6 +405,8 @@ that the project is paused, and pending approvals with their decide controls); S
 (Markdown, when present); Runs (# is the attempt number in start order, then status, harness ·
 model, started, duration, cost and link); Subtasks (when there are any); Decided approvals (one
 compact row each: decision, title, time and note).
+An ID the server does not know (deleted, or a wrong link) shows "Task not found", one line saying
+why, and a Back to tasks button instead.
 
 **Run detail** (`/runs/:id`) — header: "role · project" with the StatusPill, and Cancel run on
 the right while the run is active (operators only). Under it, muted: harness · model, then the
@@ -409,6 +425,8 @@ collapsed to 3 lines with "show more"; `denial` on a red-tinted line with a "DEN
 the text; `prompt` (what onett gave the agent to start the run) a muted block labelled "Prompt"; `owner` (a message from the owner) a line labelled "You"; `stderr` muted italic; `error` red; `system` muted. The time gutter is 64px (52px on a
 phone). Logs load from `/runs/:id/logs` and then append `run.log` events for this run,
 deduplicated by `seq`.
+An ID the server does not know shows "Run not found", one line saying why, and a Back to runs
+button instead.
 
 **Approvals** (`/approvals`) — pending by default, with a Pending / All control in the header.
 The list is at most 920px wide so the agent-written prose stays readable. Pending with nothing
@@ -422,7 +440,8 @@ The task cell shows the task's title as a link to the run's page, with a smaller
 giving the project and the task's short ID (a link to the task). Active runs (starting or
 running) come first; the rest keep the server's order, newest first. Filters: project, status.
 On a phone the status is the card's title row and the task comes second, because the stacked
-table always takes the first column as the title.
+table always takes the first column as the title. With no runs at all the page says
+"No runs yet" and what a run is; "No runs match these filters" appears only when a filter is set.
 
 **Deploys** (`/deploys`) — table: project, ref (short SHA mono), state (the deploy's notes sit
 under it in muted text), URL, task, started, updated and Log (a View button that opens the
@@ -445,13 +464,15 @@ outlined button that reads "Running…" and is disabled until the run returns; t
 the table says "Ran Issue Intake for onett." Above the table, one muted line counts loops on, off
 and failing (failing in red when any). When the main column is under 880px (a phone, or a narrow
 window beside the rail), the table becomes one sheet per loop, with a row for each project it runs
-in.
+in. With no loops configured the page says so and links to Config's Loops group
+(`/config?section=loops`).
 
 **Users** (`/users`, owners only; anyone else is sent to Overview) — a table of accounts:
 username (your own row says "(you)"), role, added (a relative time, or a calendar date once it is 30 days old; the full timestamp shows on hover) and actions. The role is a
 select that saves as soon as it changes; changing your own role reloads your session so the
 menus match it. "Set password" opens a field under that row with Save and Cancel. "Remove"
-asks for confirmation. "Add user" opens a sheet above the table with username, password and
+asks for confirmation, and is not offered on the only owner's row, because the server always
+refuses that. "Add user" opens a sheet above the table with username, password and
 role (default operator) and "Create user" or "Cancel". The server's message is shown under the
 table when it refuses a change, such as demoting or removing the last owner.
 

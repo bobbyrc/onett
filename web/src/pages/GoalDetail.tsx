@@ -6,6 +6,7 @@ import { ErrorLine } from '../components/ErrorLine';
 import { GoalActions } from '../components/GoalActions';
 import { IdChip } from '../components/IdChip';
 import { Markdown } from '../components/Markdown';
+import { NotFound, isNotFound } from '../components/NotFound';
 import { PageHeader } from '../components/PageHeader';
 import { RelTime } from '../components/RelTime';
 import { StatusPill } from '../components/StatusPill';
@@ -22,7 +23,7 @@ const columns: Column<Task>[] = [
 export function GoalDetail() {
   const { id = '' } = useParams();
   const detail = useGoal(id);
-  if (detail.isError) return <ErrorLine error={detail.error} />;
+  if (detail.isError) return isNotFound(detail.error) ? <NotFound what="goal" /> : <ErrorLine error={detail.error} />;
   if (!detail.data) return <p className="muted">Loading goal…</p>;
 
   const { goal, tasks } = detail.data;

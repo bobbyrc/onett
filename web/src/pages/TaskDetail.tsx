@@ -7,6 +7,7 @@ import { BlockedReason } from '../components/BlockedReason';
 import { Callout } from '../components/Callout';
 import { ErrorLine } from '../components/ErrorLine';
 import { IdChip } from '../components/IdChip';
+import { NotFound, isNotFound } from '../components/NotFound';
 import { Markdown } from '../components/Markdown';
 import { PageHeader } from '../components/PageHeader';
 import { RelTime } from '../components/RelTime';
@@ -30,7 +31,7 @@ export function TaskDetail() {
   const detail = useTask(id);
   const pausedProjects = usePausedProjects();
 
-  if (detail.isError) return <ErrorLine error={detail.error} />;
+  if (detail.isError) return isNotFound(detail.error) ? <NotFound what="task" /> : <ErrorLine error={detail.error} />;
   if (!detail.data) return <p className="muted">Loading task…</p>;
 
   const { task, runs, approvals, children } = detail.data;

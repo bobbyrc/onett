@@ -1,7 +1,6 @@
 import type { Stats } from '../types';
 
-export const OWNER_UNREACHABLE_MESSAGE =
-  'Only the log notifier is configured, so onett cannot tell you when it needs you. Set up a channel or notifier (Telegram, Discord or ntfy): see docs/channels.md.';
+export const OWNER_UNREACHABLE_MESSAGE = 'Only the log notifier is configured, so onett cannot tell you when it needs you.';
 
 /** The warning to show for these stats: null when the owner can be reached, else the text and a line per blocked goal. */
 export function ownerWarning(stats: Pick<Stats, 'owner_unreachable' | 'blocked_goals'> | undefined): { message: string; goals: { id: string; title: string; text: string }[] } | null {

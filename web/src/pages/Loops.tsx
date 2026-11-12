@@ -1,4 +1,5 @@
 import './Loops.css';
+import { Link } from 'react-router-dom';
 import { useCan } from '../auth';
 import { useRunLoop, useLoops } from '../queries';
 import { Button } from '../components/Button';
@@ -120,7 +121,9 @@ export function Loops() {
         </p>
       ) : null}
       {loops.isSuccess && list.length === 0 ? (
-        <Empty>No loops are configured. Loops are set under loops in onett.yaml.</Empty>
+        <Empty>
+          No loops are configured. They are set in <Link to="/config?section=loops">Config, under Loops</Link>.
+        </Empty>
       ) : null}
       {loops.isSuccess && list.length > 0 ? (
         <>
