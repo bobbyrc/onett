@@ -92,7 +92,7 @@ func TestHeartbeatDigestItems(t *testing.T) {
 	if err := env.st.SaveLoopState(env.ctx, domain.LoopState{Name: loopFriction, Project: "demo", LastError: "gh: boom"}); err != nil {
 		t.Fatal(err)
 	}
-	env.e.d.Bus.Emit(env.ctx, domain.EvSystem, "demo", "", "", "self-update to abcdef1 failed", nil)
+	env.e.recordSelfUpdateFailure(env.ctx, "demo", "abcdef1234", "self-update to abcdef1 failed")
 
 	env.run(loopHeartbeat)
 	if len(rec.digests) != 1 {

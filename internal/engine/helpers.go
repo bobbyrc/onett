@@ -177,6 +177,10 @@ func (e *Engine) goalHandlesBlock(ctx context.Context, t domain.Task) bool {
 	if t.GoalID == "" {
 		return false
 	}
+	// A denial is the owner's to retry (invariant 4), so the owner is told at once.
+	if denied, err := e.blockedByDenial(ctx, t); err != nil || denied {
+		return false
+	}
 	g, err := e.d.Store.GetGoal(ctx, t.GoalID)
 	if err != nil {
 		return false

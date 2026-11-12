@@ -53,6 +53,8 @@ type rtOpts struct {
 	// editConfig, when set, adjusts the parsed config before the engine is built, so the change is
 	// in place before the scheduler starts and cannot race it.
 	editConfig func(*config.Config)
+	// now, when set, is the engine's clock (Deps.Now), so a test can move time itself.
+	now func() time.Time
 }
 
 // rtEnv is a real engine wired to an in-memory store, a shared fake SCM and local bare repos.
@@ -153,6 +155,7 @@ agents:
 			return harness.New(harness.Config{Name: name, Type: h.Type, Command: h.Command, Args: h.Args, Env: h.Env})
 		},
 		AgentEnv:      map[string]string{"ONETT_API": "http://127.0.0.1:1", "ONETT_TOKEN": "test"},
+		Now:           o.now,
 		SchedulerTick: 50 * time.Millisecond,
 	})
 	require.NoError(t, err)

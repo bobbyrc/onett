@@ -32,7 +32,11 @@ export function AccountPanel() {
       <div className="account-row">
         <span className="account-name">
           {me.username}
-          <span className="account-role"> {me.role}</span>
+          <span className="account-role">
+            {' '}
+            (<span className="sr-only">role: </span>
+            {me.role})
+          </span>
         </span>
         <button type="button" className="link-button" onClick={() => void signOut()}>
           Sign out

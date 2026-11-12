@@ -9,11 +9,17 @@ LogLine, Event, Approval, Deployment, Signal, Friction, Conversation, ChatMessag
 
 Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 
-- **The API token** (`Authorization: Bearer <token>`) is for the CLI and the orchestrator agent.
-  It lives at `<data_dir>/token` (created on first start, mode 600). It can read everything and
-  do what operators do (approve, retry, cancel, pause, create tasks, chat, run loops, reload
-  config). It can **never** edit the config file or manage users. `GET /events` also accepts
-  `?token=` because browsers' `EventSource` cannot set headers.
+- **The API tokens** (`Authorization: Bearer <token>`). The **owner token** is for the owner's
+  CLI. It lives at `<data_dir>/token` (created on first start, mode 600). It can read everything
+  and do what operators do (approve, retry, cancel, pause, create tasks, chat, run loops, reload
+  config). The **agent token** is what the orchestrator agent is given. It is derived from the
+  owner token (HMAC-SHA256, so nothing more is stored) and can do the same except a person's
+  decisions, which answer 403 with the reason: `POST /approvals/{id}/decide`,
+  `POST /control/resume`, `POST /projects/{name}/resume`, `POST /goals/{id}/resume`, `/done` and
+  `/block` for a paused goal, `POST /loops/{name}/run`, `POST /conversations/{id}/messages` and
+  `/flush`, and `POST /tasks/{id}/retry` or `/messages` for a task that a denial stopped. Neither
+  token can **ever** edit the config file or manage users. `GET /events` also accepts `?token=`
+  because browsers' `EventSource` cannot set headers.
 - **A signed-in person** uses the `onett_session` cookie, set by `POST /auth/setup` (the first
   account) or `POST /auth/login`. The cookie is HttpOnly and SameSite=Strict, lasts 30 days, and
   is `Secure` when `server.public_url` is https. Sign-out (`POST /auth/logout`) ends the session.
@@ -57,7 +63,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 |---|---|---|
 | `GET /health` | | `{"ok":true,"version":"…","started_at":"…"}`; `started_at` changes when the daemon restarts |
 | `GET /auth/state` | | `{"setup_required":bool,"user":User\|null}` (never 401) |
-| `POST /auth/setup` | `{"username","password"}`; only while no user exists | `User` and sets the cookie (200); 409 once a user exists; 503 busy |
+| `POST /auth/setup` | `{"username","password","code"}`; only while no user exists. `code` is the setup code that `onett open` puts after `#` in the address it opens | `User` and sets the cookie (200); 403 without the right code; 409 once a user exists; 503 busy |
 | `POST /auth/login` | `{"username","password"}` | `User` and sets the cookie (200); 401 wrong credentials; 429 locked; 503 busy |
 | `POST /auth/logout` | | 204, clears the cookie; session only (token gets 403) |
 | `POST /auth/password` | `{"current","new"}` | 204; 403 wrong current password; 429 too many wrong guesses (same count rules as sign-in, keyed to the user); 503 busy; other sessions end; session only |
@@ -88,22 +94,29 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `DELETE /projects/{name}` | `?force=true` | `ConfigSaved` (owner); removes the block from `onett.yaml` and reloads; 409 while the project has queued or running tasks (unless `force`); 404 unknown; deletes no files |
 | `POST /projects/{name}/pause`, `POST /projects/{name}/resume` | | `{"paused":bool,"paused_by":""\|"config"\|"owner"}` (409 resuming a project paused in config) |
 | `GET /tasks` | `?project=&status=queued,running&kind=&goal_id=&sort=pickup\|created&limit=` | `[]Task`, in pickup order by default: running (oldest start first); review, approval, merged, deploying; queued in the scheduler's claim order; queued tasks waiting on others; blocked; then finished, newest first. A claimable queued task has `queue_position` (overall) and `project_queue_position` (among its project). `sort=created` is newest created first |
-| `POST /tasks` | `NewTask` | `Task` (201) |
+| `POST /tasks` | `NewTask` | `Task` (201); 400 for `source: "conversation"`, which only onett creates |
 | `GET /tasks/{id}` | | `TaskDetail` |
 | `GET /tasks/{id}/conversation` | | `TaskConversation`: the task agent's root task, follow-up tasks, runs across them (oldest first), messages, `live_run_id`, and `can_send` with a `reason` when false. A follow-up task id returns its root's conversation. |
-| `POST /tasks/{id}/messages` | `{"text":"…"}` | `ChatMessage` (202). Messages the task's agent (the root task or any follow-up id). A live agent that takes input gets it at once (`run_id` set); otherwise it is queued (`queued: true`) and the next run resumes the agent's session with it, started now when no run is live. 409 with the `reason` when the agent cannot be messaged. A signed-in person or the API token; a token's message is stored with `author: "orchestrator"` (a person's has no `author`) |
+| `POST /tasks/{id}/messages` | `{"text":"…"}` | `ChatMessage` (202). Messages the task's agent (the root task or any follow-up id). A live agent that takes input gets it at once (`run_id` set); otherwise it is queued (`queued: true`) and the next run resumes the agent's session with it, started now when no run is live. 409 with the `reason` when the agent cannot be messaged. A signed-in person or either token; the agent token's message is stored with `author: "orchestrator"` (a person's, and the owner token's, has no `author`). 403 for the agent token when a denial stopped the task |
 | `POST /tasks/{id}/conversation/flush` | | 202; starts the follow-up for queued messages now (the way past a denied, stalled, timed-out or failed run); no-op when none are queued. A signed-in person only (the API token gets 403) |
 | `POST /tasks/{id}/conversation/close` | `{"reason":"…"}` | 204; closes the task agent's conversation: it can no longer be messaged and queued messages stay queued, never delivered. Marks the conversation only; the task is untouched. Closed by `orchestrator` (the API token) or `owner:<username>`; 409 when already closed. Emits `conversation.updated` |
 | `POST /tasks/{id}/conversation/reopen` | | 204; reopens a closed conversation. A signed-in person only (the API token gets 403); 409 when it is open. Emits `conversation.updated` |
 | `GET /agent-conversations` | | `[]AgentConversation`: root tasks with a run; open ones first, then ones closed or active in the last 7 days; at most 100 |
 | `POST /tasks/{id}/cancel` | | 204; also closes the task agent's conversation (by `owner:<username>` or `orchestrator`) |
-| `POST /tasks/{id}/retry` | `{"note":"…"}` (optional) | 204 |
+| `POST /tasks/{id}/retry` | `{"note":"…"}` (optional) | 204; 403 for the agent token when a denial stopped the task or its review |
 | `GET /goals` | `?project=&status=active,blocked&limit=` | `[]Goal` |
 | `POST /goals` | `{"project","title","body"}` | `Goal` (201): active, with its own orchestrator conversation (`conversation_id`) |
 | `GET /goals/{id}` | | `{"goal":Goal,"tasks":[]Task}`: the tasks created with this `goal_id`, newest first |
-| `POST /goals/{id}/pause`, `POST /goals/{id}/resume` | | `Goal`; 409 unless the goal is active (pause) or paused or blocked (resume); resuming a blocked goal resets its turn count so a goal that hit `max_goal_turns` gets a fresh budget |
+| `POST /goals/{id}/pause`, `POST /goals/{id}/resume` | | `Goal`; 409 unless the goal is active (pause) or paused or blocked (resume); resuming a blocked goal resets its turn count so a goal that hit `max_goal_turns` gets a fresh budget, except with the agent token, which resumes it with the count it has |
 | `POST /goals/{id}/done` | `{"summary":"…"}` (required) | `Goal`; notifies the owner (normal priority); 409 when already done |
 | `POST /goals/{id}/block` | `{"reason":"…"}` (required) | `Goal`; notifies the owner (high priority); 409 unless active or paused |
+| `GET /triggers` | | `[]TriggerView`, oldest first; each carries its newest firing as `last_firing` |
+| `POST /triggers` | `{"name","kind","project","prompt","enabled","cron","time_zone","label"}` | `TriggerView` (201, owner); 400 for an unknown field, a bad cron or zone, or a field of the other kind |
+| `GET /triggers/{id}` | | `TriggerView`; 404 unknown |
+| `PATCH /triggers/{id}` | any subset of `{"name","prompt","enabled","cron","time_zone","label"}` | `TriggerView` (owner); fields left out are unchanged; enabling re-arms the trigger. `kind` and `project` are unknown fields (400) |
+| `DELETE /triggers/{id}` | | 204 (owner); deletes the trigger and its firings, not its conversation |
+| `POST /triggers/{id}/run` | | `TriggerFiring` (owner), the one it recorded (cause `manual`). Schedule triggers only: 409 for `github_issue`. Works on a disabled trigger and does not change `next_run_at` |
+| `GET /triggers/{id}/firings` | `?limit=` (default 200) | `[]TriggerFiring`, newest first. `started` means handed to the trigger's conversation; when the message named by `message_id` has `queued: true` and no `run_id`, the prompt is still waiting there. A firing is recorded as `skipped` with a reason when the factory or project is paused, the daily budget is reached, the harness is rate-limited, or the trigger already started 20 firings in the last hour |
 | `GET /runs` | `?task_id=&project=&status=&limit=` | `[]Run` |
 | `GET /runs/{id}` | | `Run` |
 | `GET /runs/{id}/logs` | `?after=<seq>&limit=` (default 1000) | `[]LogLine` |
@@ -116,7 +129,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /loops` | | `[]LoopView` |
 | `POST /loops/{name}/run` | `?project=` | 202 |
 | `GET /agents` | `?project=` (that project's merged view; an unknown project is 400) | `[]AgentView` |
-| `GET /config` | | `Config` with every `env` value (projects and harnesses) and every deploy, observer or notifier option whose key contains `token`, `secret`, `password` or `key` replaced by `"***"` |
+| `GET /config` | | `Config` with secrets replaced by `"***"`: every `env` value (projects and harnesses), every deploy, observer, notifier or channel option whose key contains `token`, `secret`, `password` or `key`, the ntfy `topic`, every value of six characters or more substituted for a `${NAME}` reference, and credentials written as literals in the commands and URLs of harnesses, loops, notifiers, channels and a project's deploy, observers, setup, checks and intake. The last is best effort: it finds the user and password of a URL, the value after a name that contains one of those four words, `Authorization` and bearer values, a `-u user:password` pair, and tokens with a well-known prefix such as `ghp_`. Agent `args` and prose (instructions, prompts, descriptions) are not scanned for literals |
 | `POST /config/reload` | | 204 |
 | `GET /conversations` | | `[]Conversation` |
 | `POST /conversations` | `{"title":"…","project":"…"}` | `Conversation` (201) |
@@ -126,7 +139,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `POST /conversations/{id}/messages` | `{"text":"…","attachments":["id",…]}` (`text` may be empty with attachments; at most `chat.attachments.max_per_message`, each from this conversation, else 400) | `ChatMessage` (202, with `attachments`); 404 for a task agent's conversation. Sent while the orchestrator works, it reaches the agent at once if the harness takes input (`run_id` set), else is queued (`queued: true`) |
 | `GET /conversations/{id}/settings` | | `{settings,defaults,harness,choices}`: the conversation's model, effort and permission mode overrides (empty = the role's default), the role's default model, effort and permission mode (`agents.<name>.model`, `effort`, `permission_mode`), and the `models`, `efforts` and `permission_modes` its harness accepts (`{value,label,hint?,dangerous?}`). Works for task agent conversations too |
 | `GET /new-conversation/settings` | | The same view for a conversation not created yet (the chat start screen): the orchestrator's defaults and choices, with empty `settings`. The client creates the conversation, then `PUT`s the chosen settings, then sends |
-| `PUT /conversations/{id}/settings` | `{"model":"","effort":"","permission_mode":"","confirm_dangerous":false}` | The same view. Applies from the next turn; an empty field resets to the role's default; a value outside `choices` is 400; a `dangerous` permission mode that is not already set needs `confirm_dangerous: true`. A signed-in person only (the API token gets 403). Each run records the `model`, `effort` and `permission_mode` it used |
+| `PUT /conversations/{id}/settings` | `{"model":"","effort":"","permission_mode":"","confirm_dangerous":false}` | The same view. Applies from the next turn; an empty field resets to the role's default; a value outside `choices` is 400; a `dangerous` permission mode that is not already set needs `confirm_dangerous: true`. A signed-in person only (the API token gets 403). Each run records the `model`, `effort` and `permission_mode` it used. A trigger's conversation has `"kind": "trigger"`: settings saved there are stored but not applied, since every turn in it runs with the orchestrator role's defaults, so the UI should disable this control. The server accepts and stores such settings today; it does not apply them. |
 | `POST /conversations/{id}/flush` | | 202; sends the queued messages now (no-op when empty or busy) |
 | `PATCH /messages/{id}` | `{"text":"…"}` | `ChatMessage`; 409 once delivered. A signed-in person only (the API token gets 403) |
 | `DELETE /messages/{id}` | | 204; 409 once delivered. A signed-in person only (the API token gets 403) |
@@ -235,6 +248,10 @@ case the approval is recorded as rejected and the task goes back to review so on
  "prompt_text":"# Role: implementer…","prompt_updates":true,
  "description":"…","context":["AGENTS.md"],"tools":["Bash(go test:*)"],"args":[],"kinds":["feature","bugfix"],
  "uses":[{"kind":"feature","description":"builds features"}]}
+// TriggerView: a Trigger (internal/domain/trigger.go) plus its newest firing, omitted until it has fired
+{"id","name","kind","project","prompt","enabled","cron","time_zone","next_run_at",
+ "label","issues_after","conversation_id","created_at","updated_at",
+ "last_firing":TriggerFiring}   // last_firing is optional
 ```
 
 An `AgentView` says where the agent's settings come from. `origin` is `builtin` (the factory's own,
@@ -268,6 +285,11 @@ JSON data has `"id":0`, so clients must not use it as a resume cursor.
 The server sends `: connected` as soon as a stream opens and `: ping` every 15s. Clients must
 ignore event types they do not know and reconnect with the last `id` they saw. Event types are
 the `Ev*` constants in `internal/domain/domain.go`.
+
+Trigger events are `trigger.updated` (data: the `Trigger`, after a create, a patch, or a firing
+that changed its `next_run_at` or `conversation_id`), `trigger.deleted` (data: `{"id"}`) and
+`trigger.fired` (data: the `TriggerFiring`, once per firing with its final outcome). Their
+constants are in `internal/domain/trigger.go`, and each carries the trigger's project.
 
 ## WebSocket stream
 

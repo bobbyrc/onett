@@ -9,12 +9,13 @@ import (
 	"github.com/bobbyrc/onett/internal/config"
 )
 
-// secretEnvWords mark an environment variable as holding a secret when one of them is a whole
-// segment of its name, split on underscores: GH_TOKEN, SENTRY_AUTH_TOKEN and DATABASE_PASSWORD
-// match, GIT_AUTHOR_NAME does not. Matching substrings instead would also catch AUTHOR and MONKEY.
-// SESSION is not a word: session IDs (CLAUDE_CODE_SESSION_ID) are not secrets, and redacting them
-// mangled the paths that contain them; a session secret is named SESSION_SECRET or SESSION_KEY.
-var secretEnvWords = []string{"TOKEN", "TOKENS", "SECRET", "SECRETS", "PASSWORD", "PASSWD", "PASS", "KEY", "KEYS", "APIKEY", "CREDENTIAL", "CREDENTIALS", "AUTH", "DSN", "COOKIE", "PAT"}
+// secretEnvWords mark an environment variable as holding a secret when one of them, or its plural
+// with an S, is a whole segment of its name, split on underscores: GH_TOKEN, SENTRY_AUTH_TOKEN,
+// DATABASE_PASSWORD and DB_PASSWORDS match, GIT_AUTHOR_NAME does not. Matching substrings instead
+// would also catch AUTHOR and MONKEY. SESSION is not a word: session IDs
+// (CLAUDE_CODE_SESSION_ID) are not secrets, and redacting them mangled the paths that contain
+// them; a session secret is named SESSION_SECRET or SESSION_KEY.
+var secretEnvWords = []string{"TOKEN", "SECRET", "PASSWORD", "PASSWD", "PASS", "KEY", "APIKEY", "CREDENTIAL", "AUTH", "DSN", "COOKIE", "PAT"}
 
 // minSecretLen is the shortest secret value redactSecrets replaces.
 const minSecretLen = 8
@@ -48,12 +49,12 @@ func redactSecrets(s string, env []string) string {
 	return s
 }
 
-// isSecretEnvName reports whether one of secretEnvWords is a whole underscore-separated segment
-// of the upper-cased environment variable name.
+// isSecretEnvName reports whether one of secretEnvWords, or its plural, is a whole
+// underscore-separated segment of the upper-cased environment variable name.
 func isSecretEnvName(name string) bool {
 	for _, seg := range strings.Split(strings.ToUpper(name), "_") {
 		for _, w := range secretEnvWords {
-			if seg == w {
+			if seg == w || seg == w+"S" {
 				return true
 			}
 		}

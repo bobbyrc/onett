@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -60,6 +62,11 @@ func (l *reloadLog) get() []string {
 	return append([]string(nil), l.ev...)
 }
 
+// reloadTypeSeq makes the fake channel type's name unique for each run of the test below.
+// channel.Register panics on a type registered twice, and the registry lives as long as the
+// process, so a fixed name let the test run only once in it (go test -count=2 panicked).
+var reloadTypeSeq atomic.Int64
+
 // A reload with a new notifier, a changed channel option and a changed secret takes effect with
 // no restart, and a notifier set that cannot be built leaves the old one running.
 func TestApplyReloadSwapsNotifiersAndRestartsChannels(t *testing.T) {
@@ -71,7 +78,8 @@ func TestApplyReloadSwapsNotifiersAndRestartsChannels(t *testing.T) {
 		return sink, nil
 	})
 	log := &reloadLog{}
-	channel.Register("zz-reload-chan", channel.Registration{
+	chanType := fmt.Sprintf("zz-reload-chan-%d", reloadTypeSeq.Add(1))
+	channel.Register(chanType, channel.Registration{
 		SkipApprovalsForNotifier: "zz-reload-sink",
 		Factory: func(c config.Channel, env channel.Env) (channel.Starter, error) {
 			id, _ := c.Options["id"].(string)
@@ -95,7 +103,7 @@ func TestApplyReloadSwapsNotifiersAndRestartsChannels(t *testing.T) {
 	notifier := notify.NewSwappable(nil)
 
 	chans := func(id string) []config.Channel {
-		return []config.Channel{{Type: "zz-reload-chan", Options: map[string]any{"id": id}}}
+		return []config.Channel{{Type: chanType, Options: map[string]any{"id": id}}}
 	}
 	sinks := func(fail bool) []config.Notifier {
 		return []config.Notifier{{Type: "zz-reload-sink", Options: map[string]any{"fail": fail}}}

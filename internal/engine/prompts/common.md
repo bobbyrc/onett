@@ -60,3 +60,7 @@ the task.
   script, confusing tooling, or a problem with onett itself (`target: "onett"`). One
   entry per distinct problem, concrete enough that someone can fix it. These become GitHub
   issues, so they are how the factory improves itself. Leave it empty when nothing did.
+  When your task lists **Known friction** and your problem is one of those issues, still
+  report it, and add `"issue": <its number>` to the entry (for example `"issue": 224`): onett
+  then adds your report to that issue instead of opening a duplicate. Do this only for the
+  same problem, not a similar one; otherwise leave `issue` out.

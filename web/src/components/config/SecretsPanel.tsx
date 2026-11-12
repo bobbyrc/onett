@@ -91,8 +91,7 @@ export function SecretsPanel() {
     <section aria-label="Secrets">
       <p className="muted">
         Tokens, webhook URLs and keys live in <span className="mono">secrets.env</span>, next to the config. They can be
-        set here but never read back. Channel and notifier secrets are read when the daemon starts, so restart it after
-        changing one of those.
+        set here but never read back. A saved secret applies at once, including to chat bots and notifiers.
       </p>
       <ErrorLine error={secrets.error ?? failure} />
       {notice ? (

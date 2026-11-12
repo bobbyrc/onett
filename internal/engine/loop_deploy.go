@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -153,15 +155,36 @@ func (e *Engine) startRelease(ctx context.Context, p *config.Project, dep deploy
 	}
 	e.d.Bus.Emit(ctx, domain.EvDeployUpdated, p.Name, d.TaskID, "", "deploy "+deployShortRef(d.Ref)+" pending", d)
 
-	handle, err := dep.Deploy(ctx, d.Ref)
+	// The release is marked deploying before its command starts, so the record always says
+	// whether the command may have run: a pending release never ran it, and a deploying one
+	// without a provider ID ran it and has no result yet (see advanceInterrupted).
+	if d, err = e.setDeployment(ctx, d.ID, func(x *domain.Deployment) error {
+		x.State = domain.DeployDeploying
+		return nil
+	}); err != nil {
+		return err
+	}
+	handle, err := e.runDeploy(ctx, dep, d)
 	if err != nil {
+		if ctx.Err() != nil {
+			// The loop's context ended (onett is stopping, or a manual run was cancelled), and
+			// that killed the command part-way. Nothing can be stored on an ended context, and
+			// the outcome is unknown anyway: the next tick or start settles it.
+			e.d.Logger.Info("deploy watch: deploy command interrupted; the release is checked on the next tick or start",
+				"project", p.Name, "deployment", d.ID)
+			return nil
+		}
 		return e.failRelease(ctx, p, dep, d, "deploy failed to start: "+err.Error(), false)
 	}
 	if _, err := e.setDeployment(ctx, d.ID, func(x *domain.Deployment) error {
+		// An empty provider ID marks a command with no recorded result, so a finished deploy
+		// never keeps it empty: a deployer that gives no ID gets the release's own.
 		x.ProviderID = handle.ID
+		if x.ProviderID == "" {
+			x.ProviderID = x.ID
+		}
 		x.URL = handle.URL
 		x.Log = deployOutputEvidence(redactSecrets(handle.Output, evidenceEnv(p)))
-		x.State = domain.DeployDeploying
 		return nil
 	}); err != nil {
 		return err
@@ -173,17 +196,88 @@ func (e *Engine) startRelease(ctx context.Context, p *config.Project, dep deploy
 	return err
 }
 
+// runDeploy runs the release's deploy command. For a deployer that runs a local process it keeps
+// the command's process ID in a file in the data directory while the command runs, so that a
+// daemon started after a crash can tell whether the command is still going (see
+// advanceInterrupted).
+func (e *Engine) runDeploy(ctx context.Context, dep deploy.Deployer, d domain.Deployment) (deploy.Handle, error) {
+	pd, ok := dep.(deploy.ProcessDeployer)
+	if !ok {
+		return dep.Deploy(ctx, d.Ref)
+	}
+	pidFile := e.deployPIDFile(d.ID)
+	defer func() { _ = os.Remove(pidFile) }()
+	return pd.DeployProcess(ctx, d.Ref, func(pid int) {
+		// A failed write is not fatal: the release is then judged without waiting for the command.
+		if err := os.WriteFile(pidFile, []byte(strconv.Itoa(pid)+"\n"), 0o600); err != nil {
+			e.d.Logger.Warn("deploy watch: write deploy pid file", "deployment", d.ID, "err", err)
+		}
+	})
+}
+
+// deployPIDFile is where the process ID of a release's running deploy command is kept.
+func (e *Engine) deployPIDFile(id string) string {
+	return filepath.Join(e.Config().Server.DataDir, "deploy-"+id+".pid")
+}
+
 // advanceRelease moves an active release along.
 func (e *Engine) advanceRelease(ctx context.Context, p *config.Project, dep deploy.Deployer, d domain.Deployment) error {
 	switch d.State {
 	case domain.DeployPending:
-		// Only a crash between recording and starting the release leaves a pending one.
+		// Only a crash between recording the release and marking it deploying leaves a pending
+		// one, so its command never ran.
 		return e.failRelease(ctx, p, dep, d, "deploy was interrupted before it started", false)
 	case domain.DeployDeploying:
+		if d.ProviderID == "" {
+			return e.advanceInterrupted(ctx, p, dep, d)
+		}
 		return e.advanceDeploying(ctx, p, dep, d)
 	default:
 		return e.advanceVerifying(ctx, p, dep, d)
 	}
+}
+
+// advanceInterrupted settles a release whose deploy command started but whose result was never
+// recorded: onett stopped or crashed while the command ran. The command may have been killed
+// part-way, have finished, or (after a crash) still be running. It is never run again; what is
+// serving decides. The release goes to the health window, where it is kept if healthy and rolled
+// back if not. Without a health URL nothing can be checked, so it is failed with a rollback.
+func (e *Engine) advanceInterrupted(ctx context.Context, p *config.Project, dep deploy.Deployer, d domain.Deployment) error {
+	pidFile := e.deployPIDFile(d.ID)
+	// updaterRunning works for any PID file: it reports whether the process named in it is alive.
+	if updaterRunning(pidFile) {
+		if e.d.Now().Sub(d.StartedAt) <= deployTimeout(p) {
+			e.d.Logger.Info("deploy watch: interrupted deploy command is still running; waiting for it",
+				"project", p.Name, "deployment", d.ID)
+			return nil
+		}
+		// shortcut: past the timeout the release is judged while its command may still run,
+		// because killing a PID read from a file could hit an unrelated process; check that the
+		// process is the deploy command before killing it, if this ever bites.
+		_ = os.Remove(pidFile)
+	}
+	const interrupted = "deploy command was interrupted before its result was recorded"
+	if p.Deploy.HealthURL == "" {
+		return e.failRelease(ctx, p, dep, d, interrupted+", and without a health_url onett cannot tell what is serving", true)
+	}
+	now := e.d.Now().UTC()
+	if _, err := e.setDeployment(ctx, d.ID, func(x *domain.Deployment) error {
+		x.State = domain.DeployVerifying
+		x.VerifyingSince = &now
+		x.Notes = interrupted + "; judged by the health check"
+		x.Log = appendEvidence(x.Log, "== deploy interrupted ==\nThe deploy command was interrupted before onett recorded its result (a daemon restart or crash). It was not run again; the health check decides whether the release is kept.\n")
+		return nil
+	}); err != nil {
+		return err
+	}
+	if d.TaskID == "" {
+		return nil
+	}
+	_, _, err := e.setTaskFrom(ctx, d.TaskID, []domain.TaskStatus{domain.TaskMerged}, "deploy "+deployShortRef(d.Ref)+" was interrupted; verifying what is serving", func(x *domain.Task) error {
+		x.Status = domain.TaskDeploying
+		return nil
+	})
+	return err
 }
 
 // advanceDeploying waits for the provider to finish building the release.
@@ -241,13 +335,17 @@ func (e *Engine) advanceVerifying(ctx context.Context, p *config.Project, dep de
 	if err != nil {
 		return fmt.Errorf("list signals: %w", err)
 	}
-	minRank := signalLevelRank(e.Config().LoopsFor(p.Name).ProdWatch.MinLevel)
+	// The same threshold as the production watch (see handleObservation): a signal below
+	// min_level, or seen fewer than min_count times, opens no incident, so it does not fail a
+	// release either.
+	watch := e.Config().LoopsFor(p.Name).ProdWatch
+	minRank := signalLevelRank(watch.MinLevel)
 	var titles []string
 	for _, s := range signals {
-		if s.CreatedAt.Before(since) || signalLevelRank(s.Level) < minRank {
+		if s.CreatedAt.Before(since) || signalLevelRank(s.Level) < minRank || s.Count < watch.MinCount {
 			continue
 		}
-		titles = append(titles, s.Title)
+		titles = append(titles, signalShortTitle(s.Title))
 	}
 	if len(titles) > 0 {
 		if len(titles) > deployProbeTitles {
@@ -275,7 +373,9 @@ func (e *Engine) advanceVerifying(ctx context.Context, p *config.Project, dep de
 		}
 		if err == nil {
 			label = t.Title
-			if _, _, err := e.setTaskFrom(ctx, t.ID, []domain.TaskStatus{domain.TaskDeploying}, "deployed and verified", func(x *domain.Task) error {
+			// Merged counts too: a crash between a release's own write and its task's leaves
+			// the task merged, and a task left merged would be deployed a second time.
+			if _, _, err := e.setTaskFrom(ctx, t.ID, []domain.TaskStatus{domain.TaskMerged, domain.TaskDeploying}, "deployed and verified", func(x *domain.Task) error {
 				x.Status = domain.TaskDone
 				return nil
 			}); err != nil {

@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
+import { useCan } from '../auth';
 import { DEPLOYMENT_LIMIT, useControl, useDeployments, useProjects, useStats } from '../queries';
 import { formatCost } from '../lib/format';
 import { lampDetail, projectLamp } from '../lib/lamp';
@@ -7,6 +8,7 @@ import { deployStopped, deployWords, latestDeploys } from '../lib/boardDeploy';
 import type { Deployment, ProjectView } from '../types';
 import { ErrorLine } from './ErrorLine';
 import { RelTime } from './RelTime';
+import './AndonBoard.css';
 
 /**
  * The Overview's lamp board: one window per project, lit by what the project needs, and the line
@@ -14,6 +16,7 @@ import { RelTime } from './RelTime';
  */
 export function AndonBoard() {
   const projects = useProjects();
+  const owner = useCan('administer');
   const deployments = useDeployments('');
   const latest = latestDeploys(deployments.data ?? []);
   // Only a loaded list shorter than the limit can say a project never deployed.
@@ -39,7 +42,12 @@ export function AndonBoard() {
           );
         })}
         {projects.isSuccess && projects.data.length === 0 ? (
-          <p className="board-empty">No projects yet. Add one with <code>onett project add</code> and it appears here.</p>
+          // Only an owner has the Add project button there.
+          <p className="board-empty">
+            {owner ? 'No projects yet. Add one on the ' : 'No projects yet. An owner can add one on the '}
+            <Link to="/projects">Projects page</Link>
+            {owner ? ' and it appears here.' : '.'}
+          </p>
         ) : null}
         {projects.error ? (
           <div className="board-empty">

@@ -99,6 +99,8 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 	events := sess.Events()
 	var batch []domain.LogLine
 	savedSession := false
+	// prompt sums the prompt tokens of the run's model requests so far; lastPrompt is the latest.
+	var prompt, lastPrompt int64
 	for events != nil {
 		select {
 		case ev, ok := <-events:
@@ -119,9 +121,21 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 				})
 			}
 			if ev.ContextTokens > 0 && ev.Kind == "" {
-				// Live context size: not a log line, only the run's current fill.
+				// Live context size: not a log line, only the run's current fill. Each event is one
+				// model request, so the sizes also add up to the input the run has used so far. An
+				// adapter may report one request more than once; a repeat has the same size, which
+				// two requests in a row do not, because the prompt grows with every answer.
+				if ev.ContextTokens != lastPrompt {
+					prompt += ev.ContextTokens
+					lastPrompt = ev.ContextTokens
+				}
+				soFar := e.costSoFar(run.Harness, prompt)
 				e.updateRun(bg, run.ID, func(r *domain.Run) error {
 					r.ContextTokens = ev.ContextTokens
+					// Never lowered: after a restart the sum starts again from the reattach point.
+					if soFar > r.CostUSD {
+						r.CostUSD, r.CostEstimated = soFar, true
+					}
 					return nil
 				})
 				continue
@@ -203,13 +217,15 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 		r.Status = status
 		r.EndedAt = &endedAt
 		r.ExitCode = res.ExitCode
-		r.CostUSD = res.CostUSD
-		r.CostEstimated = false
 		r.Billing = res.Billing
 		if b := e.Config().Harness[run.Harness].Billing; b == harness.BillingMetered || b == harness.BillingSubscription {
 			r.Billing = b
 		}
-		if p := e.Config().Harness[run.Harness].Price; res.CostUSD == 0 && p != nil {
+		// A run that ends without a cost or tokens to estimate one from (stopped, stalled, timed
+		// out) keeps its cost so far: the money was spent.
+		if res.CostUSD > 0 {
+			r.CostUSD, r.CostEstimated = res.CostUSD, false
+		} else if p := e.Config().Harness[run.Harness].Price; p != nil {
 			if est := p.Estimate(res.InputTokens, res.CachedInputTokens, res.OutputTokens); est > 0 {
 				r.CostUSD, r.CostEstimated = est, true
 			}
@@ -230,6 +246,21 @@ func (e *Engine) supervise(ctx context.Context, run domain.Run, sess harness.Ses
 		return nil
 	})
 	return res, status, reason
+}
+
+// costSoFar estimates what a run in flight has cost from the prompt tokens of its model requests
+// so far, so that the daily budget can count it before it ends. Every token is priced as cached
+// input, the cheapest kind, and output is left out, so the figure stays at or below the cost the
+// run reports when it ends and the budget never stops runs on a guess that is too high. It is
+// therefore 0 unless the harness's price has a cached-input rate (the full input rate can be ten
+// times too high for a run that reads mostly from cache), and 0 for a harness set to subscription
+// billing, which the budget leaves out.
+func (e *Engine) costSoFar(harnessName string, promptTokens int64) float64 {
+	h := e.Config().Harness[harnessName]
+	if h.Price == nil || h.Price.CachedInputPerMTok <= 0 || h.Billing == harness.BillingSubscription {
+		return 0
+	}
+	return float64(promptTokens) * h.Price.CachedInputPerMTok / 1e6
 }
 
 // saveProgress stores how far into the run's shim output the log goes and when it last produced

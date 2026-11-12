@@ -1,5 +1,5 @@
-// Answers every /api/v1 call from fixtures, and stands in for the /api/v1/ws socket, so a page
-// renders with no daemon behind it.
+// Answers every /api/v1 call from fixtures, and stands in for the /api/v1/ws socket (it confirms
+// subscribes and sends nothing else), so a page renders with no daemon behind it.
 import type { Page } from '@playwright/test';
 import * as f from './fixtures';
 import type { ConversationSettingsView } from '../src/types';
@@ -116,7 +116,13 @@ export async function mockBackend(page: Page): Promise<string[]> {
     }
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
-  // Accept the live-event socket and say nothing on it.
-  await page.routeWebSocket(/\/api\/v1\/ws/, () => {});
+  // Accept the live-event socket. It sends no events, but it must confirm every subscribe: the
+  // UI keeps its live light on "reconnecting…" until a chat or run watch is confirmed.
+  await page.routeWebSocket(/\/api\/v1\/ws/, (ws) => {
+    ws.onMessage((raw) => {
+      const msg = JSON.parse(String(raw)) as { kind: string; run_id?: string; conversation_id?: string };
+      if (msg.kind === 'subscribe') ws.send(JSON.stringify({ kind: 'subscribed', run_id: msg.run_id, conversation_id: msg.conversation_id }));
+    });
+  });
   return unmocked;
 }
