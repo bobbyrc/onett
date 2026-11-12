@@ -117,6 +117,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `DELETE /triggers/{id}` | | 204 (owner); deletes the trigger and its firings, not its conversation |
 | `POST /triggers/{id}/run` | | `TriggerFiring` (owner), the one it recorded (cause `manual`). Schedule triggers only: 409 for `github_issue`. Works on a disabled trigger and does not change `next_run_at` |
 | `GET /triggers/{id}/firings` | `?limit=` (default 200) | `[]TriggerFiring`, newest first. `started` means handed to the trigger's conversation; when the message named by `message_id` has `queued: true` and no `run_id`, the prompt is still waiting there. A firing is recorded as `skipped` with a reason when the factory or project is paused, the daily budget is reached, the harness is rate-limited, or the trigger already started 20 firings in the last hour |
+| `GET /trigger-firings` | `?limit=` (default 50) | `[]TriggerFiring` across all triggers, newest first: the log of recent firings. A firing carries `trigger_id`, not the trigger's name; join it with `GET /triggers` |
 | `GET /runs` | `?task_id=&project=&status=&limit=` | `[]Run` |
 | `GET /runs/{id}` | | `Run` |
 | `GET /runs/{id}/logs` | `?after=<seq>&limit=` (default 1000) | `[]LogLine` |

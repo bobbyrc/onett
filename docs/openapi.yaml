@@ -1166,6 +1166,36 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /trigger-firings:
+    get:
+      operationId: listAllTriggerFirings
+      tags: [triggers]
+      summary: Recent firings across all triggers, newest first.
+      description: The log of recent firings. Each firing carries its trigger's ID; join it with GET /triggers for names. The default limit is 50.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of firings; default 50
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        '200':
+          description: The firings, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TriggerFiring'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /runs:
     get:
       operationId: listRuns
