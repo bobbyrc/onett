@@ -119,6 +119,13 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   of staff) refuse to run. This boundary is the API's and the CLI's: an agent that
   deliberately reads `<data_dir>/token` as your user is stopped only by isolating agents (see
   [docs/proposals/agent-isolation.md](docs/proposals/agent-isolation.md)).
+  A reviewer agent runs in the branch it reviews, but its CLI does not
+  load that branch's own agent configuration: Claude Code takes no settings, hooks, MCP servers,
+  skills or instruction files (`CLAUDE.md`, `AGENTS.md`) from it. Onett puts the base branch's
+  root `AGENTS.md` and `CLAUDE.md` (up to 32 KiB each) in the reviewer's prompt instead, so the
+  reviewer holds a change to the project's merged rules, not to the branch's own copy of them.
+  This is not isolation: the project's `setup`, and anything the reviewer runs, still execute the
+  branch's code as your user. For Codex see the known limit below.
 - **People sign in; config, users and triggers change only through them.** The web UI signs people
   in with a username and password (roles: viewer reads, operator also acts on work, owner also
   edits `onett.yaml`, manages users and manages triggers). Neither API token (yours, which the CLI
@@ -149,7 +156,8 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   [docs/proposals/agent-isolation.md](docs/proposals/agent-isolation.md).
 - **Self-assigned work is rated higher.** Follow-up and retro tasks (task sources `followup` and
   `retro`) are rated at least `medium` (under `supervised`, they wait for you) by a built-in policy rule, and so is any change to onett's
-  own gates and agent instructions (`high`). Add rules with a policy's `extra_rules`. Setting
+  own gates and agent instructions (`high`) or to the agent CLIs' own configuration (`.claude/`,
+  `.mcp.json`, `.codex/`; also `high`). Add rules with a policy's `extra_rules`. Setting
   `rules` instead **replaces** all the built-in rules, so copy back any you want to keep.
 - **Daily budget.** `limits.daily_budget_usd` stops new task runs once today's reported cost
   of pay-per-token runs reaches it. Runs on a flat-rate subscription (Claude Code signed in with
@@ -164,8 +172,9 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   subscription, set that harness's `billing: subscription` too: the mode is otherwise detected only when a run ends.
   Codex reports no cost, so it counts only if its
   harness has a `price` (per-million-token rates), which gives an estimate shown as `~$0.42`.
-- **Risk only goes up.** Final risk is the highest of the rules the diff matches and the agent's own
-  rating. An agent cannot lower it.
+- **Risk only goes up.** Final risk is the highest of the rules the diff matches, the agent's own
+  rating and the reviewer's. An agent cannot lower it: a rating recorded for a pull request stays
+  when a later run reports a lower one.
 - **Merges are pinned to a commit.** A merge uses `gh pr merge --match-head-commit`, so it merges the
   exact commit that CI and review judged. An approval covers one commit. If the PR changes, the
   approval is withdrawn and the PR is checked again.
@@ -191,7 +200,7 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   re-queue.
   A policy's `require_checks: true` makes a PR with no CI checks wait (then block after 30 minutes)
   instead of counting as "no CI"; use it for repositories that always run CI.
-- **Evidence is redacted, agent text cannot ping.** Deploy output, service logs, loop errors and
+- **Evidence is redacted, agent text cannot ping.** Deploy, setup and check output, service logs, loop errors and
   production signals have secret values (env vars named like `*_TOKEN`, `*_SECRET`, `*_KEY`, and
   URLs with credentials) replaced with `***` before they are stored or shown to an agent. Agent text
   posted to GitHub has its @mentions neutralised, so an agent cannot notify people.
@@ -199,7 +208,9 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   Requests whose Host header is not local or configured are refused (DNS-rebinding guard).
 - **Known limit with Codex.** Claude Code reports refused tool calls in machine-readable form.
   Codex reports sandbox refusals only in prose. For Codex, "a denial stops the task" therefore relies
-  on the agent prompt ("if denied, report blocked") and on the stall timeout.
+  on the agent prompt ("if denied, report blocked") and on the stall timeout. A Codex reviewer
+  leaves out the reviewed branch's `AGENTS.md`, but Codex still loads that branch's
+  `.codex/config.toml` if you have marked the repository as trusted in your Codex config.
 
 ## Quick start
 
