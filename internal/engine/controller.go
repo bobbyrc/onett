@@ -152,6 +152,7 @@ func (e *Engine) RetryTask(ctx context.Context, id, note string) error {
 		t.Status = domain.TaskQueued
 		t.Attempts = 0
 		t.BlockedReason = ""
+		t.BlockedCause, t.BlockedDetail, t.BlockedAt = "", "", nil
 		t.FollowUpPending = false
 		if note != "" {
 			t.Body += "\n\n" + heading + "\n\n" + note

@@ -117,6 +117,8 @@ type hbItemMemory struct {
 	Heartbeats int       `json:"heartbeats"`        // consecutive ticks (outside quiet hours) in the digest
 	Actions    []string  `json:"actions,omitempty"` // "RFC3339 time: line", newest last
 	Escalated  bool      `json:"escalated,omitempty"`
+	// EscalatedAt is when the owner was told. Zero for an item escalated before the time was kept.
+	EscalatedAt time.Time `json:"escalated_at,omitzero"`
 	// Unwoken marks an item the orchestrator has not been shown because the wake failed. It stays
 	// new, so the next tick wakes again, while its heartbeats still count towards escalation.
 	Unwoken bool `json:"unwoken,omitempty"`
@@ -341,6 +343,7 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 			continue
 		}
 		mem.Escalated = true
+		mem.EscalatedAt = now.UTC()
 		cur.Items[it.Key] = mem
 		e.escalateHeartbeat(ctx, p, it, mem, now)
 		cur.EscalationTimes = append(cur.EscalationTimes, now.UTC())

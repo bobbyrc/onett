@@ -51,6 +51,8 @@ tags:
   - name: signals
   - name: friction
   - name: loops
+  - name: problems
+    description: What is wrong per project, for the Overview page.
   - name: config
     description: Reading and saving onett.yaml. Owner sessions only; the API token cannot.
   - name: conversations
@@ -1484,6 +1486,26 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/LoopView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /problems:
+    get:
+      operationId: listProblems
+      tags: [problems]
+      summary: What is wrong in each project, one entry per cause.
+      description: |
+        Blocked tasks grouped by the cause of their block, the failing loops of each project, and
+        blocked goals. `[]` when nothing is wrong. Read-only; the Overview page reads it.
+      responses:
+        '200':
+          description: Problems, sorted by project, then kind, then size and age.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Problem'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -3148,6 +3170,16 @@ components:
           description: The latest agent summary.
         blocked_reason:
           type: string
+        blocked_cause:
+          type: string
+          description: The short reason onett gave up, such as `workspace setup failed`. Tasks that share it share a cause. Empty for any other block.
+        blocked_detail:
+          type: string
+          description: The underlying error, redacted and cut to its last 2,000 characters. Empty for any other block.
+        blocked_at:
+          type: string
+          format: date-time
+          description: When the task was blocked.
         goal_id:
           type: string
           description: The goal this task works toward, when it was queued for one.
@@ -4363,6 +4395,80 @@ components:
         options:
           type: object
           additionalProperties: true
+
+    Problem:
+      type: object
+      required: [kind, project, key, title, detail, count, since]
+      properties:
+        kind:
+          type: string
+          enum: [blocked_tasks, failing_loops, blocked_goal]
+        project:
+          type: string
+        key:
+          type: string
+          description: Unique in one response, and the same while the problem lasts.
+        title:
+          type: string
+          description: One line, at most 200 characters. For `blocked_tasks`, the cause or the whole reason; for `blocked_goal`, the goal's title; empty for `failing_loops`.
+        detail:
+          type: string
+          description: "One to three lines, at most 300 characters in all: the first non-empty line of the underlying error and its last two, each redacted and cut from its start. A blocked goal's reason is one line. May be empty."
+        count:
+          type: integer
+          description: For `blocked_tasks`, how many tasks; for `failing_loops`, the longest run of failed passes; 1 for a goal.
+        since:
+          type: string
+          format: date-time
+          description: For `blocked_tasks`, the earliest block; for `failing_loops`, the earliest streak start; for `blocked_goal`, the goal's last update.
+        last_at:
+          type: string
+          format: date-time
+          description: For `blocked_tasks`, the latest block; for `failing_loops`, the latest failed pass. Absent for goals.
+        told_at:
+          type: string
+          format: date-time
+          description: When onett last notified the owner about this problem after it stayed open. Absent when it has not.
+        tasks:
+          type: array
+          description: For `blocked_tasks` only, most recently blocked first, at most 50.
+          items:
+            $ref: '#/components/schemas/ProblemTask'
+        loops:
+          type: array
+          description: For `failing_loops` only, one per failing loop of the project.
+          items:
+            $ref: '#/components/schemas/ProblemLoop'
+        goal_id:
+          type: string
+          description: For `blocked_goal` only.
+
+    ProblemTask:
+      type: object
+      required: [id, title, attempts, max_attempts]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        attempts:
+          type: integer
+        max_attempts:
+          type: integer
+
+    ProblemLoop:
+      type: object
+      required: [name, fails, since]
+      properties:
+        name:
+          type: string
+        fails:
+          type: integer
+          description: How many passes failed in a row.
+        since:
+          type: string
+          format: date-time
+          description: When the streak of failures began.
 
     Loop:
       type: object

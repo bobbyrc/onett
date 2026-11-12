@@ -55,6 +55,8 @@ export function respond(path: string): Json | undefined {
       return f.signals;
     case 'friction':
       return f.friction;
+    case 'problems':
+      return f.problems;
     case 'loops':
       return f.loops;
     case 'agents':
