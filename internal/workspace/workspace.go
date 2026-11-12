@@ -100,23 +100,54 @@ func (m *Manager) ensureClone(ctx context.Context, r Repo) error {
 		if err := os.MkdirAll(filepath.Dir(r.Path), 0o755); err != nil {
 			return fmt.Errorf("create parent of clone %s: %w", r.Path, err)
 		}
-		if _, err := git(ctx, "", "clone", remoteURL(r), r.Path); err != nil {
+		// The clone does not exist yet, so no agent has written anything in it.
+		if _, err := gitNet(ctx, "", "clone", remoteURL(r), r.Path); err != nil {
 			return fmt.Errorf("clone %s: %w", r.Name, err)
 		}
 	case err != nil:
 		return fmt.Errorf("stat clone %s: %w", r.Path, err)
 	}
-	if _, err := git(ctx, r.Path, "fetch", "origin", "--prune"); err != nil {
+	if err := fetchOrigin(ctx, r); err != nil {
 		return fmt.Errorf("fetch %s: %w", r.Name, err)
 	}
 	return alignCheckout(ctx, r)
+}
+
+// fetchOrigin brings the clone's origin/* branches up to date with the remote and removes the
+// ones the remote deleted. The download runs in a scratch repository, so the command that holds
+// onett's credentials never reads the clone's config; the clone then takes the result from the
+// scratch repository with a command that holds none. The caller holds the clone lock.
+func fetchOrigin(ctx context.Context, r Repo) error {
+	l, err := resolveLayout(r.Path)
+	if err != nil {
+		return err
+	}
+	// This also puts remote.origin.url back to the project's remote.
+	if err := repairConfig(l.commonDir, remoteURL(r)); err != nil {
+		return err
+	}
+	s, err := newScratch(ctx, r.Path)
+	if err != nil {
+		return err
+	}
+	defer s.close()
+	// The scratch repository starts from what the clone already has, so the remote sends only
+	// what is new.
+	if _, err := s.git(ctx, "fetch", "--quiet", r.Path, "+refs/remotes/origin/*:refs/onett/*"); err != nil {
+		return err
+	}
+	if _, err := s.gitNet(ctx, "fetch", "--quiet", "--prune", remoteURL(r), "+refs/heads/*:refs/onett/*"); err != nil {
+		return err
+	}
+	_, err = git(ctx, r.Path, "fetch", "--quiet", "--prune", s.dir, "+refs/onett/*:refs/remotes/origin/*")
+	return err
 }
 
 // alignCheckout detaches the clone's own checkout at origin/<DefaultBranch>. A fresh clone checks
 // out the remote's HEAD, which can be another branch, and people reading the project path should
 // see the project's default branch. A clone with local modifications is left alone.
 func alignCheckout(ctx context.Context, r Repo) error {
-	status, err := git(ctx, r.Path, "status", "--porcelain")
+	status, err := git(ctx, r.Path, "status", "--porcelain", "--ignore-submodules=all")
 	if err != nil {
 		return fmt.Errorf("status %s: %w", r.Name, err)
 	}
@@ -235,8 +266,12 @@ func releaseBranch(ctx context.Context, clone, branch string) error {
 			continue
 		}
 		if _, err := os.Stat(e.path); err == nil {
-			if err := saveWork(ctx, e.path); err != nil {
-				return err
+			// A worktree whose .git no longer points into this clone is not committed from; it is
+			// only removed.
+			if checkWorktreeOf(clone, e.path) == nil {
+				if err := saveWork(ctx, e.path); err != nil {
+					return err
+				}
 			}
 			if _, err := git(ctx, clone, "worktree", "remove", "--force", e.path); err != nil {
 				return fmt.Errorf("remove stale worktree %s of %s: %w", e.path, branch, err)
@@ -249,10 +284,31 @@ func releaseBranch(ctx context.Context, clone, branch string) error {
 	return nil
 }
 
+// stageAll stages every change in the worktree, like `git add -A`, without letting git look
+// inside nested repositories. For a path that is a repository of its own (a submodule, or a
+// directory an agent ran `git init` in), `git add` starts git inside it, and that git reads the
+// nested repository's own config, which the agent wrote. Such paths are left as the index
+// already has them: an agent that means to change one stages it itself.
+func stageAll(ctx context.Context, dir string) error {
+	out, err := git(ctx, dir, "ls-files", "--stage", "-z")
+	if err != nil {
+		return err
+	}
+	args := []string{"add", "-A", "--", "."}
+	for _, rec := range strings.Split(out, "\x00") {
+		meta, path, ok := strings.Cut(rec, "\t")
+		if ok && strings.HasPrefix(meta, "160000 ") {
+			args = append(args, ":(exclude,literal)"+path)
+		}
+	}
+	_, err = git(ctx, dir, args...)
+	return err
+}
+
 // saveWork commits whatever a kept worktree still holds uncommitted, so removing it does not lose
 // an earlier attempt's work: a run whose checks failed never reached the commit step.
 func saveWork(ctx context.Context, dir string) error {
-	if _, err := git(ctx, dir, "add", "-A"); err != nil {
+	if err := stageAll(ctx, dir); err != nil {
 		return fmt.Errorf("stage unsaved work in %s: %w", dir, err)
 	}
 	// Exit 1 means staged changes; a merge in progress is concluded either way.
@@ -324,7 +380,10 @@ var ErrUnresolvedConflicts = errors.New("unresolved merge conflicts")
 // ErrUnresolvedConflicts. The commit uses Onett's identity only when git has no user.email
 // configured.
 func (m *Manager) Commit(ctx context.Context, ws Workspace, message string) (bool, error) {
-	if _, err := git(ctx, ws.Dir, "add", "-A"); err != nil {
+	if err := requireWorktree(ws.Dir); err != nil {
+		return false, err
+	}
+	if err := stageAll(ctx, ws.Dir); err != nil {
 		return false, err
 	}
 	check, err := gitOutputAllowExit(ctx, ws.Dir, "diff", "--cached", "--check")
@@ -374,7 +433,10 @@ func (m *Manager) Commit(ctx context.Context, ws Workspace, message string) (boo
 func (m *Manager) MergeBase(ctx context.Context, r Repo, ws Workspace) ([]string, error) {
 	unlock := m.lockClone(r.Path)
 	defer unlock()
-	if _, err := git(ctx, r.Path, "fetch", "origin", "--prune"); err != nil {
+	if err := checkWorktreeOf(r.Path, ws.Dir); err != nil {
+		return nil, err
+	}
+	if err := fetchOrigin(ctx, r); err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", r.Name, err)
 	}
 	_, mergeErr := git(ctx, ws.Dir, "-c", "user.name=Onett", "-c", "user.email=onett@localhost",
@@ -382,7 +444,7 @@ func (m *Manager) MergeBase(ctx context.Context, r Repo, ws Workspace) ([]string
 	if mergeErr == nil {
 		return nil, nil
 	}
-	unmerged, err := git(ctx, ws.Dir, "diff", "--name-only", "--diff-filter=U")
+	unmerged, err := git(ctx, ws.Dir, "diff", "--ignore-submodules=all", "--name-only", "--diff-filter=U")
 	if err == nil && unmerged != "" {
 		return strings.Split(unmerged, "\n"), nil
 	}
@@ -393,6 +455,9 @@ func (m *Manager) MergeBase(ctx context.Context, r Repo, ws Workspace) ([]string
 
 // HeadSHA returns the commit checked out in the worktree.
 func (m *Manager) HeadSHA(ctx context.Context, ws Workspace) (string, error) {
+	if err := requireWorktree(ws.Dir); err != nil {
+		return "", err
+	}
 	sha, err := git(ctx, ws.Dir, "rev-parse", "HEAD")
 	if err != nil {
 		return "", fmt.Errorf("read HEAD of %s: %w", ws.Dir, err)
@@ -405,9 +470,36 @@ func (m *Manager) HeadSHA(ctx context.Context, ws Workspace) (string, error) {
 // not git's remote-tracking ref. A fetch by any other task moves that ref, so comparing against it
 // could overwrite a commit a human pushed after Prepare. An empty RemoteSHA means the branch must
 // not exist on origin. The push fails when origin has moved since Prepare.
+//
+// The push runs in a scratch repository, and names the project's URL and the commit itself, so
+// no setting in the clone or the worktree (a push URL, a URL rewrite, a credential helper) can
+// change where onett's credentials go.
 func (m *Manager) Push(ctx context.Context, r Repo, ws Workspace) error {
+	if err := checkWorktreeOf(r.Path, ws.Dir); err != nil {
+		return fmt.Errorf("push %s: %w", ws.Branch, err)
+	}
+	l, err := resolveLayout(r.Path)
+	if err == nil {
+		err = repairConfig(l.commonDir, remoteURL(r))
+	}
+	if err != nil {
+		return fmt.Errorf("push %s: %w", ws.Branch, err)
+	}
+	sha, err := git(ctx, r.Path, "rev-parse", "--verify", "--quiet", "refs/heads/"+ws.Branch+"^{commit}")
+	if err != nil {
+		return fmt.Errorf("push %s: %w", ws.Branch, err)
+	}
+	s, err := newScratch(ctx, r.Path)
+	if err != nil {
+		return fmt.Errorf("push %s: %w", ws.Branch, err)
+	}
+	defer s.close()
 	lease := "--force-with-lease=refs/heads/" + ws.Branch + ":" + ws.RemoteSHA
-	if _, err := git(ctx, ws.Dir, "push", lease, "-u", "origin", ws.Branch); err != nil {
+	if _, err := s.gitNet(ctx, "push", "--quiet", lease, remoteURL(r), sha+":refs/heads/"+ws.Branch); err != nil {
+		return fmt.Errorf("push %s: %w", ws.Branch, err)
+	}
+	// `git push origin` used to record what it pushed; keep origin/<branch> in step for the next reader.
+	if _, err := git(ctx, r.Path, "update-ref", "refs/remotes/origin/"+ws.Branch, sha); err != nil {
 		return fmt.Errorf("push %s: %w", ws.Branch, err)
 	}
 	return nil
@@ -422,38 +514,42 @@ var commitSHA = regexp.MustCompile(`^([0-9a-f]{40}|[0-9a-f]{64})$`)
 func (m *Manager) Diff(ctx context.Context, r Repo, base, head string) ([]policy.FileChange, error) {
 	unlock := m.lockClone(r.Path)
 	defer unlock()
-	if _, err := git(ctx, r.Path, "fetch", "origin", "--prune"); err != nil {
+	if err := fetchOrigin(ctx, r); err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", r.Name, err)
 	}
 	headRef := "origin/" + head
 	if commitSHA.MatchString(head) {
 		headRef = head
 	}
-	out, err := git(ctx, r.Path, "diff", "--numstat",
+	// With rename detection, a renamed file is reported only under its new name, so a path rule
+	// for the old name would never fire. Without -z, git quotes unusual names, which no path rule
+	// matches. So renames are off and names come through -z exactly as they are.
+	out, err := git(ctx, r.Path, "diff", "--numstat", "-z", "--no-renames", "--no-ext-diff", "--no-textconv",
 		"origin/"+base+"..."+headRef)
 	if err != nil {
 		return nil, fmt.Errorf("diff %s...%s: %w", base, head, err)
 	}
 
 	changes := []policy.FileChange{}
-	for _, line := range strings.Split(out, "\n") {
-		if strings.TrimSpace(line) == "" {
+	// A path may start or end with a space, so records are not trimmed.
+	for _, rec := range strings.Split(out, "\x00") {
+		if rec == "" {
 			continue
 		}
-		fields := strings.SplitN(line, "\t", 3)
+		fields := strings.SplitN(rec, "\t", 3)
 		if len(fields) != 3 {
-			return nil, fmt.Errorf("parse numstat line %q", line)
+			return nil, fmt.Errorf("parse numstat record %q", rec)
 		}
 		added, err := numstatCount(fields[0])
 		if err != nil {
-			return nil, fmt.Errorf("parse numstat line %q: %w", line, err)
+			return nil, fmt.Errorf("parse numstat record %q: %w", rec, err)
 		}
 		deleted, err := numstatCount(fields[1])
 		if err != nil {
-			return nil, fmt.Errorf("parse numstat line %q: %w", line, err)
+			return nil, fmt.Errorf("parse numstat record %q: %w", rec, err)
 		}
 		changes = append(changes, policy.FileChange{
-			Path:    newPath(fields[2]),
+			Path:    fields[2],
 			Added:   added,
 			Deleted: deleted,
 		})
@@ -467,7 +563,7 @@ func (m *Manager) Diff(ctx context.Context, r Repo, base, head string) ([]policy
 func (m *Manager) Fetch(ctx context.Context, r Repo) error {
 	unlock := m.lockClone(r.Path)
 	defer unlock()
-	if _, err := git(ctx, r.Path, "fetch", "origin", "--prune"); err != nil {
+	if err := fetchOrigin(ctx, r); err != nil {
 		return fmt.Errorf("fetch %s: %w", r.Name, err)
 	}
 	return nil
@@ -540,24 +636,6 @@ func numstatCount(s string) (int, error) {
 		return 0, nil
 	}
 	return strconv.Atoi(s)
-}
-
-// newPath resolves a rename as numstat prints it to the file's new path. It handles both
-// "old => new" and "dir/{old => new}/file" forms.
-func newPath(p string) string {
-	open := strings.Index(p, "{")
-	closeIdx := strings.Index(p, "}")
-	if open >= 0 && closeIdx > open {
-		inner := p[open+1 : closeIdx]
-		if parts := strings.SplitN(inner, " => ", 2); len(parts) == 2 {
-			joined := p[:open] + parts[1] + p[closeIdx+1:]
-			return strings.ReplaceAll(joined, "//", "/")
-		}
-	}
-	if _, after, ok := strings.Cut(p, " => "); ok {
-		return after
-	}
-	return p
 }
 
 // Remove deletes the worktree and prunes git's record of it. A worktree that is already gone is
