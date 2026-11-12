@@ -188,7 +188,9 @@ type instructionFile struct {
 func (e *Engine) baseInstructions(ctx context.Context, repo workspace.Repo, baseRef string) ([]instructionFile, error) {
 	var files []instructionFile
 	for _, name := range baseInstructionFiles {
-		text, ok, err := e.d.Workspaces.ReadFileAt(ctx, repo, baseRef, name, baseInstructionCap+1)
+		// The ref is named in full: a tag or a branch called "origin/main", which any worktree of
+		// the clone can create, would otherwise be read in place of the remote-tracking branch.
+		text, ok, err := e.d.Workspaces.ReadFileAt(ctx, repo, "refs/remotes/"+baseRef, name)
 		if err != nil {
 			return nil, err
 		}
