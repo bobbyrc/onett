@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bobbyrc/onett/internal/api"
 	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/domain"
 )
@@ -210,4 +211,93 @@ func TestAgentCannotBlockOrFinishPausedGoal(t *testing.T) {
 	got, err = r.st.GetGoal(ctx, goal.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.GoalBlocked, got.Status)
+}
+
+// tbReviewOf makes a review task under parent with the given status and CreatedAt, and a run of
+// it with runStatus. CreateTask refuses review tasks, so the store writes it directly.
+func tbReviewOf(t *testing.T, r *ctRig, parent domain.Task, status domain.TaskStatus, runStatus domain.RunStatus, createdAt time.Time) domain.Task {
+	t.Helper()
+	ctx := context.Background()
+	review, err := r.st.CreateTask(ctx, domain.Task{Project: "demo", Kind: domain.KindReview, Title: "review", Role: parent.Role,
+		ParentID: parent.ID, Status: status, CreatedAt: createdAt})
+	require.NoError(t, err)
+	_, err = r.st.CreateRun(ctx, domain.Run{TaskID: review.ID, Project: "demo", Role: review.Role, Status: runStatus, SessionID: "s", StartedAt: createdAt})
+	require.NoError(t, err)
+	return review
+}
+
+func TestClientCannotCreateConversationFollowUp(t *testing.T) {
+	ctx := context.Background()
+	r := ctNewRig(t)
+	e := r.engine(nil)
+	parent, err := e.CreateTask(ctx, domain.Task{Project: "demo", Kind: domain.KindFeature, Title: "p", Body: "q"})
+	require.NoError(t, err)
+
+	followUp := domain.Task{Project: "demo", Kind: domain.KindFeature, Title: "x", Body: "y", ParentID: parent.ID, Source: domain.SourceConversation}
+	_, err = e.CreateTask(ctx, followUp)
+	assert.True(t, errors.Is(err, api.ErrInvalid), "got %v", err)
+
+	followUp.Source = ""
+	_, err = e.CreateTask(ctx, followUp)
+	assert.NoError(t, err)
+}
+
+func TestAgentCannotRetryTaskWhoseReviewWasDenied(t *testing.T) {
+	ctx := context.Background()
+	agentCtx := auth.WithAgent(ctx)
+	r := ctNewRig(t)
+	e := r.engine(nil)
+	parent := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunSucceeded)
+	tbReviewOf(t, r, parent, domain.TaskBlocked, domain.RunDenied, time.Now())
+
+	err := e.RetryTask(agentCtx, parent.ID, "again")
+	assert.True(t, errors.Is(err, auth.ErrPersonOnly), "got %v", err)
+	got, err := r.st.GetTask(ctx, parent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.TaskBlocked, got.Status)
+
+	require.NoError(t, e.RetryTask(ctx, parent.ID, "fixed"))
+}
+
+func TestAgentRetriesTaskWhoseReviewEndedNormally(t *testing.T) {
+	agentCtx := auth.WithAgent(context.Background())
+	r := ctNewRig(t)
+	e := r.engine(nil)
+	parent := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunSucceeded)
+	tbReviewOf(t, r, parent, domain.TaskDone, domain.RunSucceeded, time.Now())
+
+	require.NoError(t, e.RetryTask(agentCtx, parent.ID, "try X"))
+}
+
+func TestOlderDeniedReviewDoesNotCount(t *testing.T) {
+	agentCtx := auth.WithAgent(context.Background())
+	r := ctNewRig(t)
+	e := r.engine(nil)
+	parent := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunSucceeded)
+	tbReviewOf(t, r, parent, domain.TaskCancelled, domain.RunDenied, time.Now().Add(-time.Hour))
+	tbReviewOf(t, r, parent, domain.TaskDone, domain.RunSucceeded, time.Now())
+
+	require.NoError(t, e.RetryTask(agentCtx, parent.ID, ""))
+}
+
+func TestAgentMessageDoesNotRequeueDeniedTaskAfterTheCheck(t *testing.T) {
+	ctx := context.Background()
+	agentCtx := auth.WithAgent(ctx)
+	r := ctNewRig(t)
+	e := r.engine(nil)
+	task := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunDenied)
+	conv, err := r.st.CreateConversation(ctx, domain.Conversation{TaskID: task.ID, Title: task.Title, Project: task.Project})
+	require.NoError(t, err)
+	_, err = r.st.AppendChatMessage(ctx, domain.ChatMessage{ConversationID: conv.ID, Role: "user", Text: "go on", Queued: true, Author: domain.AuthorOrchestrator})
+	require.NoError(t, err)
+
+	e.continueConversation(agentCtx, task.ID)
+	got, err := r.st.GetTask(ctx, task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.TaskBlocked, got.Status, "the agent's queued message must not re-queue a denial")
+
+	e.continueConversation(ctx, task.ID)
+	got, err = r.st.GetTask(ctx, task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.TaskQueued, got.Status)
 }

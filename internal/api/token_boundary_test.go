@@ -174,3 +174,21 @@ func TestLoginStillRejectsUnknownFields(t *testing.T) {
 	rec := x.authReq(t, http.MethodPost, "/api/v1/auth/login", `{"username":"x","password":"y","code":"z"}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 }
+
+// TestStateDependentRefusalsAreAnswered403 checks that a person-only refusal found by the
+// controller (a denial that stopped the task, a goal the owner paused) reaches the agent token
+// as 403 with its reason, not as a server error.
+func TestStateDependentRefusalsAreAnswered403(t *testing.T) {
+	x := newHarness(t)
+	x.ctl.errs["RetryTask:t1:"] = fmt.Errorf("%w: the reason", auth.ErrPersonOnly)
+	x.ctl.errs["SendTaskMessage"] = fmt.Errorf("%w: the reason", auth.ErrPersonOnly)
+	x.ctl.errs["SetGoalStatus"] = fmt.Errorf("%w: the reason", auth.ErrPersonOnly)
+	for _, tc := range []struct{ path, body string }{
+		{"/api/v1/tasks/t1/retry", ""},
+		{"/api/v1/tasks/t1/messages", `{"text":"go on"}`},
+		{"/api/v1/goals/g1/resume", ""},
+	} {
+		rec := x.authReq(t, http.MethodPost, tc.path, tc.body, withToken(agentTok))
+		assertPersonOnly(t, rec, "the reason")
+	}
+}

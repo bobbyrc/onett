@@ -93,9 +93,39 @@ func TestAPICommandsStayAllowedInsideAgentRun(t *testing.T) {
 		{"approve", "x"},
 		{"resume"},
 		{"loop", "run", "x"},
-		{"serve"},
 		{"version"},
 	} {
+		assert.NoError(t, refuseInAgentRun(args), "args %v", args)
+	}
+}
+
+func TestServeInsideAgentRunIsForWorkersOnly(t *testing.T) {
+	setAgentRun(t, "run-1", "orchestrator")
+	assert.Error(t, refuseInAgentRun([]string{"serve"}), "the orchestrator must not start a second daemon")
+
+	setAgentRun(t, "run-1", "engineer")
+	assert.NoError(t, refuseInAgentRun([]string{"serve"}), "a worker may start a throwaway daemon")
+
+	setAgentRun(t, "run-1", "")
+	assert.NoError(t, refuseInAgentRun([]string{"serve"}))
+}
+
+func TestRunShimRefusedInsideAgentRun(t *testing.T) {
+	setAgentRun(t, "", "")
+	assert.NoError(t, refuseInAgentRun([]string{"run-shim"}))
+
+	setAgentRun(t, "run-1", "orchestrator")
+	var stdout, stderr bytes.Buffer
+	assert.Equal(t, 1, run([]string{"run-shim"}, &stdout, &stderr))
+	assert.Contains(t, stderr.String(), "does not run inside an agent run")
+}
+
+func TestHelpStillWorksInsideAgentRun(t *testing.T) {
+	setAgentRun(t, "run-1", "orchestrator")
+	var stdout, stderr bytes.Buffer
+	assert.Equal(t, 0, run([]string{"help"}, &stdout, &stderr))
+	assert.Contains(t, stdout.String(), "Usage:")
+	for _, args := range [][]string{{"-h"}, {"-help"}, {"--help"}} {
 		assert.NoError(t, refuseInAgentRun(args), "args %v", args)
 	}
 }

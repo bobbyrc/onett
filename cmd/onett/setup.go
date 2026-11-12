@@ -349,9 +349,9 @@ func cmdOpen(e *env, args []string) error {
 	if err != nil {
 		return err
 	}
-	// The browser signs in with a password, so no token goes in the URL; only the one-time setup
-	// code does, while no account exists. The config is only needed for the address, which
-	// ONETT_API can give instead.
+	// The browser signs in with a password, so no token goes in the URL; only the setup code
+	// does, while no account exists. The config is only needed for the address, which ONETT_API
+	// can give instead.
 	cfg, cfgErr := loadConfig(path)
 	if cfgErr != nil && os.Getenv("ONETT_API") == "" {
 		return cfgErr

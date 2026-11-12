@@ -68,17 +68,21 @@ line on its own. Every agent session carries `ONETT_RUN_ID` and `ONETT_ROLE`. Wh
 - the CLI never reads the token file. It uses only `ONETT_TOKEN` from its environment: the agent
   token for the orchestrator, nothing for a worker, which gets a plain "worker agents have no API
   access" error;
-- only the commands that call the API run, plus `serve`, `doctor` and `version`. The commands
-  that act with the owner's authority on this machine's files (`token`, `user`, `service`,
-  `init`, `open` and `project add`) refuse with a one-line reason. The list is an allowlist, so
-  a command added later is refused inside an agent run until someone decides it is safe.
+- only the commands that call the API run, plus `doctor`, `version` and `help`. The commands
+  that act with the owner's authority on this machine (`token`, `user`, `service`, `init`,
+  `open`, `project add`, and `run-shim`, the helper the daemon starts agents through) refuse
+  with a one-line reason. The list is an allowlist, so a command added later is refused inside
+  an agent run until someone decides it is safe;
+- `serve` is refused for the orchestrator only. A second daemon on the owner's data directory
+  would run the scheduler twice, and the orchestrator has no use for one. A worker that develops
+  onett may still start a throwaway daemon to test its change, as `AGENTS.md` asks.
 
 `onett serve` also stops adding the onett directory to a worker's PATH. That is tidiness more
-than a boundary (a worker's inherited PATH may hold `onett` anyway); the rule above does the work.
+than a boundary (a worker's inherited PATH may hold `onett` anyway); the rules above do the work.
 
 Cost: an agent that develops onett itself and tests against a throwaway daemon passes that
 daemon's token explicitly (`ONETT_TOKEN=$(cat <tmp>/token) onett status`) instead of relying on
-the file lookup. `onett serve` still runs, so the throwaway-daemon check in `AGENTS.md` works.
+the file lookup.
 
 Not closed (only isolation closes it): an agent that unsets the two variables, or reads the token
 file and calls the API directly.
@@ -133,7 +137,13 @@ budget as before. The turn limit becomes a cap only a person lifts, at no cost t
 3. **Only a person retries a task that a denial stopped.** A *denial* is the agent CLI reporting
    that a tool call was refused; the run ends with status `denied` and the task blocks. With the
    agent token, `onett task retry` and a message to that task are refused with the reason, also
-   after the task is cancelled. No schema change: the rule reads the task's latest run.
+   after the task is cancelled, and also when it was the task's review that was denied (retrying
+   the task runs the review again). No schema change: the rule reads the latest run of the task
+   and of its newest review.
+4. **Only onett creates a conversation follow-up.** A follow-up task joins its parent's
+   conversation and resumes that agent's session, so `POST /tasks` refuses `source:
+   "conversation"` from any client. Otherwise a new task could be attached to a stopped one to
+   carry it on.
 
 The third rule settles the **goal loop's recorded exception** (`docs/design.md`, goals: a task
 that blocks inside an active goal is the goal orchestrator's to handle first, and the owner is not
@@ -145,11 +155,14 @@ A stalled task stays retryable by the orchestrator: a stall is often a hung netw
 retry fixes.
 
 Known limits. Codex reports a refusal only in prose, so its run is not marked `denied` and this
-rule does not see it (already in the README). And the orchestrator can still create a new task
-with the same instructions; that is a new task with its own run, not a retry of the denied one.
+rule does not see it (already in the README). The orchestrator can still create a new task, or a
+new goal, with the same instructions: that is new work with its own run and its own turn budget,
+not a retry, and the daily budget is what bounds it. And after a person retries a denied task,
+the agent stays refused until the task has a new run or a new review, which errs on the safe side.
 
-A message sent with either token to a task agent is still stored as the orchestrator's, as
-before. To speak to a task agent as the owner, use the web UI or a chat channel.
+A message the owner sends with their own CLI (`onett task message`) is the owner's, like one
+typed in the web UI; before, every message sent with the token was stored as the orchestrator's.
+The same goes for the record of who closed or cancelled a conversation.
 
 ## D6. The first account needs proof of being the operator
 
@@ -164,7 +177,10 @@ The alternative was to remove the web form and create the first account from the
 code, but the first run would need a terminal step and a password to copy before the browser is
 any use.
 
-Not closed: an agent that reads the token file or writes the database directly.
+Not closed: an agent that reads the token file or writes the database directly. Also, the code
+is the same until the account exists, and while `onett open` starts the browser it is briefly in
+that command's arguments, which other OS users on a shared machine can list. Create the account
+right after the first start.
 
 ## What this does for triggers
 

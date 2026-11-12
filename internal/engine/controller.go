@@ -23,7 +23,8 @@ var _ api.Controller = (*Engine)(nil)
 
 // CreateTask queues a task from an owner or API client. Client-supplied identity and run
 // state (ID, status, attempts, branch, PR and SHA fields, risk, timestamps) are discarded.
-// Review tasks are created by onett when a pull request is ready, never by a client.
+// Review tasks and conversation follow-ups are created by onett (when a pull request is ready, or
+// when the owner continues a conversation), never by a client.
 func (e *Engine) CreateTask(ctx context.Context, t domain.Task) (domain.Task, error) {
 	switch t.Kind {
 	case "", domain.KindFeature, domain.KindBugfix, domain.KindIssue, domain.KindIncident,
@@ -32,6 +33,11 @@ func (e *Engine) CreateTask(ctx context.Context, t domain.Task) (domain.Task, er
 		return domain.Task{}, fmt.Errorf("%w: review tasks are created by onett", api.ErrInvalid)
 	default:
 		return domain.Task{}, fmt.Errorf("%w: unknown task kind %q", api.ErrInvalid, t.Kind)
+	}
+	if t.Source == domain.SourceConversation {
+		// A conversation follow-up joins its parent's conversation and resumes that agent's
+		// session, so only onett creates one (startFollowUp), never a client.
+		return domain.Task{}, fmt.Errorf("%w: conversation follow-ups are created by onett", api.ErrInvalid)
 	}
 	if err := e.checkGoalTask(ctx, t); err != nil {
 		return domain.Task{}, err

@@ -257,9 +257,9 @@ func (s *server) taskConversation(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, tc)
 }
 
-// sendTaskMessage lets a person or the API token (the orchestrator) message a task agent. The
-// token's messages are stored with author "orchestrator", so they never pass for the owner's.
-// Editing and cancelling queued messages stay for a person only.
+// sendTaskMessage lets a person, the owner's CLI or the orchestrator message a task agent. The
+// agent token's messages are stored with author "orchestrator", so they never pass for the
+// owner's. Editing and cancelling queued messages stay for a person only.
 func (s *server) sendTaskMessage(w http.ResponseWriter, r *http.Request) {
 	p, ok := principalFrom(r.Context())
 	if !ok {
@@ -267,7 +267,7 @@ func (s *server) sendTaskMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	author := ""
-	if p.token {
+	if p.agent {
 		author = domain.AuthorOrchestrator
 	}
 	var in struct {
@@ -331,10 +331,14 @@ func (s *server) reopenTaskConversation(w http.ResponseWriter, r *http.Request) 
 }
 
 // closedBy names the caller for the record of who closed a conversation: "orchestrator" for the
-// API token, "owner:<username>" for a signed-in person.
+// agent token, "owner" for the owner's CLI, "owner:<username>" for a signed-in person.
 func closedBy(r *http.Request) string {
-	if p, ok := principalFrom(r.Context()); ok && !p.token {
+	p, ok := principalFrom(r.Context())
+	switch {
+	case ok && !p.token:
 		return "owner:" + p.user.Username
+	case ok && !p.agent:
+		return "owner"
 	}
 	return "orchestrator"
 }

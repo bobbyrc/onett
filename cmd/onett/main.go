@@ -87,6 +87,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		usage(stderr)
 		return 2
 	}
+	if err := refuseInAgentRun(args); err != nil {
+		return exitCode(e, err)
+	}
 	switch args[0] {
 	case "help", "-h", "-help", "--help":
 		usage(stdout)
@@ -94,9 +97,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "run-shim":
 		// Not in commandList: it is started by the daemon (limits.run_shim), never by a person.
 		return runshim.Main(args[1:], stderr)
-	}
-	if err := refuseInAgentRun(args); err != nil {
-		return exitCode(e, err)
 	}
 	for _, c := range commandList() {
 		if c.name != args[0] {
