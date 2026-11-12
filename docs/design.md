@@ -171,7 +171,13 @@ queued ─► running ─► review ─► merged ─► deploying ─► done
   that finishes after you cancelled or blocked a task cannot revive it.
 - An agent-reported failure, failing CI, a merge conflict or "request changes" from the
   reviewer re-queues the task for another implementer run on the same branch, up to
-  `max_attempts`, then `blocked` (`running → queued → running …`; not drawn above).
+  `max_attempts`, then `blocked` (`running → queued → running …`; not drawn above). A block
+  made that way records its cause (`blocked_cause`, such as `workspace setup failed`), the
+  underlying error (`blocked_detail`, redacted and cut to its last 2,000 characters) and its time
+  (`blocked_at`). `GET /problems` groups blocked tasks by cause, so seven tasks blocked by one
+  broken setup show as one problem; it also lists failing loops, with the streak of failed passes
+  from the loop alert, and blocked goals. Each problem says when the owner was last told, from the
+  heartbeat's memory and the loop alert. The Overview page reads it.
 - After merge, if the project has a deployer, the deploy watch takes it through `deploying`;
   a failed health window rolls back, opens an `incident` task, and notifies you.
 

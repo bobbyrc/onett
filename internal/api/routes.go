@@ -16,6 +16,7 @@ func (s *server) apiRoutes(r chi.Router) {
 	s.read(r, "/ws", s.eventsWS)
 	s.read(r, "/events/history", s.eventHistory)
 	s.read(r, "/stats", s.stats)
+	s.read(r, "/problems", s.listProblems)
 
 	s.read(r, "/control", s.getControl)
 	s.operate(r, http.MethodPost, "/control/pause", s.setPaused(true))

@@ -86,6 +86,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /ws` | `?after=<id>` | WebSocket stream for the web UI (below) |
 | `GET /events/history` | `?after=&project=&task_id=&limit=` (default 500) | `[]Event` |
 | `GET /stats` | | `Stats` |
+| `GET /problems` | | `[]Problem`: what is wrong per project, one entry per cause |
 | `GET /control` | | `{"paused":bool,"pause":PauseView\|null}` |
 | `POST /control/pause` | | `{"paused":bool,"pause":PauseView\|null}` |
 | `POST /control/resume` | | `{"paused":false,"pause":null}`; clears the reason |
@@ -240,6 +241,16 @@ case the approval is recorded as rejected and the task goes back to review so on
 // the heartbeat loop also sends "next_run_at":"…","item_count":3,"actions_24h":4,"escalations_24h":1,
 // "operations_conversation_id":"…" (absent until the Operations conversation exists) and
 // "quiet_now":true while its quiet hours are on
+
+// Problem: one thing that is wrong in a project. "kind" is blocked_tasks (the tasks blocked for one
+// cause, with "count", "tasks" and "last_at"), failing_loops (with "loops": each failing loop's
+// "name", "fails" and "since") or blocked_goal (with "goal_id"). "title" and "detail" are one line,
+// redacted and cut (title at 200 characters, detail at 300, keeping its end). "told_at" is when the
+// owner was last notified about it, and is absent when they were not.
+{"kind":"blocked_tasks","project":"onett","key":"blocked_tasks:onett:9f2c1a7e",
+ "title":"workspace setup failed","detail":"fatal: unable to access …",
+ "count":7,"since":"…","last_at":"…","told_at":"…",
+ "tasks":[{"id":"t_…","title":"…","attempts":3,"max_attempts":3}]}
 
 // AgentView
 {"name":"senior-engineer","title":"Senior Engineer","origin":"builtin","disabled":false,

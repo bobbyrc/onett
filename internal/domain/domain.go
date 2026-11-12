@@ -115,6 +115,13 @@ type Task struct {
 	CIHeadSeenAt  *time.Time `json:"ci_head_seen_at,omitempty"`
 	Summary       string     `json:"summary,omitempty"` // latest agent summary
 	BlockedReason string     `json:"blocked_reason,omitempty"`
+	// BlockedCause, BlockedDetail and BlockedAt describe the block while Status is blocked.
+	// BlockedCause is the short reason when onett gave up after its attempts ("workspace setup
+	// failed"); tasks that share it share a cause. BlockedDetail is the underlying error,
+	// redacted and bounded. Both are empty for any other block.
+	BlockedCause  string     `json:"blocked_cause,omitempty"`
+	BlockedDetail string     `json:"blocked_detail,omitempty"`
+	BlockedAt     *time.Time `json:"blocked_at,omitempty"`
 	// FollowUpPending marks a task queued by an owner message to its agent: its next run resumes
 	// the agent's session with the queued messages. An automatic retry never has it, so a retry
 	// after a failure keeps its attempt notes and leaves queued messages alone.
