@@ -70,7 +70,7 @@ func ghRunner(ctx context.Context, stdin string, args ...string) ([]byte, error)
 // OpenPR creates a pull request, adds its labels and returns it.
 func (g *GitHub) OpenPR(ctx context.Context, spec scm.PRSpec) (scm.PR, error) {
 	args := []string{"pr", "create", "--repo", g.Repo, "--head", spec.Head, "--base", spec.Base,
-		"--title", spec.Title, "--body-file", "-"}
+		"--title", quoteMentionsPlain(spec.Title), "--body-file", "-"}
 	if spec.Draft {
 		args = append(args, "--draft")
 	}
@@ -284,6 +284,8 @@ func (g *GitHub) MergePR(ctx context.Context, number int, headSHA string) error 
 // and the header names its short SHA, so a log from an older push is never taken for the current
 // one. A run whose failed-step log comes back empty says so rather than leaving a blank block. Lines are cleaned of gh's job/step/timestamp prefix and ANSI escapes;
 // if the result exceeds maxBytes it is cut down to the lines around failures (see condenseLog).
+// While any run of the head commit has not ended it returns scm.ErrCIRunning and reads nothing:
+// gh refuses to print a log, even of a job that has already failed, until the whole run is over.
 func (g *GitHub) CILog(ctx context.Context, number int, maxBytes int) (string, error) {
 	pr, err := g.GetPR(ctx, number)
 	if err != nil {
@@ -306,6 +308,14 @@ func (g *GitHub) CILog(ctx context.Context, number int, maxBytes int) (string, e
 	}
 	if err := json.Unmarshal(out, &runs); err != nil {
 		return "", fmt.Errorf("decode runs for %s: %w", pr.HeadBranch, err)
+	}
+	// A run has no conclusion until every job in it has ended, and gh prints no log of it before
+	// then. Reading the other runs now would hand the agent a note without the log of the job
+	// that failed in this one.
+	for _, r := range runs {
+		if r.Conclusion == "" {
+			return "", scm.ErrCIRunning
+		}
 	}
 
 	var b strings.Builder
@@ -495,7 +505,7 @@ func decodeIssues(out []byte) ([]scm.Issue, error) {
 		is := scm.Issue{
 			Number:    r.Number,
 			URL:       r.URL,
-			Title:     r.Title,
+			Title:     unquoteMentions(r.Title),
 			Body:      r.Body,
 			State:     strings.ToLower(r.State),
 			CreatedAt: r.CreatedAt,
@@ -524,7 +534,7 @@ func (g *GitHub) CreateIssue(ctx context.Context, spec scm.IssueSpec) (scm.Issue
 	if err := g.ensureLabels(ctx, spec.Labels); err != nil {
 		return scm.Issue{}, err
 	}
-	args := []string{"issue", "create", "--repo", g.Repo, "--title", spec.Title, "--body-file", "-"}
+	args := []string{"issue", "create", "--repo", g.Repo, "--title", quoteMentionsPlain(spec.Title), "--body-file", "-"}
 	for _, l := range spec.Labels {
 		args = append(args, "--label", l)
 	}

@@ -41,6 +41,10 @@ import type {
   Task,
   TaskConversation,
   TaskDetail,
+  Trigger,
+  TriggerCreate,
+  TriggerFiring,
+  TriggerPatch,
   SecretSaved,
   SecretView,
   UploadedAttachment,
@@ -210,6 +214,29 @@ export const setGoalStatus = (id: string, action: 'pause' | 'resume' | 'done' | 
   request<Goal>('POST', `/goals/${encodeURIComponent(id)}/${action}`, {
     body: action === 'done' ? { summary: text } : action === 'block' ? { reason: text } : undefined,
   });
+
+// ---- triggers ----
+
+export const listTriggers = () => request<Trigger[]>('GET', '/triggers');
+
+export const getTrigger = (id: string) => request<Trigger>('GET', `/triggers/${encodeURIComponent(id)}`);
+
+export const createTrigger = (body: TriggerCreate) => request<Trigger>('POST', '/triggers', { body });
+
+/** Only the fields in `patch` change. Sending `enabled: true` re-arms the trigger, so leave it out unless it changed. */
+export const patchTrigger = (id: string, patch: TriggerPatch) =>
+  request<Trigger>('PATCH', `/triggers/${encodeURIComponent(id)}`, { body: patch });
+
+export const deleteTrigger = (id: string) => request<void>('DELETE', `/triggers/${encodeURIComponent(id)}`);
+
+/** Fires a schedule trigger now. The firing it returns may be skipped, with the reason. */
+export const runTrigger = (id: string) => request<TriggerFiring>('POST', `/triggers/${encodeURIComponent(id)}/run`);
+
+export const listTriggerFirings = (id: string, limit = 200) =>
+  request<TriggerFiring[]>('GET', withQuery(`/triggers/${encodeURIComponent(id)}/firings`, { limit }));
+
+/** The newest firings across every trigger. A firing names its trigger by ID only. */
+export const listAllTriggerFirings = (limit = 50) => request<TriggerFiring[]>('GET', withQuery('/trigger-firings', { limit }));
 
 // ---- runs ----
 

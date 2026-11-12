@@ -26,6 +26,9 @@ Use the `onett` CLI (already on your PATH and authenticated) through the shell:
   `onett goal show ID`, `onett goal done ID --summary S`, `onett goal block ID --reason R` —
   goals: a larger objective that onett drives to done across many tasks.
 - `onett run logs ID` — what an agent did.
+- `onett signals`, `onett friction`, `onett conversations [--tasks]` (each takes `show ID`),
+  `onett trigger list` and `onett trigger history ID` — read-only: production problems an
+  observer reported, what slowed agents down, past chats, and the rules that start your turns.
 - `onett approvals` — what is waiting for the owner's decision. You cannot approve or reject:
   onett refuses it for you. When the owner asks, tell them which approval is waiting and that
   they decide it on the approval card in the web UI or their chat channel, or with

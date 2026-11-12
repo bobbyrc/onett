@@ -20,7 +20,7 @@ const VIEWPORTS = [
 ] as const;
 const SCHEMES = ['dark', 'light'] as const;
 
-type Variant = 'default' | 'emptyTasks' | 'emptyRuns' | 'oneProject' | 'overviewFresh' | 'overviewBusy' | 'overviewBad';
+type Variant = 'default' | 'emptyTasks' | 'emptyRuns' | 'oneProject' | 'overviewFresh' | 'overviewBusy' | 'overviewBad' | 'emptyTriggers' | 'viewer';
 
 /** The fixture body for a GET path (without /api/v1), or undefined to fall back to mock.ts. */
 function respond(path: string, variant: Variant, query: URLSearchParams): unknown {
@@ -49,7 +49,7 @@ function respond(path: string, variant: Variant, query: URLSearchParams): unknow
   }
   switch (head) {
     case 'auth':
-      return a === 'state' ? { setup_required: false, user: d.owner } : undefined;
+      return a === 'state' ? { setup_required: false, user: variant === 'viewer' ? d.viewer : d.owner } : undefined;
     case 'stats':
       return d.stats;
     case 'users':
@@ -71,6 +71,12 @@ function respond(path: string, variant: Variant, query: URLSearchParams): unknow
       return a
         ? { goal: d.goals.find((g) => g.id === a) ?? d.goals[0], tasks: d.tasks.filter((t) => t.goal_id === a) }
         : d.goals;
+    case 'triggers':
+      if (!a) return variant === 'emptyTriggers' ? [] : d.triggers;
+      if (b === 'firings') return d.triggerFirings.filter((f) => f.trigger_id === a);
+      return d.triggers.find((t) => t.id === a) ?? d.triggers[0];
+    case 'trigger-firings':
+      return variant === 'emptyTriggers' ? [] : d.triggerFirings;
     case 'runs':
       if (!a) return variant === 'emptyRuns' ? [] : byStatus(d.runs);
       if (b === 'logs') return a === d.IDS.chatRun ? d.chatRunLogs : a === d.IDS.goalRun ? d.goalRunLogs : d.runLogs;
@@ -155,9 +161,11 @@ const PARAMS: Record<string, string> = {
   '/goals/:id': d.IDS.goal,
   '/tasks/:id': d.IDS.task,
   '/runs/:id': d.IDS.run,
+  '/triggers/:id': d.IDS.trigger,
 };
 
-type Scene = { route: string; variant: Variant; name?: string };
+// `press` names a button to press once the page has loaded, for a shot of the dialog it opens.
+type Scene = { route: string; variant: Variant; name?: string; press?: string };
 
 const SCENES: Scene[] = [
   ...appRoutes().map((r) => {
@@ -177,6 +185,16 @@ const SCENES: Scene[] = [
   { route: '/', variant: 'overviewBad', name: 'overview_bad' },
   { route: '/tasks', variant: 'emptyTasks', name: 'tasks_empty' },
   { route: '/runs', variant: 'emptyRuns', name: 'runs_empty' },
+  // Triggers: an issue trigger's page, the states the plain routes do not show, the phone's
+  // second tab and the dialog.
+  { route: `/triggers/${d.IDS.issueTrigger}`, variant: 'default' },
+  { route: '/triggers', variant: 'emptyTriggers', name: 'triggers_empty' },
+  { route: '/triggers', variant: 'viewer', name: 'triggers_readonly' },
+  { route: `/triggers/${d.IDS.trigger}`, variant: 'viewer', name: 'trigger_readonly' },
+  { route: '/triggers?tab=firings', variant: 'default', name: 'triggers_firings' },
+  { route: '/triggers', variant: 'default', name: 'triggers_new', press: 'New trigger' },
+  { route: '/triggers', variant: 'default', name: 'triggers_edit_schedule', press: 'Edit Weekday dependency check' },
+  { route: '/triggers', variant: 'default', name: 'triggers_edit_issue', press: 'Edit Bug reports' },
 ];
 
 const fileName = (s: Scene) =>
@@ -212,6 +230,10 @@ for (const vp of VIEWPORTS) {
           // Fully loaded: no "Loading…" text and no chat skeleton.
           await expect(page.getByText(/Loading/)).toHaveCount(0);
           await expect(page.locator('.chat-skel')).toHaveCount(0);
+          if (scene.press) {
+            await page.getByRole('button', { name: scene.press, exact: true }).click();
+            await page.getByRole('dialog').waitFor();
+          }
           await page.addStyleTag({
             content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important;scroll-behavior:auto!important}',
           });

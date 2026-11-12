@@ -1,0 +1,309 @@
+/* Direction B: one page. Each trigger is a rule sheet (when, ask, last firing), beside a log of
+   every firing. A trigger is created and edited in place. */
+
+/* On a phone the two columns become two tabs. */
+.trg-tabs {
+  display: none;
+  margin-bottom: 14px;
+}
+
+.trg-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.trg-cols > .section {
+  margin-top: 0;
+}
+
+/* ---- a rule sheet: the lamp is the bar down its left edge ---- */
+
+.trg-rule {
+  --rule-lamp: var(--lamp-off-light);
+  margin-bottom: 12px;
+  padding: 12px 16px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 8px solid var(--rule-lamp);
+}
+
+.trg-rule[data-lamp='run'] {
+  --rule-lamp: var(--lamp-run);
+}
+
+.trg-rule[data-lamp='call'] {
+  --rule-lamp: var(--lamp-call);
+}
+
+.trg-rule[data-lamp='stop'] {
+  --rule-lamp: var(--lamp-stop);
+}
+
+/* The rule whose firings the log is showing. */
+.trg-rule.is-selected {
+  outline: 2px solid var(--info);
+  outline-offset: -1px;
+}
+
+.trg-rule-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.trg-rule-id {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.trg-rule-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.trg-rule-name .tag {
+  margin: 0;
+  font-weight: 400;
+}
+
+/* The lamp's meaning in words, in the lamp's text colour. */
+.trg-rule-state {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.trg-rule-state strong {
+  font-weight: 600;
+}
+
+.trg-rule[data-lamp='run'] .trg-rule-state strong {
+  color: var(--run);
+}
+
+.trg-rule[data-lamp='call'] .trg-rule-state strong {
+  color: var(--call);
+}
+
+.trg-rule[data-lamp='stop'] .trg-rule-state strong {
+  color: var(--danger);
+}
+
+.trg-rule-body {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+
+.trg-rule-body dt {
+  padding-top: 3px;
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.trg-rule-body dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.trg-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ---- the firing log ---- */
+
+.trg-day {
+  margin: 14px 0 0;
+  padding-bottom: 6px;
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.trg-day-first {
+  margin-top: 0;
+}
+
+.trg-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.trg-fire {
+  display: grid;
+  grid-template-columns: 44px 88px minmax(0, 1fr);
+  gap: 0 12px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 14px;
+}
+
+.trg-fire-time {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trg-fire-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.trg-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 12px;
+  font-size: 13.5px;
+}
+
+/* ---- the editor: a rule sheet with its parts turned into fields ---- */
+
+.trg-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trg-editor-title {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.trg-editor .trg-rule-body {
+  margin-top: 0;
+}
+
+.trg-editor .trg-rule-body dt {
+  padding-top: 9px;
+}
+
+.trg-editor .trg-rule-body dd {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trg-sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.trg-sentence input[type='text'] {
+  width: 5.5em;
+}
+
+.trg-sentence input.trg-label-input {
+  width: 9em;
+}
+
+/* A word and its control stay together when the sentence wraps. */
+.trg-nowrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.trg-editor p {
+  margin: 0;
+}
+
+.trg-editor textarea {
+  width: 100%;
+}
+
+.trg-editor-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* ---- starting points on an empty page ---- */
+
+.trg-starters-label {
+  margin: 16px 0 8px;
+}
+
+.trg-starter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border: 1px dashed var(--border);
+}
+
+.trg-starter .trg-rule-body {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+@media (max-width: 759px) {
+  .trg-tabs {
+    display: inline-flex;
+  }
+
+  .trg-cols {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .tab-rules .trg-log,
+  .tab-firings .trg-rules {
+    display: none;
+  }
+
+  .trg-rule {
+    padding: 10px 12px 12px;
+  }
+
+  /* The editor's labels sit above its fields, so the seven day chips fit on one line. */
+  .trg-editor .trg-rule-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trg-editor .trg-rule-body dt {
+    padding-top: 0;
+  }
+
+  .trg-starter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -41,6 +41,8 @@ is `$DOGFOOD/data/onett.log`.
 
 - Web UI: http://127.0.0.1:7797
 - Staging copy: http://127.0.0.1:7798/api/v1/health
+  A browser sends a host's cookies to every port on that host. To open the staging copy's UI, use
+  the other host name (`http://localhost:7798`), so your sign-in on `127.0.0.1:7797` is not sent to it.
 - Staging log: `$DOGFOOD/staging/log/staging.log`
 
 ## How work arrives

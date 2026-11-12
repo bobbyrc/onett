@@ -22,6 +22,8 @@ import type {
   Stats,
   Task,
   TaskConversation,
+  Trigger,
+  TriggerFiring,
 } from '../src/types';
 import { config as baseConfig, configDocument as baseConfigDocument } from './fixtures';
 
@@ -42,6 +44,9 @@ export const IDS = {
   chatRun: ulid(7),
   chat: ulid(8),
   goalChat: ulid(9),
+  trigger: ulid(20),
+  issueTrigger: ulid(21),
+  triggerChat: ulid(26),
   taskChat: ulid(13),
   goalRun: ulid(303),
 };
@@ -333,6 +338,7 @@ export const conversations: Conversation[] = [
   conv({ id: ulid(11), title: 'Why did the last deploy roll back?', project: 'dotfiles-and-agent-configs', updated_at: ago(3 * DAY) }),
   conv({ id: ulid(12), title: 'New chat', project: undefined, updated_at: ago(5 * DAY) }),
   conv({ id: IDS.taskChat, title: tasks[1].title, task_id: IDS.chatTask, updated_at: ago(3) }),
+  conv({ id: IDS.triggerChat, title: 'Trigger: Morning issue sweep', kind: 'trigger', updated_at: ago(7 * 60), created_at: ago(21 * DAY) }),
 ];
 
 const m = (n: number, role: ChatMessage['role'], text: string, minutes: number, over: Partial<ChatMessage> = {}): ChatMessage => ({
@@ -433,6 +439,113 @@ export const goals: Goal[] = [
     created_at: ago(14 * DAY),
     updated_at: ago(18 * 60),
   },
+];
+
+// Triggers: one in each state the page shows. Times are UTC, like the shots' clock, except one
+// trigger in another zone so a long zone name is in the pictures.
+const at = (iso: string) => new Date(iso).toISOString();
+const trig = (n: number, over: Partial<Trigger>): Trigger => ({
+  id: ulid(n),
+  name: '',
+  kind: 'schedule',
+  project: 'onett',
+  prompt: '',
+  enabled: true,
+  time_zone: 'UTC',
+  created_at: ago(21 * DAY),
+  updated_at: ago(2 * DAY),
+  ...over,
+});
+let firingSeq = 0;
+const fire = (trigger_id: string, when: string, over: Partial<TriggerFiring>): TriggerFiring => ({
+  id: ulid(400 + ++firingSeq),
+  trigger_id,
+  at: when,
+  cause: 'schedule',
+  outcome: 'started',
+  ...over,
+});
+const T = { bugs: IDS.issueTrigger, friday: ulid(22), sweep: IDS.trigger, triage: ulid(23), deps: ulid(24), stale: ulid(25) };
+const SWEEP_CHAT = { conversation_id: IDS.triggerChat };
+const SHUTDOWN = 'onett was shutting down';
+const PAUSED = 'the factory was paused';
+const issue = (n: number, repo = 'onett') => ({ cause: 'github_issue' as const, issue_number: n, issue_url: `https://github.com/bobbyrc/${repo}/issues/${n}` });
+const sched = (iso: string) => ({ scheduled_for: at(iso) });
+
+/** Every firing, newest first, as GET /trigger-firings returns them. */
+export const triggerFirings: TriggerFiring[] = [
+  fire(T.triage, ago(42), { ...issue(412), conversation_id: ulid(27) }),
+  fire(T.deps, at('2026-11-05T09:30:01Z'), { ...sched('2026-11-05T09:30:00Z'), outcome: 'skipped', reason: PAUSED }),
+  fire(T.sweep, at('2026-11-05T05:00:02Z'), { ...sched('2026-11-05T05:00:00Z'), ...SWEEP_CHAT }),
+  fire(T.triage, at('2026-11-05T00:00:10Z'), { ...issue(411), conversation_id: ulid(27) }),
+  fire(T.triage, at('2026-11-04T21:14:00Z'), { ...issue(411), outcome: 'skipped', reason: 'over the daily budget' }),
+  fire(T.sweep, at('2026-11-04T14:12:00Z'), { cause: 'manual', by: 'owner:bcraig', ...SWEEP_CHAT }),
+  fire(T.deps, at('2026-11-04T09:30:01Z'), { ...sched('2026-11-04T09:30:00Z'), conversation_id: ulid(28) }),
+  fire(T.sweep, at('2026-11-04T05:00:01Z'), { ...sched('2026-11-04T05:00:00Z'), outcome: 'skipped', reason: PAUSED }),
+  fire(T.deps, at('2026-11-03T09:30:01Z'), { ...sched('2026-11-03T09:30:00Z'), conversation_id: ulid(28) }),
+  fire(T.bugs, at('2026-11-03T09:12:00Z'), { ...issue(88, 'dotfiles-and-agent-configs'), outcome: 'failed', reason: SHUTDOWN }),
+  fire(T.sweep, at('2026-11-03T05:00:01Z'), { ...sched('2026-11-03T05:00:00Z'), ...SWEEP_CHAT }),
+  fire(T.sweep, at('2026-11-02T05:00:01Z'), { ...sched('2026-11-02T05:00:00Z'), outcome: 'failed', reason: SHUTDOWN }),
+  fire(T.sweep, at('2026-11-01T05:00:01Z'), { ...sched('2026-11-01T05:00:00Z'), ...SWEEP_CHAT }),
+  fire(T.stale, ago(21 * DAY), { ...sched(ago(21 * DAY)), conversation_id: ulid(29) }),
+];
+const lastOf = (id: string) => triggerFirings.find((f) => f.trigger_id === id);
+
+/** As GET /triggers returns them: oldest first, each with its newest firing. */
+export const triggers: Trigger[] = [
+  trig(21, {
+    name: 'Bug reports',
+    kind: 'github_issue',
+    project: 'dotfiles-and-agent-configs',
+    time_zone: undefined,
+    label: 'bug',
+    issues_after: ago(20 * DAY),
+    prompt: 'Reproduce the bug described in the issue if you can, then queue a bugfix task with the steps you found.',
+    last_firing: lastOf(T.bugs),
+  }),
+  trig(22, {
+    name: 'Friday release notes',
+    cron: '0 16 * * 5',
+    time_zone: 'America/New_York',
+    next_run_at: at('2026-11-06T21:00:00Z'),
+    created_at: ago(3 * 60),
+    prompt: 'Draft release notes from the pull requests merged this week and post them in this conversation.',
+  }),
+  trig(20, {
+    name: 'Morning issue sweep',
+    cron: '0 5 * * *',
+    next_run_at: at('2026-11-06T05:00:00Z'),
+    conversation_id: IDS.triggerChat,
+    prompt:
+      'Look at every open issue in this repository. Close the ones that are already fixed and say which commit fixed them. For each of the rest, queue a task if it is clear enough to work on, or ask me what is missing.',
+    last_firing: lastOf(T.sweep),
+  }),
+  trig(23, {
+    name: 'Triage new issues',
+    kind: 'github_issue',
+    time_zone: undefined,
+    issues_after: ago(21 * DAY),
+    conversation_id: ulid(27),
+    prompt: 'Read the new issue. Say whether it is a bug, a feature or a question, check whether it is already fixed on main, and queue a task if it is clear enough to work on.',
+    last_firing: lastOf(T.triage),
+  }),
+  trig(24, {
+    name: 'Weekday dependency check',
+    project: 'home-lab',
+    cron: '30 9 * * 1-5',
+    next_run_at: at('2026-11-06T09:30:00Z'),
+    conversation_id: ulid(28),
+    prompt: 'Check for dependency updates. Queue one task for each update that has a security fix, and list the rest in your reply.',
+    last_firing: lastOf(T.deps),
+  }),
+  trig(25, {
+    name: 'Stale PR nudge',
+    enabled: false,
+    cron: '0 */6 * * *',
+    conversation_id: ulid(29),
+    prompt: 'List pull requests that have had no activity for three days and say what each one is waiting for.',
+    last_firing: lastOf(T.stale),
+  }),
 ];
 
 export const approvals: Approval[] = [
@@ -1116,6 +1229,7 @@ export const overviewBad: OverviewState = {
 };
 
 export const owner = { username: 'bcraig', role: 'owner', created_at: ago(90 * DAY), updated_at: ago(DAY) } as const;
+export const viewer = { username: 'sam', role: 'viewer', created_at: ago(90 * DAY), updated_at: ago(DAY) } as const;
 
 // The config page reads these. They start from the shared fixtures and swap the layout-stress
 // paths and help text for ones a real install has.

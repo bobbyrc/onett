@@ -11,6 +11,12 @@ export const keys = {
   goalList: (filters: object) => ['goals', filters] as const,
   goalsDetailAll: ['goal'] as const,
   goal: (id: string) => ['goal', id] as const,
+  triggersAll: ['triggers'] as const,
+  trigger: (id: string) => ['trigger', id] as const,
+  // Prefix of both firing lists below, so one invalidation refreshes the log and every trigger's history.
+  triggerFiringsAll: ['trigger-firings'] as const,
+  triggerFiringsLog: ['trigger-firings', 'all'] as const,
+  triggerFirings: (id: string) => ['trigger-firings', 'one', id] as const,
   runsAll: ['runs'] as const,
   runList: (filters: object) => ['runs', filters] as const,
   run: (id: string) => ['run', id] as const,

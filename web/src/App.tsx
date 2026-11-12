@@ -21,6 +21,8 @@ import { SignIn } from './pages/SignIn';
 import { Signals } from './pages/Signals';
 import { TaskDetail } from './pages/TaskDetail';
 import { Tasks } from './pages/Tasks';
+import { TriggerDetail } from './pages/TriggerDetail';
+import { Triggers } from './pages/Triggers';
 import { Users } from './pages/Users';
 
 export function App() {
@@ -75,6 +77,8 @@ export function App() {
         <Route path="/signals" element={<Signals />} />
         <Route path="/friction" element={<Friction />} />
         <Route path="/loops" element={<Loops />} />
+        <Route path="/triggers" element={<Triggers />} />
+        <Route path="/triggers/:id" element={<TriggerDetail />} />
         <Route path="/agents" element={<Agents />} />
         <Route path="/config" element={<Config />} />
         <Route path="/secrets" element={<Navigate to="/config?mode=secrets" replace />} />

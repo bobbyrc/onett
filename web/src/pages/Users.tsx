@@ -125,17 +125,20 @@ export function Users() {
         return (
           <>
             <div className="users-actions">
-              <button
-                type="button"
-                className="link-button small"
-                aria-expanded={editing}
-                onClick={() => {
-                  setPasswordFor(editing ? null : u.username);
-                  setResetPassword('');
-                }}
-              >
-                Set password
-              </button>
+              {/* Your own password is changed from the account panel, which asks for the current one. */}
+              {u.username !== me?.username ? (
+                <button
+                  type="button"
+                  className="link-button small"
+                  aria-expanded={editing}
+                  onClick={() => {
+                    setPasswordFor(editing ? null : u.username);
+                    setResetPassword('');
+                  }}
+                >
+                  Set password
+                </button>
+              ) : null}
               {canRemove(u, users.data ?? []) ? (
                 <Button
                   variant="danger"
