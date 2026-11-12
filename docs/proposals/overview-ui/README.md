@@ -8,6 +8,11 @@ them. Design only: no product code is changed. It follows the UI audit of 12 Nov
 [Recommendation](#recommendation). The owner's decisions are under
 [Questions for the owner](#questions-for-the-owner).
 
+**Decision: the owner chose Direction B, "Read the board", and it is built.** What it needed
+from the daemon is in [`api.md`](api.md); `docs/ui.md` describes the page as built. The mockups
+below show the design as proposed; the built page differs from them in the ways `api.md` lists
+under "Where this differs from the mockup".
+
 ## What is here
 
 | File | What it is |

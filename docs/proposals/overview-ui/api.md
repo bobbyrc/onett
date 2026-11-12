@@ -38,7 +38,7 @@ Response: a JSON array of `Problem`, sorted by project, then kind in the order b
 |---|---|---|
 | `kind` | string | `blocked_tasks`, `failing_loops` or `blocked_goal` |
 | `project` | string | the project's name |
-| `key` | string | unique in the response and stable while the problem lasts: `blocked_tasks:<project>:<cause or reason>`, `failing_loops:<project>`, `blocked_goal:<goal id>` |
+| `key` | string | unique in the response and stable while the problem lasts: `blocked_tasks:<project>:<fingerprint>` (eight hex characters from the cause or reason, so the key never carries its text), `failing_loops:<project>`, `blocked_goal:<goal id>` |
 | `title` | string | one line, at most 200 characters. `blocked_tasks`: the cause (`blocked_cause`), or the task's whole `blocked_reason` when the block recorded no cause. `blocked_goal`: the goal's title. `failing_loops`: empty (the page names the loops). |
 | `detail` | string | one line, at most 300 characters, keeping the end of the text (a wrapped error says what failed first and why last). `blocked_tasks`: `blocked_detail` of the task blocked most recently. `failing_loops`: `last_error` of the loop that failed most recently. `blocked_goal`: the goal's reason. May be empty. |
 | `count` | integer | `blocked_tasks`: how many tasks. `failing_loops`: the longest run of failed passes among the loops. `blocked_goal`: 1. |
@@ -139,6 +139,24 @@ their keys and events.
 5. **"told you" appears only when set; "not told yet" only on failing loops.** A blocked task and
    a new approval notify the owner at once, so "not told yet" would be untrue there. `told_at`
    records the later telling (the heartbeat's escalation), as in the mockup's times.
+
+Found while building, all in the page's words and none in the layout:
+
+6. **The sentence on the board is composed, not written.** "7 tasks on widgets are blocked:
+   workspace setup failed. Start there. 4 more things follow." where the mockup had a
+   hand-written sentence about `git fetch`.
+7. **A project's window shows its counts only.** The mockup's "1 cause · 2 loops failing" under
+   the name is not there; the rows beside the window say it.
+8. **Activity says less about a failing loop.** "Issue Intake failed · 13 times since 10:24",
+   without the mockup's "gh issue list, exit status 4" (see 4). A notification reads "Told you:
+   blocked task on widgets", built from the heartbeat's own title.
+9. **Small texts.** The empty board keeps the hint that points at the Projects page ("No
+   projects yet. Add one on the Projects page and it appears here."). The quiet line names the
+   projects and nothing else. In flight says "Nothing running." with no reason. The setup line
+   shows the step's own detail ("Not set: SLACK_BOT_TOKEN").
+10. **Three things the mockup did not have.** "Retry all N" asks to confirm before it retries.
+    A live run that belongs to no configured project gets a last lane named "No project". Rows
+    of the feed that repeat within ten minutes fold into one, for every kind of row.
 
 ## Open points for the coordinator
 
