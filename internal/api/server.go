@@ -34,6 +34,9 @@ type Options struct {
 	// SecureCookies sets the Secure flag on the session cookie. serve sets it when public_url is
 	// https. A request that arrives over TLS gets the flag either way.
 	SecureCookies bool
+	// SecureCookiesFunc, when set, is asked on every request instead of using SecureCookies, so
+	// a config reload that changes public_url to or from https takes effect without a restart.
+	SecureCookiesFunc func() bool
 	// AllowedHosts are the Host names accepted beyond localhost, 127.0.0.1 and ::1, which are
 	// always accepted. serve computes the list: the host of server.addr (not a wildcard
 	// address), the host of server.public_url and server.allowed_hosts. A request for any other
@@ -59,7 +62,8 @@ type Options struct {
 	// must return at once (serve signals its main loop). Nil makes the route answer 501.
 	Restart func()
 	// ListenAddr is the address this process is bound to. POST /restart probes a different
-	// server.addr in the config file before restarting. Empty skips the probe.
+	// server.addr in the config file before restarting. Empty skips the probe. Its port also
+	// names the session cookie (see auth.SessionCookieName).
 	ListenAddr string
 	Logger     *slog.Logger
 }

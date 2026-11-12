@@ -45,7 +45,7 @@ func TestMessageHeadingNamesTheAuthor(t *testing.T) {
 
 func TestAgentCannotResumePausedGoal(t *testing.T) {
 	ctx := context.Background()
-	agentCtx := auth.WithAgent(ctx)
+	agentCtx := auth.WithAgent(ctx, auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	goal, err := e.CreateGoal(ctx, domain.Goal{Project: "demo", Title: "Ship parts", Body: "part 1"})
@@ -68,7 +68,7 @@ func TestAgentCannotResumePausedGoal(t *testing.T) {
 
 func TestAgentResumeKeepsBlockedGoalBudget(t *testing.T) {
 	ctx := context.Background()
-	agentCtx := auth.WithAgent(ctx)
+	agentCtx := auth.WithAgent(ctx, auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	goal, err := e.CreateGoal(ctx, domain.Goal{Project: "demo", Title: "Ship parts", Body: "part 1"})
@@ -101,7 +101,7 @@ func TestAgentResumeKeepsBlockedGoalBudget(t *testing.T) {
 
 func TestAgentCannotRetryDeniedTask(t *testing.T) {
 	ctx := context.Background()
-	agentCtx := auth.WithAgent(ctx)
+	agentCtx := auth.WithAgent(ctx, auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	task := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunDenied)
@@ -121,7 +121,7 @@ func TestAgentCannotRetryDeniedTask(t *testing.T) {
 
 func TestAgentRetriesOrdinaryBlockedTask(t *testing.T) {
 	ctx := context.Background()
-	agentCtx := auth.WithAgent(ctx)
+	agentCtx := auth.WithAgent(ctx, auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	task := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunFailed)
@@ -136,7 +136,7 @@ func TestAgentRetriesOrdinaryBlockedTask(t *testing.T) {
 
 func TestAgentCannotMessageDeniedTask(t *testing.T) {
 	ctx := context.Background()
-	agentCtx := auth.WithAgent(ctx)
+	agentCtx := auth.WithAgent(ctx, auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	task := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunDenied)
@@ -167,7 +167,7 @@ func TestDeniedTaskInGoalNotifiesOwner(t *testing.T) {
 
 func TestAgentCannotRetryDeniedTaskAfterCancellingIt(t *testing.T) {
 	ctx := context.Background()
-	agentCtx := auth.WithAgent(ctx)
+	agentCtx := auth.WithAgent(ctx, auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	task := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunDenied)
@@ -187,7 +187,7 @@ func TestAgentCannotRetryDeniedTaskAfterCancellingIt(t *testing.T) {
 
 func TestAgentCannotBlockOrFinishPausedGoal(t *testing.T) {
 	ctx := context.Background()
-	agentCtx := auth.WithAgent(ctx)
+	agentCtx := auth.WithAgent(ctx, auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	goal, err := e.CreateGoal(ctx, domain.Goal{Project: "demo", Title: "Ship parts", Body: "part 1"})
@@ -243,7 +243,7 @@ func tbRunStartedAt(t *testing.T, r *ctRig, taskID string, startedAt time.Time) 
 
 func TestAgentCannotRequeueTaskInReviewWhoseReviewWasDenied(t *testing.T) {
 	ctx := context.Background()
-	agentCtx := auth.WithAgent(ctx)
+	agentCtx := auth.WithAgent(ctx, auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	parent := tbBlockedTask(t, r, e, "", domain.TaskReview, domain.RunSucceeded)
@@ -263,7 +263,7 @@ func TestAgentCannotRequeueTaskInReviewWhoseReviewWasDenied(t *testing.T) {
 
 func TestReviewDeniedBeforeAPersonsRetryDoesNotCount(t *testing.T) {
 	ctx := context.Background()
-	agentCtx := auth.WithAgent(ctx)
+	agentCtx := auth.WithAgent(ctx, auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	parent := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunFailed)
@@ -293,7 +293,7 @@ func TestClientCannotCreateConversationFollowUp(t *testing.T) {
 
 func TestAgentCannotRetryTaskWhoseReviewWasDenied(t *testing.T) {
 	ctx := context.Background()
-	agentCtx := auth.WithAgent(ctx)
+	agentCtx := auth.WithAgent(ctx, auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	parent := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunSucceeded)
@@ -310,7 +310,7 @@ func TestAgentCannotRetryTaskWhoseReviewWasDenied(t *testing.T) {
 }
 
 func TestAgentRetriesTaskWhoseReviewEndedNormally(t *testing.T) {
-	agentCtx := auth.WithAgent(context.Background())
+	agentCtx := auth.WithAgent(context.Background(), auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	parent := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunSucceeded)
@@ -320,7 +320,7 @@ func TestAgentRetriesTaskWhoseReviewEndedNormally(t *testing.T) {
 }
 
 func TestOlderDeniedReviewDoesNotCount(t *testing.T) {
-	agentCtx := auth.WithAgent(context.Background())
+	agentCtx := auth.WithAgent(context.Background(), auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	parent := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunSucceeded)
@@ -332,7 +332,7 @@ func TestOlderDeniedReviewDoesNotCount(t *testing.T) {
 
 func TestAgentMessageDoesNotRequeueDeniedTaskAfterTheCheck(t *testing.T) {
 	ctx := context.Background()
-	agentCtx := auth.WithAgent(ctx)
+	agentCtx := auth.WithAgent(ctx, auth.AgentAllowances{})
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	task := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunDenied)
@@ -350,4 +350,51 @@ func TestAgentMessageDoesNotRequeueDeniedTaskAfterTheCheck(t *testing.T) {
 	got, err = r.st.GetTask(ctx, task.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.TaskQueued, got.Status)
+}
+
+func TestAgentMayResumeLiftsThePausedGoalRule(t *testing.T) {
+	ctx := context.Background()
+	r := ctNewRig(t)
+	e := r.engine(nil)
+	goal, err := e.CreateGoal(ctx, domain.Goal{Project: "demo", Title: "Ship parts", Body: "part 1"})
+	require.NoError(t, err)
+	_, err = e.SetGoalStatus(ctx, goal.ID, domain.GoalPaused, "")
+	require.NoError(t, err)
+
+	noResume := auth.WithAgent(ctx, auth.AgentAllowances{ApproveMerges: true})
+	_, err = e.SetGoalStatus(noResume, goal.ID, domain.GoalActive, "")
+	assert.True(t, errors.Is(err, auth.ErrPersonOnly), "got %v", err)
+
+	resume := auth.WithAgent(ctx, auth.AgentAllowances{Resume: true})
+	_, err = e.SetGoalStatus(resume, goal.ID, domain.GoalActive, "")
+	require.NoError(t, err)
+	got, err := r.st.GetGoal(ctx, goal.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.GoalActive, got.Status)
+}
+
+func TestSettingsDoNotLiftDenialOrBudget(t *testing.T) {
+	ctx := context.Background()
+	allOn := auth.WithAgent(context.Background(), auth.AgentAllowances{ApproveMerges: true, Resume: true})
+	r := ctNewRig(t)
+	e := r.engine(nil)
+
+	task := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunDenied)
+	err := e.RetryTask(allOn, task.ID, "x")
+	assert.True(t, errors.Is(err, auth.ErrPersonOnly), "got %v", err)
+
+	goal, err := e.CreateGoal(ctx, domain.Goal{Project: "demo", Title: "Ship parts", Body: "part 1"})
+	require.NoError(t, err)
+	_, err = r.st.UpdateGoal(ctx, goal.ID, func(g *domain.Goal) error {
+		g.Turns = 5
+		return nil
+	})
+	require.NoError(t, err)
+	_, err = e.SetGoalStatus(ctx, goal.ID, domain.GoalBlocked, "needs the owner")
+	require.NoError(t, err)
+	_, err = e.SetGoalStatus(allOn, goal.ID, domain.GoalActive, "")
+	require.NoError(t, err)
+	got, err := r.st.GetGoal(ctx, goal.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 5, got.Turns, "the agent keeps the budget it has left even with the settings on")
 }

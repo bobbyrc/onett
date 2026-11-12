@@ -213,7 +213,7 @@ func TestWSAuth(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "no credential")
 
-	// ?token= is accepted only on GET /events, so it is not a credential here.
+	// A token in the URL is not a credential on any route.
 	_, resp, err = dialWS(t, wsURL(srv, "?token="+testToken), nil)
 	require.Error(t, err)
 	require.NotNil(t, resp)

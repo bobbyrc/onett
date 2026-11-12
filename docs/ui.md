@@ -98,7 +98,7 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
   moves focus to the main area, past the navigation.
 - Left rail 216px in `--board`: wordmark "onett" in Barlow Condensed after the brand mark, a
   loop in the text colour with one call-yellow lit segment (work going round the line); nav items: Overview, Projects, Chat, Goals, Tasks, Approvals, Runs, Deploys,
-  Signals, Friction, Loops, Agents, Config, and Users (owners only). Approvals carries a
+  Signals, Friction, Loops, Triggers, Agents, Config, and Users (owners only). Approvals carries a
   yellow count badge when approvals wait; Tasks a red one when tasks are blocked (each count
   has screen-reader text). The active item is lit (`--board-2` background, white text).
 - Project lamps: between the nav and the footer, one 26px row per project (its lamp square,
@@ -118,6 +118,8 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
   filled "Resume"; viewers see only the state). Below it the live
   indicator: green square "live" when the event stream is connected, yellow "reconnecting…".
 - Main area: content up to 1360px wide, 28px top and 32px side padding.
+- The rail is as tall as the window. When its items, the project lamps and its footer do not fit
+  (a short window with many projects), the rail scrolls; nothing is cut off.
 - Under 760px wide the rail becomes a charcoal top bar (wordmark, "1 approval" and "1 blocked"
   badges in words, menu button) with the nav in a full-height drawer; tables become stacked
   sheets (title row, then `label: value` lines).
@@ -172,12 +174,14 @@ connection, and it starts only once someone is signed in. It reconnects with bac
 and at once when the tab is shown again or the network returns. The `onett` CLI uses SSE
 (`/api/v1/events`) instead.
 
-Events invalidate react-query keys: `task.*` → tasks, task detail, stats; `run.updated` → runs,
-run detail; `approval.*` → approvals, stats; `deploy.updated` → deployments; `signal.new` →
-signals; `friction.reported`/`issue.filed` → friction; `chat.message` → that conversation, every
-task agent's conversation and the agents list; `conversation.updated` (a close or reopen) → that
-task agent's conversation and the agents list. `run.updated` also refreshes the conversations,
-the agents list and that run's cached log.
+Events invalidate react-query keys: `task.*` → tasks, task detail, stats; `run.updated` → runs, run
+detail; `approval.*` → approvals, stats; `deploy.updated` → deployments; `signal.new` → signals;
+`friction.reported`/`issue.filed` → friction; `chat.message` → that conversation, every task agent's
+conversation and the agents list; `conversation.updated` (a close or reopen) → that task agent's
+conversation and the agents list. `trigger.updated` and `trigger.deleted` → the triggers list and
+that trigger's page; `trigger.fired` → those and both firing lists (the log on the Triggers page and
+the trigger's own history). `run.updated` also refreshes the conversations, the agents list and that
+run's cached log.
 
 `run.log` goes only to tabs subscribed to that run, and `chat.delta` only to tabs subscribed to
 that conversation; every other event goes to every tab. A page subscribes with `watch()` in
@@ -189,58 +193,95 @@ as a fallback.
 
 ## Pages
 
-**Overview** (`/`): the andon board, then the work.
-- **Finish setting up onett** (owners only): a card above everything while setup is incomplete,
-  with a live check per step, each linking to where it is done: Add a project (`/projects`),
-  Agents ready (at least one enabled agent; `/config?section=agents`), Choose a policy (a project
-  with no policy uses the default, which counts; `/config?section=policies`), Reach me (not
-  `owner_unreachable` in `/stats`; `/config?mode=setup`), Secrets set (every secret the config
-  refers to is set, from `/secrets`; `/config?mode=secrets`). It hides itself when all are done
-  and has a Dismiss button (remembered in the browser). Logic is in `src/lib/setupChecklist.ts`.
-- **Blocked reason** (`BlockedReason`, used by the Needs you cards and the task page): the reason
-  is clamped to three lines with a Show more / Show less toggle (only when it overflows), keeps
-  the agent's line breaks and wraps long flags and paths inside the box, so Retry and Cancel stay
-  in view.
-- **Owner-unreachable banner**: above the board, a red callout "Nobody will be told" while
+**Overview** (`/`): the board says where to start, then one lane per project.
+- **The sentence on the board** (`BoardVerdict`, words from `src/lib/verdict.ts`): a charcoal band
+  with a lamp, a headline and one sentence that names the most urgent thing and how many more
+  follow: "Work is stopped on widgets. 7 tasks on widgets are blocked: workspace setup failed. Start
+  there. 4 more things follow." With nothing waiting it says "Nothing needs you" and whether runs
+  are active or the line is paused; with no project, "Not set up yet". It waits for both lists
+  (problems and approvals) before it says anything. If one of them cannot be loaded it says
+  "Cannot tell what needs you" instead of guessing. At its right end is the line window: "Line
+  running" or "Line paused", active runs, queued tasks and cost today.
+- **What needs you** (`src/lib/needs.ts`): problems from `GET /problems` and pending approvals
+  from `GET /approvals`, in one order: problems first (blocked tasks with the most tasks first,
+  then failing loops, then blocked goals, each oldest first), then approvals, oldest first. The
+  first one carries a "Start here" tag when there is more than one.
+- **Owner-unreachable banner**: under the sentence, a red callout "Nobody will be told" while
   `/stats` says `owner_unreachable` (only the log notifier, no channel). For an owner it links
   to the fix, Config's Setup tab (`/config?mode=setup`), where Telegram, Discord or ntfy is set up;
   anyone else is told an owner can do that. It lists each blocked goal as "Goal X is blocked and you
-  have not been notified: reason".
-- **Rate-limit holds**: under the board, an info note per harness held for a rate limit (from
+  have not been notified: reason". With no project it is not shown: the setup step "Reach me"
+  says the same.
+- **Rate-limit holds**: under the sentence, an info note per harness held for a rate limit (from
   `holds` in `/stats`): "claude is rate limited. New runs wait until 15:04." Gone once the hold lifts.
-- **Board**: a charcoal band with one window per project (from `/projects`). A window's lamp
-  bar is lit by what the project needs (`src/lib/lamp.ts`): red when a task is blocked, yellow
-  when approvals wait, off when paused, green when tasks run or are in review, off when only
-  queued or idle. Under the project name the reason in words ("1 blocked", "2 need you",
-  "3 running") and the other non-zero counts, then at the foot the last deploy from
-  `/deployments` ("Deployed · 2d ago", "Rolled back · 1h ago" in the stop colour, "No deploys yet",
-  or "No deployer" when the project has no `deploy`; `src/lib/boardDeploy.ts`). A window links to
-  the project's tasks. At the right end, the line window: "Line running" or "Line paused", active
-  runs, queued tasks and cost today. Windows are 208px, and the band is only as wide as its
-  windows and the line window, so one project is a small board, not a wide empty one; when the
-  windows do not fit in one row they wrap into a grid that fills the main column. Empty:
-  "No projects yet", with a link to the Projects page, where an owner adds one (anyone else is
-  told an owner can).
-  On a phone the band sits inside the page margins with one row per project (the
-  lamp as a side bar, name and reason on the first line, the other counts and the last deploy
-  under them) and the line window on one row.
-- Below, two columns (one on a phone, with Needs you moved above the setup card and the board
-  when it has items):
-- Left: **Needs you**, with "N waiting · oldest 14m" beside the heading. Pending approvals
-  (ApprovalCard) and blocked tasks, each a call item: a sheet with a lit lamp before the title
-  (yellow for approvals, red for blocked), a muted line under it, then the body. Blocked items:
-  "Blocked · project · attempt 2 of 3 · 11m ago", the `blocked_reason` in a stop callout, Retry
-  with note and Cancel. Empty: "Nothing needs you. The factory is handling everything in flight."
-- Right: **Live runs** on one shared time axis (`src/lib/runbar.ts`; 20m, 40m, 1h, 2h, ...
-  whichever fits the longest run). Each run: task title (links to the run), Cancel, "role ·
-  project", elapsed time and "output 12s ago", then a bar whose length is the elapsed time:
-  green up to the last output, yellow after it once the run has been quiet for 5 minutes ("quiet
-  for 7m" in the text). Then the **Heartbeat** card (hidden when `/loops` has no heartbeat entry):
-  on, disabled or quiet hours; last and next run; items needing attention; actions and
-  escalations in 24h (added up over projects); the last error; and "Open Operations" once the
-  Operations conversation exists (`src/components/HeartbeatCard.tsx`). Then **Activity**: the event feed, newest first, in fixed columns:
-  clock time, event type in words, message with one "task" (or "run") link. Ten rows show, with
+- **Lanes** (`AndonBoard`, order from `src/lib/lanes.ts`): one row per project, the projects
+  that need you first. A lane has three parts.
+  - Its board window (from `/projects`). The lamp bar is lit by what the project needs
+    (`src/lib/lamp.ts`): red when a task is blocked, yellow when approvals wait, off when paused,
+    green when tasks run or are in review, off when only queued or idle. Under the project name
+    the reason in words ("1 blocked", "2 need you", "3 running") and the other non-zero counts,
+    then at the foot the last deploy from `/deployments` ("Deployed · 2d ago", "Rolled back · 1h
+    ago" in the stop colour, "No deploys yet", or "No deployer" when the project has no
+    `deploy`; `src/lib/boardDeploy.ts`). The window links to the project's tasks.
+  - What needs you there, one row each (`NeedRow`): a lamp, a title that links to the thing, a
+    muted line, the evidence (an error's first line and its last two) and the actions. Seven
+    tasks blocked by one cause are one row: "Workspace setup failed", "7 tasks blocked
+    · since 10:21 (3h ago) · told you 10:36 · last blocked 2m ago", the underlying error in
+    monospace, **Check
+    again** (retries one task, the one blocked most recently, to see whether the cause is gone)
+    and **Retry all 7** (asks to confirm, then retries each). One blocked task: "Blocked:
+    title", "attempt 1 of 3 · 8h ago", the error or the reason, **Retry** and **Open**. Failing
+    loops: "2 loops are failing: Issue Intake, Friction", since when, how many passes failed,
+    "told you 10:40" or "not told yet", the error, **Open Loops**. A blocked goal:
+    "Goal blocked: title", its reason, **Open goal**. An approval: "Merge approval: title", the
+    risk badge, the PR number, "asked 12m ago", the risk reasons and **Review**, which opens the
+    task page; approving happens there, where the risk and the commit are shown in full. "told
+    you" is the time onett last notified the owner after the problem stayed open (the
+    heartbeat's escalation or the loop alert). A lane with nothing says "Nothing needs you
+    here." The retry buttons need the operate action.
+  - In flight: the project's live runs (`RunItem`): task title (links to the run), Cancel, the
+    role, elapsed time and "output 12s ago", then a bar whose length is the elapsed time on one
+    scale for the whole page (`src/lib/runbar.ts`): green up to the last output, yellow after it
+    once the run has been quiet for 5 minutes ("quiet for 7m" in the text). Under them "3
+    queued", or "Nothing running."
+  - Projects with nothing going on (no need, no run, nothing queued, not paused) fold into one
+    line: "Quiet: dotfiles, notes · no work in flight". Live runs of no configured project (a
+    chat with no project) get a last lane named "No project". Empty: "No projects yet", with a
+    link to the Projects page, where an owner adds one (anyone else is told an owner can).
+  - On a phone a lane stacks: the window as a bar with the lamp at its side, then the rows with
+    their actions under the text, then In flight.
+- **Finish setting up onett** (owners only, `SetupChecklist`), while setup is incomplete. The
+  steps, each linking to where it is done: Add a project (`/projects`), Agents ready (at least
+  one enabled agent; `/config?section=agents`), Choose a policy (a project with no policy uses
+  the default, which counts; `/config?section=policies`), Reach me (not `owner_unreachable` in
+  `/stats`; `/config?mode=setup`), Secrets set (every secret the config refers to is set, from
+  `/secrets`; `/config?mode=secrets`). With no project they are a row of five stations between
+  the sentence and the lanes: "Step 1 · next" is outlined and holds the filled button, a done
+  step says "done ✓", and Choose a policy "waits for a project". Once a project exists the card
+  is one line under the lanes ("4 of 5 done · left: Secrets set (Not set: SLACK_BOT_TOKEN)")
+  with "Show steps" to open the list and a Dismiss button (remembered in the browser). It hides
+  itself when all are done. Logic is in `src/lib/setupChecklist.ts`.
+- Below, two columns (one on a phone):
+- Left: the **Orchestrator** card (`src/components/HeartbeatCard.tsx`): whether the heartbeat is
+  on, disabled or in quiet hours and when it next checks; one sentence saying what it does; the
+  last check; how often it told you and acted itself in 24h (added up over projects); the last
+  error; and "Open Operations" once the Operations conversation exists. With no heartbeat entry
+  in `/loops` it says "The heartbeat starts once a project exists."
+- Right: **Activity** (`src/lib/activity.ts`): the event feed, newest first, as a time, one
+  sentence and the project. The time is the clock for today, the weekday and clock for the last
+  six days, then the date. The sentence names its subject as a link ("Senior Engineer started on
+  Fix flaky widget cache test", "Blocked: Publish agent screenshots", "Merge approval asked:
+  …", "Issue Intake failed · 13 times since 10:24", "Told you: blocked task on widgets").
+  Stopped things carry a red lamp and approvals a yellow one, always with the words. Repeats
+  within ten minutes fold into one row: the same thing again keeps its sentence and says how
+  often ("… · 3 times"), and many things of one kind become a count ("7 tasks blocked:
+  workspace setup failed · 10:21 to 10:27", "21 Senior Engineer runs failed"). Plumbing is left
+  out: chat messages, a run that is running or succeeded, chat turns that did not fail, and
+  the notification a block sends (its "Blocked" row is already there). Ten rows show, with
   "Show all N" to expand in place. Live events prepend.
+- **Blocked reason** (`BlockedReason`, on the task page): the reason is clamped to three lines
+  with a Show more / Show less toggle (only when it overflows), keeps the agent's line breaks
+  and wraps long flags and paths inside the box, so Retry and Cancel stay in view.
 - Not built yet: a compact lamp row on pages other than Overview, and fuller window details on
   focus. The nav badges carry "needs you" and "blocked" everywhere meanwhile.
 
@@ -372,15 +413,19 @@ whose harness takes input), and is queued only for a harness that cannot take in
 finishes this run", with edit and cancel (no longer possible once delivered). When messages are
 queued and no run is live, for example after a failed run, **Send now** starts the follow-up.
 
-A task agent's view adds a yellow note above the box, "You're talking directly to this task's
-agent. For anything beyond this task, ask the orchestrator." (the last words link to `/chat`).
-Close asks for a reason. A closed conversation replaces the composer with "Closed by <who>:
-<reason>", shown as plain text, and a **Reopen** button for operators and owners. When the server
-refuses a message (a 409) the composer shows its reason. Retrying a cancelled task does not reopen
-its conversation: the owner reopens it. Send now, and editing or cancelling a queued
-message are for signed-in people only; an API token gets 403. The agent token (the orchestrator)
-can send a message, which the thread labels "Orchestrator". Viewers read the thread and see a muted
-line, "Viewers can read conversations but not send messages.", in place of the composer.
+A task agent's view adds a yellow note above the box, "You're talking directly to this task's agent.
+For anything beyond this task, ask the orchestrator." (the last words link to `/chat`). Close asks
+for a reason. A closed conversation replaces the composer with "Closed by <who>: <reason>", shown as
+plain text, and a **Reopen** button for operators and owners. When the server refuses a message (a
+409) the composer shows its reason. Retrying a cancelled task does not reopen its conversation: the
+owner reopens it. Send now, and editing or cancelling a queued message are for signed-in people
+only; an API token gets 403. The agent token (the orchestrator) can send a message, which the thread
+labels "Orchestrator". Viewers read the thread and see a muted line, "Viewers can read conversations
+but not send messages.", in place of the composer. A trigger's conversation (titled "Trigger:
+<name>") shows no model or permission pickers, even to an operator: the composer shows the model
+read-only, and a muted line under it says "A trigger's turns always run with the orchestrator's
+default model and permissions, so they cannot be changed here." The server would store settings
+there but never apply them.
 
 **Goals** (`/goals`) — table: status, goal (links to the detail), project, turns, updated and the
 controls. Filters: project and status. Controls follow the API's rules: Pause on an active goal,
@@ -488,10 +533,76 @@ window beside the rail), the table becomes one sheet per loop, with a row for ea
 in. With no loops configured the page says so and links to Config's Loops group
 (`/config?section=loops`).
 
+**Triggers** (`/triggers`) — rules the owner writes that start the orchestrator on their own: on a
+schedule, or when a new issue is opened in a project's repository. Two columns. On the left,
+**Rules**: one card per trigger, sorted by name with switched-off triggers last, and beside the
+heading "5 on · 1 off · 1 failing" (failing in red when any). A card has a lamp bar down its left
+edge and the same thing in words under its name: green "On" (with "next in 17h 00m", or "waits for
+the next issue"), yellow "Skipped its last firing", red "Last firing failed", grey "On · not fired
+yet" or "Off". The name opens the trigger's own page; the project is a tag beside it. Three rows
+follow. **When**: the schedule in words and its time zone ("Every day at 05:00 · UTC", "daemon's
+time zone" when none is set), or "A new issue in owner/repo · label bug" ("any label" without one).
+**Ask**: the prompt, cut at two lines. **Last**: the last firing, as "6h ago · scheduled 05:00 ·
+Started", with "Open conversation" when it started, the reason in yellow or red when it was skipped
+or failed ("Skipped: the factory was paused"), and "All firings", which also opens the trigger's
+page; "never" before the first firing. On the right, **Recent firings**: the newest 50 firings of
+every trigger from `GET /trigger-firings`, grouped under Today, Yesterday and dates, each with its
+clock time, a lamp and "Started", "Skipped" or "Failed", the trigger's name (taken from the list of
+triggers), what caused it ("scheduled 09:30", "run now by bcraig", or "issue #412" as a link to the
+issue), and under it "Open conversation" or the reason. Under 760px the two columns are shown one at
+a time, chosen with two buttons, Triggers and Firings; the choice is in the URL (`?tab=firings`).
+With no triggers the left column says "No triggers. A trigger starts the orchestrator on its own, on
+a schedule or when a new issue is opened." and, for an owner, offers two examples ("Every day at
+05:00" and "A new issue is opened"), each with **Use this**; the right column says "Nothing has
+fired yet. Each firing is listed here with what started it and what came of it." Only an owner sees
+**New trigger** in the header and, on each card, **Run now** (schedule triggers only: an issue
+trigger cannot be fired by hand), **Edit** and **Turn off** or **Turn on**; everyone else sees "Only
+an owner can add or change triggers." and no controls. Run now reads "Running…" until the server
+answers, then a line says "Fired <name>.", or "Skipped <name>: <reason>." when the firing was
+skipped. Turn off and Turn on save at once. Clock times are the browser's; the time in "scheduled
+05:00" is in the trigger's own zone. A trigger with no zone of its own runs in the daemon's zone,
+which the browser does not know, so its times are shown in the browser's zone: right when the two
+are the same.
+
+**New trigger / Edit trigger** — one dialog for both. A new trigger has Name and Project, then
+**Starts**: "On a schedule" or "On a new issue". Kind and project cannot be changed later, so
+editing shows them as one sentence instead ("Schedule trigger for home-lab. The kind and the
+project cannot be changed; make a new trigger for another one."). A schedule has **Repeats**:
+Every day (with a time), On chosen days (a time and seven day buttons), Every few hours (1, 2, 3,
+4, 6, 8 or 12), Every few minutes (5, 10, 15, 20 or 30), or Custom (a five-field cron
+expression, checked by the server on save); and **Time zone**, a list that starts with "Daemon's
+time zone" and, for a new trigger, has the browser's zone chosen. The time is typed as 24-hour
+HH:MM. Under the fields a note says the schedule back in words and shows the cron it saves
+("Fires Monday to Friday at 09:30, UTC time. Saved as cron 30 9 * * 1-5"), or what is still
+missing ("Choose at least one day."). The page writes and reads only these shapes
+(`src/lib/triggerSchedule.ts`); any other stored expression opens as Custom and is shown as it
+is. An issue trigger has **Label** (empty for every new issue) and a note with the rules: only
+issues opened by an owner, member or collaborator count, only those opened after the trigger was
+last turned on, and never issues that issue intake takes or onett's own friction issues. Then
+the **Prompt**, and an **On** tick, which is set for a new trigger and always sent (the API's own
+default is off). Editing sends only the fields that changed, because sending "on" again would
+restart an issue trigger's watch from now. A problem the server finds (a bad cron or zone) shows
+under the form.
+
+**Trigger detail** (`/triggers/:id`) — the name with its status pill (OK, Skipped, Failed, Not
+fired yet or Off), and for an owner **Run now** (schedule triggers only), **Edit**, **Turn off**
+or **Turn on**, and **Delete**. Delete asks first: the button reads "Confirm?" for three seconds
+and a line says "Deletes the trigger and its firing history. Its conversation stays in Chat.";
+afterwards the page goes back to the list. Under the header: the kind and project, and "Open
+conversation" once the trigger has fired (every firing of a trigger goes to one conversation). A
+sheet of facts: for a schedule, When (in words, or "Custom schedule"), Time zone, Next firing
+(in the trigger's zone, with "in 17h 00m"; "none while it is off") and Cron; for an issue
+trigger, When, Repository (a link), Label and "Issues since", the moment from which new issues
+count. Then the **Prompt**, as plain text, and **Firings**, newest first, the newest 200: When
+(date and time, with "6h ago"), Why ("Scheduled for 05:00", "Run now by bcraig", or "Issue #88"
+as a link) and Outcome (a pill, started, skipped or failed, with the reason beside it). Before
+the first firing: "This trigger has not fired yet." An unknown ID shows "Trigger not found" and a
+way back to the list.
+
 **Users** (`/users`, owners only; anyone else is sent to Overview) — a table of accounts:
 username (your own row says "(you)"), role, added (a relative time, or a calendar date once it is 30 days old; the full timestamp shows on hover) and actions. The role is a
 select that saves as soon as it changes; changing your own role reloads your session so the
-menus match it. "Set password" opens a field under that row with Save and Cancel. "Remove"
+menus match it. "Set password" opens a field under that row with Save and Cancel; your own row has none, because "Change password" in the account panel asks for the current password. "Remove"
 asks for confirmation, and is not offered on the only owner's row, because the server always
 refuses that. "Add user" opens a sheet above the table with username, password and
 role (default operator) and "Create user" or "Cancel". The server's message is shown under the
@@ -606,22 +717,27 @@ Never merge a `pr-assets` branch.
 ### Any other page: `npm run shots`
 
 `npm run shots:chat` covers only the Chat page. For every other page (Overview, Projects, Goals,
-Tasks, Runs, Approvals, Deploys, Signals, Friction, Loops, Agents, Config, Users, and a task, run
-and goal detail page), use the same mocked approach, which needs no daemon and no token:
+Tasks, Runs, Approvals, Deploys, Signals, Friction, Loops, Triggers, Agents, Config, Users, and a
+task, run and goal detail page), use the same mocked approach, which needs no daemon and no token:
 
 ```sh
 cd web && npm run shots
 ```
 
 It builds the UI and runs `web/e2e/page-shots.spec.ts` (config: `playwright.page-shots.config.ts`,
-free port, pin it with `ONETT_PAGE_SHOTS_PORT`). The spec reads the routes from `src/App.tsx`, so a new
-page is shot without editing it, except that a route with a `:param` needs an id in its `PARAMS` table.
-It signs in as an owner, so Agents, Config and Users show data. Each page is shot at desktop
+free port, pin it with `ONETT_PAGE_SHOTS_PORT`). The spec reads the routes from `src/App.tsx`, so a
+new page is shot without editing it, except that a route with a `:param` needs an id in its `PARAMS`
+table. It signs in as an owner, so Agents, Config and Users show data. Each page is shot at desktop
 (1440x900) and phone (390x844), dark and light, into
 `web/e2e-results/shots/<route>-<desktop|phone>-<dark|light>.png`; `/` is `overview`, and a detail
 route carries its id, for example `tasks_<id>-phone-light.png`. Extra shots show an empty Tasks and
-Runs page (`tasks_empty`, `runs_empty`), an Overview with one project (`overview_one_project`),
-a chat run with no task (`runs_<id>`) and a goal check-in conversation (`chat_<id>`).
+Runs page (`tasks_empty`, `runs_empty`), an Overview with one project (`overview_one_project`), a
+chat run with no task (`runs_<id>`) and a goal check-in conversation (`chat_<id>`). For Triggers
+there are an empty page (`triggers_empty`), the read-only list and trigger page a viewer sees
+(`triggers_readonly`, `trigger_readonly`), the phone's Firings tab (`triggers_firings`), the dialog
+for a new trigger and for editing one of each kind (`triggers_new`, `triggers_edit_schedule`,
+`triggers_edit_issue`: a scene's `press` names a button to press before the shot), and an issue
+trigger's page.
 
 The shots cut each page at the window height, so anything below the fold is not in them, and a
 cut-off edge can look like a bug. For long pages, lists and anything below the fold, run

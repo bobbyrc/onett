@@ -15,12 +15,15 @@ import type {
   LogLine,
   LoopView,
   OnettEvent,
+  Problem,
   ProjectView,
   Run,
   Signal,
   Stats,
   Task,
   TaskConversation,
+  Trigger,
+  TriggerFiring,
 } from '../src/types';
 import { config as baseConfig, configDocument as baseConfigDocument } from './fixtures';
 
@@ -41,6 +44,9 @@ export const IDS = {
   chatRun: ulid(7),
   chat: ulid(8),
   goalChat: ulid(9),
+  trigger: ulid(20),
+  issueTrigger: ulid(21),
+  triggerChat: ulid(26),
   taskChat: ulid(13),
   goalRun: ulid(303),
 };
@@ -332,6 +338,7 @@ export const conversations: Conversation[] = [
   conv({ id: ulid(11), title: 'Why did the last deploy roll back?', project: 'dotfiles-and-agent-configs', updated_at: ago(3 * DAY) }),
   conv({ id: ulid(12), title: 'New chat', project: undefined, updated_at: ago(5 * DAY) }),
   conv({ id: IDS.taskChat, title: tasks[1].title, task_id: IDS.chatTask, updated_at: ago(3) }),
+  conv({ id: IDS.triggerChat, title: 'Trigger: Morning issue sweep', kind: 'trigger', updated_at: ago(7 * 60), created_at: ago(21 * DAY) }),
 ];
 
 const m = (n: number, role: ChatMessage['role'], text: string, minutes: number, over: Partial<ChatMessage> = {}): ChatMessage => ({
@@ -432,6 +439,113 @@ export const goals: Goal[] = [
     created_at: ago(14 * DAY),
     updated_at: ago(18 * 60),
   },
+];
+
+// Triggers: one in each state the page shows. Times are UTC, like the shots' clock, except one
+// trigger in another zone so a long zone name is in the pictures.
+const at = (iso: string) => new Date(iso).toISOString();
+const trig = (n: number, over: Partial<Trigger>): Trigger => ({
+  id: ulid(n),
+  name: '',
+  kind: 'schedule',
+  project: 'onett',
+  prompt: '',
+  enabled: true,
+  time_zone: 'UTC',
+  created_at: ago(21 * DAY),
+  updated_at: ago(2 * DAY),
+  ...over,
+});
+let firingSeq = 0;
+const fire = (trigger_id: string, when: string, over: Partial<TriggerFiring>): TriggerFiring => ({
+  id: ulid(400 + ++firingSeq),
+  trigger_id,
+  at: when,
+  cause: 'schedule',
+  outcome: 'started',
+  ...over,
+});
+const T = { bugs: IDS.issueTrigger, friday: ulid(22), sweep: IDS.trigger, triage: ulid(23), deps: ulid(24), stale: ulid(25) };
+const SWEEP_CHAT = { conversation_id: IDS.triggerChat };
+const SHUTDOWN = 'onett was shutting down';
+const PAUSED = 'the factory was paused';
+const issue = (n: number, repo = 'onett') => ({ cause: 'github_issue' as const, issue_number: n, issue_url: `https://github.com/bobbyrc/${repo}/issues/${n}` });
+const sched = (iso: string) => ({ scheduled_for: at(iso) });
+
+/** Every firing, newest first, as GET /trigger-firings returns them. */
+export const triggerFirings: TriggerFiring[] = [
+  fire(T.triage, ago(42), { ...issue(412), conversation_id: ulid(27) }),
+  fire(T.deps, at('2026-11-05T09:30:01Z'), { ...sched('2026-11-05T09:30:00Z'), outcome: 'skipped', reason: PAUSED }),
+  fire(T.sweep, at('2026-11-05T05:00:02Z'), { ...sched('2026-11-05T05:00:00Z'), ...SWEEP_CHAT }),
+  fire(T.triage, at('2026-11-05T00:00:10Z'), { ...issue(411), conversation_id: ulid(27) }),
+  fire(T.triage, at('2026-11-04T21:14:00Z'), { ...issue(411), outcome: 'skipped', reason: 'over the daily budget' }),
+  fire(T.sweep, at('2026-11-04T14:12:00Z'), { cause: 'manual', by: 'owner:bcraig', ...SWEEP_CHAT }),
+  fire(T.deps, at('2026-11-04T09:30:01Z'), { ...sched('2026-11-04T09:30:00Z'), conversation_id: ulid(28) }),
+  fire(T.sweep, at('2026-11-04T05:00:01Z'), { ...sched('2026-11-04T05:00:00Z'), outcome: 'skipped', reason: PAUSED }),
+  fire(T.deps, at('2026-11-03T09:30:01Z'), { ...sched('2026-11-03T09:30:00Z'), conversation_id: ulid(28) }),
+  fire(T.bugs, at('2026-11-03T09:12:00Z'), { ...issue(88, 'dotfiles-and-agent-configs'), outcome: 'failed', reason: SHUTDOWN }),
+  fire(T.sweep, at('2026-11-03T05:00:01Z'), { ...sched('2026-11-03T05:00:00Z'), ...SWEEP_CHAT }),
+  fire(T.sweep, at('2026-11-02T05:00:01Z'), { ...sched('2026-11-02T05:00:00Z'), outcome: 'failed', reason: SHUTDOWN }),
+  fire(T.sweep, at('2026-11-01T05:00:01Z'), { ...sched('2026-11-01T05:00:00Z'), ...SWEEP_CHAT }),
+  fire(T.stale, ago(21 * DAY), { ...sched(ago(21 * DAY)), conversation_id: ulid(29) }),
+];
+const lastOf = (id: string) => triggerFirings.find((f) => f.trigger_id === id);
+
+/** As GET /triggers returns them: oldest first, each with its newest firing. */
+export const triggers: Trigger[] = [
+  trig(21, {
+    name: 'Bug reports',
+    kind: 'github_issue',
+    project: 'dotfiles-and-agent-configs',
+    time_zone: undefined,
+    label: 'bug',
+    issues_after: ago(20 * DAY),
+    prompt: 'Reproduce the bug described in the issue if you can, then queue a bugfix task with the steps you found.',
+    last_firing: lastOf(T.bugs),
+  }),
+  trig(22, {
+    name: 'Friday release notes',
+    cron: '0 16 * * 5',
+    time_zone: 'America/New_York',
+    next_run_at: at('2026-11-06T21:00:00Z'),
+    created_at: ago(3 * 60),
+    prompt: 'Draft release notes from the pull requests merged this week and post them in this conversation.',
+  }),
+  trig(20, {
+    name: 'Morning issue sweep',
+    cron: '0 5 * * *',
+    next_run_at: at('2026-11-06T05:00:00Z'),
+    conversation_id: IDS.triggerChat,
+    prompt:
+      'Look at every open issue in this repository. Close the ones that are already fixed and say which commit fixed them. For each of the rest, queue a task if it is clear enough to work on, or ask me what is missing.',
+    last_firing: lastOf(T.sweep),
+  }),
+  trig(23, {
+    name: 'Triage new issues',
+    kind: 'github_issue',
+    time_zone: undefined,
+    issues_after: ago(21 * DAY),
+    conversation_id: ulid(27),
+    prompt: 'Read the new issue. Say whether it is a bug, a feature or a question, check whether it is already fixed on main, and queue a task if it is clear enough to work on.',
+    last_firing: lastOf(T.triage),
+  }),
+  trig(24, {
+    name: 'Weekday dependency check',
+    project: 'home-lab',
+    cron: '30 9 * * 1-5',
+    next_run_at: at('2026-11-06T09:30:00Z'),
+    conversation_id: ulid(28),
+    prompt: 'Check for dependency updates. Queue one task for each update that has a security fix, and list the rest in your reply.',
+    last_firing: lastOf(T.deps),
+  }),
+  trig(25, {
+    name: 'Stale PR nudge',
+    enabled: false,
+    cron: '0 */6 * * *',
+    conversation_id: ulid(29),
+    prompt: 'List pull requests that have had no activity for three days and say what each one is waiting for.',
+    last_firing: lastOf(T.stale),
+  }),
 ];
 
 export const approvals: Approval[] = [
@@ -760,7 +874,362 @@ export const secrets = [
   { name: 'SLACK_BOT_TOKEN', set: false, source: '', referenced_by: ['channels[0].options.bot_token_env'] },
 ];
 
+// One blocked-tasks problem per blocked task, then the failing loop of the dotfiles project.
+export const problems: Problem[] = [
+  ...tasks
+    .filter((t) => t.status === 'blocked')
+    .map(
+      (t): Problem => ({
+        kind: 'blocked_tasks',
+        project: t.project,
+        key: 'blocked_tasks:' + t.project + ':' + t.id.slice(-8),
+        title: (t.blocked_reason ?? '').split('\n')[0],
+        detail: '',
+        count: 1,
+        since: t.updated_at,
+        last_at: t.updated_at,
+        tasks: [{ id: t.id, title: t.title, attempts: t.attempts, max_attempts: t.max_attempts }],
+      }),
+    ),
+  (() => {
+    const failing = loops.find((l) => l.enabled && l.last_error);
+    return {
+      kind: 'failing_loops',
+      project: 'dotfiles-and-agent-configs',
+      key: 'failing_loops:dotfiles-and-agent-configs',
+      title: '',
+      detail: failing?.last_error ?? '',
+      count: 4,
+      since: ago(22),
+      last_at: failing?.last_run_at,
+      loops: [{ name: 'issue_intake', fails: 4, since: ago(22) }],
+    } satisfies Problem;
+  })(),
+];
+
+/** What the Overview page reads, for one state of the factory. A key left out falls back to the default data. */
+export interface OverviewState {
+  projects: ProjectView[];
+  stats: Stats;
+  problems: Problem[];
+  approvals: Approval[];
+  tasks: Task[];
+  runs: Run[];
+  loops: LoopView[];
+  events: OnettEvent[];
+  deployments: Deployment[];
+  secrets: typeof secrets;
+}
+
+const deployOf = { type: 'local', health_url: 'http://127.0.0.1:7788/api/v1/health', verify_for: '10m' };
+const RUN_RUNNING = runs[2]; // a running run: the shape the three states copy
+const RUN_CHAT_TURN = runs[1]; // the orchestrator's chat turn (IDS.chatRun)
+const GH_ERR =
+  'issue intake: list issues: gh issue list --repo acme/widgets --state open --limit 100 --json number,url,title,body,state,labels,author,createdAt,updatedAt,comments --label onett: exit status 4: To get started with GitHub CLI, please run: gh auth login Alternatively, populate the GH_TOKEN environment variable with a GitHub API authentication token.';
+
+const T_DENIED = task(420, {
+  id: ulid(420),
+  project: 'onett',
+  title: 'Publish agent screenshots from the outbox into the PR body',
+  status: 'blocked',
+  attempts: 1,
+  max_attempts: 3,
+  blocked_reason: 'agent was denied: Bash(git push origin HEAD) is not allowed. Onett pushes branches itself; the agent must not.',
+  blocked_at: ago(480),
+  updated_at: ago(480),
+});
+const T_ELAPSED = task(431, {
+  id: ulid(431),
+  project: 'onett',
+  title: 'Show elapsed time on running tool rows from tool_progress',
+  status: 'awaiting_approval',
+  risk: 'medium',
+  risk_reasons: ['Touches web/src/components/Transcript.tsx (user-visible behaviour)', 'Diff is 412 lines, over the 400-line default'],
+  pr_number: 297,
+  pr_url: PR + '/297',
+});
+const T_CHAT = task(441, { id: ulid(441), project: 'onett', title: 'Fix chat threads: system-started turns, viewport scroll, internal links', status: 'running' });
+const A_ELAPSED: Approval = {
+  id: ulid(430),
+  task_id: ulid(431),
+  project: 'onett',
+  kind: 'merge',
+  title: T_ELAPSED.title,
+  reason: 'Medium risk: touches user-visible behaviour in web/src/components/Transcript.tsx. Reviewer approved at 9f3c1a7.',
+  status: 'pending',
+  head_sha: SHA,
+  created_at: ago(12),
+};
+const A_BACKUP: Approval = {
+  ...A_ELAPSED,
+  id: ulid(432),
+  task_id: ulid(433),
+  project: 'home-lab',
+  title: 'Rotate the backup bucket credentials',
+  reason: 'High risk: changes which credentials the nightly backup uses. Reviewer approved at 41be0c2.',
+  created_at: ago(180),
+};
+const P_DENIED: Problem = {
+  kind: 'blocked_tasks',
+  project: 'onett',
+  key: 'blocked_tasks:onett:5b7d9e01',
+  title: T_DENIED.blocked_reason ?? '',
+  detail: '',
+  count: 1,
+  since: ago(480),
+  last_at: ago(480),
+  told_at: ago(467),
+  tasks: [{ id: T_DENIED.id, title: T_DENIED.title, attempts: 1, max_attempts: 3 }],
+};
+const R_CHAT: Run = { ...RUN_RUNNING, id: ulid(440), task_id: ulid(441), project: 'onett', role: 'senior-engineer' };
+const hb = (project: string, lastMin: number, nextMin: number, actions: number, escalations: number) =>
+  loop('heartbeat', {
+    project,
+    every: '15m0s',
+    last_run_at: ago(lastMin),
+    next_run_at: ago(-nextMin),
+    actions_24h: actions,
+    escalations_24h: escalations,
+    operations_conversation_id: ulid(10),
+  });
+const deploymentsNow: Deployment[] = [
+  dep(21, { project: 'onett', state: 'healthy', updated_at: ago(120) }),
+  dep(22, { project: 'widgets', state: 'healthy', updated_at: ago(DAY) }),
+];
+
+const TITLES = [
+  'Add a changelog file',
+  'Rework the export pipeline so that very long task titles wrap instead of pushing the table off the screen on small phones',
+  'Fix flaky widget cache test',
+  'Upgrade the build image',
+  'Investigate slow start-up',
+  'Tidy the README',
+  'High-risk change to the release script',
+];
+const W = TITLES.map((title, i) =>
+  task(401 + i, {
+    id: ulid(401 + i),
+    project: 'widgets',
+    title,
+    status: 'blocked',
+    attempts: 3,
+    max_attempts: 3,
+    blocked_reason: 'workspace setup failed (gave up after 3 attempts)',
+    blocked_cause: 'workspace setup failed',
+    blocked_at: ago(201 - i),
+    updated_at: ago(201 - i),
+  }),
+);
+
+/** No work, no daemon answer about the owner's setup: the first run of onett. */
+export const overviewFresh: OverviewState = {
+  projects: [],
+  stats: {
+    ...stats,
+    tasks_by_status: {},
+    active_runs: 0,
+    approvals_pending: 0,
+    cost_today_usd: 0,
+    subscription_cost_today_usd: 0,
+    owner_unreachable: true,
+    blocked_goals: [],
+    awaiting_owner: 0,
+  },
+  problems: [],
+  approvals: [],
+  tasks: [],
+  runs: [],
+  loops: [],
+  events: [],
+  deployments: [],
+  secrets: secrets.map((s) => ({ ...s, set: true })),
+};
+
+/** A working line: runs, an approval waiting, a denied task and a chat turn. */
+export const overviewBusy: OverviewState = {
+  projects: [
+    proj('onett', { deploy: deployOf, counts: { queued: 1, running: 1, review: 0, awaiting_approval: 1, blocked: 1 } }),
+    proj('home-lab', { counts: { queued: 0, running: 0, review: 0, awaiting_approval: 1, blocked: 0 } }),
+    proj('widgets', { deploy: deployOf, counts: { queued: 3, running: 1, review: 0, awaiting_approval: 0, blocked: 0 } }),
+    proj('dotfiles'),
+  ],
+  stats: {
+    ...stats,
+    tasks_by_status: { queued: 4, running: 2, awaiting_approval: 2, blocked: 1 },
+    active_runs: 3,
+    approvals_pending: 2,
+    cost_today_usd: 18.42,
+    owner_unreachable: false,
+    blocked_goals: [],
+  },
+  problems: [P_DENIED],
+  approvals: [A_ELAPSED, A_BACKUP],
+  tasks: [
+    T_DENIED,
+    T_ELAPSED,
+    T_CHAT,
+    task(433, {
+      id: ulid(433),
+      project: 'home-lab',
+      title: 'Rotate the backup bucket credentials',
+      status: 'awaiting_approval',
+      risk: 'high',
+      risk_reasons: ['Touches infra/secrets/** (rule: secrets)'],
+      pr_number: 58,
+      pr_url: PR + '/58',
+    }),
+    task(443, { id: ulid(443), project: 'widgets', title: 'Fix flaky widget cache test', status: 'running' }),
+  ],
+  runs: [
+    { ...R_CHAT, started_at: ago(41), last_output_at: ago(3) },
+    { ...RUN_RUNNING, id: ulid(442), task_id: ulid(443), project: 'widgets', role: 'senior-engineer', started_at: ago(18), last_output_at: ago(0.2) },
+    { ...RUN_CHAT_TURN, project: 'onett', status: 'running', started_at: ago(7), last_output_at: ago(0.5), ended_at: undefined },
+  ],
+  loops: [hb('onett', 9, 6, 5, 1), hb('home-lab', 9, 6, 2, 0), hb('widgets', 9, 6, 0, 0), hb('dotfiles', 9, 6, 0, 0)],
+  events: [
+    ev(60, 2, 'run.updated', 'run starting', {
+      project: 'widgets',
+      task_id: ulid(443),
+      run_id: ulid(442),
+      data: { id: ulid(442), task_id: ulid(443), role: 'senior-engineer', status: 'starting' },
+    }),
+    ev(59, 9, 'deploy.updated', 'deploy 9f3c1a7 is healthy, verifying for 10m', { data: { state: 'verifying' } }),
+    ev(58, 12, 'approval.requested', A_ELAPSED.title, { task_id: ulid(431), data: A_ELAPSED }),
+    ev(57, 46, 'pr.opened', 'PR #284 opened: Fix chat threads', { task_id: ulid(441) }),
+    ev(56, 63, 'task.created', 'queued feature task: Fix flaky widget cache test', {
+      project: 'widgets',
+      task_id: ulid(443),
+      data: { id: ulid(443), title: 'Fix flaky widget cache test', status: 'queued' },
+    }),
+    ev(55, 180, 'approval.requested', 'Rotate the backup bucket credentials', { project: 'home-lab', task_id: ulid(433), data: A_BACKUP }),
+    ev(54, 467, 'notification', 'Needs you: blocked_task ' + ulid(420) + ' (onett)', { project: '' }),
+    ev(53, 480, 'task.updated', T_DENIED.title + ': blocked: ' + T_DENIED.blocked_reason, { task_id: ulid(420), data: T_DENIED }),
+    ev(52, 14 * 60, 'deploy.updated', 'rolled back 0e8ebaa: health check timed out', { data: { state: 'rolled_back' } }),
+  ],
+  deployments: deploymentsNow,
+  secrets,
+};
+
+/** Things stopped: seven blocked tasks behind a failing GitHub login, failing loops and a blocked goal. */
+export const overviewBad: OverviewState = {
+  projects: [
+    proj('widgets', { deploy: deployOf, counts: { queued: 0, running: 0, review: 0, awaiting_approval: 0, blocked: 7 } }),
+    proj('onett', { deploy: deployOf, counts: { queued: 2, running: 1, review: 0, awaiting_approval: 1, blocked: 1 } }),
+    proj('home-lab', { counts: { queued: 0, running: 1, review: 0, awaiting_approval: 0, blocked: 0 } }),
+    proj('dotfiles'),
+  ],
+  stats: {
+    ...stats,
+    tasks_by_status: { queued: 2, running: 2, awaiting_approval: 1, blocked: 8 },
+    active_runs: 2,
+    approvals_pending: 1,
+    cost_today_usd: 6.1,
+    owner_unreachable: false,
+    blocked_goals: [
+      { id: ulid(410), project: 'widgets', title: 'Ship the first public release of widgets', reason: 'The orchestrator made no progress on its last turn.' },
+    ],
+  },
+  problems: [
+    {
+      kind: 'blocked_tasks',
+      project: 'widgets',
+      key: 'blocked_tasks:widgets:1a2b3c4d',
+      title: 'workspace setup failed',
+      detail: "git fetch origin: exit status 128: fatal: unable to access 'https://github.com/acme/widgets.git/': Could not resolve host: github.com",
+      count: 7,
+      since: ago(201),
+      last_at: ago(2),
+      told_at: ago(186),
+      tasks: [...W].reverse().map((t) => ({ id: t.id, title: t.title, attempts: 3, max_attempts: 3 })),
+    },
+    {
+      kind: 'failing_loops',
+      project: 'widgets',
+      key: 'failing_loops:widgets',
+      title: '',
+      detail: '…,labels,author,createdAt,updatedAt,comments --label onett: exit status 4: To get started with GitHub CLI, please run: gh auth login\nAlternatively, populate the GH_TOKEN environment variable with a GitHub API authentication token.',
+      count: 13,
+      since: ago(198),
+      last_at: ago(2),
+      loops: [
+        { name: 'issue_intake', fails: 13, since: ago(198) },
+        { name: 'friction_triage', fails: 13, since: ago(198) },
+      ],
+    },
+    {
+      kind: 'blocked_goal',
+      project: 'widgets',
+      key: 'blocked_goal:' + ulid(410),
+      title: 'Ship the first public release of widgets',
+      detail: 'The orchestrator made no progress on its last turn.',
+      count: 1,
+      since: ago(120),
+      told_at: ago(117),
+      goal_id: ulid(410),
+    },
+    P_DENIED,
+  ],
+  approvals: [A_ELAPSED],
+  tasks: [
+    ...W,
+    T_DENIED,
+    T_ELAPSED,
+    T_CHAT,
+    task(445, { id: ulid(445), project: 'home-lab', title: 'Tune the backup schedule', status: 'running' }),
+  ],
+  runs: [
+    { ...R_CHAT, started_at: ago(41), last_output_at: ago(7) },
+    { ...RUN_RUNNING, id: ulid(444), task_id: ulid(445), project: 'home-lab', role: 'senior-engineer', started_at: ago(11), last_output_at: ago(0.3) },
+  ],
+  loops: [
+    hb('widgets', 6, 9, 0, 2),
+    hb('onett', 6, 9, 0, 1),
+    hb('home-lab', 6, 9, 0, 0),
+    hb('dotfiles', 6, 9, 0, 0),
+    loop('issue_intake', { project: 'widgets', every: '5m', last_run_at: ago(2), last_error: GH_ERR }),
+    loop('friction_triage', {
+      project: 'widgets',
+      every: '1h',
+      last_run_at: ago(2),
+      last_error: GH_ERR.replace('issue intake: list issues', 'friction: list issue states'),
+    }),
+  ],
+  events: [
+    ev(90, 2, 'loop.error', 'issue_intake: ' + GH_ERR, { project: 'widgets', data: { loop: 'issue_intake', error: GH_ERR } }),
+    ev(89, 2, 'loop.error', 'friction_triage: ' + GH_ERR, { project: 'widgets', data: { loop: 'friction_triage', error: GH_ERR } }),
+    ev(88, 11, 'run.updated', 'run starting', {
+      project: 'home-lab',
+      task_id: ulid(445),
+      run_id: ulid(444),
+      data: { id: ulid(444), task_id: ulid(445), role: 'senior-engineer', status: 'starting' },
+    }),
+    ev(87, 12, 'approval.requested', A_ELAPSED.title, { task_id: ulid(431), data: A_ELAPSED }),
+    ev(86, 14, 'task.created', 'queued feature task: Tune the backup schedule', {
+      project: 'home-lab',
+      task_id: ulid(445),
+      data: { id: ulid(445), title: 'Tune the backup schedule', status: 'queued' },
+    }),
+    ev(85, 120, 'goal.updated', 'goal blocked', {
+      project: 'widgets',
+      data: { id: ulid(410), title: 'Ship the first public release of widgets', status: 'blocked' },
+    }),
+    ev(84, 186, 'notification', 'Needs you: blocked_task ' + ulid(407) + ' (widgets)', { project: '' }),
+    ...W.map((t, i) =>
+      ev(77 + i, 201 - i, 'task.updated', t.title + ': blocked: workspace setup failed (gave up after 3 attempts)', {
+        project: 'widgets',
+        task_id: t.id,
+        data: t,
+      }),
+    ).reverse(),
+    ev(76, 480, 'task.updated', T_DENIED.title + ': blocked: ' + T_DENIED.blocked_reason, { task_id: ulid(420), data: T_DENIED }),
+    ev(75, 14 * 60, 'deploy.updated', 'rolled back 0e8ebaa: health check timed out', { data: { state: 'rolled_back' } }),
+  ],
+  deployments: deploymentsNow,
+  secrets: secrets.map((s) => ({ ...s, set: true })),
+};
+
 export const owner = { username: 'bcraig', role: 'owner', created_at: ago(90 * DAY), updated_at: ago(DAY) } as const;
+export const viewer = { username: 'sam', role: 'viewer', created_at: ago(90 * DAY), updated_at: ago(DAY) } as const;
 
 // The config page reads these. They start from the shared fixtures and swap the layout-stress
 // paths and help text for ones a real install has.

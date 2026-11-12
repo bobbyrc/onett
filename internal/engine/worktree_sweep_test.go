@@ -106,8 +106,8 @@ func TestSweepWorktreesRemovesOnlyLeftovers(t *testing.T) {
 	env.e.sweepWorktrees(env.ctx, p)
 
 	assert.False(t, wsExists(t, doneDir), "ended run of a done task is removed")
-	assert.False(t, wsExists(t, queuedDir), "ended run of a re-queued task is removed")
-	assert.False(t, wsExists(t, blockedOldDir), "older run of a blocked task is removed")
+	assert.True(t, wsExists(t, queuedDir), "ended run of a re-queued task is kept: its next run saves the work")
+	assert.True(t, wsExists(t, blockedOldDir), "older run of a blocked task is kept: it may hold uncommitted work")
 	assert.True(t, wsExists(t, blockedNewDir), "newest run of a blocked task is kept for a person")
 	assert.True(t, wsExists(t, runningDir), "run that has not ended is kept")
 	assert.True(t, wsExists(t, strayDir), "directory that is not a known run is kept")

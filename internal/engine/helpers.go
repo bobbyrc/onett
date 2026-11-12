@@ -152,8 +152,17 @@ func (e *Engine) blockTask(ctx context.Context, id, reason string) {
 
 // blockTaskFrom is blockTask limited to tasks whose status is one of from.
 func (e *Engine) blockTaskFrom(ctx context.Context, id string, from []domain.TaskStatus, reason string) {
+	e.blockTaskBecause(ctx, id, from, reason, "", "")
+}
+
+// blockTaskBecause is blockTaskFrom that also records why: cause is the short reason tasks with
+// the same trouble share, detail the underlying error. Both may be empty. They are stored beside
+// the reason, which is unchanged, so the Overview can show one cause once.
+func (e *Engine) blockTaskBecause(ctx context.Context, id string, from []domain.TaskStatus, reason, cause, detail string) {
+	now := e.d.Now().UTC()
 	t, applied, err := e.setTaskFrom(ctx, id, from, "blocked: "+reason, func(t *domain.Task) error {
 		t.Status, t.BlockedReason = domain.TaskBlocked, reason
+		t.BlockedCause, t.BlockedDetail, t.BlockedAt = cause, e.blockedDetail(t.Project, detail), &now
 		return nil
 	})
 	if err != nil {
@@ -204,7 +213,7 @@ func (e *Engine) requeueOrBlockFrom(ctx context.Context, id string, from []domai
 		return
 	}
 	if t.Attempts >= t.MaxAttempts {
-		e.blockTaskFrom(ctx, id, from, fmt.Sprintf("%s (gave up after %d attempts)", why, t.Attempts))
+		e.blockTaskBecause(ctx, id, from, fmt.Sprintf("%s (gave up after %d attempts)", why, t.Attempts), why, context)
 		return
 	}
 	if _, _, err := e.setTaskFrom(ctx, id, from, "re-queued: "+why, func(t *domain.Task) error {

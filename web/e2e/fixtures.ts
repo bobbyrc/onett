@@ -15,6 +15,7 @@ import type {
   Goal,
   LogLine,
   LoopView,
+  Problem,
   ProjectView,
   Run,
   SecretView,
@@ -22,6 +23,8 @@ import type {
   Stats,
   Task,
   TaskConversation,
+  Trigger,
+  TriggerFiring,
   User,
 } from '../src/types';
 
@@ -170,6 +173,53 @@ export const goals: Goal[] = [
   { id: id(23), project: 'onett', title: 'Short goal', body: 'x', status: 'done', conversation_id: id(24), turns: 1, created_at: EARLIER, updated_at: NOW },
 ];
 
+export const TRIGGER_ID = id(40);
+const firing = (n: number, over: Partial<TriggerFiring>): TriggerFiring => ({
+  id: id(50 + n),
+  trigger_id: TRIGGER_ID,
+  at: '2026-01-02T03:04:05Z',
+  cause: 'schedule',
+  scheduled_for: '2026-01-02T03:04:00Z',
+  outcome: 'started',
+  ...over,
+});
+export const triggerFirings: TriggerFiring[] = [
+  firing(1, { conversation_id: CONV_ID }),
+  firing(2, { outcome: 'skipped', reason: UNBROKEN }),
+  firing(3, { trigger_id: id(41), cause: 'github_issue', issue_number: 123456, issue_url: 'https://github.com/example/repo/issues/123456', outcome: 'failed', reason: LONG_TITLE }),
+  firing(4, { cause: 'manual', by: `owner:${UNBROKEN}` }),
+];
+export const triggers: Trigger[] = [
+  {
+    id: TRIGGER_ID,
+    name: LONG_TITLE,
+    kind: 'schedule',
+    project: 'onett',
+    prompt: `${LONG_TITLE} ${UNBROKEN}`,
+    enabled: true,
+    cron: '5 4 1,15 * *',
+    time_zone: 'America/Argentina/ComodRivadavia',
+    next_run_at: '2026-01-03T04:05:00Z',
+    conversation_id: CONV_ID,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    last_firing: triggerFirings[1],
+  },
+  {
+    id: id(41),
+    name: UNBROKEN,
+    kind: 'github_issue',
+    project: 'onett',
+    prompt: UNBROKEN,
+    enabled: false,
+    label: UNBROKEN,
+    issues_after: '2026-01-01T00:00:00Z',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    last_firing: triggerFirings[2],
+  },
+];
+
 export const approvals: Approval[] = [0, 1, 2].map((n) => ({
   id: id(50 + n),
   task_id: tasks[n].id,
@@ -241,6 +291,45 @@ export const loops: LoopView[] = ['issue_intake', 'goals', 'pr_shepherd', 'deplo
     ...(name === 'heartbeat' ? { next_run_at: NOW, item_count: 3, actions_24h: 7, escalations_24h: 1, operations_conversation_id: CONV_ID } : {}),
   }),
 );
+
+// Problems (GET /problems): a blocked-tasks group with a long unbroken title and a long command,
+// and a failing-loops group with a long error.
+export const problems: Problem[] = [
+  {
+    kind: 'blocked_tasks',
+    project: 'onett',
+    key: 'blocked_tasks:onett:9d8e7f6a',
+    title: 'Workspace setup failed for seven tasks on this project, so the line stopped and a person must Supercalifragilisticexpialidocious-Supercalifragilisticexpialidocious-Supercalifragilisticexpial',
+    detail: 'git fetch origin --prune --no-tags --depth=50 && gh pr create --repo acme/widgets --base main --head onett/widgets-cache-fix --title Fix-flaky-widget-cache-test --body-file ./outbox/result.json --label onett --draft && curl -sS --max-time 30 --retry 3 https://github.com/acme/widgets/pull/1234/checks',
+    count: 7,
+    since: EARLIER,
+    last_at: LAST,
+    told_at: NOW,
+    tasks: [
+      { id: id(40), title: 'Add a changelog file', attempts: 3, max_attempts: 3 },
+      { id: id(41), title: 'Rework the export pipeline so that very long task titles wrap instead of pushing the table off the screen on small phone', attempts: 3, max_attempts: 3 },
+      { id: id(42), title: 'Fix flaky widget cache test', attempts: 3, max_attempts: 3 },
+      { id: id(43), title: 'Upgrade the build image', attempts: 3, max_attempts: 3 },
+      { id: id(44), title: 'Investigate slow start-up', attempts: 3, max_attempts: 3 },
+      { id: id(45), title: 'Tidy the README', attempts: 3, max_attempts: 3 },
+      { id: id(46), title: 'High-risk change to the release script', attempts: 3, max_attempts: 3 },
+    ],
+  },
+  {
+    kind: 'failing_loops',
+    project: 'onett',
+    key: 'failing_loops:onett',
+    title: '',
+    detail: 'go test -race -count=1 ./internal/engine/ failed: fatal: unable to access https://github.com/acme/widgets.git/: Could not resolve host: github.com; retrying with --depth=1 --no-tags --filter=blob:none --single-branch https://example.com/acme/widgets.git/ ok, then gh api repos/acme/widgets/issues --p',
+    count: 13,
+    since: EARLIER,
+    last_at: LAST,
+    loops: [
+      { name: 'issue_intake', fails: 13, since: EARLIER },
+      { name: 'pr_shepherd', fails: 13, since: EARLIER },
+    ],
+  },
+];
 
 export const agents: AgentView[] = ['implementer', 'reviewer', 'orchestrator-with-a-long-custom-agent-name'].map((name, n) => ({
   name,

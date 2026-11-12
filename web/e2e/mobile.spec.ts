@@ -8,7 +8,7 @@
 // Run with `npm run test:mobile`. Screenshots of every route land in e2e-results/screenshots.
 import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { CHAT_TASK_ID, CONV_ID, GOAL_ID, RUN_ID, TASK_ID, conversations, longChatMessages } from './fixtures';
+import { CHAT_TASK_ID, CONV_ID, GOAL_ID, RUN_ID, TASK_ID, TRIGGER_ID, conversations, longChatMessages } from './fixtures';
 import { mockBackend } from './mock';
 
 const VIEWPORTS = [
@@ -33,6 +33,9 @@ const ROUTES = [
   '/signals',
   '/friction',
   '/loops',
+  '/triggers',
+  '/triggers?tab=firings',
+  `/triggers/${TRIGGER_ID}`,
   '/agents',
   '/config',
   '/users',

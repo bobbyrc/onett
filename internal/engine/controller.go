@@ -152,6 +152,7 @@ func (e *Engine) RetryTask(ctx context.Context, id, note string) error {
 		t.Status = domain.TaskQueued
 		t.Attempts = 0
 		t.BlockedReason = ""
+		t.BlockedCause, t.BlockedDetail, t.BlockedAt = "", "", nil
 		t.FollowUpPending = false
 		if note != "" {
 			t.Body += "\n\n" + heading + "\n\n" + note
@@ -310,6 +311,15 @@ func (e *Engine) DecideApproval(ctx context.Context, id string, approve bool, no
 			e.d.Logger.Error("approved merge could not be recorded; the shepherd will finish it",
 				"task", t.ID, "pr", t.PRNumber, "err", err)
 			return a, nil
+		}
+		var unconfirmed *mergeUnconfirmedError
+		if errors.As(err, &unconfirmed) {
+			// Nobody knows whether the PR merged, so the task is not blocked as if the merge had
+			// been refused. It stays in awaiting_approval; the shepherd's next pass reads the PR
+			// and either records the merge or sends the task back to review to be asked about again.
+			e.d.Logger.Error("approved merge could not be confirmed; the shepherd will re-check the PR",
+				"task", t.ID, "pr", t.PRNumber, "err", err)
+			return a, fmt.Errorf("merge after approval could not be confirmed; onett will re-check the pull request: %w", err)
 		}
 		e.blockTask(ctx, t.ID, "merge failed after approval: "+err.Error())
 		return a, fmt.Errorf("merge failed after approval: %w", err)

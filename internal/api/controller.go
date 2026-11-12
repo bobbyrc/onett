@@ -60,6 +60,8 @@ type Controller interface {
 	DecideApproval(ctx context.Context, id string, approve bool, note string) (domain.Approval, error)
 
 	Loops(ctx context.Context) []LoopView
+	// ProblemLister lists what is wrong per project for GET /problems.
+	ProblemLister
 	// RunLoop runs one loop now; project "" runs it for every project.
 	RunLoop(ctx context.Context, name, project string) error
 

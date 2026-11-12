@@ -342,7 +342,7 @@ func TestAuth(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	rec = x.do(t, http.MethodGet, "/api/v1/stats?token="+testToken, "", "")
-	assert.Equal(t, http.StatusUnauthorized, rec.Code, "?token= is accepted only on /events")
+	assert.Equal(t, http.StatusUnauthorized, rec.Code, "a token in the URL is never accepted")
 
 	rec = x.do(t, http.MethodGet, "/api/v1/health", "", "")
 	assert.Equal(t, http.StatusOK, rec.Code)

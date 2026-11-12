@@ -1,0 +1,124 @@
+/* Mock-only additions shared by both Triggers directions. Tokens, fonts and every existing
+   component come from web/src/styles.css; only what the Triggers page adds is here. */
+
+/* The rail holds 15 items once Triggers is added. At 900px tall with four project lamps the
+   14-item rail already fills the height, so each row gives up 2px. */
+@media (min-width: 760px) {
+  .sidebar .nav-item {
+    padding: 6px 20px;
+  }
+}
+
+/* A lamp and its word, as on the Loops page. */
+.trg-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.trg-lamp {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--lamp-off-light);
+}
+
+.trg-lamp-ok {
+  background: var(--lamp-run);
+}
+
+.trg-lamp-warn {
+  background: var(--lamp-call);
+}
+
+.trg-lamp-danger {
+  background: var(--lamp-stop);
+}
+
+/* A second line in a cell or a row. */
+.trg-sub {
+  display: block;
+  font-size: 13.5px;
+}
+
+.trg-cut {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trg-rel {
+  font-size: 13.5px;
+}
+
+.trg-note {
+  margin: 0 0 12px;
+}
+
+.trg-more {
+  margin: 12px 0 0;
+}
+
+/* ---- form parts ---- */
+
+.trg-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.trg-row .field {
+  flex: 1 1 180px;
+}
+
+.trg-row .field.trg-narrow {
+  flex: 0 1 96px;
+}
+
+/* One control height in a row, so the labels above line up. */
+.trg-row input,
+.trg-row select {
+  height: 36px;
+}
+
+/* What cannot be edited, said in words in place of a control. */
+.trg-fixed {
+  margin: 0;
+}
+
+.trg-kind {
+  align-self: flex-start;
+}
+
+.trg-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trg-days .chip {
+  min-width: 38px;
+  padding: 4px 6px;
+  text-align: center;
+}
+
+.trg-preview {
+  margin: 0;
+}
+
+.trg-cron {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* The owner's prompt is shown as plain text, never as HTML. */
+.trg-prompt {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
