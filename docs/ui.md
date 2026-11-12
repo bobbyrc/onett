@@ -190,13 +190,14 @@ as a fallback.
 ## Pages
 
 **Overview** (`/`): the board says where to start, then one lane per project.
-- **The sentence on the board** (`BoardVerdict`, words from `src/lib/verdict.ts`): a charcoal
-  band with a lamp, a headline and one sentence that names the most urgent thing and how many
-  more follow: "Work is stopped on widgets. 7 tasks on widgets are blocked: workspace setup
-  failed. Start there. 4 more things follow." With nothing waiting it says "Nothing needs you"
-  and whether runs are active or the line is paused; with no project, "Not set up yet". It waits
-  for both lists (problems and approvals) before it says anything. At its right end is the line
-  window: "Line running" or "Line paused", active runs, queued tasks and cost today.
+- **The sentence on the board** (`BoardVerdict`, words from `src/lib/verdict.ts`): a charcoal band
+  with a lamp, a headline and one sentence that names the most urgent thing and how many more
+  follow: "Work is stopped on widgets. 7 tasks on widgets are blocked: workspace setup failed. Start
+  there. 4 more things follow." With nothing waiting it says "Nothing needs you" and whether runs
+  are active or the line is paused; with no project, "Not set up yet". It waits for both lists
+  (problems and approvals) before it says anything. If one of them cannot be loaded it says
+  "Cannot tell what needs you" instead of guessing. At its right end is the line window: "Line
+  running" or "Line paused", active runs, queued tasks and cost today.
 - **What needs you** (`src/lib/needs.ts`): problems from `GET /problems` and pending approvals
   from `GET /approvals`, in one order: problems first (blocked tasks with the most tasks first,
   then failing loops, then blocked goals, each oldest first), then approvals, oldest first. The
