@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/bobbyrc/onett/internal/config"
@@ -90,6 +91,91 @@ func contextSection(paths []string, dir string) string {
 	}
 	b.WriteString("\n")
 	return b.String()
+}
+
+// knownFrictionLimit caps the open friction issues listed in a task prompt, per project.
+const knownFrictionLimit = 20
+
+// knownFrictionTitleMax caps a listed title, in characters.
+const knownFrictionTitleMax = 100
+
+// knownFrictionIntro tells the agent what the list is for. The titles under it were written by
+// agents, so evidenceNote follows it.
+const knownFrictionIntro = "Open issues for problems agents have already reported, most recently reported first. " +
+	"If something that slowed you down is one of them, report it in `friction` as usual and add " +
+	"`\"issue\": <number>` to that entry; onett then adds your report to that issue instead of " +
+	"opening a duplicate."
+
+// knownFrictionSection lists the open friction issues an agent working on t can report against:
+// those of t's project and, when another project is the factory itself, those of that project
+// (friction with target "onett" is filed there). An agent that hits one of them names its number
+// in the friction entry's "issue", and the friction loop adds the report to that issue instead of
+// opening a duplicate. It returns "" when there are none, so most prompts do not grow.
+func (e *Engine) knownFrictionSection(ctx context.Context, t domain.Task) string {
+	cfg := e.Config()
+	type group struct{ target, project string }
+	groups := []group{{"project", t.Project}}
+	if cfg.SelfProject != "" && cfg.SelfProject != t.Project {
+		groups = append(groups, group{"onett", cfg.SelfProject})
+	}
+	var b strings.Builder
+	for _, g := range groups {
+		p := cfg.Projects[g.project]
+		if p == nil {
+			continue
+		}
+		rows, err := e.d.Store.ListFriction(ctx, g.project, 200)
+		if err != nil {
+			e.d.Logger.Warn("known friction: list", "project", g.project, "err", err)
+			continue
+		}
+		lines := knownFrictionLines(rows, evidenceEnv(p))
+		if len(lines) == 0 {
+			continue
+		}
+		if len(groups) > 1 {
+			fmt.Fprintf(&b, "\nFor friction with `\"target\": %q`:\n", g.target)
+		}
+		b.WriteString("\n" + strings.Join(lines, "\n") + "\n")
+	}
+	if b.Len() == 0 {
+		return ""
+	}
+	return "\n## Known friction\n\n" + knownFrictionIntro + " " + evidenceNote + "\n" + b.String()
+}
+
+// knownFrictionLines renders one line per open issue that rows link to, "- #<number>: <title>", in
+// the order of rows (most recently updated first), at most knownFrictionLimit. Several reports can
+// share an issue; its line carries the title of the oldest, the report the issue was opened from.
+// Titles are agent-written, so they are redacted, put on one line and cut.
+func knownFrictionLines(rows []domain.Friction, env []string) []string {
+	oldest := map[string]domain.Friction{}
+	var order []string
+	for _, f := range rows {
+		if f.IssueURL == "" || f.IssueState != "open" {
+			continue
+		}
+		cur, seen := oldest[f.IssueURL]
+		if !seen {
+			order = append(order, f.IssueURL)
+		}
+		if !seen || f.CreatedAt.Before(cur.CreatedAt) {
+			oldest[f.IssueURL] = f
+		}
+	}
+	var lines []string
+	for _, url := range order {
+		n, err := strconv.Atoi(url[strings.LastIndex(url, "/")+1:])
+		if err != nil || n <= 0 {
+			continue
+		}
+		title := firstRunes(redactSecrets(oneLineText(oldest[url].Title), env), knownFrictionTitleMax)
+		lines = append(lines, fmt.Sprintf("- #%d: %s", n, title))
+		if len(lines) == knownFrictionLimit {
+			break
+		}
+	}
+	return lines
 }
 
 // buildTaskPrompt is the user turn for a run: the task's facts and body. For a review task it

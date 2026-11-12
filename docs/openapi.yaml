@@ -43,6 +43,8 @@ tags:
   - name: tasks
   - name: goals
     description: Objectives the orchestrator works toward unattended, one step at a time.
+  - name: triggers
+    description: Owner-defined rules that start an orchestrator turn on a schedule or on a new GitHub issue. Changing or firing one needs an owner session; the API token gets 403.
   - name: runs
   - name: approvals
   - name: deployments
@@ -996,6 +998,174 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /triggers:
+    get:
+      operationId: listTriggers
+      tags: [triggers]
+      summary: List triggers.
+      description: Oldest first. Each trigger carries its newest firing as `last_firing`.
+      responses:
+        '200':
+          description: Every trigger.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trigger'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createTrigger
+      tags: [triggers]
+      summary: Create a trigger.
+      description: Owner session only. A `schedule` trigger needs `cron`; a `github_issue` trigger takes an optional `label` and no `cron`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerCreate'
+      responses:
+        '201':
+          description: The created trigger.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trigger'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /triggers/{id}:
+    get:
+      operationId: getTrigger
+      tags: [triggers]
+      summary: Get one trigger.
+      parameters:
+        - $ref: '#/components/parameters/TriggerId'
+      responses:
+        '200':
+          description: The trigger with its newest firing as `last_firing`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trigger'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: updateTrigger
+      tags: [triggers]
+      summary: Change a trigger.
+      description: Owner session only. Only the fields given change. `kind` and `project` cannot change. Enabling a trigger re-arms it.
+      parameters:
+        - $ref: '#/components/parameters/TriggerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerPatch'
+      responses:
+        '200':
+          description: The updated trigger.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trigger'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: deleteTrigger
+      tags: [triggers]
+      summary: Delete a trigger and its firings.
+      description: Owner session only. The trigger's conversation stays.
+      parameters:
+        - $ref: '#/components/parameters/TriggerId'
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /triggers/{id}/run:
+    post:
+      operationId: runTrigger
+      tags: [triggers]
+      summary: Fire a schedule trigger now.
+      description: Owner session only. Works on a disabled trigger and does not change `next_run_at`. A `github_issue` trigger answers 409.
+      parameters:
+        - $ref: '#/components/parameters/TriggerId'
+      responses:
+        '200':
+          description: The firing this call recorded (cause `manual`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerFiring'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /triggers/{id}/firings:
+    get:
+      operationId: listTriggerFirings
+      tags: [triggers]
+      summary: List a trigger's firings.
+      description: Newest first. The default limit is 200.
+      parameters:
+        - $ref: '#/components/parameters/TriggerId'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: The firings, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TriggerFiring'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /runs:
     get:
       operationId: listRuns
@@ -1324,7 +1494,12 @@ paths:
       operationId: getConfig
       tags: [config]
       summary: Read the loaded configuration.
-      description: Env values, and the option values of deploy and observer entries, are replaced by `"***"`.
+      description: >-
+        Secrets are replaced by `"***"`. That covers env values, the deploy, observer, notifier and
+        channel options whose key names a secret, the ntfy topic, values of six characters or more
+        substituted for `${NAME}` references, and credentials written as literals in the commands
+        and URLs of harnesses, loops, notifiers, channels and projects (best effort; agent args
+        and prose are not scanned; see docs/api.md).
       responses:
         '200':
           description: The redacted configuration.
@@ -2327,6 +2502,13 @@ components:
       description: Task ID.
       schema:
         type: string
+    TriggerId:
+      name: id
+      in: path
+      required: true
+      description: Trigger ID.
+      schema:
+        type: string
     GoalId:
       name: id
       in: path
@@ -3252,6 +3434,9 @@ components:
           type: string
           enum: [open, closed]
           description: State of the filed issue as last seen; absent until known.
+        issue:
+          type: integer
+          description: The open friction issue the reporting agent named as the same problem; absent when it named none.
         created_at:
           type: string
           format: date-time
@@ -4269,3 +4454,144 @@ components:
                 command:
                   type: string
                   description: Run with `sh -c`; gets `ONETT_UPDATE_REF`. Required when enabled.
+
+    Trigger:
+      type: object
+      description: >-
+        An owner-defined rule that starts one orchestrator turn with `prompt`. `last_firing` is
+        the newest firing, present only once the trigger has fired or been run.
+      required: [id, name, kind, project, prompt, enabled, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        kind:
+          $ref: '#/components/schemas/TriggerKind'
+        project:
+          type: string
+          description: Fixed after creation. The trigger's conversation runs in this project, and for `github_issue` it is the repository watched.
+        prompt:
+          type: string
+        enabled:
+          type: boolean
+          description: A disabled trigger never fires by itself.
+        cron:
+          type: string
+          description: Five-field cron expression. `schedule` only.
+        time_zone:
+          type: string
+          description: IANA zone name. Empty is the daemon's local zone. `schedule` only.
+        next_run_at:
+          type: string
+          format: date-time
+          description: When a `schedule` trigger fires next. Absent while disabled.
+        label:
+          type: string
+          description: Limits a `github_issue` trigger to issues with this label.
+        issues_after:
+          type: string
+          format: date-time
+          description: Only issues created after this time can fire a `github_issue` trigger. Set on create and on each enable.
+        conversation_id:
+          type: string
+          description: The conversation the trigger's turns run in, set at the first firing.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_firing:
+          $ref: '#/components/schemas/TriggerFiring'
+
+    TriggerCreate:
+      type: object
+      description: Body of `POST /triggers`.
+      additionalProperties: false
+      required: [name, kind, project, prompt]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        kind:
+          $ref: '#/components/schemas/TriggerKind'
+        project:
+          type: string
+        prompt:
+          type: string
+          maxLength: 20000
+        enabled:
+          type: boolean
+          default: false
+        cron:
+          type: string
+          description: Required for `schedule`; not allowed for `github_issue`.
+        time_zone:
+          type: string
+          description: '`schedule` only.'
+        label:
+          type: string
+          description: '`github_issue` only.'
+    TriggerPatch:
+      type: object
+      description: Body of `PATCH /triggers/{id}`. Any subset of the fields; a field left out is unchanged.
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        prompt:
+          type: string
+          maxLength: 20000
+        enabled:
+          type: boolean
+        cron:
+          type: string
+        time_zone:
+          type: string
+        label:
+          type: string
+
+    TriggerFiring:
+      type: object
+      description: One time a trigger fired, or would have. A started firing names the conversation and message that carried its prompt.
+      required: [id, trigger_id, at, cause, outcome]
+      properties:
+        id:
+          type: string
+        trigger_id:
+          type: string
+        at:
+          type: string
+          format: date-time
+          description: When onett evaluated the trigger.
+        cause:
+          type: string
+          enum: [schedule, github_issue, manual]
+        scheduled_for:
+          type: string
+          format: date-time
+          description: The scheduled time a `schedule` firing answers.
+        issue_number:
+          type: integer
+        issue_url:
+          type: string
+        by:
+          type: string
+          description: Who asked for a `manual` firing, as `owner:<username>`.
+        outcome:
+          type: string
+          enum: [started, skipped, failed]
+          description: Started means the prompt reached the orchestrator, or is queued behind the turn already running in the trigger's conversation.
+        reason:
+          type: string
+          description: Why it was skipped or failed.
+        conversation_id:
+          type: string
+        message_id:
+          type: string
+
+    TriggerKind:
+      type: string
+      enum: [schedule, github_issue]

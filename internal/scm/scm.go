@@ -39,16 +39,19 @@ type PR struct {
 }
 
 type Issue struct {
-	Number    int
-	URL       string
-	Title     string
-	Body      string
-	State     string // "open", "closed"
-	Labels    []string
-	Author    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Comments  []IssueComment
+	Number int
+	URL    string
+	Title  string
+	Body   string
+	State  string // "open", "closed"
+	Labels []string
+	Author string
+	// AuthorAssociation is GitHub's author association for the issue as-is (OWNER, MEMBER,
+	// COLLABORATOR, CONTRIBUTOR, NONE, ...). Only ListOpenedIssues fills it.
+	AuthorAssociation string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	Comments          []IssueComment
 }
 
 // IssueComment is one comment on an issue. Association is GitHub's authorAssociation as-is
@@ -81,6 +84,9 @@ type SCM interface {
 	CILog(ctx context.Context, number int, maxBytes int) (string, error)
 
 	ListIssues(ctx context.Context, label string, state string) ([]Issue, error)
+	// ListOpenedIssues returns the open issues (never pull requests) created after since, oldest
+	// first, with AuthorAssociation set. It reads at most the 100 newest open issues.
+	ListOpenedIssues(ctx context.Context, since time.Time) ([]Issue, error)
 	// SearchIssues runs a code-host search scoped to this repo (used to dedupe friction).
 	SearchIssues(ctx context.Context, query string) ([]Issue, error)
 	CreateIssue(ctx context.Context, spec IssueSpec) (Issue, error)

@@ -12,7 +12,7 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 const TIME = '2026-11-05T15:04:00Z';
-const full = new Date(TIME).toLocaleString();
+const full = new Date(TIME).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
 const view = (entries: Entry[]) => render(<Transcript entries={entries} view="conversation" agentLabel="Orchestrator" />);
 const manyLines = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join('\n');
 

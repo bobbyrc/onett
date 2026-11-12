@@ -113,6 +113,18 @@ type Controller interface {
 	// its Prompt names. BuiltinPrompt is the embedded prompt of one built-in agent.
 	AgentPrompt(a config.Agent) (string, error)
 	BuiltinPrompt(name string) (string, error)
+
+	// CreateTrigger validates and stores a new trigger. by is "owner:<username>". The trigger
+	// methods are called only from administer routes: an agent holding the API token must have
+	// no way to create, change or fire a trigger.
+	CreateTrigger(ctx context.Context, t domain.Trigger, by string) (domain.Trigger, error)
+	// UpdateTrigger applies the non-nil fields of p. Enabling a trigger re-arms it.
+	UpdateTrigger(ctx context.Context, id string, p domain.TriggerPatch, by string) (domain.Trigger, error)
+	// DeleteTrigger removes a trigger and its firings.
+	DeleteTrigger(ctx context.Context, id, by string) error
+	// RunTrigger fires a schedule trigger now and returns the firing it recorded. ErrConflict
+	// for a github_issue trigger.
+	RunTrigger(ctx context.Context, id, by string) (domain.TriggerFiring, error)
 }
 
 type LoopView struct {

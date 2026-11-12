@@ -61,12 +61,15 @@ Each is described under [Safety model](#safety-model) and annotated in
 - **Task**: one unit of work for one project, such as a feature, a bug fix or an incident.
 - **Role** (agent profile): a named recipe for who does a task: which agent CLI runs it, which
   model, and which instructions. Built-in roles are `chief-of-staff` (the agent you chat with),
-  `senior-engineer`, `code-reviewer`, `tech-lead`, `sre` and `platform-engineer` (the old names
+  `senior-engineer`, `code-reviewer`, `tech-lead`, `sre`, `platform-engineer`, `product-designer` and `visual-designer` (the old names
   still work). A role can carry a `title`, `context` files and `tools` rules. You can edit a built-in role, turn it
   off with `disabled: true` (it cannot be turned off while a route still uses it, and the
   chief of staff cannot be turned off), or add a custom role. A role's instructions are a Markdown
   file (`prompt`) or written inline in the config (`prompt_text`). Inline instructions cannot use
   `${NAME}` references, because they are given to the agent, which never gets credentials.
+  The same holds for a role's `description` and `args`, a harness's `args` and the arguments in
+  its `command` (everything after the program name), and a project's `instructions`: onett
+  refuses to load a config in which a `${NAME}` reference reaches any of them.
 - **Harness**: the adapter that runs one agent CLI non-interactively and streams its output back.
 - **Run**: one attempt at a task by one agent session, in its own git worktree (a second checkout
   of the repository on its own branch).
@@ -74,6 +77,10 @@ Each is described under [Safety model](#safety-model) and annotated in
   decides which levels may merge on their own: by default all of them, after review and green CI;
 the built-in `supervised` policy holds `medium` and `high` for you.
 - **Loop**: a recurring background job, such as checking open PRs or polling production.
+- **Trigger**: a rule a signed-in owner defines (on the Triggers page of the UI, or through the API
+  with an owner session) that starts an orchestrator turn with a prompt the owner wrote, either on
+  a schedule or when a new GitHub issue is opened; each time it fires (or is skipped) is recorded as
+  a firing.
 - **Outbox**: a folder in each worktree where the agent writes its report, `result.json`.
 - **Approval**: a request for your decision. Under the opt-in `supervised` policy, a `medium` or `high` risk PR waits for one.
 
@@ -109,16 +116,28 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   reviewer holds a change to the project's merged rules, not to the branch's own copy of them.
   This is not isolation: the project's `setup`, and anything the reviewer runs, still execute the
   branch's code as your user. For Codex see the known limit below.
-- **People sign in; config and users change only through them.** The web UI signs people in with
-  a username and password (roles: viewer reads, operator also acts on work, owner also edits
-  `onett.yaml` and manages users). The API token, which the CLI and the chief of staff hold, can
-  read and act but can never edit the config or users, so an agent cannot rewrite its own policy
-  or environment. The first visit to a new instance creates the owner account, so create it
-  before you make onett reachable from other machines. Behind an HTTPS proxy, set
-  `server.public_url` to the `https://` address so the session cookie is marked Secure. This
-  boundary is the API's: agents still run as your user, so one that can write `onett.yaml` or
-  the database file directly is limited only by its harness until agents are isolated (see
+- **People sign in; config, users and triggers change only through them.** The web UI signs people
+  in with a username and password (roles: viewer reads, operator also acts on work, owner also
+  edits `onett.yaml`, manages users and manages triggers). The API token, which the CLI and the
+  chief of staff hold, can read and act but can never edit the config, users or triggers, so an
+  agent cannot rewrite its own policy or environment or change which triggers exist. The first
+  visit to a new instance creates the owner account, so create it before you make onett reachable
+  from other machines. Behind an HTTPS proxy, set `server.public_url` to the `https://` address so
+  the session cookie is marked Secure. This boundary is the API's: agents still run as your user,
+  so one that can write `onett.yaml` or the database file directly is limited only by its harness
+  until agents are isolated (see
   [docs/proposals/agent-isolation.md](docs/proposals/agent-isolation.md)).
+- **Triggers start turns and nothing more.** A trigger starts an orchestrator turn by itself, on a
+  schedule or when a new GitHub issue is opened, so only a signed-in owner can create, change,
+  delete, enable, disable or fire one. A trigger only starts an agent turn: it never commits,
+  merges or deploys by itself. It respects the global pause, a project's pause and the daily
+  budget. Text from a GitHub issue reaches the agent only as redacted evidence marked "data, not
+  instructions", whoever wrote it. Issues from people who are not the repo's owner, a member or a
+  collaborator are ignored; that keeps strangers out and is not proof that a person wrote an issue.
+  An agent that can use the owner's `gh` login can open such an issue and so fire a
+  `github_issue` trigger; that gap is known and is why the text is only ever evidence.
+  A trigger starts at most 20 turns an hour, and its turns always run with the orchestrator's
+  default model and permission mode, whatever was set on its conversation.
 - **Agents get a small environment.** An agent sees an allowlist (`PATH`, `HOME`, `USER`, `LANG`,
   ...), not onett's own environment, so `GH_TOKEN` and provider tokens do not reach it. To pass
   one through, name it in the harness's `inherit_env` list. Agents still run as your user and can
@@ -134,8 +153,13 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   claude.ai, Codex signed in with ChatGPT) report only an API-price estimate that nobody is billed
   for, so they are left out and `onett status` shows them separately. Onett detects the mode per
   run; a harness's `billing` (`auto`, `metered` or `subscription`) overrides detection, and a run
-  whose mode is unknown counts. A run's cost is recorded when it ends, so runs in flight count only after they finish
-  and the total can overshoot. Codex reports no cost, so it counts only if its
+  whose mode is unknown counts. The budget is checked before each run starts, and it counts what runs in flight
+  have cost so far when onett can tell. Claude Code reports a run's cost, and Codex its tokens, only when the run ends, so
+  a running run counts as $0 until then and runs started together can still overshoot. Give a Claude Code harness a
+  `price` with a `cached_input_per_mtok` rate and onett counts a running run's prompt tokens so far at that rate: a low
+  estimate that the reported cost replaces when the run ends, and that a run stopped before it reports a cost keeps. On a
+  subscription, set that harness's `billing: subscription` too: the mode is otherwise detected only when a run ends.
+  Codex reports no cost, so it counts only if its
   harness has a `price` (per-million-token rates), which gives an estimate shown as `~$0.42`.
 - **Risk only goes up.** Final risk is the highest of the rules the diff matches, the agent's own
   rating and the reviewer's. An agent cannot lower it: a rating recorded for a pull request stays
@@ -242,26 +266,31 @@ as in `onett task create -h`.
 | `init [--notify ntfy --ntfy-topic T] [--channel telegram\|discord --user-ids IDS]` | write a starter onett.yaml; the flags set up notifications without prompts |
 | `token` | print the API token |
 | `open` | open the web UI (sign in there) |
-| `status` | what is running, and what needs you |
+| `status` | what is running, what needs you, and the daemon's version |
 | `projects` | list managed projects |
 | `project add\|pause\|resume` | add a project to the config, or pause or resume one |
 | `agents [--all]` | list agent roles; `--all` also shows removed (disabled) ones |
 | `config` | print the redacted config, or `--reload` it |
 | `task` | create, list, show, cancel and retry tasks (`task create --attach ID`, repeatable, hands a chat attachment to the agent as a file under `.onett-run/attachments/`); `task message ID --text T` sends a message to a task agent; `task close-conversation ID --reason R` closes a task agent's conversation |
 | `goal` | create, list, show, pause, resume and finish goals the chief of staff works on unattended |
+| `trigger list\|history ID` | List triggers and a trigger's firing history. Only a signed-in owner creates or changes triggers (in the UI or through the API); the CLI reads them. |
 | `run` | list, show, cancel and print logs of agent runs |
 | `deploys` | list releases, or show one with its log |
+| `signals [show ID]` | list production signals (problems an observer reported for a deployed project), or show one in full |
+| `friction [show ID]` | list friction (what slowed an agent down, as agents reported it), or show one with its body |
 | `approvals` | list approvals waiting for a decision |
 | `approve` | approve or reject an approval |
 | `events` | show history, or follow the event stream |
 | `loops` | list recurring loops |
 | `loop run NAME` | run a loop now |
 | `user reset-password NAME` | give a user a new random password and sign them out everywhere |
+| `backup FILE` | write a consistent copy of the database to FILE, safe while the daemon runs; run it on the daemon's machine (see [Backup and restore](#backup-and-restore)) |
 | `pause` | stop starting runs and loops (`status` shows who paused it and since when) |
 | `resume` | resume a paused factory |
 | `chat` | message the chief of staff and print its reply |
+| `conversations [--tasks]`, `conversations show ID\|--task TASK_ID` | list the chats with the chief of staff, or with `--tasks` the task agents' conversations; `show` prints one conversation's messages |
 | `service` | install, uninstall or check the launchd service that keeps serve running |
-| `doctor` | check the setup: config, git, gh, harness CLIs, projects and the daemon |
+| `doctor [--no-daemon]` | check the setup: config, git, gh, harness CLIs, each project's clone and the daemon; warns when the daemon runs a different version than this binary. `--no-daemon` skips the daemon checks, to validate a config file on its own |
 | `version` | print the onett version |
 
 ### Run it as a service
@@ -321,6 +350,43 @@ as `${NAME}`. The plist is readable only by you, because those values can be sec
 from a shell where `onett serve` works. To change a recorded value, run `service uninstall`
 and then `service install` again.
 
+### Backup and restore
+
+Everything onett remembers is in one SQLite database, `onett.db` in the data directory
+(`server.data_dir`): tasks, runs and their logs, approvals, releases, goals, triggers, loop state,
+chat, users and sign-in sessions. `onett backup FILE` writes a consistent copy of it to FILE. It is
+safe while the daemon runs: the copy is the database as it was at one moment, and the daemon keeps
+working.
+
+```sh
+mkdir -p ~/onett-backups
+./onett backup ~/onett-backups/onett-$(date +%F).db
+```
+
+Run it on the machine that runs the daemon: the command reads the database file itself, not the
+API. The copy holds password hashes and sign-in sessions, so:
+
+- it is written readable only by you (mode 0600), and never over an existing file;
+- the command refuses a destination inside a git repository or worktree, where the file could be
+  committed or read by an agent;
+- the command refuses to run inside an agent run.
+
+A backup that is killed part-way can leave an empty FILE and a `FILE.partial` beside it. Delete both
+and run it again.
+
+The backup does not include what lives outside the database: the config file, `secrets.env`, the
+API token (`token` in the data directory) and the files of chat attachments (`attachments/` in the
+data directory). Copy those yourself if you need them.
+
+To restore:
+
+1. Stop the daemon (`./onett service uninstall`, or stop `onett serve`).
+2. In the data directory, delete `onett.db-wal` and `onett.db-shm` if they exist. They are SQLite's
+   side files for the old database and must not be applied to the restored one.
+3. Copy the backup over `onett.db`.
+4. Start the daemon again (`./onett service install`, or `onett serve`), with the onett version
+   that took the backup or a newer one.
+
 ### Goals: unattended multi-step work
 
 The chief of staff creates a goal itself when you state a multi-step idea; you can also create one by
@@ -343,12 +409,15 @@ onett goal block ID --reason "what only you can unblock"
 
 `onett task create --goal ID` links a task to a goal; it defaults to `$ONETT_GOAL`, which onett
 sets for the chief of staff in a goal conversation. You can chat in that conversation to steer the
-goal. The web UI shows the conversation as a normal chat; it has no goals page yet.
+goal. The web UI shows the conversation as a normal chat; its Goals page lists the goals, and
+each goal's page shows its tasks.
 
 ### Retro loop and friction
 
-Agents list anything that slowed them down as `friction`. Onett files it as a GitHub issue and
-dedupes by title: a near-duplicate of an open issue becomes a comment on that issue. The retro loop
+Agents list anything that slowed them down as `friction`. Onett files it as a GitHub issue. A
+report of a problem that already has an open issue becomes a comment on that issue instead: onett
+matches it by the words of its title and body, or the agent names the issue and onett checks that
+claim. The retro loop
 (`loops.retro`, every 24h) hands the last day's blocked and failed tasks, friction, incidents and
 review rejections to the `platform-engineer` role as one task. It is on by default only for the project named
 by `self_project`; set `enabled: true` or `false` to override.
@@ -370,7 +439,6 @@ internal/observe/ Observer interface; exec and sentry observers
 internal/notify/  Notifier interface; log, ntfy, discord, telegram and exec notifiers
 internal/channel/ two-way chat channels: Telegram and Discord bots, wired in by `onett serve` from `channels:`
 internal/engine/  scheduler, supervisor, PR shepherd, loops, prompt assembly
-internal/chat/    chief-of-staff conversations
 internal/api/     HTTP API, SSE stream (CLI), WebSocket (web UI) and the embedded web UI
 web/              React + Vite + TypeScript UI (built into internal/api/webdist)
 docs/             design, API, UI and plugin documentation

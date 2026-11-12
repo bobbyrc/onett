@@ -218,6 +218,21 @@ func (f *Fake) ListIssues(_ context.Context, label string, state string) ([]scm.
 	return out, nil
 }
 
+// ListOpenedIssues returns copies of the open issues created after since, oldest first (by
+// CreatedAt, then number). Tests set AuthorAssociation and CreatedAt on Issues directly.
+func (f *Fake) ListOpenedIssues(_ context.Context, since time.Time) ([]scm.Issue, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := []scm.Issue{}
+	for _, is := range f.sortedIssuesLocked() {
+		if is.State == "open" && is.CreatedAt.After(since) {
+			out = append(out, cloneIssue(*is))
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
+	return out, nil
+}
+
 // SearchIssues returns copies of issues, in any state, whose title contains query
 // (case-insensitively), sorted by number.
 func (f *Fake) SearchIssues(_ context.Context, query string) ([]scm.Issue, error) {

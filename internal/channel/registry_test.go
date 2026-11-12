@@ -13,8 +13,8 @@ import (
 func noopFactory(config.Channel, channel.Env) (channel.Starter, error) { return nil, nil }
 
 func TestRegisterLookupAndTypes(t *testing.T) {
-	channel.Register("zz-registry-b", channel.Registration{Factory: noopFactory, SkipApprovalsForNotifier: "x"})
-	channel.Register("zz-registry-a", channel.Registration{Factory: noopFactory})
+	channel.RegisterForTest(t, "zz-registry-b", channel.Registration{Factory: noopFactory, SkipApprovalsForNotifier: "x"})
+	channel.RegisterForTest(t, "zz-registry-a", channel.Registration{Factory: noopFactory})
 
 	r, ok := channel.Lookup("zz-registry-b")
 	require.True(t, ok)
@@ -30,6 +30,6 @@ func TestRegisterLookupAndTypes(t *testing.T) {
 func TestRegisterPanicsOnBadInput(t *testing.T) {
 	assert.Panics(t, func() { channel.Register("", channel.Registration{Factory: noopFactory}) })
 	assert.Panics(t, func() { channel.Register("zz-registry-nofactory", channel.Registration{}) })
-	channel.Register("zz-registry-dup", channel.Registration{Factory: noopFactory})
+	channel.RegisterForTest(t, "zz-registry-dup", channel.Registration{Factory: noopFactory})
 	assert.Panics(t, func() { channel.Register("zz-registry-dup", channel.Registration{Factory: noopFactory}) })
 }

@@ -95,6 +95,16 @@ func (s *server) apiRoutes(r chi.Router) {
 	s.read(r, "/conversations/{id}/attachments/{aid}", s.downloadAttachment)
 	s.operate(r, http.MethodPatch, "/messages/{id}", s.editMessage)
 	s.operate(r, http.MethodDelete, "/messages/{id}", s.cancelMessage)
+
+	// Triggers start orchestrator turns by themselves, so only a signed-in owner may change or
+	// fire one: every mutating route is administer, which the API token never has.
+	s.read(r, "/triggers", s.listTriggers)
+	s.administer(r, http.MethodPost, "/triggers", s.createTrigger)
+	s.read(r, "/triggers/{id}", s.getTrigger)
+	s.administer(r, http.MethodPatch, "/triggers/{id}", s.patchTrigger)
+	s.administer(r, http.MethodDelete, "/triggers/{id}", s.deleteTrigger)
+	s.administer(r, http.MethodPost, "/triggers/{id}/run", s.runTrigger)
+	s.read(r, "/triggers/{id}/firings", s.listTriggerFirings)
 }
 
 // read, operate and administer mount a handler under the action it needs. Every route in

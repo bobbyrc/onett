@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"os"
-	"syscall"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/runshim"
+	"github.com/bobbyrc/onett/internal/runshim/shimtest"
 )
 
 // shimReexec makes the test binary act as `onett run-shim`, so these tests need no built onett.
@@ -21,13 +21,12 @@ const shimReexec = "ONETT_CLAUDE_TEST_RUNSHIM"
 
 func TestMain(m *testing.M) {
 	if os.Getenv(shimReexec) == "1" {
-		os.Exit(runshim.Main(os.Args[1:], os.Stderr))
+		os.Exit(shimtest.Main())
 	}
 	os.Exit(m.Run())
 }
 
-// uniqueConv names a conversation for one test run. The shim's socket path depends on the run
-// ID alone, so a fixed name would collide with a shim an earlier, interrupted run left behind.
+// uniqueConv names a conversation for one test run.
 func uniqueConv(t *testing.T) string {
 	t.Helper()
 	var b [4]byte
@@ -35,7 +34,7 @@ func uniqueConv(t *testing.T) string {
 	return t.Name() + "-" + hex.EncodeToString(b[:])
 }
 
-func newShimRunner(t *testing.T, conv string) *runner {
+func newShimRunner(t *testing.T, _ string) *runner {
 	t.Helper()
 	r := newStubRunner(t)
 	dir := t.TempDir()
@@ -47,22 +46,11 @@ func newShimRunner(t *testing.T, conv string) *runner {
 		},
 		Grace: 300 * time.Millisecond,
 	}
-	// The shim writes its final status after the daemon's last call; wait for it to exit
-	// before the temp directory is removed.
+	// StopConversations only lets go of a process behind a shim. Stop the shims too, and wait for
+	// them, before the temp directory is removed.
 	t.Cleanup(func() {
 		harness.StopConversations()
-		st, err := runshim.ReadStatus(runshim.RunDir(dir, harness.ConvRunID(conv)))
-		if err != nil {
-			return
-		}
-		if !st.Exited {
-			_ = syscall.Kill(-st.AgentPGID, syscall.SIGKILL)
-		}
-		for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
-			if syscall.Kill(st.ShimPID, 0) == syscall.ESRCH {
-				return
-			}
-		}
+		shimtest.StopAll(t, dir)
 	})
 	return r
 }

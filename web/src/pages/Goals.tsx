@@ -32,6 +32,15 @@ export function Goals() {
   // Done goals have no controls; skip the column when no row in view has any.
   const showControls = canOperate && (goals.data ?? []).some((g) => goalActions(g.status).length > 0);
   const columns = showControls ? [...baseColumns, controlsColumn] : baseColumns;
+  const empty =
+    project || status ? (
+      'No goals match these filters.'
+    ) : (
+      <>
+        No goals yet. A goal keeps the orchestrator working unattended on an objective you state. To start one, ask for it
+        in <Link to="/chat">Chat</Link>, or run <code>onett goal create --project P --title T</code>.
+      </>
+    );
   return (
     <>
       <PageHeader title="Goals" />
@@ -54,7 +63,7 @@ export function Goals() {
           columns={columns}
           rows={goals.data}
           rowKey={(g) => g.id}
-          empty="No goals. A goal keeps the orchestrator working unattended on an objective you state."
+          empty={empty}
         />
       ) : null}
     </>

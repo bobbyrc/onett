@@ -11,6 +11,11 @@ import type { Role, User } from '../types';
 
 const ROLES: Role[] = ['viewer', 'operator', 'owner'];
 
+/** The server refuses to remove the only owner, so that row gets no Remove button. */
+export function canRemove(user: User, users: User[]): boolean {
+  return user.role !== 'owner' || users.filter((u) => u.role === 'owner').length > 1;
+}
+
 /** Owner only. Lists the accounts and adds, re-roles, re-passwords and removes them. */
 export function Users() {
   const me = useMe();
@@ -131,14 +136,16 @@ export function Users() {
               >
                 Set password
               </button>
-              <Button
-                variant="danger"
-                confirm
-                disabled={remove.isPending && remove.variables === u.username}
-                onClick={() => removeUser(u)}
-              >
-                Remove
-              </Button>
+              {canRemove(u, users.data ?? []) ? (
+                <Button
+                  variant="danger"
+                  confirm
+                  disabled={remove.isPending && remove.variables === u.username}
+                  onClick={() => removeUser(u)}
+                >
+                  Remove
+                </Button>
+              ) : null}
             </div>
             {editing ? (
               <form

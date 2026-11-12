@@ -23,20 +23,21 @@ with the config by [config-ui-coverage.md](config-ui-coverage.md) and a test.
 - Node.js and npm. They are needed only to build the web UI.
 - The agent CLIs you plan to use. The default `senior-engineer` role runs on Codex, and the
   `chief-of-staff` and `code-reviewer` roles run on Claude Code. Install and log in to both (`codex` and
-  `claude`), or change the roles to use only one.
+  `claude`), or change the roles to use only one. No agent CLI yet?
+  [Try it without a paid agent](#try-it-without-a-paid-agent) puts a small script in their place.
 
 ## 2. Build onett
 
 From the repository root:
 
 ```sh
-(cd web && npm install && npm run build)           # writes the UI into internal/api/webdist
-mise exec -- go build -o onett ./cmd/onett     # embeds the UI into the binary
+mise exec -- scripts/build.sh    # builds the web UI, then ./onett with the UI embedded
 ```
 
-Build the UI first. The Go build embeds whatever is in `internal/api/webdist` at build time, and that
-directory is empty in git. Without the UI build, the daemon runs but serves no web page. Move the
-binary somewhere on your PATH, or keep using `./onett`.
+The script installs the web dependencies when they are missing or out of date (`npm ci`), builds
+the UI into `internal/api/webdist`, then builds `./onett` with that UI embedded and the version
+set. `OUT=path` writes the binary somewhere else. The README's Quick start builds the same way.
+Move the binary somewhere on your PATH, or keep using `./onett`.
 
 Check it:
 
@@ -89,7 +90,11 @@ projects:
 ```
 
 `paused` is a key of the project, next to `repo` and `path`. The `--path` you pass must point at the
-clone from step 3. Onett runs agents there, so it must be a real git checkout.
+clone from step 3. Onett runs agents there, so it must be a real git checkout. Its `origin` remote
+must be the repository: every run starts with `git fetch origin` and ends with a push to it.
+`gh repo create --clone` in step 3 sets `origin`; a checkout made with `git init` has none, and
+`onett doctor` fails for it. If you leave `--path` out, onett clones the repository itself into its
+data directory.
 
 Every other key is optional and has a default. `onett.example.yaml` in the repository lists every
 option with its default.
@@ -113,6 +118,21 @@ and the model are secondary settings you can change per role.
 
 The old names still work as aliases in config, routing and `--role`. The two designer roles have
 no task kind, so a task reaches them only with `--role`.
+
+**Changing a built-in role.** An entry under the top-level `agents:` that names a built-in role
+replaces it whole; it does not keep the fields you leave out. So give it at least a harness and a
+prompt:
+
+```yaml
+agents:
+  senior-engineer:
+    harness: claude                    # the built-in runs on codex
+    prompt: builtin:senior-engineer
+```
+
+Leave either one out and the config does not load; the error names the line to add. Add `model`,
+`description` and the rest if you want them (`onett.example.yaml` shows every field). The
+per-project form below is different: it keeps what it leaves out.
 
 **Adding another project.** You do not need to edit the file by hand for a second repository. Run
 `./onett project add NAME --repo OWNER/NAME`, with `--path` and `--branch` optional, and it adds
@@ -191,12 +211,18 @@ agents, choose a policy, set up a way to reach you, set secrets). No token is pu
 In a second terminal:
 
 ```sh
+./onett doctor       # one ok, warn or FAIL line per check: config, git, gh, agent CLIs, clones, daemon
 ./onett status       # factory state, pending approvals, blocked tasks and running runs
 ./onett open         # open the web UI; on first run you create the owner account there
 ```
 
 `onett status` reads "Factory: running" because the factory is not paused. The project is paused
 separately, so no run for `trial` will start yet.
+
+`onett status` also prints the daemon's version, and `onett doctor` warns when that differs from
+the version of the `onett` you typed: after a rebuild, the daemon keeps running the old code until
+you restart it. `./onett doctor --no-daemon` skips the checks that contact the daemon, so you can
+validate a config file before anything runs.
 
 The web UI asks for a username and password; the first run creates the owner account. The CLI does
 not use a password. It finds the daemon through the config file's `server` address and reads the API
@@ -390,6 +416,9 @@ code ~/.config/onett/secrets.env    # add lines like SENTRY_AUTH_TOKEN=...
 - In the config, `${NAME}` is replaced with the value of `NAME`. If `NAME` is not set, `onett serve`
   refuses to start and names the variable. A bare `$NAME` is left alone, so it can be used in shell
   commands such as the rollback above.
+  `${NAME}` is refused in text that reaches agents: an agent's `prompt_text`, `description` and
+  `args`, a harness's `args` and the arguments in its `command` (everything after the program
+  name), and a project's `instructions`.
 - After you edit `secrets.env` by hand, run `./onett config --reload` (or restart `onett serve`).
   An owner can also add, replace and remove secrets on the **Secrets** page; a saved value
   applies at once, including to chat bots and notifiers, without a restart.
@@ -471,6 +500,63 @@ touch anything your user can, so a prompt-injected or mistaken run can send data
 or damage files outside its worktree. Agents must never enable it themselves; if a task cannot be
 verified without it, report it as blocked.
 
+## 15. Back up and restore
+
+Onett keeps its whole history (tasks, runs, approvals, users, triggers, loop state) in one file:
+`onett.db` in the data directory. Take a copy of it while the daemon runs:
+
+```sh
+mkdir -p ~/onett-backups
+./onett backup ~/onett-backups/onett-$(date +%F).db
+```
+
+Run it on the machine that runs the daemon. The copy holds password hashes and sign-in sessions,
+so it is readable only by you, never replaces an existing file, cannot be written inside a git
+repository or worktree, and cannot be taken from inside an agent run. The config file,
+`secrets.env`, the API token and attachment files are not in it.
+
+To restore, stop the daemon, delete `onett.db-wal` and `onett.db-shm` from the data directory if
+they exist (side files of the old database), copy the backup over `onett.db`, and start the daemon
+with the onett version that took the backup or a newer one. The README's
+[Backup and restore](../README.md#backup-and-restore) section has the details.
+
+## Try it without a paid agent
+
+You can watch the whole flow (task, run, pull request, review, merge) before you install or pay for
+an agent CLI. `examples/trial/` has a config and a small shell script that stands in for the agent.
+It uses the `exec` harness type: a harness that runs any command you name as the agent (the
+protocol is in [plugins.md](plugins.md)). As the senior engineer the script adds one line to
+`TRIAL.md`; as the code reviewer it approves. Onett does everything else as usual: it commits,
+pushes, opens the pull request and takes it through review and the merge policy.
+
+You still need `git`, `gh` and the throwaway repository from step 3, because onett opens a real
+pull request. Do steps 1 to 3 without the agent CLIs. Then, in place of step 4:
+
+```sh
+mkdir -p ~/.config/onett
+cp -n examples/trial/onett.yaml ~/.config/onett/onett.yaml    # -n: never overwrite a config you have
+```
+
+Open the copy and change the two values marked `CHANGE`: the absolute path of
+`examples/trial/agent.sh` in your checkout, and your repository. Then continue with step 5. The
+project starts paused, as in step 4.
+
+What differs from a real setup:
+
+- The script ignores the task text. Whatever the task says, the change is one line in `TRIAL.md`.
+- `onett doctor` reports `FAIL` for the `claude` and `codex` harnesses while those CLIs are not
+  installed, because the other built-in roles (the chief of staff, the tech lead and the rest)
+  still use them. The trial does not need those roles; chatting with the chief of staff does not
+  work until you install an agent CLI.
+- The example gives the script no credential: it sets no `env` and no `inherit_env`. The script
+  sees only the allowlist onett passes to every agent (`PATH`, `HOME`, locale, proxy settings and
+  the agent CLIs' own settings). `GH_TOKEN` and onett's API token are never on that list.
+  `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` are, when they are set where onett runs; the script
+  reads neither.
+
+When you are done, delete the `agents:` block and the `script` harness from the config to go back
+to the built-in roles.
+
 ## Troubleshooting
 
 - **``no config at <path>: run `onett init` to create one``**: the CLI cannot find the config file.
@@ -480,6 +566,13 @@ verified without it, report it as blocked.
   `ONETT_TOKEN`.
 - **`undefined environment variable ${NAME}`**: the config refers to a variable that is not set.
   Add it to `secrets.env` and reload the config.
+- **A task is `blocked` after three attempts with `git fetch origin --prune: exit status 128`**: the
+  project's `path` is a checkout with no `origin` remote. Add one
+  (`git -C PATH remote add origin URL`), or remove `path` so onett clones the repository itself.
+  `onett doctor` checks for this.
+- **`agents.<role>.prompt: must not be empty`** for a built-in role: an entry under the top-level
+  `agents:` replaces the built-in role whole. Add the line the message names, for example
+  `prompt: builtin:senior-engineer` (see "Changing a built-in role" in step 4).
 - **A task is `blocked` with a denial**: read the run log with `./onett run logs RUN_ID`. The agent's
   tool call was refused. Fix the cause (for example, a missing permission or a path outside the
   checkout) and retry with a note.

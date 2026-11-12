@@ -176,6 +176,12 @@ type LoopView struct {
 	QuietNow                 bool   `json:"quiet_now,omitempty"`
 }
 
+// TriggerView is a trigger as GET /triggers returns it: the trigger plus its newest firing.
+type TriggerView struct {
+	domain.Trigger
+	LastFiring *domain.TriggerFiring `json:"last_firing,omitempty"`
+}
+
 // NewTask is the body of POST /tasks.
 type NewTask struct {
 	Project  string `json:"project"`
@@ -515,6 +521,24 @@ func (c *Client) RunLoop(ctx context.Context, name, project string) error {
 	q := url.Values{}
 	setIf(q, "project", project)
 	return c.do(ctx, http.MethodPost, "/loops/"+url.PathEscape(name)+"/run", q, nil, nil)
+}
+
+// Triggers calls GET /triggers. Changing a trigger needs a signed-in owner in the UI; the API
+// token this client uses may only read them.
+func (c *Client) Triggers(ctx context.Context) ([]TriggerView, error) {
+	var out []TriggerView
+	err := c.do(ctx, http.MethodGet, "/triggers", nil, nil, &out)
+	return out, err
+}
+
+// TriggerFirings calls GET /triggers/{id}/firings: the trigger's history, newest first. limit 0
+// leaves the server's default.
+func (c *Client) TriggerFirings(ctx context.Context, id string, limit int) ([]domain.TriggerFiring, error) {
+	q := url.Values{}
+	setLimit(q, limit)
+	var out []domain.TriggerFiring
+	err := c.do(ctx, http.MethodGet, "/triggers/"+url.PathEscape(id)+"/firings", q, nil, &out)
+	return out, err
 }
 
 // Agents calls GET /agents. An empty project gives the global view; a project gives its merged view.

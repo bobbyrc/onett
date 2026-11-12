@@ -337,7 +337,7 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 
 	// Owner messages queued for this task's agent go with this run: a follow-up resumes the
 	// agent's session with just the messages; a first run gets them after the task prompt.
-	prompt := buildTaskPrompt(t, p, parent, conflicts) + contextSection(agent.Context, ws.Dir) + baseNote + attNote + setupNote
+	prompt := buildTaskPrompt(t, p, parent, conflicts) + e.knownFrictionSection(bg, t) + contextSection(agent.Context, ws.Dir) + baseNote + attNote + setupNote
 	resumeID := ""
 	root, claimed := e.claimOwnerMessages(bg, t)
 	st.root = root
@@ -991,6 +991,7 @@ func (e *Engine) recordFriction(ctx context.Context, t domain.Task, run domain.R
 			RunID:       run.ID,
 			Title:       fr.Title,
 			Body:        fr.Body,
+			Issue:       int(fr.Issue),
 			Fingerprint: e.frictionFingerprintFor(ctx, target, fr.Title),
 			Count:       1,
 		})

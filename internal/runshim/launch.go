@@ -15,8 +15,12 @@ import (
 	"time"
 )
 
-// startTimeout is how long Start waits for a new shim to answer on its socket.
-const startTimeout = 15 * time.Second
+const (
+	// startTimeout is how long Start waits for a new shim to answer on its socket.
+	startTimeout = 15 * time.Second
+	// stopTimeout is how long a shim that Start gives up on gets to stop before it is killed.
+	stopTimeout = 10 * time.Second
+)
 
 // Launch says how to start a shim process.
 type Launch struct {
@@ -71,13 +75,27 @@ func Start(ctx context.Context, l Launch, spec Spec) (*Client, error) {
 		case <-exited:
 			return nil, fmt.Errorf("start shim: %s", startFailure(spec.RunDir))
 		case <-deadline.C:
-			_ = cmd.Process.Kill()
+			stopShim(cmd, exited)
 			return nil, fmt.Errorf("start shim: no answer on %s after %s", spec.SocketPath, startTimeout)
 		case <-ctx.Done():
-			_ = cmd.Process.Kill()
+			stopShim(cmd, exited)
 			return nil, ctx.Err()
 		case <-time.After(10 * time.Millisecond):
 		}
+	}
+}
+
+// stopShim ends a shim that Start gives up on, and returns once the process is gone. It sends
+// SIGTERM, not SIGKILL: the shim may already have started the agent, and only a shim that is told
+// to stop kills the agent's process group on its way out. A shim killed outright would leave the
+// agent running with nothing watching it. A shim that has not stopped after stopTimeout is killed.
+func stopShim(cmd *exec.Cmd, exited <-chan struct{}) {
+	_ = cmd.Process.Signal(syscall.SIGTERM)
+	select {
+	case <-exited:
+	case <-time.After(stopTimeout):
+		_ = cmd.Process.Kill()
+		<-exited
 	}
 }
 

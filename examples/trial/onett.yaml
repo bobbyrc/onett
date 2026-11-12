@@ -1,0 +1,30 @@
+# Try onett without a paid agent CLI: a small script stands in for the senior engineer and the
+# code reviewer. See docs/getting-started.md, "Try it without a paid agent".
+#
+# Copy this file to ~/.config/onett/onett.yaml and change the two values marked CHANGE.
+
+harnesses:
+  # An exec harness runs any command as the agent (protocol: docs/plugins.md). This one is given
+  # no credential: it sets no inherit_env and no env, so the script sees only the allowlist onett
+  # passes to every agent (PATH, HOME, locale, proxy settings and the agent CLIs' own settings).
+  # GH_TOKEN and onett's API token are never on that list. ANTHROPIC_API_KEY and OPENAI_API_KEY
+  # are, when they are set where onett runs; the script reads neither.
+  script:
+    type: exec
+    command: ["/absolute/path/to/onett/examples/trial/agent.sh"]   # CHANGE
+
+agents:
+  # An entry for a built-in role replaces it whole, so each one names its harness and prompt.
+  senior-engineer:
+    harness: script
+    prompt: builtin:senior-engineer
+    description: Scripted trial agent. Adds one line to TRIAL.md, whatever the task says.
+  code-reviewer:
+    harness: script
+    prompt: builtin:code-reviewer
+    description: Scripted trial agent. Approves every pull request.
+
+projects:
+  trial:
+    repo: YOUR_GITHUB_USER/onett-trial   # CHANGE: the throwaway repository from step 3 of the guide
+    paused: true                         # nothing starts until you set this to false (step 7)
