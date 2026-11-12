@@ -81,9 +81,11 @@ func (c *clientLines) leave(key string) {
 	}
 }
 
-// clientKey names the client of r for hashLines: its IPv4 address, or its IPv6 /64, because one
-// IPv6 network hands a client as many addresses as it likes. It is empty, meaning no per-client
-// limit, for loopback and for an address that does not parse.
+// clientKey names the client of r for hashLines: its address, or for a public IPv6 address its
+// /64, because one public IPv6 network hands a client as many addresses as it likes. Private
+// and link-local IPv6 addresses are given one to a device (a VPN puts all its devices in one
+// /64), so they count singly. It is empty, meaning no per-client limit, for loopback and for
+// an address that does not parse.
 func clientKey(r *http.Request) string {
 	ap, err := netip.ParseAddrPort(r.RemoteAddr)
 	if err != nil {
@@ -93,7 +95,7 @@ func clientKey(r *http.Request) string {
 	if a.IsLoopback() {
 		return ""
 	}
-	if a.Is6() {
+	if a.Is6() && !a.IsPrivate() && !a.IsLinkLocalUnicast() {
 		p, err := a.Prefix(64)
 		if err != nil {
 			return ""

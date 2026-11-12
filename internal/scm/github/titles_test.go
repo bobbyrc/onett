@@ -79,3 +79,19 @@ func TestUnquoteMentions(t *testing.T) {
 		assert.Equal(t, s, unquoteMentions(quoteMentions(s)), "input %q", s)
 	}
 }
+
+func TestTitleWithACodeFenceStillHasItsMentionsQuoted(t *testing.T) {
+	f := newFake()
+	f.on["pr create"] = "https://github.com/owner/name/pull/5"
+	f.on["pr view"] = `{"number":5,"state":"OPEN","headRefName":"b","statusCheckRollup":[]}`
+	g := NewWithRunner(repo, f.runner())
+
+	_, err := g.OpenPR(context.Background(), scm.PRSpec{
+		Head: "b", Base: "main", Title: "Fix\n\n```\n@alice\n```",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, f.calls)
+	title := titleArg(t, f.calls[0].args)
+	assert.Contains(t, title, "@​alice")
+	assert.NotContains(t, title, "@alice")
+}

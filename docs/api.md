@@ -21,7 +21,8 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
   token can **ever** edit the config file or manage users. A token is read only from the
   `Authorization` header, never from the URL.
 - **A signed-in person** uses the session cookie (`onett_session_<port>`, named after the port
-  onett listens on, so two onetts on one host keep separate sessions), set by `POST /auth/setup` (the first
+  onett listens on, so two onetts on one host keep separate sessions; a browser still sends it to
+  every port on that host, so open a second onett under another host name), set by `POST /auth/setup` (the first
   account) or `POST /auth/login`. The cookie is HttpOnly and SameSite=Strict, lasts 30 days, and
   is `Secure` when `server.public_url` is https. Sign-out (`POST /auth/logout`) ends the session.
   Changing a password ends that user's other sessions. What a person may do depends on their role:
@@ -50,8 +51,8 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
     hidden and the error is logged).
   - 503 `"busy; try again"`: the server is already running its maximum of four password checks
     (sign-in, setup and password change) and none freed within five seconds. Retry after a moment.
-    A client address other than loopback may hold two of the four at once, so one address cannot
-    keep everyone else out.
+    A client address other than loopback may hold two of the four at once (a public IPv6 /64
+    counts as one address), so one address cannot keep everyone else out.
   - 422 the input is well formed but not acceptable. Usually `{"error": "..."}`. A config that does
     not validate gets `{"error": "...", "problems": [{"path","message"}]}`, where `path` is the
     dotted setting (`""` when the message names none).
@@ -339,5 +340,5 @@ Rules:
 - The Origin header, when present, must name this server's host and port, or the upgrade gets 403.
   A page on another site cannot open the socket with the user's cookie. Clients with no Origin
   (the CLI, scripts) are accepted.
-- Credentials are the bearer header or the session cookie. `?token=` is not accepted on this route.
+- Credentials are the bearer header or the session cookie. A token in the URL is not accepted on any route.
 - A signed-out or demoted user's socket closes within one ping interval.

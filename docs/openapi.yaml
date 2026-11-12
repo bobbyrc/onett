@@ -155,8 +155,8 @@ paths:
         15 seconds. The socket shares the stream limit with `/events`.
 
         The Origin header, when present, must name this server's host and port, or the upgrade is
-        refused with 403. Clients that send no Origin (the CLI, scripts) are accepted. The `?token=`
-        query parameter is not accepted here; use the bearer header or the session cookie.
+        refused with 403. Clients that send no Origin (the CLI, scripts) are accepted. A token in
+        the URL is not accepted on any route; use the bearer header or the session cookie.
       security:
         - bearer: []
         - session: []

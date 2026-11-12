@@ -97,8 +97,9 @@ func (s *server) setUserRole(w http.ResponseWriter, r *http.Request) {
 }
 
 // setUserPassword resets another user's password and ends all of that user's sessions. A person
-// changes their own password with POST /auth/password, which asks for the current one: a
-// session that someone else got hold of must not be enough to take the account over.
+// changes their own password with POST /auth/password, which asks for the current one, so the
+// reset that asks for nothing is not offered for the caller's own account. It does not stop a
+// stolen owner session from doing an owner's other work, such as adding an account.
 func (s *server) setUserPassword(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 	if p, ok := principalFrom(r.Context()); ok && !p.token && strings.EqualFold(p.user.Username, name) {

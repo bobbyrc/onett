@@ -88,13 +88,16 @@ func TestIPv6ClientsShareALinePerNetwork(t *testing.T) {
 
 func TestClientKey(t *testing.T) {
 	cases := map[string]string{
-		"203.0.113.7:1":          "203.0.113.7",
-		"127.0.0.1:1":            "",
-		"[::1]:1":                "",
-		"[::ffff:127.0.0.1]:1":   "",
-		"[::ffff:203.0.113.7]:1": "203.0.113.7",
-		"[2001:db8:1:2::a]:1":    "2001:db8:1:2::/64",
-		"garbage":                "",
+		"203.0.113.7:1":                 "203.0.113.7",
+		"127.0.0.1:1":                   "",
+		"[::1]:1":                       "",
+		"[::ffff:127.0.0.1]:1":          "",
+		"[::ffff:203.0.113.7]:1":        "203.0.113.7",
+		"[2001:db8:1:2::a]:1":           "2001:db8:1:2::/64",
+		"[fd7a:115c:a1e0::53:a01f]:1":   "fd7a:115c:a1e0::53:a01f",
+		"[fd7a:115c:a1e0::1234:5678]:1": "fd7a:115c:a1e0::1234:5678",
+		"[fe80::1%en0]:1":               "fe80::1",
+		"garbage":                       "",
 	}
 	for addr, want := range cases {
 		req := testRequest(http.MethodPost, "/api/v1/auth/login", nil)
