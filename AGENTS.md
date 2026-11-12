@@ -76,7 +76,8 @@ reviewer's approval.
    environment. Never pass `GH_TOKEN`, the API token or provider keys to an agent, including in
    examples and docs.
 4. **A denial or a stall is terminal.** A denied tool call, or no output for the stall timeout,
-   blocks the task with the reason. Never add a retry or a workaround for a denial.
+   blocks the task with the reason. Never add a retry or a workaround for a denial. Only a person
+   retries a task that a denial stopped: the agent token is refused (`auth.RetryDenied`).
 5. **Merges are pinned.** `gh pr merge --match-head-commit`: an approval covers one commit, and a
    changed PR withdraws it.
 6. **Status changes are compare-and-set.** Automatic task transitions name the status they expect,
@@ -95,20 +96,25 @@ reviewer's approval.
     through `public_url` and `allowed_hosts`.
 12. **Config, users and triggers change only through a person.** Editing `onett.yaml`, managing
     users, and creating, changing, deleting, enabling, disabling or manually firing a trigger
-    (a rule that starts an orchestrator turn by itself) need a signed-in owner session. The API
-    token, which the orchestrator agent holds, can never do any of them (`auth.TokenAllows`), so
-    an agent cannot rewrite its own policy or environment, or change which triggers exist. The
-    token may read triggers and their history. Known gap, not closed here: a `github_issue`
+    (a rule that starts an orchestrator turn by itself) need a signed-in owner session. Neither
+    API token can do any of them (`auth.TokenAllows`): not the owner token the CLI uses, and not
+    the agent token the orchestrator agent holds, which is also refused a person's decisions (the
+    list is `agentRefused` in `internal/auth`). So an agent cannot rewrite its own policy or
+    environment, change which triggers exist, or take the owner's decisions. Either token may
+    read triggers and their history. Known gap, not closed here: a `github_issue`
     trigger fires for any issue GitHub attributes to the owner, a member or a collaborator, and
     an agent that can use the owner's `gh` login can open one. So issue text is always evidence
     (invariant 8), and each trigger starts at most 20 firings an hour. Every new route declares
-    the action it needs (read, operate or administer).
+    the action it needs (read, operate or administer), and a route that takes a person's
+    decision refuses the agent token.
 
 Changes to `internal/engine/prompts/**`, `internal/policy/**`, `internal/config/defaults.go`,
 `internal/sysproc/**`, `internal/engine/loop_shepherd.go`, `internal/engine/helpers.go`,
 `internal/auth/**`, `internal/api/auth.go` and `internal/api/routes.go` are rated **high** risk by
 a built-in rule, and `AGENTS.md`, `CLAUDE.md` and `onett.yaml` files are
-**medium**: the owner approves them. Do not move logic out of those files to avoid the rule.
+**medium**: the owner approves them. Changes to `.claude/**`, `.mcp.json` and `.codex/**` (the
+agent CLIs' own settings, hooks and MCP servers) are rated **high** too. Do not move logic out of
+those files to avoid the rule.
 
 ## Go conventions
 

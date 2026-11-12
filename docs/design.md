@@ -28,8 +28,9 @@ Managed, later (do not build these yet, but do not close them off):
   onett instance per customer, running the same code as self-hosted; true multi-tenancy is a
   later choice. Keep all state behind `store.Store` so another database can be added.
 - **Auth:** people already sign in with accounts and sessions (roles viewer, operator, owner;
-  `docs/proposals/accounts-and-config-editor.md`), and the API token is for the CLI and the
-  orchestrator only. Still to come: GitHub access moves from the user's `gh` login to a GitHub
+  `docs/proposals/accounts-and-config-editor.md`), and the API tokens are for the CLI (the owner
+  token) and the orchestrator (a lesser agent token, `docs/proposals/token-boundary.md`) only.
+  Still to come: GitHub access moves from the user's `gh` login to a GitHub
   App, which also gives agents a bot identity.
 - **Agent isolation is mandatory** when customers' code and agents run on shared hardware:
   containers or VMs per run (option B in `docs/proposals/agent-isolation.md`), never option C.
@@ -120,6 +121,11 @@ paths or accounts, nothing that assumes one machine and one person) when it cost
 - **Outbox** — files an agent writes in `<worktree>/.onett-run/` to report back:
   `result.json` (status, summary, self-assessed risk, PR title/body, follow-up tasks, friction).
   Files, not network calls, so it works inside sandboxed harnesses such as Codex's.
+  Onett reads `result.json` only when it is a regular file of at most 1 MiB that holds one JSON
+  object: a symlink or a pipe in its place, or anything after the object, voids the report. A
+  field onett does not know is ignored, on purpose: an unknown field can do nothing, a missing one
+  reads as no approval and no risk rating (which policy treats as medium), and voiding a report
+  for a harmless extra key would throw away a whole run.
 - **Waiting** — a queued task can wait on other tasks (`waiting_on`); the scheduler does not
   claim it until each has merged or finished without a pull request, and it is cancelled, with
   the reason, if one ends blocked, failed or cancelled. A follow-up waits for the task that filed
@@ -158,6 +164,9 @@ queued ─► running ─► review ─► merged ─► deploying ─► done
   merge is pinned to the PR head commit that CI, review and the policy judged
   (`gh pr merge --match-head-commit`), and an approval is for one head: if the PR changes after
   you were asked, onett withdraws the approval request and re-checks.
+  If the PR merges but the write that records it fails, the task is not blocked as a failed merge:
+  it stays in `review` or `awaiting_approval`, and the shepherd's next pass sees the PR merged and
+  moves the task to `merged`. Onett never calls merge a second time for it.
 - Every automatic status change is guarded by the status it expects, atomically. A run or loop
   that finishes after you cancelled or blocked a task cannot revive it.
 - An agent-reported failure, failing CI, a merge conflict or "request changes" from the
@@ -205,7 +214,13 @@ process per message, read about 65k input tokens per turn at a 18-34% cache hit 
 about 18k at 78-80%. With `isolate: true` the claude harness adds `--strict-mcp-config` (no MCP
 servers) and `--setting-sources project,local` (no user-level hooks, plugins or permissions; the
 repository's own settings and CLAUDE.md still load, and the login is untouched). The owner's
-`args` come after these and can override them. The orchestrator's system prompt is identical on
+`args` come after these and can override them. A review run is the exception: its worktree is
+the change under review, so onett adds `--strict-mcp-config` and a `--setting-sources` without
+`project` and `local` after the owner's `args` (`user`, or none when isolated), and for Codex
+`-c project_doc_max_bytes=0`. The reviewer still gets the project's rules: onett reads the root
+`AGENTS.md` and `CLAUDE.md` from the base branch with git and puts them in the review prompt,
+each cut at 32 KiB, and a `CLAUDE.md` that only imports `AGENTS.md` is not repeated. The
+orchestrator's system prompt is identical on
 every turn of a conversation, and the changing list of projects and agents rides in the user
 message instead. Each run records the cached and cache-written parts of its input
 (`cached_input_tokens`, `cache_write_tokens`); `onett run show` and the run page show the hit
@@ -270,6 +285,19 @@ shim exits when the agent has exited and the daemon acked the last offset, or 24
 agent exits. Through the harness the session looks the same as a direct child. See
 `internal/runshim`.
 
+**Who the daemon talks to.** The daemon does not trust the socket path alone. It takes an answer
+only from the shim process it started, or after a restart from the process `status.json` names,
+and which process is listening is the kernel's word (`SO_PEERCRED` on Linux, `LOCAL_PEERPID` on
+macOS), not the peer's. That stops another process that takes over the socket path from posing as
+the shim. On other systems, and for a status file that names no process, the path is trusted as
+before. It does not stop a process that rewrites `status.json`: the run directory belongs to the
+user that agents run as, so this is part of the same-user limit that only agent isolation closes.
+Both ends refuse a message over a fixed size, and one stderr line is cut at 64 KiB. The socket
+directory must belong to the daemon's user (mode 0700). The spec file the shim starts from holds
+the agent's environment; the shim removes it once read, and the daemon removes it when the shim
+never gets that far. `stream.log` and `status.json` (mode 0600, in a 0700 directory) stay after
+the run, because a restarted daemon reads them to recover output.
+
 **Reattaching after a restart.** At shutdown the daemon lets go of a task run's agent instead of
 killing it (`Detacher`), and leaves the run and its task `running`. The run stores what a new
 daemon needs: `stream_offset` (where in the shim's log to read next, saved after every flush of
@@ -283,7 +311,10 @@ through the shim's `signal`. The run then finishes through the same code as any 
 (`settleTask`); setup owed after the agent (`setup_owed` on the run) and the owner messages the run
 claimed (found by their run id) are restored first. If the shim is gone (reboot, shim crash), the
 run ends `interrupted`, not `failed`, and its task is re-queued with the attempt given back, so
-the interruption never uses one up, even on a task at its last attempt. The next run resumes the
+the interruption never uses one up, even on a task at its last attempt. `recover` reads this from
+the stored run, not from memory: a running task whose latest run is `interrupted` is re-queued
+this way, so a start that failed between ending the run and re-queuing its task is finished by
+the next start. The next run resumes the
 interrupted run's harness session with a note to check the worktree and carry on
 (`interruptedNote`); a run that had no session yet starts fresh with the same note. Reviews
 are treated the same. Before that, `recover` replays the agent's output past the stored offset
@@ -444,7 +475,7 @@ A new effort has no such request, and neither has clearing a model back to a def
 does not name: those cannot be done in place, so the next turn replaces the process and resumes
 the session with the new flags. The choices per harness are
 listed in one place each (`choices.go` in the adapter). Only a signed-in person may change the
-settings: the API token, which the orchestrator holds, cannot widen its own permissions.
+settings: the agent token, which the orchestrator holds, cannot widen its own permissions.
 
 The owner can keep typing while the orchestrator works. If its harness takes input mid-run, the
 message goes straight to the live agent. Otherwise it is queued (`Queued` on the message) and
@@ -519,7 +550,9 @@ the goal active but queued no task, retried none and did not finish or block the
 second chance (the next check-in opens by saying so and the loop wakes at once), and a second such
 turn in a row blocks it; so does reaching `limits.max_goal_turns` (default 40). Blocking, and `onett goal done`, notify the
 owner. A task that blocks inside an active goal does not notify: the goal's orchestrator handles it
-first, and the owner hears only if the goal blocks. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
+first, and the owner hears only if the goal blocks. The exception is a task that a denial stopped
+(a refused tool call): only a person retries it (invariant 4), so it notifies at once and the
+orchestrator's retry is refused. The daily budget, `onett pause` and project pauses stop turns the same way they stop runs.
 Goals add no new way to act: the orchestrator still only queues tasks, and merges still wait for
 the project's policy (the owner only under `supervised`). `loops.goals.enabled: false` turns the
 loop off.
@@ -674,7 +707,8 @@ A task agent's conversation stays open until something closes it, and closing on
 close it. The agent, by setting `"finished": true` in a completed or no-changes report, closed by
 `agent` with its summary as the reason (a blocked or failed report, and reviews, are ignored). The orchestrator, with `onett task close-conversation
 ID --reason R` (`POST /tasks/{id}/conversation/close`), closed by `orchestrator`. The owner, by
-cancelling the task (closed by `owner:<username>`, or `orchestrator` when the API token cancels)
+cancelling the task (closed by `owner:<username>`, `owner` for the owner's CLI, or `orchestrator` when the agent
+token cancels)
 or through the same route. A closed conversation refuses new messages; messages already queued
 stay queued and visible but are never delivered, because `continueConversation` does nothing for
 a closed one. Closing twice is a conflict. Retrying a cancelled task leaves the conversation closed, and the
@@ -718,6 +752,18 @@ web/                  React + Vite + TypeScript UI (built into internal/api/webd
   session; the token is generated on first start at `<data_dir>/token` (mode 600). Remote access
   is opt-in: reach it over a VPN such as Tailscale or through a reverse proxy with TLS, and name
   the address in `server.public_url` or `server.allowed_hosts` (see the Host check below).
+- The database (`onett.db` and its `-wal` and `-shm` files) is created mode 600 and set back to it
+  at every start, so it does not rely on the data directory's mode. `onett service install` does
+  the same for the service file, which can hold environment values.
+- `onett backup FILE` writes a consistent copy of the database (`<data_dir>/onett.db`) that is
+  safe to take while the daemon runs: SQLite's `VACUUM INTO` reads one snapshot. The copy holds
+  password hashes and sign-in sessions, so it is not an API route: a route would need a signed-in
+  owner, and the API token, which the orchestrator agent holds, must never be able to fetch it.
+  Instead the command reads the database file itself on the daemon's machine, as
+  `onett user reset-password` does, and writes the copy with mode 600, never over an existing
+  file. It refuses inside an agent run (`ONETT_RUN_ID` or `ONETT_ROLE` is set) and refuses a
+  destination inside a git repository or worktree, where the copy could be committed or read by
+  an agent. Restore is in the README, "Backup and restore".
 - Agents never get push credentials from onett; onett pushes. Harness permissions are
   configured per agent profile (`claude-code` defaults to `--permission-mode auto` plus the
   role's pre-approved `tools` rules; `codex` defaults to `--approve-for-me`, its workspace-write sandbox with automatic review

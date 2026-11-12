@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bobbyrc/onett/internal/api"
+	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/notify"
 	"github.com/bobbyrc/onett/internal/store"
@@ -81,9 +82,18 @@ func (e *Engine) moveGoal(ctx context.Context, id string, to domain.GoalStatus, 
 		if !slices.Contains(from, g.Status) {
 			return fmt.Errorf("%w: goal is %s", api.ErrConflict, g.Status)
 		}
-		if to == domain.GoalActive && g.Status == domain.GoalBlocked {
-			// Resuming a blocked goal is the owner's call for a fresh turn budget; otherwise a
-			// goal blocked by max_goal_turns would be blocked again on its next tick.
+		if g.Status == domain.GoalPaused {
+			// Someone paused this goal, and only a person moves it again. Every move is refused,
+			// not only resume: an agent that could block a paused goal could then resume the
+			// blocked goal, which starts it again.
+			if err := auth.Refused(ctx, auth.ChangePausedGoal); err != nil {
+				return err
+			}
+		}
+		if to == domain.GoalActive && g.Status == domain.GoalBlocked && auth.Refused(ctx, auth.ResetGoalBudget) == nil {
+			// A person resuming a blocked goal gives it a fresh turn budget; otherwise a goal
+			// blocked by max_goal_turns would be blocked again on its next tick. The agent token
+			// resumes it with the budget it has left, so the turn limit is a cap only a person lifts.
 			g.Turns, g.StalledTurns = 0, 0
 		}
 		g.Status = to
@@ -145,6 +155,9 @@ previous step has settled; the owner is not prompting you.
 - A blocked or failed task in this goal is yours to handle first. Read why
   (`+"`onett task show ID`, `onett run logs ID`"+`), then retry it with a note
   (`+"`onett task retry ID --note N`"+`), re-plan, or split it into smaller tasks.
+- A task blocked because a tool call was denied is the owner's to retry: onett refuses
+  `+"`onett task retry`"+` and `+"`onett task message`"+` for it. Carry on with other work, or block the
+  goal and name the task the owner must look at.
 - Say plainly in your reply what you queued and why, or why you queued nothing.
 - Never approve merges, change config or pause the factory. With the default policy merges
   happen on their own. If the project opts into supervision and a PR is awaiting approval, that

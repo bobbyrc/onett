@@ -105,8 +105,8 @@ async function request<T>(
 
 export const getAuthState = () => request<AuthStateResponse>('GET', '/auth/state', { auth: false });
 
-export const setupOwner = (username: string, password: string) =>
-  request<User>('POST', '/auth/setup', { body: { username, password }, auth: false });
+export const setupOwner = (username: string, password: string, code: string) =>
+  request<User>('POST', '/auth/setup', { body: { username, password, code }, auth: false });
 
 export const login = (username: string, password: string) =>
   request<User>('POST', '/auth/login', { body: { username, password }, auth: false });

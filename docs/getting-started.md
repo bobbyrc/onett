@@ -8,8 +8,9 @@ Terms used here are defined in the [README](../README.md#terms-used-below). In s
 is a unit of work, a **run** is one agent attempt at it, a **role** picks the agent and its
 instructions, and an **approval** is a decision onett is waiting on from you.
 
-**The web UI is the easiest way through this guide.** After step 2, run `./onett serve`, open the
-link it prints, create the owner account and follow the "Finish setting up onett" card on the
+**The web UI is the easiest way through this guide.** After step 2, run `./onett serve`, then
+`./onett open` in a second terminal, create the owner account on the page it opens and follow
+the "Finish setting up onett" card on the
 Overview: add a project on the **Projects** page, check agents and policy on the **Config** page,
 connect Telegram, Discord or ntfy on its **Setup** tab, and set secrets on its **Secrets** tab.
 The steps below show the same setup with the CLI and `onett.yaml`, which suits scripts and
@@ -204,9 +205,11 @@ running. Stop it with Ctrl-C.
 
 If there is no config file yet, `onett serve` writes the same starter file `onett init` writes
 (no project, only the log notifier; `--addr HOST:PORT` picks its listen address; it never overwrites an existing file) and says where. While no
-owner account exists it prints one line with the web UI address: open it, create the owner
-account, then follow the "Finish setting up onett" card on the Overview (add a project, check the
-agents, choose a policy, set up a way to reach you, set secrets). No token is put in that URL.
+owner account exists it prints one line saying so: run `./onett open` (below) and create the owner
+account on the page it opens, then follow the "Finish setting up onett" card on the Overview (add
+a project, check the agents, choose a policy, set up a way to reach you, set secrets). That
+address carries a setup code after `#`, not your token; opened without it, the page only says to
+run `onett open`.
 
 In a second terminal:
 
@@ -499,6 +502,26 @@ Option 2 is an owner decision with a security trade-off: the agent can then reac
 touch anything your user can, so a prompt-injected or mistaken run can send data out, fetch code
 or damage files outside its worktree. Agents must never enable it themselves; if a task cannot be
 verified without it, report it as blocked.
+
+## 15. Back up and restore
+
+Onett keeps its whole history (tasks, runs, approvals, users, triggers, loop state) in one file:
+`onett.db` in the data directory. Take a copy of it while the daemon runs:
+
+```sh
+mkdir -p ~/onett-backups
+./onett backup ~/onett-backups/onett-$(date +%F).db
+```
+
+Run it on the machine that runs the daemon. The copy holds password hashes and sign-in sessions,
+so it is readable only by you, never replaces an existing file, cannot be written inside a git
+repository or worktree, and cannot be taken from inside an agent run. The config file,
+`secrets.env`, the API token and attachment files are not in it.
+
+To restore, stop the daemon, delete `onett.db-wal` and `onett.db-shm` from the data directory if
+they exist (side files of the old database), copy the backup over `onett.db`, and start the daemon
+with the onett version that took the backup or a newer one. The README's
+[Backup and restore](../README.md#backup-and-restore) section has the details.
 
 ## Try it without a paid agent
 

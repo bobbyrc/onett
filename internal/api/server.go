@@ -26,8 +26,9 @@ type Options struct {
 	Store      store.Store
 	Bus        events.Bus
 	Controller Controller
-	// Token is the bearer token that the CLI and the orchestrator agent send. It can read and
-	// operate, but never edit the config or manage users; see internal/auth.
+	// Token is the owner token: the bearer token the owner's CLI sends. It can read and operate,
+	// but never edit the config or manage users; see internal/auth. The orchestrator agent sends
+	// the token derived from it (auth.AgentToken), which is also refused a person's decisions.
 	Token   string
 	Version string
 	// SecureCookies sets the Secure flag on the session cookie. serve sets it when public_url is
@@ -71,6 +72,10 @@ type server struct {
 	streams chan struct{}
 	// limiter counts failed sign-ins per username; see authLogin.
 	limiter *auth.Limiter
+	// agentToken and setupCode are derived from opts.Token once: the token the orchestrator
+	// agent sends, and the code the first-account page must present. Both are empty when no
+	// token is configured, and an empty value never matches.
+	agentToken, setupCode string
 	// now is the clock for sessions. Tests may replace it before serving requests.
 	now func() time.Time
 	// startedAt is when this server was built; /health reports it so a client can tell a
@@ -91,6 +96,7 @@ func NewServer(o Options) http.Handler {
 		web = DefaultWeb()
 	}
 	s := &server{opts: o, log: o.Logger, web: web, streams: make(chan struct{}, maxEventStreams), now: time.Now, startedAt: time.Now().UTC()}
+	s.agentToken, s.setupCode = auth.AgentToken(o.Token), auth.SetupCode(o.Token)
 	s.limiter = auth.NewLimiter(signInLimit, signInWindow, s.now)
 
 	r := chi.NewRouter()

@@ -7,19 +7,28 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/domain"
 )
 
-func TestTokenMessagesTaskAgentAsOrchestrator(t *testing.T) {
+func TestAgentTokenTaskMessageIsTheOrchestrators(t *testing.T) {
 	x := newHarness(t)
 
-	rec := x.authReq(t, http.MethodPost, "/api/v1/tasks/t1/messages", `{"text":"unblock: use tabs"}`, withToken(testToken))
+	rec := x.authReq(t, http.MethodPost, "/api/v1/tasks/t1/messages", `{"text":"unblock: use tabs"}`, withToken(auth.AgentToken(testToken)))
 	require.Equal(t, http.StatusAccepted, rec.Code, rec.Body.String())
 	var m domain.ChatMessage
 	decode(t, rec, &m)
 	assert.Equal(t, domain.AuthorOrchestrator, m.Author)
 	assert.Equal(t, domain.AuthorOrchestrator, x.ctl.taskMsgAuthor)
 	assert.Equal(t, "unblock: use tabs", x.ctl.chatText)
+
+	// The owner's own CLI speaks as the owner: no author.
+	rec = x.authReq(t, http.MethodPost, "/api/v1/tasks/t1/messages", `{"text":"owner says hi"}`, withToken(testToken))
+	require.Equal(t, http.StatusAccepted, rec.Code, rec.Body.String())
+	var om domain.ChatMessage
+	decode(t, rec, &om)
+	assert.Empty(t, om.Author)
+	assert.Empty(t, x.ctl.taskMsgAuthor)
 
 	// A person's message keeps the owner's voice: no author.
 	cookie := x.newUserSession(t, "alice", domain.RoleOperator)

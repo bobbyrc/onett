@@ -17,8 +17,10 @@ export interface Daemon {
   secretsPath: string;
   /** The local git repository the test adds as a project. */
   repoDir: string;
-  /** The URL serve printed on its "No owner account yet" line. */
+  /** The address the daemon listens on. */
   url: string;
+  /** The address `onett open` gives while no account exists: `url` plus the setup code after `#`. */
+  setupUrl: string;
   /** What serve has printed so far (stdout and stderr), for failure messages. */
   log: () => string;
   stop: () => Promise<void>;
@@ -94,14 +96,13 @@ export async function startDaemon(): Promise<Daemon> {
     rmSync(root, { recursive: true, force: true });
   };
 
-  // The sign-in line: serve prints it once the database is open, before it listens.
-  const line = /No owner account yet: open (\S+?)\/ to create one/;
+  // The first-run line: serve prints it once the database is open, before it listens.
+  const line = /No owner account yet: run `onett open`/;
   const deadline = Date.now() + 60_000;
-  let url = '';
+  let ready = false;
   while (Date.now() < deadline) {
-    const m = line.exec(output);
-    if (m) {
-      url = m[1];
+    if (line.test(output)) {
+      ready = true;
       break;
     }
     if (child.exitCode !== null) {
@@ -110,12 +111,26 @@ export async function startDaemon(): Promise<Daemon> {
     }
     await new Promise((r) => setTimeout(r, 100));
   }
-  if (!url) {
+  if (!ready) {
     const seen = output;
     await stop();
-    throw new Error(`onett serve never printed its sign-in line:\n${seen}`);
+    throw new Error(`onett serve never printed its first-run line:\n${seen}`);
   }
+  const url = `http://127.0.0.1:${port}`;
   await waitListening(port);
+  // The setup link, got the way a person gets it: `onett open`. PATH names a directory that does
+  // not exist, so no browser opener is found and the command prints the address instead of
+  // opening a window on the machine that runs the test.
+  const opened = execFileSync(bin, ['open'], {
+    cwd: root,
+    env: { ...cleanEnv(home), PATH: join(root, 'no-browser-opener') },
+    encoding: 'utf8',
+  });
+  const setupUrl = /Open this URL:\s*(\S+#setup=[0-9a-f]+)/.exec(opened)?.[1];
+  if (!setupUrl) {
+    await stop();
+    throw new Error(`onett open printed no setup link:\n${opened}`);
+  }
   return {
     root,
     home,
@@ -123,6 +138,7 @@ export async function startDaemon(): Promise<Daemon> {
     secretsPath: join(home, '.config', 'onett', 'secrets.env'),
     repoDir,
     url,
+    setupUrl,
     log: () => output,
     stop,
   };

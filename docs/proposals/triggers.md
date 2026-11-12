@@ -302,10 +302,12 @@ what it skipped. It starts nothing while paused.
   the token.
 - This extends invariant 12 in `AGENTS.md`, which becomes: config, users and triggers change only
   through a person. The README Safety model section gets the same sentence.
-- One thing the token can do, stated so nobody is surprised: `POST /loops/triggers/run`, an
-  `operate` route that exists for every loop, makes the trigger loop check now instead of in up to
-  30 seconds. It cannot fire a schedule before its time, and it cannot fire an issue a second time.
-  It only brings forward a check that was about to happen.
+- One thing the owner token (the owner's own CLI) can do, stated so nobody is surprised:
+  `POST /loops/triggers/run`, an `operate` route that exists for every loop, makes the trigger
+  loop check now instead of in up to 30 seconds. It cannot fire a schedule before its time, and it
+  cannot fire an issue a second time. It only brings forward a check that was about to happen.
+  The agent token, which the orchestrator holds, is refused it, as it is every manual loop run
+  (`docs/proposals/token-boundary.md`).
 - Agents get the owner's `HOME`, so the owner's `gh` login may work for them. An issue opened
   through that login has the author association `OWNER`, so the author rule cannot tell it from an
   issue a person wrote. The design therefore does not rely on the author rule for safety. Issue text

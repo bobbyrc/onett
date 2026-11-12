@@ -4,15 +4,19 @@ import (
 	"bufio"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/config"
 )
 
@@ -345,13 +349,20 @@ func cmdOpen(e *env, args []string) error {
 	if err != nil {
 		return err
 	}
-	// The browser signs in with a password, so no token goes in the URL. The config is only
-	// needed for the address, which ONETT_API can give instead.
+	// The browser signs in with a password, so no token goes in the URL; only the setup code
+	// does, while no account exists. The config is only needed for the address, which ONETT_API
+	// can give instead.
 	cfg, cfgErr := loadConfig(path)
 	if cfgErr != nil && os.Getenv("ONETT_API") == "" {
 		return cfgErr
 	}
 	url := strings.TrimRight(publicBaseURL(cfg), "/") + "/"
+	// While no account exists, the page that creates the first one needs proof that the person
+	// opening it runs this machine. The code goes after #, the part of an address a browser
+	// never sends to a server, so it reaches no log.
+	if code := setupCode(cfg); code != "" {
+		url += "#setup=" + code
+	}
 
 	opener := "xdg-open"
 	if runtime.GOOS == "darwin" {
@@ -361,6 +372,29 @@ func cmdOpen(e *env, args []string) error {
 		fmt.Fprintf(e.out, "Could not open a browser (%v). Open this URL:\n%s\n", err, url)
 	}
 	return nil
+}
+
+// setupCode returns the setup code when the server says no account exists yet. It returns ""
+// when an account exists, or when the server or the token cannot be reached: the page then
+// shows sign-in, or tells the person to run `onett open`.
+func setupCode(cfg *config.Config) string {
+	token, err := apiToken(cfg)
+	if err != nil {
+		return ""
+	}
+	client := http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(strings.TrimRight(apiBaseURL(cfg), "/") + "/api/v1/auth/state")
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var state struct {
+		SetupRequired bool `json:"setup_required"`
+	}
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&state) != nil || !state.SetupRequired {
+		return ""
+	}
+	return auth.SetupCode(token)
 }
 
 // publicBaseURL is the address the web UI is reached at: $ONETT_API, then the config's

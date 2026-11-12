@@ -21,6 +21,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/api"
 	"github.com/bobbyrc/onett/internal/attach"
+	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/channel"
 	_ "github.com/bobbyrc/onett/internal/channel/all"
 	"github.com/bobbyrc/onett/internal/config"
@@ -234,9 +235,10 @@ func cmdServe(e *env, args []string) error {
 	defer stop()
 
 	fmt.Fprintf(e.out, "onett %s listening on http://%s — open the UI with `onett open`\n", version, cfg.Server.Addr)
-	// Until an owner account exists, the UI's first page creates it. The URL carries no token.
+	// Until an owner account exists, the UI's first page creates it, and it needs the setup link
+	// that `onett open` builds.
 	if n, err := st.CountUsers(context.Background()); err == nil && n == 0 {
-		fmt.Fprintf(e.out, "No owner account yet: open %s/ to create one and finish setup.\n", strings.TrimRight(publicBaseURL(cfg), "/"))
+		fmt.Fprintln(e.out, "No owner account yet: run `onett open` to create one and finish setup.")
 	}
 
 	engineDone := make(chan error, 1)
@@ -449,17 +451,18 @@ func serveAllowedHosts(s config.Server) []string {
 }
 
 // signalContext is cancelled by SIGINT or SIGTERM.
-// serveEnvs returns the environment added to agent sessions and to orchestrator (chat) sessions.
-// Every agent gets the onett binary on PATH and no credentials: a worker that could call the
-// API could approve its own work. Only the orchestrator, which runs the onett CLI, gets the API
-// address and token.
+// serveEnvs returns the environment added to every agent session and to orchestrator (chat)
+// sessions. Workers get nothing: no onett on PATH and no credentials, because a worker that
+// could call the API could act on its own work. Only the orchestrator, which runs the onett
+// CLI, gets the binary on PATH, the API address and the agent token: the token derived from
+// the owner token that is refused a person's decisions (auth.AgentToken). No agent is given
+// the owner token.
 func serveEnvs(exe, addr, token string) (agent, orchestrator map[string]string) {
-	agent = map[string]string{
-		"PATH": filepath.Dir(exe) + string(os.PathListSeparator) + os.Getenv("PATH"),
-	}
+	agent = map[string]string{}
 	orchestrator = map[string]string{
+		"PATH":        filepath.Dir(exe) + string(os.PathListSeparator) + os.Getenv("PATH"),
 		"ONETT_API":   config.LocalURL(addr),
-		"ONETT_TOKEN": token,
+		"ONETT_TOKEN": auth.AgentToken(token),
 	}
 	return agent, orchestrator
 }

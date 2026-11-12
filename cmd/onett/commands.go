@@ -1187,11 +1187,13 @@ func setPaused(e *env, args []string, pause bool) error {
 	}
 	ctx := context.Background()
 	if pause {
-		_, err = c.Pause(ctx)
-		fmt.Fprintln(e.out, "paused: no new runs start; release verification/rollback and production watching continue (`onett resume` to continue)")
+		if _, err = c.Pause(ctx); err == nil {
+			fmt.Fprintln(e.out, "paused: no new runs start; release verification/rollback and production watching continue (`onett resume` to continue)")
+		}
 	} else {
-		_, err = c.Resume(ctx)
-		fmt.Fprintln(e.out, "resumed")
+		if _, err = c.Resume(ctx); err == nil {
+			fmt.Fprintln(e.out, "resumed")
+		}
 	}
 	return err
 }
