@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 	"syscall"
@@ -22,6 +23,8 @@ var (
 	ErrStdinClosed = errors.New("runshim: agent stdin is closed")
 	// ErrClosed is returned by calls on a closed or broken connection.
 	ErrClosed = errors.New("runshim: connection closed")
+	// ErrWrongPeer is returned when the process answering on a shim's socket is not that shim.
+	ErrWrongPeer = errors.New("runshim: the socket is answered by another process")
 )
 
 // Client talks to one shim over its socket. It is safe for concurrent use. Replay opens a second
@@ -29,6 +32,7 @@ var (
 type Client struct {
 	socket  string
 	version int
+	pid     int // the process that answered, as the kernel reports it; 0 when the platform cannot tell
 	conn    net.Conn
 
 	wmu  sync.Mutex
@@ -41,56 +45,91 @@ type Client struct {
 	streams []*Stream
 }
 
-// Dial connects to the shim at socket and checks the protocol version.
-func Dial(socket string) (*Client, error) { return DialVersion(socket, ProtocolVersion) }
+// Dial connects to the shim at socket and checks the protocol version. It takes whoever
+// answers there for the shim; code that knows which process the shim is uses Start or
+// DialStatus.
+func Dial(socket string) (*Client, error) { return dial(socket, ProtocolVersion, 0) }
 
 // DialVersion is Dial announcing version instead of ProtocolVersion; tests use it to provoke a
 // mismatch.
-func DialVersion(socket string, version int) (*Client, error) {
-	conn, err := dialHello(socket, version)
+func DialVersion(socket string, version int) (*Client, error) { return dial(socket, version, 0) }
+
+// DialStatus connects to the shim that wrote st, the content of a status.json, and checks that
+// the process answering on st.Socket is st.ShimPID; if not it returns ErrWrongPeer. The check
+// is against the kernel's record of who is listening, so another process that took the socket
+// path cannot pass it. It proves no more than st itself: a process that can rewrite
+// status.json can name itself.
+func DialStatus(st Status) (*Client, error) {
+	if st.Socket == "" {
+		return nil, errors.New("runshim: the status names no socket")
+	}
+	if st.ShimPID <= 0 {
+		// Every shim so far has written its process ID. Should one not have, it is reached the
+		// old way instead of refused: refusing would leave its agent running with nobody watching.
+		slog.Warn("run shim status names no process ID; not checking who answers on its socket",
+			"run", st.RunID, "socket", st.Socket)
+		return Dial(st.Socket)
+	}
+	return dial(st.Socket, ProtocolVersion, st.ShimPID)
+}
+
+// dial is Dial for a shim that must be process pid (0: whoever answers).
+func dial(socket string, version, pid int) (*Client, error) {
+	conn, br, peer, err := dialHello(socket, version, pid)
 	if err != nil {
 		return nil, err
 	}
-	c := &Client{socket: socket, version: version, conn: conn, enc: json.NewEncoder(conn), wait: map[int64]chan message{}}
-	go c.readLoop(bufio.NewReaderSize(conn, 64<<10))
+	c := &Client{socket: socket, version: version, pid: peer, conn: conn, enc: json.NewEncoder(conn), wait: map[int64]chan message{}}
+	go c.readLoop(br)
 	return c, nil
 }
 
-// dialHello opens a connection and completes the hello exchange.
-func dialHello(socket string, version int) (net.Conn, error) {
+// dialHello opens a connection and completes the hello exchange. With wantPID set, the process
+// at the other end must be that one, and nothing is sent to it before that is known. It
+// returns the reader to go on with and the peer's process ID (0 when the platform cannot tell).
+func dialHello(socket string, version, wantPID int) (net.Conn, *bufio.Reader, int, error) {
 	conn, err := net.DialTimeout("unix", socket, callTimeout)
 	if err != nil {
-		return nil, fmt.Errorf("connect to shim: %w", err)
+		return nil, nil, 0, fmt.Errorf("connect to shim: %w", err)
+	}
+	fail := func(err error) (net.Conn, *bufio.Reader, int, error) {
+		_ = conn.Close()
+		return nil, nil, 0, err
+	}
+	uc, ok := conn.(*net.UnixConn)
+	if !ok {
+		return fail(errors.New("connect to shim: not a unix socket"))
+	}
+	pid, err := peerPID(uc)
+	if err != nil {
+		return fail(fmt.Errorf("connect to shim: peer process: %w", err))
+	}
+	if peerPIDSupported && wantPID != 0 && pid != wantPID {
+		return fail(fmt.Errorf("%w: %s is held by process %d, not shim %d", ErrWrongPeer, socket, pid, wantPID))
 	}
 	_ = conn.SetDeadline(time.Now().Add(callTimeout))
 	if err := json.NewEncoder(conn).Encode(request{ID: 1, Op: opHello, Version: version}); err != nil {
-		_ = conn.Close()
-		return nil, fmt.Errorf("shim hello: %w", err)
+		return fail(fmt.Errorf("shim hello: %w", err))
 	}
-	// The decoder may read ahead, which is safe: after hello the shim sends only answers to
-	// requests, and none has been made yet.
+	br := bufio.NewReaderSize(conn, 64<<10)
 	var resp message
-	dec := json.NewDecoder(conn)
-	if err := dec.Decode(&resp); err != nil {
-		_ = conn.Close()
-		return nil, fmt.Errorf("shim hello: %w", err)
+	if err := readJSON(br, maxMessage, &resp); err != nil {
+		return fail(fmt.Errorf("shim hello: %w", err))
 	}
 	_ = conn.SetDeadline(time.Time{})
 	if !resp.OK {
-		_ = conn.Close()
 		if resp.Code == codeVersion {
-			return nil, fmt.Errorf("%w: %s", ErrVersionMismatch, resp.Error)
+			return fail(fmt.Errorf("%w: %s", ErrVersionMismatch, resp.Error))
 		}
-		return nil, fmt.Errorf("shim hello refused: %s", resp.Error)
+		return fail(fmt.Errorf("shim hello refused: %s", resp.Error))
 	}
-	return conn, nil
+	return conn, br, pid, nil
 }
 
 func (c *Client) readLoop(r *bufio.Reader) {
-	dec := json.NewDecoder(r)
 	for {
 		var m message
-		if err := dec.Decode(&m); err != nil {
+		if err := readJSON(r, maxMessage, &m); err != nil {
 			c.fail(err)
 			return
 		}
@@ -176,8 +215,16 @@ func (c *Client) deadErr() error {
 
 // WriteStdin writes b to the agent's stdin. It returns ErrStdinClosed once stdin is closed.
 func (c *Client) WriteStdin(b []byte) error {
-	_, err := c.call(request{Op: opWriteStdin, Data: b}, 0)
-	return err
+	// In pieces, so that no request comes near the shim's limit on one request (maxRequest).
+	for {
+		n := min(len(b), stdinChunk)
+		if _, err := c.call(request{Op: opWriteStdin, Data: b[:n]}, 0); err != nil {
+			return err
+		}
+		if b = b[n:]; len(b) == 0 {
+			return nil
+		}
+	}
 }
 
 // CloseStdin closes the agent's stdin.
@@ -261,7 +308,7 @@ func (s *Stream) Close() {
 // Replay streams the stdout lines from byte offset from (0 or an offset a previous stream
 // reported as Next), then follows new ones live. It uses its own connection.
 func (c *Client) Replay(from int64) (*Stream, error) {
-	conn, err := dialHello(c.socket, c.version)
+	conn, br, _, err := dialHello(c.socket, c.version, c.pid)
 	if err != nil {
 		return nil, err
 	}
@@ -270,9 +317,8 @@ func (c *Client) Replay(from int64) (*Stream, error) {
 		_ = conn.Close()
 		return nil, fmt.Errorf("shim replay: %w", err)
 	}
-	dec := json.NewDecoder(bufio.NewReaderSize(conn, 64<<10))
 	var resp message
-	if err := dec.Decode(&resp); err != nil {
+	if err := readJSON(br, maxMessage, &resp); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("shim replay: %w", err)
 	}
@@ -290,7 +336,7 @@ func (c *Client) Replay(from int64) (*Stream, error) {
 		defer close(out)
 		for {
 			var m message
-			if err := dec.Decode(&m); err != nil {
+			if err := readJSON(br, maxMessage, &m); err != nil {
 				return
 			}
 			select {

@@ -19,6 +19,13 @@
 // daemon waits for the shim, spec.json. The socket is <data_dir>/s/<8 chars>.sock, short because
 // macOS limits socket paths to about 104 bytes; status.json records where it is.
 //
+// The daemon does not trust the socket path alone. Start takes an answer only from the process
+// it started, and DialStatus only from the process status.json names; which process is
+// listening is the kernel's word (SO_PEERCRED on Linux, LOCAL_PEERPID on macOS), not the
+// peer's. That stops another process that takes over the path from posing as the shim. It does
+// not stop one that can rewrite status.json, which any process of the same user can. Both ends
+// refuse a line longer than a fixed size (maxRequest, maxMessage).
+//
 // The shim exits when the agent has exited and a client has acked the final offset, or when a
 // grace period after the agent's exit passes with no such ack.
 package runshim
@@ -27,9 +34,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 )
 
@@ -45,6 +54,16 @@ const (
 	StderrTailLines = 20
 	// maxSocketPath is the longest socket path used; macOS allows about 104 bytes.
 	maxSocketPath = 100
+	// maxRequest caps one request line the shim reads. The largest real one is a write_stdin,
+	// which the client sends in pieces of stdinChunk bytes.
+	maxRequest = 16 << 20
+	stdinChunk = 1 << 20
+	// maxStderrLine caps one stderr line; longer lines are cut at this size. It keeps a status
+	// answer, which carries the last StderrTailLines of them, well under maxMessage.
+	maxStderrLine = 64 << 10
+	// maxMessage caps one line the client reads from the shim: MaxLine bytes of text, which JSON
+	// can escape to six times its size, plus the rest of the message.
+	maxMessage = 6*MaxLine + 1<<20
 
 	streamLogName = "stream.log"
 	statusName    = "status.json"
@@ -123,10 +142,11 @@ func ReadStatus(runDir string) (Status, error) {
 // falls back to /tmp/onett-<uid>/s/. Every data dir on the machine shares that directory, so
 // there the name is taken from a hash of the data dir and the run ID: with the run ID alone, the
 // same run ID under two data dirs (two daemons, or two test runs) named one socket. The directory
-// is created, mode 0700.
+// is created mode 0700 and must belong to the current user.
 func SocketPath(dataDir, runID string) (string, error) {
 	name := socketName(runID)
 	dir := filepath.Join(dataDir, "s")
+	checked := []string{dir}
 	if len(filepath.Join(dir, name)) > maxSocketPath {
 		abs, err := filepath.Abs(dataDir)
 		if err != nil {
@@ -137,19 +157,35 @@ func SocketPath(dataDir, runID string) (string, error) {
 		if len(filepath.Join(dir, name)) > maxSocketPath {
 			dir = filepath.Join("/tmp", fmt.Sprintf("onett-%d", os.Getuid()), "s")
 		}
+		checked = []string{filepath.Dir(dir), dir}
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", fmt.Errorf("create socket dir: %w", err)
 	}
-	// MkdirAll leaves an existing directory alone, so check we own it and nobody else can enter.
-	fi, err := os.Lstat(dir)
-	if err != nil {
-		return "", err
-	}
-	if !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 || fi.Mode().Perm()&0o077 != 0 {
-		return "", fmt.Errorf("socket dir %s must be a private directory (mode 0700)", dir)
+	// MkdirAll leaves an existing directory alone, so check that each one is ours and that nobody
+	// else can enter. In a shared temp directory another user could have made it first.
+	for _, d := range checked {
+		fi, err := os.Lstat(d)
+		if err != nil {
+			return "", err
+		}
+		if err := privateDir(fi, os.Getuid()); err != nil {
+			return "", fmt.Errorf("socket dir %s: %w", d, err)
+		}
 	}
 	return filepath.Join(dir, name), nil
+}
+
+// privateDir reports whether fi is a real directory that only uid can use: owned by uid, mode
+// 0700.
+func privateDir(fi os.FileInfo, uid int) error {
+	if !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 || fi.Mode().Perm()&0o077 != 0 {
+		return errors.New("must be a private directory (mode 0700)")
+	}
+	if st, ok := fi.Sys().(*syscall.Stat_t); !ok || int(st.Uid) != uid {
+		return errors.New("must belong to the user running onett")
+	}
+	return nil
 }
 
 // socketName is the socket file name for key: the first 8 hex characters of its hash.

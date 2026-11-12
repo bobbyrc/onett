@@ -31,8 +31,9 @@ type Launch struct {
 }
 
 // Start launches a shim for spec as a detached process (its own session, stdio not tied to the
-// caller) and returns a client for it once its socket answers. The shim outlives the caller.
-// A shim that cannot start the agent exits at once; Start then returns that error.
+// caller) and returns a client for it once its socket answers. The answer must come from the
+// shim process it started (see DialStatus for what that check rests on). The shim outlives the
+// caller. A shim that cannot start the agent exits at once; Start then returns that error.
 func Start(ctx context.Context, l Launch, spec Spec) (*Client, error) {
 	if len(l.Command) == 0 {
 		return nil, errors.New("start shim: no shim command")
@@ -48,6 +49,10 @@ func Start(ctx context.Context, l Launch, spec Spec) (*Client, error) {
 	if err := os.WriteFile(specPath, b, 0o600); err != nil { // holds the agent's environment
 		return nil, fmt.Errorf("start shim: %w", err)
 	}
+	// The shim removes the spec once it has read it. When it never gets that far (it could not be
+	// started, or Start gives up on it), remove it here: it holds the agent's environment. Every
+	// return below comes after the shim has read the spec or is gone.
+	defer func() { _ = os.Remove(specPath) }()
 	logf, err := os.OpenFile(spec.RunDir+"/"+shimLogName, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("start shim: %w", err)
@@ -68,7 +73,8 @@ func Start(ctx context.Context, l Launch, spec Spec) (*Client, error) {
 	deadline := time.NewTimer(startTimeout)
 	defer deadline.Stop()
 	for {
-		if c, err := Dial(spec.SocketPath); err == nil {
+		// Only the process started above counts: something else answering on the path is not it.
+		if c, err := dial(spec.SocketPath, ProtocolVersion, cmd.Process.Pid); err == nil {
 			return c, nil
 		}
 		select {
