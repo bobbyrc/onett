@@ -100,7 +100,9 @@ function defaultDraft(ev: OnettEvent): Draft {
   const parts: FeedPart[] = [plain(capFirst(clip(ev.message, 140)))];
   if (ev.task_id) parts.push(plain(' '), link('task', `/tasks/${ev.task_id}`));
   else if (ev.run_id) parts.push(plain(' '), link('run', `/runs/${ev.run_id}`));
-  return { parts };
+  // A repeated message folds; the subject is the message, so a count sentence is never used.
+  const fold: Fold = { key: `default|${ev.type}|${ev.project ?? ''}|${ev.message}`, subject: ev.message, sentence: () => '' };
+  return { parts, fold };
 }
 
 function runDraft(ev: OnettEvent, data: Data, ctx: Context): Draft | null {
