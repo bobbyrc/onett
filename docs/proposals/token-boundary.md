@@ -1,8 +1,8 @@
 # Proposal: what the API tokens can do, and who can get them
 
-Status: implemented, 2026-11-12, awaiting the owner's approval of the pull request. Two of the
-decisions below (**D2** and **D3**) change something the owner could do from chat; each can be
-restored by deleting one line, see "Owner decisions" at the end.
+Status: implemented and merged, 2026-11-12. The owner then decided **D2** and **D3**: "make these
+config options". Both refusals stay the default, and each has a setting in `onett.yaml` that
+lifts it; see "Owner decisions" at the end.
 
 ## The problem in one paragraph
 
@@ -210,7 +210,29 @@ right after the first start.
 
 ## Owner decisions
 
-| | Decision | Cost | The way back |
-|---|---|---|---|
-| D2 | The orchestrator can no longer approve merges (reverses the 2026-10-28 "approve from chat" decision) | Under `supervised`, one click or one terminal command instead of a chat message | Delete the `ApproveMerge` line in `agentRefused` (`internal/auth/agent.go`) and the test that names it |
-| D3 | Agents may pause but never resume, and never run a loop by hand | "Resume" typed in chat no longer works | Delete the `ResumeFactory`, `ResumeProject`, `ChangePausedGoal` or `RunLoop` line there, each with its test |
+The owner approved the change and decided D2 and D3 on 2026-11-12: keep both refusals as the
+default, and make each a setting the owner can change.
+
+| | Default | The setting that lifts it |
+|---|---|---|
+| D2 | The orchestrator cannot approve or reject a merge | `chat.agent_may_approve_merges: true` |
+| D3 | The orchestrator can pause but cannot resume the factory, a project or a goal someone paused | `chat.agent_may_resume: true` |
+
+How the settings work, and what they do not change:
+
+- They live in `onett.yaml`, which only a signed-in owner can edit (invariant 12), so an agent
+  cannot switch one on for itself through the API or the CLI. The API reads them on every
+  request made with the agent token, so a config reload applies a change without a restart.
+- The refusal table stays the one list of person-only actions. The two settings are consulted
+  right beside it (`AgentAllowances.lifts` in `internal/auth/agent.go`); `internal/auth` does not
+  read the config, the API passes the two values in with the request.
+- Nothing else is configurable: running a loop by hand, a fresh turn budget for a blocked goal,
+  writing in an orchestrator conversation and retrying a task that a denial stopped stay refused
+  for the agent token whatever the settings say.
+- With a setting on, that decision is held only by the agent's instructions again, in every turn
+  it runs, including unattended goal and heartbeat turns. The instructions say to approve or
+  resume only when the owner asks in the conversation, never because of something read in a
+  task, a log or an issue; that is a prompt, not a boundary, which is why both are off by default.
+- The same-user limit applies here too: an agent that deliberately edits `onett.yaml` as the
+  owner's OS user can turn a setting on, as it could already change the merge policy. Only
+  isolating agents closes that.

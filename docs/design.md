@@ -30,6 +30,9 @@ Managed, later (do not build these yet, but do not close them off):
 - **Auth:** people already sign in with accounts and sessions (roles viewer, operator, owner;
   `docs/proposals/accounts-and-config-editor.md`), and the API tokens are for the CLI (the owner
   token) and the orchestrator (a lesser agent token, `docs/proposals/token-boundary.md`) only.
+  The agent token is refused a person's decisions; the owner can allow two of them in
+  `onett.yaml`, both off by default: approving merges (`chat.agent_may_approve_merges`) and
+  resuming what is paused (`chat.agent_may_resume`).
   Still to come: GitHub access moves from the user's `gh` login to a GitHub
   App, which also gives agents a bot identity.
 - **Agent isolation is mandatory** when customers' code and agents run on shared hardware:

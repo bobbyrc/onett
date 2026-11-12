@@ -71,6 +71,15 @@ type Chat struct {
 	// the next message resumes the session in a new process. A negative value turns the
 	// long-lived process off: every turn then starts its own process.
 	SessionIdleTimeout Duration `yaml:"session_idle_timeout" json:"session_idle_timeout"`
+	// AgentMayApproveMerges lets the chief of staff approve or reject a merge approval when you
+	// tell it to in chat (default false). Off, only a person decides an approval: on the approval
+	// card, in a chat channel, or with `onett approve` in their own terminal. On, the gate of the
+	// supervised policy is held only by the agent's instructions, in every turn it runs.
+	AgentMayApproveMerges bool `yaml:"agent_may_approve_merges" json:"agent_may_approve_merges" default:"false"`
+	// AgentMayResume lets the chief of staff resume the factory, a project and a goal someone
+	// paused when you tell it to in chat, and block or finish such a goal (default false). Off,
+	// agents can pause but only a person resumes, and a paused goal is the owner's alone.
+	AgentMayResume bool `yaml:"agent_may_resume" json:"agent_may_resume" default:"false"`
 }
 
 // ChatAttachments bounds the photos and files the owner attaches to a chat message. They are

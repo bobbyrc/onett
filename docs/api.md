@@ -17,7 +17,10 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
   decisions, which answer 403 with the reason: `POST /approvals/{id}/decide`,
   `POST /control/resume`, `POST /projects/{name}/resume`, `POST /goals/{id}/resume`, `/done` and
   `/block` for a paused goal, `POST /loops/{name}/run`, `POST /conversations/{id}/messages` and
-  `/flush`, and `POST /tasks/{id}/retry` or `/messages` for a task that a denial stopped. Neither
+  `/flush`, and `POST /tasks/{id}/retry` or `/messages` for a task that a denial stopped. The
+  owner can lift two groups in `onett.yaml`, both off by default: `chat.agent_may_approve_merges`
+  lifts the refusal of `/approvals/{id}/decide`, and `chat.agent_may_resume` lifts those of
+  `/control/resume`, `/projects/{name}/resume` and the paused-goal routes. Neither
   token can **ever** edit the config file or manage users. A token is read only from the
   `Authorization` header, never from the URL.
 - **A signed-in person** uses the session cookie (`onett_session_<port>`, named after the port
