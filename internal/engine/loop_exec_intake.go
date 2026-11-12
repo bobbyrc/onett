@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -47,6 +48,22 @@ type lpIntakeLine struct {
 	Kind     string `json:"kind"`
 	Priority int    `json:"priority"`
 	Role     string `json:"role"`
+}
+
+// lpDecodeIntakeLine parses one line of an intake command's output. As with API request bodies,
+// a field that is not part of the protocol, or anything after the object, is an error, so a
+// typo in a field name is reported instead of silently dropped.
+func lpDecodeIntakeLine(raw []byte) (lpIntakeLine, error) {
+	var line lpIntakeLine
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&line); err != nil {
+		return lpIntakeLine{}, err
+	}
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return lpIntakeLine{}, errors.New("more than one JSON value on the line")
+	}
+	return line, nil
 }
 
 // lpIntakeStdout keeps the first lpIntakeStdoutMax bytes written to it and drops the rest.
@@ -129,8 +146,8 @@ func (e *Engine) lpRunIntakeSource(ctx context.Context, p *config.Project, src c
 		if len(raw) == 0 {
 			continue
 		}
-		var line lpIntakeLine
-		if err := json.Unmarshal(raw, &line); err != nil {
+		line, err := lpDecodeIntakeLine(raw)
+		if err != nil {
 			invalid++
 			firstInvalid = lpFirstErr(firstInvalid, fmt.Errorf("line %d: %w", lineNo, err))
 			continue

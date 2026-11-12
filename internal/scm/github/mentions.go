@@ -3,6 +3,8 @@ package github
 import (
 	"regexp"
 	"strings"
+
+	"github.com/bobbyrc/onett/internal/scm"
 )
 
 // mentionAtStart matches a GitHub @mention at the start of its input: an @, a login, and an
@@ -51,6 +53,32 @@ func quoteMentions(s string) string {
 		i++
 	}
 	return b.String()
+}
+
+// quoteMentionsPlain is quoteMentions for text that is not Markdown: a title or a commit
+// message. A code fence means nothing there, so no line is skipped.
+func quoteMentionsPlain(s string) string {
+	var b strings.Builder
+	for _, line := range strings.SplitAfter(s, "\n") {
+		b.WriteString(neutralizeMentionsInLine(line))
+	}
+	return b.String()
+}
+
+// unquoteMentions undoes the mark quoteMentions leaves after a plain @ in a title read back
+// from GitHub, so a title onett posted compares equal to the text it was posted from (the
+// friction loop looks for an existing issue by its title).
+// shortcut: only the plain @ form is undone; a title written with \@ or an HTML reference for @ reads back changed, and then only the exact-title match misses.
+func unquoteMentions(s string) string {
+	return strings.ReplaceAll(s, "@"+neutralizeMention, "@")
+}
+
+var _ scm.MentionQuoter = (*GitHub)(nil)
+
+// QuoteMentions is quoteMentionsPlain for text that reaches GitHub without passing through this
+// package, such as a commit message.
+func (g *GitHub) QuoteMentions(s string) string {
+	return quoteMentionsPlain(s)
 }
 
 // skippedFences returns the fenced blocks that quoteMentions copies unchanged, keyed by the index of

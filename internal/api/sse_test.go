@@ -83,9 +83,9 @@ func openStream(t *testing.T, x *harness, target, token string) *http.Response {
 	return resp
 }
 
-func TestSSEHeadersAndTokenQuery(t *testing.T) {
+func TestSSEHeaders(t *testing.T) {
 	x := newHarness(t)
-	resp := openStream(t, x, "/api/v1/events?token="+testToken, "")
+	resp := openStream(t, x, "/api/v1/events", testToken)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
 	assert.Equal(t, "no-cache", resp.Header.Get("Cache-Control"))
@@ -95,7 +95,7 @@ func TestSSEHeadersAndTokenQuery(t *testing.T) {
 
 func TestSSERejectsBadToken(t *testing.T) {
 	x := newHarness(t)
-	resp := openStream(t, x, "/api/v1/events?token=wrong", "")
+	resp := openStream(t, x, "/api/v1/events", "wrong")
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 

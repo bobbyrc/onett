@@ -173,6 +173,10 @@ queued ─► running ─► review ─► merged ─► deploying ─► done
   after GitHub accepted the merge. A PR that did merge is recorded as merged; when the PR cannot be
   read either, the outcome is unknown, so the task is left where it is for the shepherd's next pass
   and is not blocked.
+  When CI fails, the task is re-queued with the failed run's log from the PR head commit as
+  evidence. The shepherd takes that verdict only once every CI run of the head commit has ended:
+  the `gh` CLI prints no log of a run that is still going, not even for a job in it that has
+  already failed, and a note without the log leaves the next attempt guessing.
 - Every automatic status change is guarded by the status it expects, atomically. A run or loop
   that finishes after you cancelled or blocked a task cannot revive it.
 - An agent-reported failure, failing CI, a merge conflict or "request changes" from the
@@ -339,7 +343,7 @@ re-run is not judged, so a restart can neither use up a goal's turns nor block i
 
 ### Risk and auto-merge **(review)**
 
-Risk is `low < medium < high`. Final risk = max(rules matched by the diff, agent's own rating).
+Risk is `low < medium < high`. Final risk = max(rules matched by the diff, agent's own rating, the reviewer's rating).
 Default policy: every level auto-merges after green CI and an approving reviewer run; risk is
 still computed and recorded on every PR. The built-in `supervised` policy (a project opts in
 with `policy: supervised`) auto-merges only `low`; `medium` and `high` need your approval. Default high-risk paths: migrations, auth, CI/deploy config, secrets,
@@ -674,9 +678,9 @@ running while paused, only to record what it skipped.
 The API token can read triggers and their firings, but it cannot change or fire them (invariant 12
 in `AGENTS.md`). The CLI is read-only: `onett trigger list` and `onett trigger history ID`.
 
-This design depends on two things fixed in a separate token-boundary change, not here: the API
-token can approve merges and post into any conversation, and before any account exists a local
-process can become owner (see "Who can do what" in the proposal).
+This design depends on two things the token-boundary change fixed (`docs/proposals/token-boundary.md`):
+the orchestrator's agent token cannot approve merges or write in an orchestrator conversation, and
+creating the first account, the owner's, needs the setup code that `onett open` puts in the address it opens.
 
 Details and the API: `docs/proposals/triggers.md`.
 
