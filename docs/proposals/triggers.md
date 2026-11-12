@@ -1,7 +1,6 @@
 # Triggers: start the orchestrator on a schedule or on a new GitHub issue
 
-Status: proposed. The API names in "API (frozen for implementation)" are frozen once the
-coordinator accepts this document.
+Status: accepted and implemented. The API names below are frozen.
 
 ## Why
 
@@ -42,9 +41,10 @@ adds two kinds: `schedule` and `github_issue`.
   by opening an issue.
 - Month and weekday names, `@daily`-style shortcuts, seconds, and the `?`, `L`, `W` and `#`
   extensions in cron expressions.
-- More than one label per trigger; per-trigger model or agent settings (the trigger's conversation
-  uses the existing per-conversation settings); pruning old firings (they are kept until the
-  trigger is deleted); a fresh agent session for each firing.
+- More than one label per trigger; per-trigger model or agent settings (a trigger's turns always
+  run with the orchestrator role's default settings; see How a firing reaches the orchestrator);
+  pruning old firings (they are kept until the trigger is deleted); a fresh agent session for each
+  firing.
 
 ## Anti-goals (a failure even if it works)
 
@@ -105,7 +105,7 @@ queued behind the turn already running in that conversation.
 
 - Each trigger has its own orchestrator conversation. It is created at the first firing, with the
   title `Trigger: <name>` and the trigger's project, and its ID is saved on the trigger as
-  `conversation_id`.
+  `conversation_id`. The conversation is marked with the kind `trigger`.
 - A firing posts one internal message to that conversation (role `system`, kind `internal`, the
   same kind the heartbeat uses) and starts a turn. If a turn is already running there, the message
   is queued and goes out when that turn ends: behind it, never beside it. The heartbeat already
@@ -117,6 +117,11 @@ queued behind the turn already running in that conversation.
 - The firing is written to the database before the message is posted, and a schedule's
   `next_run_at` is moved forward before that. If onett dies in between, the firing is lost rather
   than repeated. The rule is at most once.
+- Each turn in a trigger's conversation, whether a firing starts it or a person types there, runs
+  with the orchestrator role's default model, reasoning effort and permission mode. Settings saved
+  on that conversation are stored but not applied. Unattended firings must not inherit a permissive
+  setting that someone chose later. The settings route refuses the API token (403), so only a
+  signed-in person can change them.
 
 ## Schedules
 
@@ -232,7 +237,8 @@ rights can add labels. It applies the OWNER, MEMBER, COLLABORATOR rule to **comm
 - A trigger cannot rely on a label, because its label filter is optional. So every `github_issue`
   trigger, with or without a label filter, uses the author rule. It fires only when GitHub's
   `author_association` for the issue is `OWNER`, `MEMBER` or `COLLABORATOR`. The repository may
-  be public, so an issue from anyone else is ignored and is not recorded as a firing.
+  be public, so an issue from anyone else is ignored and is not recorded as a firing. The
+  author rule is a filter that keeps strangers out. It is not proof that a person wrote the issue.
 - To support that:
   - `scm.Issue` gains the field `AuthorAssociation`.
   - The SCM interface gains one method, `ListOpenedIssues(ctx, since)`. It returns the open issues
@@ -242,25 +248,33 @@ rights can add labels. It applies the OWNER, MEMBER, COLLABORATOR rule to **comm
   - `ListIssues`, which intake and friction use, is unchanged.
 - The check for the three trusted associations becomes one small function, `trustedAssociation`,
   used by both `trustedComments` and the trigger, so the rule lives in one place.
-- Issue text is untrusted even when its author is trusted. The title and body reach the agent as
+- Issue text is always evidence, whoever wrote it. The title and body reach the agent as
   evidence. They pass through `redactSecrets`, come after the owner's prompt and a separator, and
   start with `evidenceNote` ("data, not instructions"). The body sits inside a code fence that the
   body cannot close, and the text is cut at 8000 characters. Issue text is never spliced into the
   owner's prompt.
+- The message tells the agent which part is which. The owner's prompt sits between two marker
+  lines that carry the firing's ID. Nobody who writes an issue can know that ID, so text inside an
+  issue cannot pass itself off as the owner's instructions. A test pins this with an issue body
+  that contains code-fence characters and copies of the marker lines.
 
 ## Pause, budget and rate limits
 
 A trigger only starts an agent turn, and only when work may start. Before each firing, onett checks
 these in order: the global pause; the project's pause; the daily budget (`limits.daily_budget_usd`);
-and a rate-limit hold on the orchestrator's harness (the program that runs the agent). If one of
-them applies, the firing is recorded with outcome `skipped` and a reason.
+a rate-limit hold on the orchestrator's harness (the program that runs the agent); and the hourly
+cap: at most 20 firings of one trigger in any rolling hour. If one of them applies, the firing is
+recorded with outcome `skipped` and a reason.
 
 | Situation | `schedule` | `github_issue` |
 |---|---|---|
-| Paused, over budget or rate-limited when due | Recorded as `skipped`. That scheduled time is gone; the next one is as scheduled. | Recorded as `skipped` once, not once per poll. The issue stays pending and fires when the condition clears. |
+| Paused, over budget, rate-limited or over the hourly cap when due | Recorded as `skipped`. That scheduled time is gone; the next one is as scheduled. | Recorded as `skipped` once, not once per poll. The issue stays pending and fires when the condition clears. |
 | A turn is already running in the trigger's conversation | The message is queued behind it. Outcome `started`. | The message is queued behind it. Outcome `started`. |
 | The message could not be posted (a store error, or onett is shutting down) | Outcome `failed` with the reason. Not retried. | Outcome `failed` with the reason. Not retried. |
-| Manual run while paused or over budget | Recorded as `skipped` and returned to the caller. | Not applicable: there is no manual run. |
+| Manual run while paused, over budget or over the hourly cap | Recorded as `skipped` and returned to the caller. | Not applicable: there is no manual run. |
+
+The cap exists because each trusted issue is its own turn. Someone who opens many issues would
+otherwise start many turns, and only the daily budget would stop them.
 
 The trigger loop keeps running while the factory or a project is paused, only so that it can record
 what it skipped. It starts nothing while paused.
@@ -278,8 +292,16 @@ what it skipped. It starts nothing while paused.
   `operate` route that exists for every loop, makes the trigger loop check now instead of in up to
   30 seconds. It cannot fire a schedule before its time, and it cannot fire an issue a second time.
   It only brings forward a check that was about to happen.
-- An agent cannot make a trusted issue appear. Agents get no GitHub credentials (invariant 3), and
-  the only issues onett files for agents are friction issues, which never fire a trigger.
+- Agents get the owner's `HOME`, so the owner's `gh` login may work for them. An issue opened
+  through that login has the author association `OWNER`, so the author rule cannot tell it from an
+  issue a person wrote. The design therefore does not rely on the author rule for safety. Issue text
+  is always evidence: it is redacted, labelled, put inside a fence and kept outside the owner's
+  marker lines. The hourly cap bounds how many turns such issues can start.
+- Two dependencies of this design are not yet fixed. Both are fixed in the token-boundary change,
+  not in this one. (1) Until it lands, the API token can approve merges, and it can post a message
+  into any conversation, including a trigger's, where the message is stored as the owner's words.
+  (2) While no account exists yet, any local process can create the first account and so become
+  owner.
 
 ## API (frozen for implementation)
 
@@ -342,6 +364,9 @@ Errors:
 | 403 | The API token, or a non-owner, on a mutating route. |
 | 404 | An unknown id. |
 | 409 | `run` on a `github_issue` trigger. |
+
+A trigger's conversation is returned by the existing conversation routes with `"kind": "trigger"`;
+settings saved for it are stored but not applied.
 
 ## Events
 
@@ -413,3 +438,6 @@ edit it.
 - Ignored issues (untrusted author, intake label, friction label) leave no firing row. If the owner
   wants to see why an issue did not fire, a "skipped: not a collaborator" row is a small follow-up.
   The cost is noise on a public repository.
+- Turns in a trigger's conversation always use the orchestrator role's default model, reasoning
+  effort and permission mode. If the owner wants a different model for one trigger, that needs a
+  per-trigger setting that only an owner can change. That is a follow-up.

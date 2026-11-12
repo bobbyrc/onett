@@ -120,6 +120,8 @@ type Engine struct {
 	followups *chatFollowups
 	// opsMu serialises finding or creating the Operations conversation.
 	opsMu sync.Mutex
+	// trigMu serialises finding or creating a trigger's conversation.
+	trigMu sync.Mutex
 
 	// budgetMu guards budgetDay, the local date the daily-budget notice was last sent.
 	budgetMu  sync.Mutex

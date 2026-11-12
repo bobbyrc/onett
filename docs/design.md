@@ -516,6 +516,59 @@ old cursor format (first-seen times only) is migrated on read.
 Not covered yet: a failed self-update is found from its system event, so it shows only while that
 event is in the project's recent events.
 
+### Triggers
+
+A trigger (`domain.Trigger`) is a rule the owner defines in the UI. When it fires, it starts one
+orchestrator turn with a prompt the owner wrote. There are two kinds: `schedule` (at times the owner
+sets) and `github_issue` (when a new issue is opened in the project's repository). Triggers are
+stored in the database (tables `triggers` and `trigger_firings`), not in `onett.yaml`. Only a
+signed-in owner can create, change, delete, enable, disable or fire one.
+
+Each trigger has its own orchestrator conversation, titled `Trigger: <name>`, created at its first
+firing. A firing posts one internal message there and starts a turn, or queues behind the turn
+already running, through `wakeConversation`, the same function the heartbeat uses. The owner's
+prompt comes first, between two marker lines that carry the firing's ID. For an issue, its title
+and body follow as redacted evidence inside a code fence, so issue text cannot pass as the owner's
+words.
+
+The conversation has the kind `trigger`. Every turn in it, whether a firing or a person typing
+there, runs with the orchestrator role's default model, reasoning effort and permission mode.
+Settings saved on it are stored but not applied, so an unattended run never inherits a setting
+someone chose later.
+
+A schedule is a five-field cron expression (minute, hour, day of month, month, day of week) plus an
+IANA time zone (a named zone such as `America/Chicago`, with its daylight-saving rules). The parser
+is in `internal/domain/trigger_cron.go` and needs no new dependency. A wall-clock time that the
+clocks skip fires once, at the jump. A time that happens twice fires the first time only. After
+downtime, a trigger makes one catch-up run and never a backlog.
+
+`github_issue` polls, because onett is local by default and cannot receive webhooks. About every 30
+seconds the `triggers` loop lists the project's open issues through the SCM plugin (the piece that
+talks to GitHub). An issue fires a trigger at most once. The firing row is the record, so a restart
+does not repeat it. Only issues created after the trigger was created or last enabled count. The
+author must be `OWNER`, `MEMBER` or `COLLABORATOR`. That rule is a filter against strangers, not
+proof that a person wrote the issue, so issue text is always evidence, whoever wrote it. Issues with
+the friction label never fire: those
+are onett's own reports, and letting them start turns could file more reports. While issue intake
+is on for the project, an issue carrying the intake label goes to intake instead, because intake has
+already made it a task.
+
+A trigger only starts a turn, and only when work may start. Before each firing onett checks the
+global pause, the project's pause, the daily budget, any rate-limit hold on the harness (the wait
+after an agent CLI reports a rate limit) and, last, the cap of 20 firings per trigger in any rolling
+hour. If one applies, the firing is recorded as `skipped` with a reason. A missed schedule time is
+gone. A skipped issue stays pending and fires when the condition clears. The `triggers` loop keeps
+running while paused, only to record what it skipped.
+
+The API token can read triggers and their firings, but it cannot change or fire them (invariant 12
+in `AGENTS.md`). The CLI is read-only: `onett trigger list` and `onett trigger history ID`.
+
+This design depends on two things fixed in a separate token-boundary change, not here: the API
+token can approve merges and post into any conversation, and before any account exists a local
+process can become owner (see "Who can do what" in the proposal).
+
+Details and the API: `docs/proposals/triggers.md`.
+
 ### Messaging a task's agent
 
 The owner can also message the agent working on a task (`POST /tasks/{id}/messages`). The

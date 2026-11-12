@@ -104,7 +104,7 @@ func TestTasksByGoal(t *testing.T) {
 func TestGoalMigrationKeepsExistingTasks(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	// Undo the goals migration and every later one (the goals migration is not the last any more).
+	// Rebuild the schema as it was before the goals migration, so later migrations need no edit here.
 	goalsVersion := 0
 	for i, m := range migrations {
 		if strings.Contains(m, "CREATE TABLE goals") {
@@ -112,11 +112,8 @@ func TestGoalMigrationKeepsExistingTasks(t *testing.T) {
 		}
 	}
 	require.NotZero(t, goalsVersion)
-	_, err := s.db.ExecContext(ctx, `DROP TABLE goals; DROP INDEX tasks_goal_id; ALTER TABLE tasks DROP COLUMN goal_id;
-		DROP TABLE attachments; DROP TABLE chat_message_attachments; DROP TABLE task_attachments;
-		DELETE FROM schema_migrations WHERE version >= ?`, goalsVersion)
-	require.NoError(t, err)
-	_, err = s.db.ExecContext(ctx, `INSERT INTO tasks (id, project, status, kind, priority, created_at, data)
+	resetTo(t, s, goalsVersion-1)
+	_, err := s.db.ExecContext(ctx, `INSERT INTO tasks (id, project, status, kind, priority, created_at, data)
 		VALUES ('old', 'p', 'queued', 'chore', 0, 1, '{"id":"old","project":"p","kind":"chore","title":"old","status":"queued"}')`)
 	require.NoError(t, err)
 
@@ -129,5 +126,41 @@ func TestGoalMigrationKeepsExistingTasks(t *testing.T) {
 	require.NoError(t, s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM tasks WHERE id = 'old' AND goal_id IS NULL`).Scan(&isNull))
 	assert.Equal(t, 1, isNull)
 	_, err = s.CreateGoal(ctx, domain.Goal{Project: "p", Title: "g", Status: domain.GoalActive})
+	require.NoError(t, err)
+}
+
+// resetTo rebuilds the schema as it was after the first n migrations: it drops every table,
+// then applies migrations 1 to n and records them, as migrate would have. Dropping by what
+// sqlite_master lists means a new migration never has to be named here.
+func resetTo(t *testing.T, s *Store, n int) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := s.db.ExecContext(ctx, `PRAGMA foreign_keys = OFF`)
+	require.NoError(t, err)
+
+	rows, err := s.db.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`)
+	require.NoError(t, err)
+	var names []string
+	for rows.Next() {
+		var name string
+		require.NoError(t, rows.Scan(&name))
+		names = append(names, name)
+	}
+	require.NoError(t, rows.Err())
+	require.NoError(t, rows.Close())
+
+	for _, name := range names {
+		_, err := s.db.ExecContext(ctx, `DROP TABLE "`+name+`"`)
+		require.NoError(t, err)
+	}
+	_, err = s.db.ExecContext(ctx, `CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY)`)
+	require.NoError(t, err)
+	for i := 0; i < n; i++ {
+		_, err := s.db.ExecContext(ctx, migrations[i])
+		require.NoError(t, err)
+		_, err = s.db.ExecContext(ctx, `INSERT INTO schema_migrations (version) VALUES (?)`, i+1)
+		require.NoError(t, err)
+	}
+	_, err = s.db.ExecContext(ctx, `PRAGMA foreign_keys = ON`)
 	require.NoError(t, err)
 }

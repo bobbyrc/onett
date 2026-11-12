@@ -61,15 +61,24 @@ func (e *Engine) intakeLoop(ctx context.Context, p *config.Project) error {
 	return errors.Join(errs...)
 }
 
+// trustedAssociation reports whether GitHub's author association a belongs to someone with
+// write access to the repo (OWNER, MEMBER, COLLABORATOR). Everyone else is untrusted, because
+// the repo may be public.
+func trustedAssociation(a string) bool {
+	switch a {
+	case "OWNER", "MEMBER", "COLLABORATOR":
+		return true
+	}
+	return false
+}
+
 // trustedComments renders the comments written by someone with write access to the repo
 // (OWNER, MEMBER, COLLABORATOR); everyone else's comments are left out because the repo may
 // be public. It returns "" when there are none.
 func trustedComments(comments []scm.IssueComment) string {
 	var b strings.Builder
 	for _, c := range comments {
-		switch c.Association {
-		case "OWNER", "MEMBER", "COLLABORATOR":
-		default:
+		if !trustedAssociation(c.Association) {
 			continue
 		}
 		if b.Len() == 0 {
