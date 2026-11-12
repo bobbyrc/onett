@@ -71,6 +71,7 @@ func commandList() []command {
 		{"loop", "run a loop now: loop run NAME [--project P]", cmdLoop},
 		{"project", "add a project to the config, or pause or resume one: project add|pause|resume", cmdProject},
 		{"user", "reset a sign-in password on this machine: user reset-password NAME", cmdUser},
+		{"backup", "write a copy of the database, on this machine: backup FILE", cmdBackup},
 		{"pause", "stop starting runs and loops", cmdPause},
 		{"resume", "resume a paused factory", cmdResume},
 		{"chat", "message the orchestrator and print its reply", cmdChat},
