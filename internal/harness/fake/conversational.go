@@ -35,6 +35,9 @@ type Turn struct {
 type proc struct {
 	id    int
 	timer *time.Timer
+	// turns counts the turns started on the process, so a turn that ended knows whether a newer
+	// one has begun since.
+	turns int
 }
 
 var _ harness.Harness = (*Conversational)(nil)
@@ -63,14 +66,25 @@ func (c *Conversational) Start(ctx context.Context, spec harness.Spec) (harness.
 		p.timer.Stop()
 		p.timer = nil
 	}
+	p.turns++
+	turn := p.turns
 	c.turns = append(c.turns, Turn{
 		ConversationID: spec.ConversationID, Process: p.id, Resume: spec.ResumeSessionID, Prompt: spec.Prompt,
 	})
 	c.mu.Unlock()
 
-	// Like a real long-lived process, the script outlives the turn's context only until the turn
-	// ends; cancelling a turn kills the process.
-	sess, err := c.inner.Start(ctx, spec)
+	// Like a real long-lived process, a turn whose context ends midway kills the process. That is
+	// decided when the script returns, and the process is dropped before the session is done, so
+	// the next turn cannot land on it. Asking the context later would be wrong: the engine cancels
+	// a turn's context right after its result, and that is not a cancelled turn.
+	one := &runner{script: func(ctx context.Context, spec harness.Spec, emit func(harness.Event)) (harness.Result, error) {
+		res, err := c.inner.script(ctx, spec, emit)
+		if ctx.Err() != nil {
+			c.drop(spec.ConversationID, p)
+		}
+		return res, err
+	}}
+	sess, err := one.Start(ctx, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -79,9 +93,17 @@ func (c *Conversational) Start(ctx context.Context, spec harness.Spec) (harness.
 		<-s.done
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		if c.procs[spec.ConversationID] == p && s.ctx.Err() == nil {
-			p.timer = time.AfterFunc(spec.KeepAlive, func() { c.drop(spec.ConversationID, p) })
+		if c.procs[spec.ConversationID] != p || p.turns != turn {
+			return // the process is gone, or already serves a newer turn
 		}
+		p.timer = time.AfterFunc(spec.KeepAlive, func() {
+			c.mu.Lock()
+			defer c.mu.Unlock()
+			// Not when a newer turn has started: the timer fired just as the process was reused.
+			if c.procs[spec.ConversationID] == p && p.turns == turn {
+				delete(c.procs, spec.ConversationID)
+			}
+		})
 	}()
 	return &convSession{session: s, drop: func() { c.drop(spec.ConversationID, p) }}, nil
 }
@@ -108,13 +130,27 @@ func (c *Conversational) Processes() int {
 	return c.started
 }
 
-// convSession is a turn's session; cancelling it ends the process too.
+// Live is how many fake processes are alive now.
+func (c *Conversational) Live() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.procs)
+}
+
+// convSession is a turn's session; cancelling it during the turn ends the process too.
 type convSession struct {
 	*session
 	drop func()
 }
 
+// Cancel kills the process when the turn is still running. A Cancel that arrives after the turn
+// ended (the engine cancels a turn's context right after its result) leaves the process alone,
+// as the real harness does: it is idle, or already serves the next turn.
 func (s *convSession) Cancel() {
-	s.drop()
+	select {
+	case <-s.done:
+	default:
+		s.drop()
+	}
 	s.session.Cancel()
 }

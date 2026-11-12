@@ -243,6 +243,7 @@ type sentWith struct {
 }
 
 type harness struct {
+	bot    *Bot
 	api    *fakeAPI
 	host   *fakeHost
 	state  string
@@ -262,7 +263,7 @@ func start(t *testing.T, api *fakeAPI, host *fakeHost, state string) *harness {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	h := &harness{api: api, host: host, state: state, logs: logs, cancel: cancel, done: make(chan error, 1)}
+	h := &harness{bot: b, api: api, host: host, state: state, logs: logs, cancel: cancel, done: make(chan error, 1)}
 	go func() { h.done <- b.Run(ctx) }()
 	t.Cleanup(h.stop)
 	return h
@@ -292,6 +293,18 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 func (h *harness) waitSent(t *testing.T, n int) {
 	t.Helper()
 	waitFor(t, "chat sent to host", func() bool { s, _, _ := h.host.snapshot(); return len(s) >= n })
+}
+
+// waitApprovalRecorded waits until the bot has recorded n messages for the approval. The fake API
+// sees a sendMessage before the bot has read the reply and noted the message ID; a click or a
+// decision in that gap finds no message to edit.
+func (h *harness) waitApprovalRecorded(t *testing.T, id string, n int) {
+	t.Helper()
+	waitFor(t, "bot to record the approval message", func() bool {
+		h.bot.mu.Lock()
+		defer h.bot.mu.Unlock()
+		return len(h.bot.approvals[id]) == n
+	})
 }
 
 // syncBuf is a log sink that is safe to read while the bot writes.
@@ -413,9 +426,10 @@ func approval(id, status string) domain.Approval {
 
 func TestApprovalCallbackDecidesAndEdits(t *testing.T) {
 	api, host := newFakeAPI(t), newFakeHost()
-	start(t, api, host, filepath.Join(t.TempDir(), "s.json"))
+	h := start(t, api, host, filepath.Join(t.TempDir(), "s.json"))
 	host.emit(domain.EvApprovalRequested, approval("ap1", "pending"))
 	waitFor(t, "approval message", func() bool { return len(api.texts()) == 1 })
+	h.waitApprovalRecorded(t, "ap1", 1)
 	sm := api.byMethod("sendMessage")[0].Body
 	if sm["chat_id"].(float64) != 42 || sm["text"] != "Approval needed: Merge #5\nmedium risk" {
 		t.Fatalf("approval message %v", sm)
@@ -463,9 +477,10 @@ func TestDecideErrorShownToUser(t *testing.T) {
 
 func TestApprovalDecidedElsewhereEditsMessage(t *testing.T) {
 	api, host := newFakeAPI(t), newFakeHost()
-	start(t, api, host, filepath.Join(t.TempDir(), "s.json"))
+	h := start(t, api, host, filepath.Join(t.TempDir(), "s.json"))
 	host.emit(domain.EvApprovalRequested, approval("ap2", "pending"))
 	waitFor(t, "approval message", func() bool { return len(api.texts()) == 1 })
+	h.waitApprovalRecorded(t, "ap2", 1)
 	host.emit(domain.EvApprovalDecided, approval("unknown", "approved")) // ignored
 	host.emit(domain.EvApprovalDecided, approval("ap2", "rejected"))
 	waitFor(t, "edit", func() bool { return len(api.byMethod("editMessageText")) == 1 })
