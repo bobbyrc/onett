@@ -303,6 +303,14 @@ func (e *Engine) DecideApproval(ctx context.Context, id string, approve bool, no
 		return a, err
 	}
 	if err := e.mergeTask(ctx, t.ID, cur.HeadSHA); err != nil {
+		var unrecorded *mergedUnrecordedError
+		if errors.As(err, &unrecorded) {
+			// The PR merged and the decision is recorded; only the task's move to merged failed.
+			// The task stays in awaiting_approval and the shepherd's next pass marks it merged.
+			e.d.Logger.Error("approved merge could not be recorded; the shepherd will finish it",
+				"task", t.ID, "pr", t.PRNumber, "err", err)
+			return a, nil
+		}
 		e.blockTask(ctx, t.ID, "merge failed after approval: "+err.Error())
 		return a, fmt.Errorf("merge failed after approval: %w", err)
 	}

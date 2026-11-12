@@ -31,6 +31,17 @@ func (e *notMergeableError) Error() string {
 	return fmt.Sprintf("task is %s, not waiting for a merge", e.status)
 }
 
+// mergedUnrecordedError is returned by mergeTask when the PR merged but the task could not be
+// moved to merged. The merge happened, so a caller must not treat it as a refusal: the task stays
+// where it was, and the next shepherd pass, which sees the PR merged, records it.
+type mergedUnrecordedError struct{ err error }
+
+func (e *mergedUnrecordedError) Error() string {
+	return "PR merged, but the task could not be marked merged: " + e.err.Error()
+}
+
+func (e *mergedUnrecordedError) Unwrap() error { return e.err }
+
 // shepherdLoop moves each task in review or awaiting_approval through CI, review, policy and
 // merge. Each task is handled on its own, and one task's error does not stop the others.
 func (e *Engine) shepherdLoop(ctx context.Context, p *config.Project) error {
@@ -210,9 +221,12 @@ func (e *Engine) shepherdTask(ctx context.Context, s scm.SCM, p *config.Project,
 		// CI, review and policy were judged on pr.HeadSHA; merge only that commit.
 		err := e.mergeTask(ctx, t.ID, pr.HeadSHA)
 		var notMergeable *notMergeableError
+		var unrecorded *mergedUnrecordedError
 		switch {
 		case errors.As(err, &notMergeable):
 			return nil // the task moved on since the re-read; the next pass sees where it is
+		case errors.As(err, &unrecorded):
+			return err // the PR merged; the task stays in review and the next pass marks it merged
 		case err != nil:
 			return e.mergeRefused(ctx, s, t, pr.HeadSHA, err)
 		}
@@ -438,6 +452,8 @@ func (e *Engine) backToReview(ctx context.Context, taskID string, cause error) e
 // mergeTask merges a task's PR at headSHA, moves the task to merged, emits pr.merged and kicks
 // the deploy watch. The shepherd (auto-merge) and approval decisions both call it. The task must
 // be in review or awaiting_approval; otherwise it returns a notMergeableError and merges nothing.
+// Once the PR has merged, the only error it returns is a mergedUnrecordedError: the merge happened
+// and the task could not be marked merged.
 func (e *Engine) mergeTask(ctx context.Context, taskID, headSHA string) error {
 	t, err := e.d.Store.GetTask(ctx, taskID)
 	if err != nil {
@@ -464,8 +480,13 @@ func (e *Engine) mergeTask(ctx context.Context, taskID, headSHA string) error {
 		return nil
 	}
 	applied, err := e.markMerged(ctx, p, t, pr.MergeSHA, fmt.Sprintf("merged PR #%d", t.PRNumber))
-	if err != nil || !applied {
-		return err
+	if err != nil {
+		// The merge happened; only recording it failed. Say so, so no caller blocks the task as if
+		// the merge had been refused.
+		return &mergedUnrecordedError{err: err}
+	}
+	if !applied {
+		return nil
 	}
 	e.notify(ctx, notify.PriorityLow, "Merged: "+t.Title, pr.URL, "/tasks/"+t.ID)
 	return nil

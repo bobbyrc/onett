@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -174,9 +173,6 @@ func TestRecoverGivesBackTheAttemptOfAnInterruptedLastAttempt(t *testing.T) {
 // A recovery that failed after ending the run as interrupted must still give the attempt back on
 // the retry.
 func TestRecoverRetryStillGivesBackTheAttemptOfAnInterruptedRun(t *testing.T) {
-	if os.Getenv("ONETT_RUN_EXPOSING") == "" {
-		t.Skip("exposes: when recover fails after ending a run as interrupted, the next start no longer knows the run was interrupted, so it charges the attempt and blocks a task that was on its last attempt")
-	}
 	env := cprEnv(t)
 	task := cprTask(t, env, "On its last attempt", domain.TaskRunning, 3)
 	cprRun(t, env, task, domain.RunRunning)
