@@ -321,6 +321,23 @@ this release. If verification fails: `deployer.rollback(previous healthy)`, reco
 error, or still not ready after `deploy.timeout`) is failed without a rollback, since nothing
 new is serving; it still opens an incident and blocks the task.
 
+A release is stored as `pending` and marked `deploying` just before its deploy command starts, so
+the record says whether the command may have run. If the daemon stops while the command runs (a
+restart, a crash, a reboot), onett never sees the command's result. It does not run the command a
+second time; at the next start it judges the release by what is serving. The release goes
+straight to the health window: it is kept if it passes, and rolled back like any other release
+that fails verification. Without a `health_url` there is nothing to check, so such a release is
+failed and rolled back to the last healthy one. A graceful stop kills the command along with the
+daemon, but after a crash the command can keep running on its own. So onett writes the command's
+process ID to `deploy-<release id>.pid` in the data directory while it runs, and after a restart
+waits for that process to exit (for at most `deploy.timeout`) before it judges the release. The
+provider ID of an interrupted release stays empty, because the command's output was lost; a
+later rollback to that release passes an empty `ONETT_ROLLBACK_ID` with the ref. A health check
+shows that something healthy is serving, not which version: a command killed before it switched
+versions leaves the old version serving, and the release is still kept **(review)**. A release
+still `pending` at start-up never ran its command (the daemon died between the two writes); it is
+failed without a rollback, since nothing changed.
+
 The evidence on a release and its incident is the deploy command's output tail and, on failure,
 the output of the project's `deploy.logs` command. Secret values (environment variables named
 like `*_TOKEN`, `*_SECRET`, `*_KEY`, ..., and URLs with credentials) are replaced with `***` before
