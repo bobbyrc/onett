@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // The first-account sheet needs the setup code that `onett open` puts in the address. Without it
 // the sheet only says how to get one; with it, the code goes to the server with the new account.
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const auth = vi.hoisted(() => ({ setUp: vi.fn(), signIn: vi.fn() }));
@@ -49,6 +49,20 @@ describe('SignIn setup code', () => {
     render(<SignIn setup={true} expired={false} />);
 
     await waitFor(() => expect(window.location.hash).toBe(''));
+  });
+
+  it('reads a setup link pasted into the open page', async () => {
+    window.location.hash = '';
+    render(<SignIn setup={true} expired={false} />);
+    expect(screen.getByText(/onett open/)).toBeTruthy();
+
+    window.location.hash = '#setup=0a1b2c';
+    act(() => {
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create account' })).toBeTruthy());
+    expect(screen.queryByText(/onett open/)).toBeNull();
   });
 
   it('keeps sign-in mode unchanged without a code', () => {

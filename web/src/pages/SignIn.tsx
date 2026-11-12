@@ -28,7 +28,16 @@ export function SignIn({ setup, expired }: { setup: boolean; expired: boolean })
   const creating = mode === 'setup';
   // `onett open` puts the setup code after # in the address. It is read once, then removed
   // from the address bar so it does not stay in the page's address.
-  const [code] = useState(() => setupCodeFromHash(window.location.hash));
+  const [code, setCode] = useState(() => setupCodeFromHash(window.location.hash));
+  useEffect(() => {
+    // A link pasted into a page that is already open changes only the hash, with no reload.
+    const onHashChange = () => {
+      const pasted = setupCodeFromHash(window.location.hash);
+      if (pasted) setCode(pasted);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
   useEffect(() => {
     if (code) window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }, [code]);

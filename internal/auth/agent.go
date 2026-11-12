@@ -46,7 +46,7 @@ const (
 	// ResumeProject is clearing a project pause.
 	ResumeProject PersonAction = "resume_project"
 	// ChangePausedGoal is resuming, blocking or finishing a goal that someone paused.
-	ChangePausedGoal PersonAction = "resume_paused_goal"
+	ChangePausedGoal PersonAction = "change_paused_goal"
 	// RunLoop is running a loop by hand, which also runs a loop that is disabled.
 	RunLoop PersonAction = "run_loop"
 	// ResetGoalBudget is giving a blocked goal a fresh turn budget when it is resumed.
