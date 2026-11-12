@@ -104,6 +104,13 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `POST /goals/{id}/pause`, `POST /goals/{id}/resume` | | `Goal`; 409 unless the goal is active (pause) or paused or blocked (resume); resuming a blocked goal resets its turn count so a goal that hit `max_goal_turns` gets a fresh budget |
 | `POST /goals/{id}/done` | `{"summary":"…"}` (required) | `Goal`; notifies the owner (normal priority); 409 when already done |
 | `POST /goals/{id}/block` | `{"reason":"…"}` (required) | `Goal`; notifies the owner (high priority); 409 unless active or paused |
+| `GET /triggers` | | `[]TriggerView`, oldest first; each carries its newest firing as `last_firing` |
+| `POST /triggers` | `{"name","kind","project","prompt","enabled","cron","time_zone","label"}` | `TriggerView` (201, owner); 400 for an unknown field, a bad cron or zone, or a field of the other kind |
+| `GET /triggers/{id}` | | `TriggerView`; 404 unknown |
+| `PATCH /triggers/{id}` | any subset of `{"name","prompt","enabled","cron","time_zone","label"}` | `TriggerView` (owner); fields left out are unchanged; enabling re-arms the trigger. `kind` and `project` are unknown fields (400) |
+| `DELETE /triggers/{id}` | | 204 (owner); deletes the trigger and its firings, not its conversation |
+| `POST /triggers/{id}/run` | | `TriggerFiring` (owner), the one it recorded (cause `manual`). Schedule triggers only: 409 for `github_issue`. Works on a disabled trigger and does not change `next_run_at` |
+| `GET /triggers/{id}/firings` | `?limit=` (default 200) | `[]TriggerFiring`, newest first. `started` means handed to the trigger's conversation; when the message named by `message_id` has `queued: true` and no `run_id`, the prompt is still waiting there. A firing is recorded as `skipped` with a reason when the factory or project is paused, the daily budget is reached, the harness is rate-limited, or the trigger already started 20 firings in the last hour |
 | `GET /runs` | `?task_id=&project=&status=&limit=` | `[]Run` |
 | `GET /runs/{id}` | | `Run` |
 | `GET /runs/{id}/logs` | `?after=<seq>&limit=` (default 1000) | `[]LogLine` |
@@ -126,7 +133,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `POST /conversations/{id}/messages` | `{"text":"…","attachments":["id",…]}` (`text` may be empty with attachments; at most `chat.attachments.max_per_message`, each from this conversation, else 400) | `ChatMessage` (202, with `attachments`); 404 for a task agent's conversation. Sent while the orchestrator works, it reaches the agent at once if the harness takes input (`run_id` set), else is queued (`queued: true`) |
 | `GET /conversations/{id}/settings` | | `{settings,defaults,harness,choices}`: the conversation's model, effort and permission mode overrides (empty = the role's default), the role's default model, effort and permission mode (`agents.<name>.model`, `effort`, `permission_mode`), and the `models`, `efforts` and `permission_modes` its harness accepts (`{value,label,hint?,dangerous?}`). Works for task agent conversations too |
 | `GET /new-conversation/settings` | | The same view for a conversation not created yet (the chat start screen): the orchestrator's defaults and choices, with empty `settings`. The client creates the conversation, then `PUT`s the chosen settings, then sends |
-| `PUT /conversations/{id}/settings` | `{"model":"","effort":"","permission_mode":"","confirm_dangerous":false}` | The same view. Applies from the next turn; an empty field resets to the role's default; a value outside `choices` is 400; a `dangerous` permission mode that is not already set needs `confirm_dangerous: true`. A signed-in person only (the API token gets 403). Each run records the `model`, `effort` and `permission_mode` it used |
+| `PUT /conversations/{id}/settings` | `{"model":"","effort":"","permission_mode":"","confirm_dangerous":false}` | The same view. Applies from the next turn; an empty field resets to the role's default; a value outside `choices` is 400; a `dangerous` permission mode that is not already set needs `confirm_dangerous: true`. A signed-in person only (the API token gets 403). Each run records the `model`, `effort` and `permission_mode` it used. A trigger's conversation has `"kind": "trigger"`: settings saved there are stored but not applied, since every turn in it runs with the orchestrator role's defaults, so the UI should disable this control. The server accepts and stores such settings today; it does not apply them. |
 | `POST /conversations/{id}/flush` | | 202; sends the queued messages now (no-op when empty or busy) |
 | `PATCH /messages/{id}` | `{"text":"…"}` | `ChatMessage`; 409 once delivered. A signed-in person only (the API token gets 403) |
 | `DELETE /messages/{id}` | | 204; 409 once delivered. A signed-in person only (the API token gets 403) |
@@ -235,6 +242,10 @@ case the approval is recorded as rejected and the task goes back to review so on
  "prompt_text":"# Role: implementer…","prompt_updates":true,
  "description":"…","context":["AGENTS.md"],"tools":["Bash(go test:*)"],"args":[],"kinds":["feature","bugfix"],
  "uses":[{"kind":"feature","description":"builds features"}]}
+// TriggerView: a Trigger (internal/domain/trigger.go) plus its newest firing, omitted until it has fired
+{"id","name","kind","project","prompt","enabled","cron","time_zone","next_run_at",
+ "label","issues_after","conversation_id","created_at","updated_at",
+ "last_firing":TriggerFiring}   // last_firing is optional
 ```
 
 An `AgentView` says where the agent's settings come from. `origin` is `builtin` (the factory's own,
@@ -268,6 +279,11 @@ JSON data has `"id":0`, so clients must not use it as a resume cursor.
 The server sends `: connected` as soon as a stream opens and `: ping` every 15s. Clients must
 ignore event types they do not know and reconnect with the last `id` they saw. Event types are
 the `Ev*` constants in `internal/domain/domain.go`.
+
+Trigger events are `trigger.updated` (data: the `Trigger`, after a create, a patch, or a firing
+that changed its `next_run_at` or `conversation_id`), `trigger.deleted` (data: `{"id"}`) and
+`trigger.fired` (data: the `TriggerFiring`, once per firing with its final outcome). Their
+constants are in `internal/domain/trigger.go`, and each carries the trigger's project.
 
 ## WebSocket stream
 

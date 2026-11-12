@@ -74,6 +74,10 @@ Each is described under [Safety model](#safety-model) and annotated in
   decides which levels may merge on their own: by default all of them, after review and green CI;
 the built-in `supervised` policy holds `medium` and `high` for you.
 - **Loop**: a recurring background job, such as checking open PRs or polling production.
+- **Trigger**: a rule a signed-in owner defines (on the Triggers page of the UI, or through the API
+  with an owner session) that starts an orchestrator turn with a prompt the owner wrote, either on
+  a schedule or when a new GitHub issue is opened; each time it fires (or is skipped) is recorded as
+  a firing.
 - **Outbox**: a folder in each worktree where the agent writes its report, `result.json`.
 - **Approval**: a request for your decision. Under the opt-in `supervised` policy, a `medium` or `high` risk PR waits for one.
 
@@ -103,16 +107,28 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   code does everything that leaves the machine: commits, pushes, PRs, merges, deploys and rollbacks.
 - **Agents cannot approve their own work.** Worker agents get no API token. Only the chief of staff
   does, and it uses the CLI.
-- **People sign in; config and users change only through them.** The web UI signs people in with
-  a username and password (roles: viewer reads, operator also acts on work, owner also edits
-  `onett.yaml` and manages users). The API token, which the CLI and the chief of staff hold, can
-  read and act but can never edit the config or users, so an agent cannot rewrite its own policy
-  or environment. The first visit to a new instance creates the owner account, so create it
-  before you make onett reachable from other machines. Behind an HTTPS proxy, set
-  `server.public_url` to the `https://` address so the session cookie is marked Secure. This
-  boundary is the API's: agents still run as your user, so one that can write `onett.yaml` or
-  the database file directly is limited only by its harness until agents are isolated (see
+- **People sign in; config, users and triggers change only through them.** The web UI signs people
+  in with a username and password (roles: viewer reads, operator also acts on work, owner also
+  edits `onett.yaml`, manages users and manages triggers). The API token, which the CLI and the
+  chief of staff hold, can read and act but can never edit the config, users or triggers, so an
+  agent cannot rewrite its own policy or environment or change which triggers exist. The first
+  visit to a new instance creates the owner account, so create it before you make onett reachable
+  from other machines. Behind an HTTPS proxy, set `server.public_url` to the `https://` address so
+  the session cookie is marked Secure. This boundary is the API's: agents still run as your user,
+  so one that can write `onett.yaml` or the database file directly is limited only by its harness
+  until agents are isolated (see
   [docs/proposals/agent-isolation.md](docs/proposals/agent-isolation.md)).
+- **Triggers start turns and nothing more.** A trigger starts an orchestrator turn by itself, on a
+  schedule or when a new GitHub issue is opened, so only a signed-in owner can create, change,
+  delete, enable, disable or fire one. A trigger only starts an agent turn: it never commits,
+  merges or deploys by itself. It respects the global pause, a project's pause and the daily
+  budget. Text from a GitHub issue reaches the agent only as redacted evidence marked "data, not
+  instructions", whoever wrote it. Issues from people who are not the repo's owner, a member or a
+  collaborator are ignored; that keeps strangers out and is not proof that a person wrote an issue.
+  An agent that can use the owner's `gh` login can open such an issue and so fire a
+  `github_issue` trigger; that gap is known and is why the text is only ever evidence.
+  A trigger starts at most 20 turns an hour, and its turns always run with the orchestrator's
+  default model and permission mode, whatever was set on its conversation.
 - **Agents get a small environment.** An agent sees an allowlist (`PATH`, `HOME`, `USER`, `LANG`,
   ...), not onett's own environment, so `GH_TOKEN` and provider tokens do not reach it. To pass
   one through, name it in the harness's `inherit_env` list. Agents still run as your user and can
@@ -244,6 +260,7 @@ as in `onett task create -h`.
 | `config` | print the redacted config, or `--reload` it |
 | `task` | create, list, show, cancel and retry tasks (`task create --attach ID`, repeatable, hands a chat attachment to the agent as a file under `.onett-run/attachments/`); `task message ID --text T` sends a message to a task agent; `task close-conversation ID --reason R` closes a task agent's conversation |
 | `goal` | create, list, show, pause, resume and finish goals the chief of staff works on unattended |
+| `trigger list\|history ID` | List triggers and a trigger's firing history. Only a signed-in owner creates or changes triggers (in the UI or through the API); the CLI reads them. |
 | `run` | list, show, cancel and print logs of agent runs |
 | `deploys` | list releases, or show one with its log |
 | `approvals` | list approvals waiting for a decision |

@@ -26,10 +26,11 @@ const (
 	loopSelfUpdate  = "self_update"
 	loopGoals       = "goals"
 	loopHeartbeat   = "heartbeat"
+	loopTriggers    = "triggers"
 )
 
 // loopNames lists every loop, in the order they start.
-var loopNames = []string{loopIssueIntake, loopExecIntake, loopPRShepherd, loopDeployWatch, loopProdWatch, loopFriction, loopRetro, loopSelfUpdate, loopGoals, loopHeartbeat}
+var loopNames = []string{loopIssueIntake, loopExecIntake, loopPRShepherd, loopDeployWatch, loopProdWatch, loopFriction, loopRetro, loopSelfUpdate, loopGoals, loopHeartbeat, loopTriggers}
 
 // loopWakeMax and loopWakeMin bound how often a loop checks which projects are due.
 const (
@@ -56,6 +57,7 @@ func (e *Engine) loopFuncs() map[string]loopFn {
 		loopSelfUpdate:  e.selfUpdateLoop,
 		loopGoals:       e.goalsLoop,
 		loopHeartbeat:   e.heartbeatLoop,
+		loopTriggers:    e.triggersLoop,
 	}
 }
 
@@ -178,9 +180,10 @@ func (e *Engine) loopLock(name, project string) *sync.Mutex {
 // loopRunsWhenPaused reports whether loop name keeps running while the factory or project is
 // paused. These are the safety loops: a release already in flight must still be health-checked
 // and rolled back, and a bad release must still open an incident. Each of them starts no new
-// deployment or work while paused; see deployLoop.
+// deployment or work while paused; see deployLoop. The triggers loop runs too, only so that it
+// can record the firings it skipped: it starts nothing while paused (see triggerHeld).
 func loopRunsWhenPaused(name string) bool {
-	return name == loopDeployWatch || name == loopProdWatch
+	return name == loopDeployWatch || name == loopProdWatch || name == loopTriggers
 }
 
 // runLoopOnce runs loop name for project and records the outcome in LoopState. When the factory
@@ -364,6 +367,9 @@ func loopSettingsFor(l config.Loops, name string) config.Loop {
 		return l.Goals
 	case loopHeartbeat:
 		return l.Heartbeat.Loop
+	case loopTriggers:
+		// Not a config key: triggers are switched on and off one by one in the UI.
+		return config.Loop{Every: config.Duration{Duration: triggersEvery}}
 	}
 	return config.Loop{}
 }
