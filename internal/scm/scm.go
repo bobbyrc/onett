@@ -4,6 +4,7 @@ package scm
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -69,6 +70,10 @@ type IssueSpec struct {
 	Labels []string
 }
 
+// ErrCIRunning is returned by CILog while a CI run of the PR's head commit has not ended. The
+// log of such a run cannot be read yet, not even for a job in it that has already failed.
+var ErrCIRunning = errors.New("CI is still running")
+
 // SCM is scoped to one repository ("owner/name").
 type SCM interface {
 	OpenPR(ctx context.Context, spec PRSpec) (PR, error)
@@ -80,7 +85,8 @@ type SCM interface {
 	// MergePR squash-merges and deletes the branch. When headSHA is non-empty the merge only
 	// happens if the PR head is still that commit (the one CI, review and policy approved).
 	MergePR(ctx context.Context, number int, headSHA string) error
-	// CILog returns a tail of the failing checks' logs, for the agent fixing them.
+	// CILog returns a tail of the failing checks' logs, for the agent fixing them. It returns
+	// ErrCIRunning while a CI run of the head commit has not ended and its log cannot be read yet.
 	CILog(ctx context.Context, number int, maxBytes int) (string, error)
 
 	ListIssues(ctx context.Context, label string, state string) ([]Issue, error)

@@ -201,6 +201,11 @@ func (e *Engine) shepherdTask(ctx context.Context, s scm.SCM, p *config.Project,
 			}
 		case scm.CIFailure:
 			log, lerr := s.CILog(ctx, t.PRNumber, 8000)
+			if errors.Is(lerr, scm.ErrCIRunning) {
+				// A job has failed while another is still going, and no log can be read until the
+				// run ends. Wait for a later pass rather than re-queue the task with an empty note.
+				return nil
+			}
 			if lerr != nil {
 				log = fmt.Sprintf("(could not fetch the CI log: %v)", lerr)
 			}
@@ -238,12 +243,13 @@ func (e *Engine) shepherdTask(ctx context.Context, s scm.SCM, p *config.Project,
 // ciFailureContext renders a CI log tail as the body of a re-queue note, so the next attempt (and
 // the retro) can tell a gofmt diff from a vet error or a flaky test. The log is redacted, headed
 // by evidenceNote and fenced so a backtick run inside it cannot close the fence. An empty log is
-// said outright: gh cannot read the log of a run that is still going, which happens when one job
-// has failed while another has not finished.
+// said outright. It means no finished run of the head commit ended in failure, as when the failing
+// check was cancelled, timed out or comes from another system. A run that is still going never
+// gets here: the shepherd waits for it (scm.ErrCIRunning).
 func ciFailureContext(log string, env []string) string {
 	log = strings.TrimSpace(redactSecrets(log, env))
 	if log == "" {
-		return "No failed-step log was available (the failing run may still be in progress). Read the failing checks' logs on the PR."
+		return "No failed-step log was available: no finished CI run of this commit ended in failure (the failing check may have been cancelled, have timed out, or come from another system). Read the failing checks' logs on the PR."
 	}
 	fence := strings.Repeat("`", max(3, longestBacktickRun(log)+1))
 	return evidenceNote + "\n\n" + fence + "\n" + log + "\n" + fence
