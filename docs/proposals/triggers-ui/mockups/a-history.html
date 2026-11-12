@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Triggers mockup A: one trigger and its firings</title>
+<link rel="stylesheet" href="../../../../web/src/styles.css">
+<link rel="stylesheet" href="../../../../web/src/components/RailLamps.css">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="a.css">
+<script src="shell.js" defer></script>
+</head>
+<body data-nav="after-goals" data-role="owner">
+<div class="app">
+<main class="main">
+<header class="page-header">
+  <h1>Morning issue sweep <span class="pill tone-info"><span class="dot" aria-hidden="true"></span>OK</span></h1>
+  <div class="page-actions">
+    <button type="button" class="btn btn-secondary">Run now</button>
+    <button type="button" class="btn btn-secondary">Edit</button>
+    <button type="button" class="btn btn-secondary">Turn off</button>
+    <button type="button" class="btn btn-danger">Delete</button>
+  </div>
+</header>
+<p class="trg-meta-line muted"><span>Schedule · onett</span><a href="#">Open conversation</a></p>
+<dl class="meta">
+  <div class="meta-item"><dt>When</dt><dd>Every day at 05:00</dd></div>
+  <div class="meta-item"><dt>Time zone</dt><dd>America/New_York</dd></div>
+  <div class="meta-item"><dt>Next firing</dt><dd>Fri 13 Nov 05:00 <span class="muted trg-rel">in 18h</span></dd></div>
+  <div class="meta-item"><dt>Cron</dt><dd><code>0 5 * * *</code></dd></div>
+</dl>
+<section class="section">
+  <h2>Prompt</h2>
+  <p class="card trg-prompt">Look at every open issue in this repository. Close the ones that are already fixed and say which commit fixed them. For each of the rest, queue a task if it is clear enough to work on, or ask me what is missing.</p>
+</section>
+<section class="section">
+  <h2>Firings <span class="section-note">newest first</span></h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th scope="col">When</th><th scope="col">Why</th><th scope="col" class="cell-wide">Outcome</th></tr>
+      </thead>
+      <tbody>
+<tr>
+  <td data-label="When"><span class="trg-when-abs">Thu 12 Nov 05:00</span> <span class="muted trg-rel">5h ago</span></td>
+  <td data-label="Why">Scheduled for 05:00</td>
+  <td data-label="Outcome" class="cell-wide"><div class="trg-outcome"><span class="pill tone-info"><span class="dot" aria-hidden="true"></span>started</span></div></td></tr>
+<tr>
+  <td data-label="When"><span class="trg-when-abs">Wed 11 Nov 14:12</span> <span class="muted trg-rel">20h ago</span></td>
+  <td data-label="Why">Run now by bcraig</td>
+  <td data-label="Outcome" class="cell-wide"><div class="trg-outcome"><span class="pill tone-info"><span class="dot" aria-hidden="true"></span>started</span></div></td></tr>
+<tr>
+  <td data-label="When"><span class="trg-when-abs">Wed 11 Nov 05:00</span> <span class="muted trg-rel">1d ago</span></td>
+  <td data-label="Why">Scheduled for 05:00</td>
+  <td data-label="Outcome" class="cell-wide"><div class="trg-outcome"><span class="pill tone-warn"><span class="dot" aria-hidden="true"></span>skipped</span><span class="trg-rel">the factory was paused</span></div></td></tr>
+<tr>
+  <td data-label="When"><span class="trg-when-abs">Tue 10 Nov 05:00</span> <span class="muted trg-rel">2d ago</span></td>
+  <td data-label="Why">Scheduled for 05:00</td>
+  <td data-label="Outcome" class="cell-wide"><div class="trg-outcome"><span class="pill tone-info"><span class="dot" aria-hidden="true"></span>started</span></div></td></tr>
+<tr>
+  <td data-label="When"><span class="trg-when-abs">Mon 9 Nov 05:00</span> <span class="muted trg-rel">3d ago</span></td>
+  <td data-label="Why">Scheduled for 05:00</td>
+  <td data-label="Outcome" class="cell-wide"><div class="trg-outcome"><span class="pill tone-danger"><span class="dot" aria-hidden="true"></span>failed</span><span class="trg-rel">onett was shutting down</span></div></td></tr>
+<tr>
+  <td data-label="When"><span class="trg-when-abs">Sun 8 Nov 05:00</span> <span class="muted trg-rel">4d ago</span></td>
+  <td data-label="Why">Scheduled for 05:00</td>
+  <td data-label="Outcome" class="cell-wide"><div class="trg-outcome"><span class="pill tone-info"><span class="dot" aria-hidden="true"></span>started</span></div></td></tr>
+      </tbody>
+    </table>
+  </div></section>
+</main>
+</div>
+</body>
+</html>

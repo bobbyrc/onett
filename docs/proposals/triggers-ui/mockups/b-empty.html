@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Triggers mockup B: empty</title>
+<link rel="stylesheet" href="../../../../web/src/styles.css">
+<link rel="stylesheet" href="../../../../web/src/components/RailLamps.css">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="b.css">
+<script src="shell.js" defer></script>
+</head>
+<body class="tab-rules" data-nav="after-loops" data-role="owner">
+<div class="app">
+<main class="main">
+<header class="page-header">
+  <h1>Triggers</h1>
+  <div class="page-actions"><button type="button" class="btn btn-primary">New trigger</button></div>
+</header>
+<div class="segmented trg-tabs" role="tablist">
+  <button type="button" role="tab" class="on" aria-selected="true">Triggers</button><button type="button" role="tab" aria-selected="false">Firings</button>
+</div>
+<div class="trg-cols">
+  <section class="section trg-rules" aria-labelledby="trg-rules-h">
+    <h2 id="trg-rules-h">Rules</h2>
+    <div class="empty">No triggers. A trigger starts the orchestrator on its own, on a schedule or when a new issue is opened.</div>
+    <p class="muted small trg-starters-label">Or start from an example:</p>
+    <div class="trg-starter">
+      <dl class="trg-rule-body">
+        <dt>When</dt><dd>Every day at 05:00</dd>
+        <dt>Ask</dt><dd>Address any open issues in this repository.</dd>
+      </dl>
+      <button type="button" class="btn btn-secondary">Use this</button>
+    </div>
+    <div class="trg-starter">
+      <dl class="trg-rule-body">
+        <dt>When</dt><dd>A new issue is opened</dd>
+        <dt>Ask</dt><dd>Take a look at the new issue and say what you would do about it.</dd>
+      </dl>
+      <button type="button" class="btn btn-secondary">Use this</button>
+    </div>
+  </section>
+  <section class="section trg-log" aria-labelledby="trg-log-h">
+    <h2 id="trg-log-h">Recent firings</h2>
+    <div class="empty">Nothing has fired yet. Each firing is listed here with what started it and what came of it.</div>
+  </section>
+</div>
+</main>
+</div>
+</body>
+</html>
