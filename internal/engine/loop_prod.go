@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/bobbyrc/onett/internal/config"
@@ -19,6 +20,29 @@ const prodRegressionGrace = 10 * time.Minute
 
 // prodLookback is how far back the first poll looks.
 const prodLookback = 24 * time.Hour
+
+// signalTitleMax is how many characters of a signal's title go into a task title or a release's
+// failure reason.
+const signalTitleMax = 80
+
+// signalShortTitle cuts a signal's title down to one line of at most signalTitleMax characters.
+// The title is written by an outside service, so anyone who can send that service an error can
+// choose it. Task titles and failure reasons are read by agents as plain text; they get only
+// this short form, and the full title goes into the labelled evidence (see signalEvidence).
+func signalShortTitle(title string) string {
+	s := strings.Join(strings.Fields(title), " ")
+	if r := []rune(s); len(r) > signalTitleMax {
+		return string(r[:signalTitleMax-1]) + "…"
+	}
+	return s
+}
+
+// signalEvidence is a signal's own text as a section of an incident's evidence. Every field here
+// is written by the outside service, so it is quoted as data and not given as task text.
+func signalEvidence(source string, s domain.Signal) string {
+	return fmt.Sprintf("== signal (%s) ==\nTitle: %s\nLevel: %s\nCulprit: %s\nURL: %s\nRelease: %s\n",
+		source, s.Title, s.Level, s.Culprit, s.URL, s.Release)
+}
 
 // signalLevelRank orders error levels: debug and info 0, warning 1, error 2, fatal 3. Unknown
 // levels count as error, so an unfamiliar level is not silently ignored.
@@ -116,6 +140,8 @@ func (e *Engine) handleObservation(ctx context.Context, p *config.Project, sourc
 	o.Title = redactSecrets(o.Title, env)
 	o.Culprit = redactSecrets(o.Culprit, env)
 	o.URL = redactSecrets(o.URL, env)
+	o.Level = redactSecrets(o.Level, env)
+	o.Release = redactSecrets(o.Release, env)
 	s, isNew, err := e.d.Store.UpsertSignal(ctx, domain.Signal{Project: p.Name, Source: source, SignalObservation: o})
 	if err != nil {
 		return err
@@ -128,7 +154,7 @@ func (e *Engine) handleObservation(ctx context.Context, p *config.Project, sourc
 	}
 
 	ref := "signal:" + source + ":" + s.Fingerprint
-	title := "Incident: " + s.Title
+	title := "Incident: " + signalShortTitle(s.Title)
 	existing, err := e.d.Store.FindTaskBySourceRef(ctx, p.Name, ref)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
@@ -143,9 +169,9 @@ func (e *Engine) handleObservation(ctx context.Context, p *config.Project, sourc
 		return nil
 	}
 
-	body := fmt.Sprintf("Level: %s\nCount: %d\nCulprit: %s\nURL: %s\nFirst seen: %s\nLast seen: %s\nRelease: %s\n",
-		s.Level, s.Count, s.Culprit, s.URL, s.FirstSeen.Format(time.RFC3339), s.LastSeen.Format(time.RFC3339), s.Release)
-	body += evidenceSection(serviceLogsEvidence(ctx, p))
+	body := fmt.Sprintf("Count: %d\nFirst seen: %s\nLast seen: %s\n",
+		s.Count, s.FirstSeen.Format(time.RFC3339), s.LastSeen.Format(time.RFC3339))
+	body += evidenceSection(appendEvidence(signalEvidence(source, s), serviceLogsEvidence(ctx, p)))
 	t, err := e.createTask(ctx, domain.Task{
 		Project:   p.Name,
 		Kind:      domain.KindIncident,
