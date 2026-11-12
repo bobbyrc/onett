@@ -246,6 +246,32 @@ pre,
   outline-offset: 2px;
 }
 
+/* "Skip to content" is the first Tab stop on every page: nothing to see until it has focus, then
+   a button over the top-left corner. */
+.skip-link {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  left: 8px;
+  z-index: 20;
+  text-decoration: none;
+}
+
+.skip-link:not(:focus) {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+/* The skip link and an opened dialog move focus to the page or the dialog as a whole. Neither is
+   a control, so neither draws a focus ring. */
+.main:focus,
+.modal:focus {
+  outline: none;
+}
+
 .table td,
 .count-badge,
 .board-count,
@@ -796,6 +822,21 @@ pre,
   cursor: pointer;
 }
 
+/* ID chips and text links are shorter than the 24px a finger needs (WCAG 2.5.8). They keep their
+   look; an invisible pad above and below makes the area that takes the tap tall enough. */
+.id-chip,
+.link-button {
+  position: relative;
+}
+
+/* -5px, not -4px: the pad is measured from inside the chip's 1px border. */
+.id-chip::after,
+.link-button::after {
+  content: '';
+  position: absolute;
+  inset: -5px 0;
+}
+
 /* ---- buttons and fields ---- */
 
 .btn {
@@ -935,6 +976,15 @@ pre,
   min-width: 0;
 }
 
+/* The label and its control, inside .field. The hint is a sibling, outside the label, so it is
+   the control's description and not part of its name. */
+.field-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
 .field-label {
   color: var(--muted);
   font-size: 13.5px;
@@ -983,6 +1033,7 @@ input[type='checkbox'] {
   gap: 6px;
   color: var(--muted);
   font-size: 13.5px;
+  min-height: 24px;
 }
 
 /* ---- tables (stacked cards under 760px) ---- */
