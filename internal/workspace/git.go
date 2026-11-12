@@ -5,12 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 	"unicode/utf8"
 )
 
@@ -30,6 +34,8 @@ var hardening = []string{
 	"-c", "push.recurseSubmodules=no",
 	// The ext:: transport runs a command named in a URL.
 	"-c", "protocol.ext.allow=never",
+	// A commit-graph file is a cache in the object store; a forged one can lie about a commit's parents.
+	"-c", "core.commitGraph=false",
 }
 
 // gitCommand builds a git command that needs no network, run in the checkout at dir with
@@ -145,6 +151,8 @@ var localEnvKeys = []string{
 }
 
 // localEnv returns the environment for a git command that needs no network; see localEnvKeys.
+// Replace refs and a grafts file are ways to make git show different content or history for the
+// same commit, and an agent can write both, so they are switched off here.
 func localEnv() []string {
 	var env []string
 	for _, k := range localEnvKeys {
@@ -152,7 +160,7 @@ func localEnv() []string {
 			env = append(env, k+"="+v)
 		}
 	}
-	return append(env, "GIT_TERMINAL_PROMPT=0")
+	return append(env, "GIT_TERMINAL_PROMPT=0", "GIT_NO_REPLACE_OBJECTS=1", "GIT_GRAFT_FILE="+os.DevNull)
 }
 
 // layout says where git keeps a checkout's files. gitDir holds HEAD and the index; commonDir
@@ -517,36 +525,61 @@ func quoteValue(v string) string {
 	return v
 }
 
+// maxConfigBytes is the largest config file onett reads. A real one is a few hundred bytes.
+const maxConfigBytes = 1 << 20
+
+// readConfigFile returns the content of a config file an agent may have replaced. It does not
+// follow a symlink (the agent could point it at a file it cannot read itself), does not block on
+// a FIFO, and gives up on anything that is not a regular file of a sane size. In those cases it
+// returns no content, and the caller writes a fresh file in its place.
+func readConfigFile(path string) ([]byte, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	// Opening a symlink with O_NOFOLLOW fails with ELOOP (EMLINK on some systems).
+	if errors.Is(err, syscall.ELOOP) || errors.Is(err, syscall.EMLINK) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	if !fi.Mode().IsRegular() || fi.Size() > maxConfigBytes {
+		return nil, nil
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxConfigBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	if len(data) > maxConfigBytes {
+		return nil, nil
+	}
+	return data, nil
+}
+
 // repairConfig rewrites <commonDir>/config to canonicalConfig of its current content when the
-// two differ.
+// two differ. The current content is read by readConfigFile, so a symlink, a FIFO or a huge file
+// is never read; the new file is written beside the old and renamed over it, so the old one is
+// replaced, not followed. No copy of the old content is kept.
 func repairConfig(commonDir, originURL string) error {
 	path := filepath.Join(commonDir, "config")
-	existing, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("read %s: %w", path, err)
+	existing, err := readConfigFile(path)
+	if err != nil {
+		return err
 	}
 	want, err := canonicalConfig(existing, originURL)
 	if err != nil {
 		return err
 	}
-	if bytes.Equal(existing, want) {
+	if existing != nil && bytes.Equal(existing, want) {
 		return nil
 	}
-
-	// The checkout may be one a person also works in, so the first time onett drops their
-	// settings the original is kept beside it; they can copy what they need to their global config.
-	backup := filepath.Join(commonDir, "config.pre-onett")
-	if len(existing) > 0 {
-		_, err := os.Lstat(backup)
-		switch {
-		case errors.Is(err, os.ErrNotExist):
-			if err := os.WriteFile(backup, existing, 0o600); err != nil {
-				return fmt.Errorf("write %s: %w", backup, err)
-			}
-		case err != nil:
-			return fmt.Errorf("stat %s: %w", backup, err)
-		}
-	}
+	slog.Warn("onett rewrote a repository's git config to the settings it accepts", "config", path)
 
 	// Write to a temp file and rename, so git never reads a half-written config.
 	tmp, err := os.CreateTemp(commonDir, "config.onett-*")
@@ -556,11 +589,11 @@ func repairConfig(commonDir, originURL string) error {
 	name := tmp.Name()
 	defer os.Remove(name) // a no-op once the file has been renamed into place
 	_, err = tmp.Write(want)
+	if err == nil {
+		err = tmp.Chmod(0o644)
+	}
 	if cerr := tmp.Close(); err == nil {
 		err = cerr
-	}
-	if err == nil {
-		err = os.Chmod(name, 0o644)
 	}
 	if err == nil {
 		err = os.Rename(name, path)
@@ -571,17 +604,19 @@ func repairConfig(commonDir, originURL string) error {
 	return nil
 }
 
-// scratch is a repository onett creates in a private temporary directory and deletes after one
-// use. It is the only place git runs with onett's credentials: no agent has written its config,
-// so nothing in it can name a program to run or another host to send a token to. It borrows the
-// clone's objects (objects/info/alternates), so a push copies nothing and a fetch downloads only
-// what is new.
+// scratch is a repository onett creates and deletes after one use. It is made under onett's own
+// directory, not the system temp directory, because an agent's sandbox may allow writes to the
+// temp directory. It is the only place git runs with onett's credentials: no agent has written
+// its config, so nothing in it can name a program to run or another host to send a token to. It
+// borrows the clone's objects (objects/info/alternates), so a push copies nothing and a fetch
+// downloads only what is new.
 type scratch struct {
 	dir string
 }
 
-// newScratch makes a scratch repository that borrows the objects of the clone at clonePath.
-func newScratch(ctx context.Context, clonePath string) (*scratch, error) {
+// newScratch makes a scratch repository that borrows the objects of the clone at clonePath. It is
+// made in parent, or in the system temp directory when parent is empty.
+func newScratch(ctx context.Context, parent, clonePath string) (*scratch, error) {
 	format, err := git(ctx, clonePath, "rev-parse", "--show-object-format")
 	if err != nil {
 		return nil, err
@@ -594,7 +629,15 @@ func newScratch(ctx context.Context, clonePath string) (*scratch, error) {
 	if err != nil {
 		return nil, err
 	}
-	dir, err := os.MkdirTemp("", "onett-git-")
+	var dir string
+	if parent != "" {
+		if err := os.MkdirAll(parent, 0o700); err != nil {
+			return nil, fmt.Errorf("create scratch directory: %w", err)
+		}
+		dir, err = os.MkdirTemp(parent, "onett-git-")
+	} else {
+		dir, err = os.MkdirTemp("", "onett-git-")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -624,10 +667,13 @@ func (s *scratch) git(ctx context.Context, args ...string) (string, error) {
 	return git(ctx, s.dir, args...)
 }
 
-// gitNet runs a command in the scratch repository with credentials.
+// gitNet runs a command in the scratch repository with credentials. With borrowed objects, a
+// fetch would otherwise start `git for-each-ref` inside the clone, with credentials in its
+// environment, reading the clone's config. `true` prints nothing, so no git with credentials ever
+// runs in the clone. The command is pinned to the scratch's own .git, like every other command,
+// so a replaced .git in the scratch directory cannot redirect it.
 func (s *scratch) gitNet(ctx context.Context, args ...string) (string, error) {
-	// With borrowed objects, a fetch would otherwise start `git for-each-ref` inside the clone,
-	// with credentials in its environment, reading the clone's config. `true` prints nothing, so
-	// no git with credentials ever runs in the clone.
-	return gitNet(ctx, s.dir, append([]string{"-c", "core.alternateRefsCommand=true"}, args...)...)
+	cmd := netCommand(ctx, s.dir, append([]string{"-c", "core.alternateRefsCommand=true"}, args...)...)
+	cmd.Env = append(cmd.Env, "GIT_DIR="+filepath.Join(s.dir, ".git"), "GIT_WORK_TREE="+s.dir)
+	return runGitCmd(cmd, args)
 }

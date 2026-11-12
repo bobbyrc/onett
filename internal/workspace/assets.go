@@ -65,7 +65,7 @@ func (m *Manager) PublishAssets(ctx context.Context, r Repo, ws Workspace, label
 	if err != nil {
 		return "", nil, err
 	}
-	s, err := newScratch(ctx, r.Path)
+	s, err := newScratch(ctx, m.scratchDir(), r.Path)
 	if err != nil {
 		return "", nil, err
 	}

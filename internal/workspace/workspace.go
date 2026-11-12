@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/bobbyrc/onett/internal/policy"
 )
@@ -158,37 +159,59 @@ func (m *Manager) ensureClone(ctx context.Context, r Repo) error {
 	case err != nil:
 		return fmt.Errorf("stat clone %s: %w", r.Path, err)
 	}
-	if err := fetchOrigin(ctx, r); err != nil {
+	if err := m.fetchOrigin(ctx, r); err != nil {
 		return fmt.Errorf("fetch %s: %w", r.Name, err)
 	}
 	return alignCheckout(ctx, r)
+}
+
+// fetchScratch does the work of fetchOrigin and returns the scratch repository it used, still
+// open, for a caller that goes on to read from it. Its refs/onett/* are the remote's branches as
+// the remote itself just reported them. The caller closes it.
+func (m *Manager) fetchScratch(ctx context.Context, r Repo) (*scratch, error) {
+	// This also puts remote.origin.url back to the project's remote.
+	url, err := syncOrigin(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	s, err := newScratch(ctx, m.scratchDir(), r.Path)
+	if err != nil {
+		return nil, err
+	}
+	// The scratch repository starts from what the clone already has, so the remote sends only
+	// what is new.
+	if _, err := s.git(ctx, "fetch", "--quiet", r.Path, "+refs/remotes/origin/*:refs/onett/*"); err != nil {
+		s.close()
+		return nil, err
+	}
+	if _, err := s.gitNet(ctx, "fetch", "--quiet", "--prune", url, "+refs/heads/*:refs/onett/*"); err != nil {
+		s.close()
+		return nil, err
+	}
+	return s, nil
 }
 
 // fetchOrigin brings the clone's origin/* branches up to date with the remote and removes the
 // ones the remote deleted. The download runs in a scratch repository, so the command that holds
 // onett's credentials never reads the clone's config; the clone then takes the result from the
 // scratch repository with a command that holds none. The caller holds the clone lock.
-func fetchOrigin(ctx context.Context, r Repo) error {
-	// This also puts remote.origin.url back to the project's remote.
-	url, err := syncOrigin(ctx, r)
-	if err != nil {
-		return err
-	}
-	s, err := newScratch(ctx, r.Path)
+func (m *Manager) fetchOrigin(ctx context.Context, r Repo) error {
+	s, err := m.fetchScratch(ctx, r)
 	if err != nil {
 		return err
 	}
 	defer s.close()
-	// The scratch repository starts from what the clone already has, so the remote sends only
-	// what is new.
-	if _, err := s.git(ctx, "fetch", "--quiet", r.Path, "+refs/remotes/origin/*:refs/onett/*"); err != nil {
-		return err
-	}
-	if _, err := s.gitNet(ctx, "fetch", "--quiet", "--prune", url, "+refs/heads/*:refs/onett/*"); err != nil {
-		return err
-	}
 	_, err = git(ctx, r.Path, "fetch", "--quiet", "--prune", s.dir, "+refs/onett/*:refs/remotes/origin/*")
 	return err
+}
+
+// scratchDir is where this Manager makes its scratch repositories: beside the worktrees, in a
+// directory no agent is given.
+func (m *Manager) scratchDir() string {
+	if m.Root == "" {
+		return ""
+	}
+	return filepath.Join(m.Root, ".git-scratch")
 }
 
 // alignCheckout detaches the clone's own checkout at origin/<DefaultBranch>. A fresh clone checks
@@ -408,7 +431,8 @@ func excludeOutbox(ctx context.Context, clonePath string) error {
 	if len(existing) > 0 && existing[len(existing)-1] != '\n' {
 		prefix = "\n"
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	// The file sits in the clone's .git, where an agent could put a symlink.
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY|syscall.O_NOFOLLOW, 0o644)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", path, err)
 	}
@@ -484,7 +508,7 @@ func (m *Manager) MergeBase(ctx context.Context, r Repo, ws Workspace) ([]string
 	if err := checkWorktreeOf(r.Path, ws.Dir); err != nil {
 		return nil, err
 	}
-	if err := fetchOrigin(ctx, r); err != nil {
+	if err := m.fetchOrigin(ctx, r); err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", r.Name, err)
 	}
 	_, mergeErr := git(ctx, ws.Dir, "-c", "user.name=Onett", "-c", "user.email=onett@localhost",
@@ -534,7 +558,7 @@ func (m *Manager) Push(ctx context.Context, r Repo, ws Workspace) error {
 	if err != nil {
 		return fmt.Errorf("push %s: %w", ws.Branch, err)
 	}
-	s, err := newScratch(ctx, r.Path)
+	s, err := newScratch(ctx, m.scratchDir(), r.Path)
 	if err != nil {
 		return fmt.Errorf("push %s: %w", ws.Branch, err)
 	}
@@ -543,10 +567,9 @@ func (m *Manager) Push(ctx context.Context, r Repo, ws Workspace) error {
 	if _, err := s.gitNet(ctx, "push", "--quiet", lease, url, sha+":refs/heads/"+ws.Branch); err != nil {
 		return fmt.Errorf("push %s: %w", ws.Branch, err)
 	}
-	// `git push origin` used to record what it pushed; keep origin/<branch> in step for the next reader.
-	if _, err := git(ctx, r.Path, "update-ref", "refs/remotes/origin/"+ws.Branch, sha); err != nil {
-		return fmt.Errorf("push %s: %w", ws.Branch, err)
-	}
+	// The remote has the commit; this only records it locally, as `git push origin` used to, and
+	// the next fetch puts it right if it fails.
+	_, _ = git(ctx, r.Path, "update-ref", "refs/remotes/origin/"+ws.Branch, sha)
 	return nil
 }
 
@@ -559,18 +582,23 @@ var commitSHA = regexp.MustCompile(`^([0-9a-f]{40}|[0-9a-f]{64})$`)
 func (m *Manager) Diff(ctx context.Context, r Repo, base, head string) ([]policy.FileChange, error) {
 	unlock := m.lockClone(r.Path)
 	defer unlock()
-	if err := fetchOrigin(ctx, r); err != nil {
+	s, err := m.fetchScratch(ctx, r)
+	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", r.Name, err)
 	}
-	headRef := "origin/" + head
+	defer s.close()
+	headRef := "refs/onett/" + head
 	if commitSHA.MatchString(head) {
 		headRef = head
 	}
 	// With rename detection, a renamed file is reported only under its new name, so a path rule
 	// for the old name would never fire. Without -z, git quotes unusual names, which no path rule
 	// matches. So renames are off and names come through -z exactly as they are.
-	out, err := git(ctx, r.Path, "diff", "--numstat", "-z", "--no-renames", "--no-ext-diff", "--no-textconv",
-		"origin/"+base+"..."+headRef)
+	// The diff runs in the scratch repository, between the branches the remote just reported, and
+	// not in the clone: in the clone an agent can write replace refs, grafts, attributes and the
+	// remote-tracking refs, each of which can make a real change look empty.
+	out, err := s.git(ctx, "diff", "--numstat", "-z", "--no-renames", "--no-ext-diff", "--no-textconv",
+		"refs/onett/"+base+"..."+headRef)
 	if err != nil {
 		return nil, fmt.Errorf("diff %s...%s: %w", base, head, err)
 	}
@@ -608,7 +636,7 @@ func (m *Manager) Diff(ctx context.Context, r Repo, base, head string) ([]policy
 func (m *Manager) Fetch(ctx context.Context, r Repo) error {
 	unlock := m.lockClone(r.Path)
 	defer unlock()
-	if err := fetchOrigin(ctx, r); err != nil {
+	if err := m.fetchOrigin(ctx, r); err != nil {
 		return fmt.Errorf("fetch %s: %w", r.Name, err)
 	}
 	return nil

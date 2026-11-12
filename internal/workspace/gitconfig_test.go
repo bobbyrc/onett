@@ -211,28 +211,24 @@ func TestRepairConfig(t *testing.T) {
 	const canonical = "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n" +
 		"[remote \"origin\"]\n\turl = /srv/origin.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n"
 
-	// First repair: the tampered config is replaced and the original is kept once.
+	// First repair: the tampered config is replaced, and no copy of the original is kept.
 	require.NoError(t, os.WriteFile(path, []byte(original), 0o644))
 	require.NoError(t, repairConfig(dir, ""))
 	got, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, canonical, string(got))
-	backup, err := os.ReadFile(filepath.Join(dir, "config.pre-onett"))
-	require.NoError(t, err)
-	assert.Equal(t, original, string(backup))
+	assert.NoFileExists(t, filepath.Join(dir, "config.pre-onett"))
 	list := runGit(t, dir, "config", "--file", path, "--list")
 	assert.NotContains(t, list, "EVIL")
 
-	// Second repair: tampered again; the config is canonical and the first backup is untouched.
+	// Second repair: tampered again; the config is replaced again and still no backup exists.
 	const tampered = "[core]\n\tsymlinks = false\n\tpager = EVIL\n"
 	require.NoError(t, os.WriteFile(path, []byte(tampered), 0o644))
 	require.NoError(t, repairConfig(dir, ""))
 	got, err = os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, "[core]\n\tbare = false\n\tsymlinks = false\n", string(got))
-	backup, err = os.ReadFile(filepath.Join(dir, "config.pre-onett"))
-	require.NoError(t, err)
-	assert.Equal(t, original, string(backup))
+	assert.NoFileExists(t, filepath.Join(dir, "config.pre-onett"))
 
 	// Already canonical: nothing is written, so the mtime and the directory do not change.
 	require.NoError(t, os.WriteFile(path, []byte(canonical), 0o644))

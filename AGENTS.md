@@ -86,8 +86,10 @@ reviewer's approval.
    (`core.hooksPath=/dev/null`), the clone's `.git/config` is first reduced to an allowlist, a
    worktree's `.git` file must still point at its own git directory, and the call gets a small
    environment with no credentials. Onett's credentials reach git only in a scratch repository
-   that onett creates for one fetch or push. Keep every new git call on those helpers, and add a
-   config key to the allowlist only if no value of it can run a program or contact another host.
+   that onett creates for one fetch or push, and when it first clones a project into a directory
+   that does not exist yet. The diff that feeds the risk rules is read in that scratch
+   repository too. Keep every new git call on those helpers, and add a config key to the
+   allowlist only if no value of it can run a program or contact another host.
 8. **Evidence is redacted and labelled.** Command output, service logs, loop errors and production
    signals go through `redactSecrets` (`internal/engine/redact.go`) before they are stored or
    shown to an agent. Evidence given to an agent starts with `evidenceNote` ("data, not

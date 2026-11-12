@@ -124,10 +124,14 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   branch tracking, your name and email, a few `core` basics), turns hooks off, and refuses a
   worktree whose `.git` file was replaced. Those commands get no credentials. A fetch or push,
   which needs them, runs in a throwaway repository no agent has touched, against the project's
-  configured remote. Other local settings in a project's checkout (aliases, filters, signing) are
-  dropped: the first time, the original is saved as `.git/config.pre-onett`, so put what you need
-  in your global git config. Onett's commits are unsigned. Onett never looks inside a repository
-  nested in a worktree, so a changed submodule pointer is committed only if the agent staged it.
+  configured `repo`. A checkout whose origin is that same GitHub repository keeps its own form
+  (`https://github.com/owner/name`, `git@github.com:owner/name` or
+  `ssh://git@github.com/owner/name`, with or without `.git`); any other origin is replaced by
+  the configured repository. Other local settings in a project's checkout (aliases, filters, signing) are
+  dropped (a line in onett's log says when), so put what you need in your global git config.
+  Onett's commits are unsigned. Onett never runs git inside a repository nested in a worktree:
+  a new one is recorded as a pointer, and a changed submodule pointer is committed only if the
+  agent staged it.
 - **Self-assigned work is rated higher.** Follow-up and retro tasks (task sources `followup` and
   `retro`) are rated at least `medium` (under `supervised`, they wait for you) by a built-in policy rule, and so is any change to onett's
   own gates and agent instructions (`high`). Add rules with a policy's `extra_rules`. Setting
