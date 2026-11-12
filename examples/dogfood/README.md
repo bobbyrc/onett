@@ -122,9 +122,21 @@ loops:
 ```
 
 The loop does nothing while the factory is paused, while a release (of any project) is being
-deployed or verified, for a `dev` build, when the daemon already runs that commit, or while an earlier
+deployed or verified, for a `dev` build or one built with uncommitted changes (a version ending in
+`-dirty`), when the daemon already runs that commit or a newer one, or while an earlier
 updater is alive (its PID is in `data/self-update.lock`). A commit whose update fails three times is
 skipped until the daemon restarts, and one that was rolled back is not tried again.
+
+Self-update only moves forward. A release is a target only when its commit is a strict descendant
+of the commit the daemon was built from, which git answers in the `self_project` clone. So after
+you update by hand (`update.sh` from your own shell) to a commit that is newer than every staging
+release, the loop leaves the daemon there. It updates again when a later release that contains
+your commit has been healthy for `min_healthy`. A release starts only when a factory task merges,
+so a change you merge by hand reaches the daemon with the next factory release or your next manual
+update. When the loop cannot tell which is newer (a `dev` or `-dirty` build, or a build whose
+commit is not in the clone), it does not update and writes one `not updating: <reason>` line to
+`$DOGFOOD/data/self-update.log` and to the daemon log. The line is written when the reason changes,
+not on every pass, and the reason is not shown in the UI yet.
 
 ### Keep macOS privacy grants across updates
 

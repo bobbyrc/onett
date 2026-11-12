@@ -456,7 +456,17 @@ The self_update loop (`loops.self_update`, on by default for `self_project` once
 running daemon current. The target is the newest release of the self project that is `healthy` and has been for
 `min_healthy`, even when newer releases exist (merges landing every few minutes would otherwise
 keep the newest one too young). The scan runs through the last 50 releases and stops at the commit
-the daemon was built from, since anything older is not an update. When there is a target, code starts the configured
+the daemon was built from, since anything older is not an update.
+It also stops at the first candidate whose commit is not a strict descendant of the daemon's own
+commit. Git answers that in the self project's clone, asked both ways, so the same commit under
+another name does not count. A daemon that was updated by hand can run a commit newer than every
+release; the loop leaves it there until a release that contains that commit is healthy. When the
+loop cannot tell (a `dev` build, a build with uncommitted changes, whose version ends in `-dirty`,
+or a commit the clone does not have even after one fetch for that release), it does not update. It
+keeps the reason in its own loop state row and writes one line to the daemon log and to
+`self-update.log` when the reason changes, not on every pass. That is not a loop error, so nobody
+is alerted, and the reason is not shown in the UI yet.
+When there is a target, code starts the configured
 `command` with `ONETT_UPDATE_REF=<sha>`, detached in its own session (a launchd stop kills the
 daemon's process group, and the updater must survive it). Agents never trigger it: the decision is
 deterministic code over deployment state. It does not wait for a quiet factory and does not
@@ -472,7 +482,7 @@ line with the ref and the reason. The updater swaps the binary,
 restarts the daemon and rolls back on a failed health check; it leaves a result file that the next
 daemon reports once. (The retired `max_defer` key is still accepted, ignored, with a warning in the
 log.) A PID lock file keeps one updater at a time, and a commit that fails three
-times (counted in memory) is skipped in favour of an older eligible release.
+times (counted in memory) is skipped in favour of an older eligible release, which must still be newer than the running build.
 The daemon writes its own timestamped lines (`<RFC 3339 UTC time> onett: ...`) into `self-update.log`
 around each attempt: the start with the target commit, a failure when the updater cannot start or
 exits non-zero, and the outcome (ok or rolled back) that the next daemon reports at startup. The

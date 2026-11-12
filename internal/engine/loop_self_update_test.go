@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/store"
+	"github.com/bobbyrc/onett/internal/workspace"
 )
 
 const suRef = "0123456789abcdef0123456789abcdef01234567"
@@ -27,6 +29,12 @@ type suEnv struct {
 	waitC chan error
 }
 
+// suLexicalAncestry stands in for git in tests whose commit IDs are made up: an ID is an ancestor
+// of every ID that sorts after it, so 0123456 < aaaa... < bbbb... < cccc....
+func suLexicalAncestry(_ context.Context, _ workspace.Repo, ancestor, descendant string) (bool, error) {
+	return ancestor <= descendant, nil
+}
+
 func suNew(t *testing.T) *suEnv {
 	t.Helper()
 	dir := t.TempDir()
@@ -34,6 +42,7 @@ func suNew(t *testing.T) *suEnv {
 	doc = strings.Replace(doc, "data_dir: "+doc[strings.Index(doc, "data_dir: ")+len("data_dir: "):strings.Index(doc, "\nprojects:")], "data_dir: "+dir, 1)
 	s := &suEnv{lpEnv: lpNewEngine(t, doc), dir: dir, waitC: make(chan error, 1)}
 	s.e.d.Version = "v0.1-3-g" + suRef[:7]
+	s.e.selfUpd.isAncestor = suLexicalAncestry
 	s.e.d.StartUpdater = func(cmd *exec.Cmd) (int, func() error, error) {
 		s.mu.Lock()
 		s.cmds = append(s.cmds, cmd)
