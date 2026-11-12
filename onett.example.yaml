@@ -106,8 +106,11 @@ agents:
   security:
     harness: claude
     model: sonnet
+    title: Security Engineer           # the role's job title (default none for a custom role)
     prompt: prompts/security.md        # must not be empty; appended to every run of this role
     args: ["--max-turns", "40"]        # extra harness arguments for this role only
+    context: ["docs/security.md"]      # repo-relative files the agent reads before it starts; a file the worktree lacks is skipped (default none)
+    tools: ["Bash(go test:*)"]         # tool permission rules this role's runs are pre-approved for, in the harness's own words; only claude-code uses them (default none)
     description: Audits changes that touch auth, secrets or network boundaries.
 
   # Inline instructions: give a custom role prompt_text instead of a prompt file. Set one of the
@@ -155,6 +158,11 @@ policies:
     # "rules" REPLACES the built-in rules (migrations, CI/deploy, auth, dependency manifests,
     # onett's own gates) with the list you give. Setting it drops all of those protections
     # unless you copy them. "extra_rules" is usually what you want: it adds to the built-in rules.
+    # It is commented out here so the built-in rules stay (default: unset; an empty list means no rules).
+    # rules:
+    #   - risk: high
+    #     reason: database schema or migration
+    #     paths: ["**/migrations/**", "**/*.sql"]
     extra_rules:
       # An extra rule: changes to public API definitions need a human.
       - risk: high
@@ -170,6 +178,11 @@ policies:
       #   - risk: medium
       #     reason: production signal fix
       #     sources: ["signal"]
+      # A rule can match on the task's kind (feature, bugfix, issue, incident, review, chore,
+      # improve, question) in the same way:
+      #   - risk: high
+      #     reason: incident fix
+      #     kinds: ["incident"]
     gates:                             # per risk level; a missing level takes the default
       low:
         auto_merge: true               # merge without a human once checks pass (default true)
@@ -226,7 +239,7 @@ projects:
     routing:                           # task kind -> role, for this project only
       bugfix: implementer              # bugfix tasks here go to the implementer above
     deploy:
-      type: command                    # runs the commands under options below
+      type: command                    # runs the commands under options below; the other type, noop, releases nothing (for a platform that deploys on push)
       options:
         # Shell commands for the "command" deploy type. A deploy may start a long-running service in
         # the background: it keeps running after a successful deploy, and onett kills it if the
@@ -234,6 +247,8 @@ projects:
         deploy: "vercel deploy --prod --yes"
         # $ONETT_ROLLBACK_ID is set by onett to the release to roll back to.
         rollback: "vercel rollback $ONETT_ROLLBACK_ID --yes"
+        # status: ./deploy-status.sh   # reports a release's state, given $ONETT_DEPLOY_ID: its last output line is a state word (pending, building, ready, error, canceled) or JSON {"state","url","message"}. Default none: a deploy counts as finished when the deploy command exits
+        # timeout: 30m                 # limit for each of the deploy, status and rollback commands (default 30m)
       health_url: https://myapp.example.com/healthz   # must answer 2xx during verify_for; empty skips it
       logs: tail -n 200 /path/to/app.log   # prints recent service logs; attached to failed releases and incidents
       verify_for: 10m                  # watch a release this long before calling it healthy (default 10m)
@@ -246,6 +261,15 @@ projects:
         options:                       # observer-specific; keys with token/secret/key are redacted in the UI
           org: acme
           project: myapp
+          # base_url: https://sentry.io     # Sentry server URL (default shown)
+          # token_env: SENTRY_AUTH_TOKEN    # name of the environment variable that holds the Sentry API token (default shown)
+          # query: "is:unresolved"          # the Sentry issue search to run (default shown)
+      # An exec observer runs your own command instead; see docs/plugins.md.
+      # - name: logs-prod
+      #   type: exec
+      #   options:
+      #     command: ./scripts/prod-signals.sh   # prints the signals it sees as a JSON array or JSON Lines; gets ONETT_SINCE (RFC 3339); required
+      #     timeout: 60s                         # for one run of the command (default 60s)
     loops:
       # Per-project overrides. Each field you set replaces the global loop setting for this
       # project only; fields you leave out keep the global value.
@@ -322,6 +346,8 @@ notify:
   - type: ntfy                         # push notifications via ntfy.sh
     options:
       topic: onett-bcraig-example    # pick a hard-to-guess topic; anyone who knows it can read it
+      # server: https://ntfy.sh        # ntfy server URL (default shown)
+      # token_env: NTFY_TOKEN          # name of the environment variable that holds an ntfy access token, for a private topic; without it onett posts anonymously (default none)
     min_priority: normal               # low, normal or high; empty means normal (low-priority messages are not sent)
 
   # A Discord notifier posts to a channel through a webhook. The webhook URL holds a secret token,
@@ -346,6 +372,8 @@ notify:
   #   options:
   #     bot_token_env: TELEGRAM_BOT_TOKEN
   #     chat_id: "123456789"           # numeric ID or @channelname
+  #     # api_url: https://api.telegram.org   # Telegram Bot API base URL (default shown)
+  #     # skip_approvals: true         # drop approval requests from this notifier (default false). Onett turns it on by itself while a telegram channel is running, so approvals are not sent twice
   #   min_priority: normal
 
 # self_project: the project that is onett itself. Friction reports are filed there.
