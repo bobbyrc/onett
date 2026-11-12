@@ -125,6 +125,7 @@ func (e *Engine) blockedProblems(ctx context.Context, project string, env []stri
 		if text == "" {
 			text = t.BlockedReason
 		}
+		text = strings.Join(strings.Fields(text), " ")
 		groups[text] = append(groups[text], t)
 	}
 	blockedAt := func(t domain.Task) time.Time {

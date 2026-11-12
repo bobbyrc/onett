@@ -20,6 +20,8 @@ export interface VerdictInput {
   activeRuns: number;
   paused: boolean;
   now: number;
+  /** True when the problems or the approvals could not be loaded. */
+  failed: boolean;
 }
 
 function words(value: string): string {
@@ -30,14 +32,19 @@ function capFirst(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+// A title longer than 100 characters is cut to 99 and an ellipsis, so it cannot bury the sentence.
+function short(text: string): string {
+  return text.length > 100 ? `${text.slice(0, 99)}…` : text;
+}
+
 // A sentence ends in a full stop unless its own text already ends one; empty text stays empty.
 function sentence(text: string): string {
   if (text === '') return '';
-  return /[.!?]$/.test(text) ? text : `${text}.`;
+  return /[.!?…]$/.test(text) ? text : `${text}.`;
 }
 
 export function verdictFor(input: VerdictInput): Verdict {
-  const { projects, owner, needs, activeRuns, paused, now } = input;
+  const { projects, owner, needs, activeRuns, paused, now, failed } = input;
   if (projects === undefined) return { lamp: 'off', head: 'Loading…', lead: '', rest: '' };
   if (projects === 0) {
     return {
@@ -48,6 +55,9 @@ export function verdictFor(input: VerdictInput): Verdict {
         ? 'onett has no project to work on. Start with step 1 below. Each project you add gets a row here: what needs you on the left, what is running on the right.'
         : 'onett has no project to work on. An owner can add one on the Projects page.',
     };
+  }
+  if (failed) {
+    return { lamp: 'off', head: 'Cannot tell what needs you', lead: '', rest: 'The list did not load. The error is shown below.' };
   }
 
   const count = needs.length;
@@ -74,17 +84,17 @@ export function verdictFor(input: VerdictInput): Verdict {
   if (top.kind === 'approval') {
     const approval = top.approval;
     lead = `${capFirst(words(approval.kind))} approval on ${project}, asked ${age} ago:`;
-    start = sentence(approval.title);
+    start = sentence(short(approval.title));
   } else {
     const problem = top.problem;
     if (problem.kind === 'blocked_tasks') {
       if (problem.count >= 2) {
         head = `Work is stopped on ${project}`;
         lead = `${problem.count} tasks on ${project} are blocked:`;
-        start = sentence(problem.title);
+        start = sentence(short(problem.title));
       } else {
         lead = `A task on ${project} has been blocked for ${age}:`;
-        start = sentence(problem.tasks?.[0]?.title ?? problem.title);
+        start = sentence(short(problem.tasks?.[0]?.title ?? problem.title));
       }
     } else if (problem.kind === 'failing_loops') {
       const loops = problem.loops?.length ?? problem.count;
@@ -95,7 +105,7 @@ export function verdictFor(input: VerdictInput): Verdict {
       start = '';
     } else {
       lead = `A goal on ${project} is blocked:`;
-      start = sentence(problem.title);
+      start = sentence(short(problem.title));
     }
   }
 

@@ -54,7 +54,8 @@ Where each piece comes from:
 - **`blocked_tasks`**: every task of the project with status `blocked`, grouped by
   `blocked_cause`, or by the whole `blocked_reason` when the cause is empty. So seven tasks that
   share a cause are one entry, and a task blocked for its own reason is an entry with
-  `count` 1. Tasks of a goal are included: they are blocked whoever handles them.
+  `count` 1. Tasks of a goal are included: they are blocked whoever handles them. At most 1,000
+  blocked tasks per project are read.
 - **`failing_loops`**: one entry per project that has a loop whose `LoopState.LastError` is not
   empty. `fails` and `since` come from the row `loop_alert:<loop>` that the loop-alerts change
   keeps (`internal/engine/loop_alert.go`, `loopStreak`); a loop with an error and no streak row

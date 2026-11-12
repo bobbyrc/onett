@@ -247,6 +247,7 @@ case the approval is recorded as rejected and the task goes back to review so on
 // "name", "fails" and "since") or blocked_goal (with "goal_id"). "title" and "detail" are one line,
 // redacted and cut (title at 200 characters, detail at 300, keeping its end). "told_at" is when the
 // owner was last notified about it, and is absent when they were not.
+// A project's blocked tasks are read 1,000 at most.
 {"kind":"blocked_tasks","project":"onett","key":"blocked_tasks:onett:9f2c1a7e",
  "title":"workspace setup failed","detail":"fatal: unable to access …",
  "count":7,"since":"…","last_at":"…","told_at":"…",

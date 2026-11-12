@@ -37,6 +37,7 @@ const input = (over: Partial<VerdictInput> & { needs?: Need[] } = {}): VerdictIn
   activeRuns: 0,
   paused: false,
   now: NOW,
+  failed: false,
   ...over,
 });
 

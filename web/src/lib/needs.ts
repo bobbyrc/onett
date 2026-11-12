@@ -71,7 +71,7 @@ export function needsByProject(needs: Need[]): Map<string, Need[]> {
 
 /** A coarse age with no "ago": "<n>m", "<n>h" or "<n>d", floored. */
 export function ageWords(ms: number): string {
-  if (ms < MINUTE) return 'under a minute';
+  if (!Number.isFinite(ms) || ms < MINUTE) return 'under a minute';
   if (ms < HOUR) return `${Math.floor(ms / MINUTE)}m`;
   if (ms < 48 * HOUR) return `${Math.floor(ms / HOUR)}h`;
   return `${Math.floor(ms / DAY)}d`;

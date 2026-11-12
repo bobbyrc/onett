@@ -50,6 +50,7 @@ export function Overview() {
     activeRuns: stats.data?.active_runs ?? runs.data?.length ?? 0,
     paused: control.data?.paused ?? false,
     now,
+    failed: (problems.isError && !problems.data) || (approvals.isError && !approvals.data),
   });
 
   return (

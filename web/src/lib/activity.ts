@@ -40,7 +40,8 @@ interface Fold {
   key: string;
   // Members with the same subject are one thing said again; otherwise the sentence counts them.
   subject: string;
-  sentence: (count: number, newest: OnettEvent) => string;
+  /** `subjects` is how many different subjects the group has. */
+  sentence: (count: number, newest: OnettEvent, subjects: number) => string;
 }
 
 interface Entry {
@@ -143,7 +144,7 @@ function taskDraft(ev: OnettEvent, data: Data): Draft | null {
   if (ev.type === 'task.created') {
     return {
       parts: [plain('Queued: '), link(title, `/tasks/${id}`)],
-      fold: { key: `created|${ev.project ?? ''}`, subject: id, sentence: (n) => `${n} tasks queued` },
+      fold: { key: `created|${ev.project ?? ''}`, subject: id, sentence: (_n, _newest, subjects) => `${subjects} tasks queued` },
     };
   }
   const msg = ev.message.startsWith(`${title}: `) ? ev.message.slice(title.length + 2) : ev.message;
@@ -156,13 +157,17 @@ function taskDraft(ev: OnettEvent, data: Data): Draft | null {
       fold: {
         key: `blocked|${ev.project ?? ''}|${cause}`,
         subject: id,
-        sentence: (n) => (cause ? `${n} tasks blocked: ${clip(cause, 80)}` : `${n} tasks blocked`),
+        sentence: (_n, _newest, subjects) => (cause ? `${subjects} tasks blocked: ${clip(cause, 80)}` : `${subjects} tasks blocked`),
       },
     };
   }
   return {
     parts: [link(title, `/tasks/${id}`), plain(`: ${clip(msg, 120)}`)],
-    fold: { key: `task|${ev.project ?? ''}|${msg}`, subject: id, sentence: (n) => `${n} tasks: ${clip(msg, 100)}` },
+    fold: {
+      key: `task|${ev.project ?? ''}|${msg}`,
+      subject: id,
+      sentence: (_n, _newest, subjects) => `${subjects} tasks: ${clip(msg, 100)}`,
+    },
   };
 }
 
@@ -201,7 +206,7 @@ function notificationDraft(ev: OnettEvent): Draft | null {
   if (ev.message.startsWith('Blocked: ')) return null;
   const needs = NEEDS_YOU.exec(ev.message);
   const fold: Fold = {
-    key: 'notification',
+    key: `notification|${needs ? needs[3] : (ev.project ?? '')}`,
     subject: ev.message,
     sentence: (n, newest) => `Told you ${n} times, latest: ${clip(newest.message, 100)}`,
   };
@@ -339,6 +344,7 @@ export function feedRows(events: OnettEvent[], problems: Problem[], now: number)
       const count = newest.draft.note ?? `${slot.length} times`;
       return { ...base, parts: newest.draft.parts, note: range ? `${count} · ${range}` : count };
     }
-    return { ...base, parts: [plain(fold.sentence(slot.length, newest.ev))], note: range };
+    const subjects = new Set(slot.map((entry) => entry.draft.fold?.subject)).size;
+    return { ...base, parts: [plain(fold.sentence(slot.length, newest.ev, subjects))], note: range };
   });
 }
