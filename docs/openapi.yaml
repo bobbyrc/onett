@@ -3252,6 +3252,9 @@ components:
           type: string
           enum: [open, closed]
           description: State of the filed issue as last seen; absent until known.
+        issue:
+          type: integer
+          description: The open friction issue the reporting agent named as the same problem; absent when it named none.
         created_at:
           type: string
           format: date-time
