@@ -158,6 +158,9 @@ queued ─► running ─► review ─► merged ─► deploying ─► done
   merge is pinned to the PR head commit that CI, review and the policy judged
   (`gh pr merge --match-head-commit`), and an approval is for one head: if the PR changes after
   you were asked, onett withdraws the approval request and re-checks.
+  If the PR merges but the write that records it fails, the task is not blocked as a failed merge:
+  it stays in `review` or `awaiting_approval`, and the shepherd's next pass sees the PR merged and
+  moves the task to `merged`. Onett never calls merge a second time for it.
 - Every automatic status change is guarded by the status it expects, atomically. A run or loop
   that finishes after you cancelled or blocked a task cannot revive it.
 - An agent-reported failure, failing CI, a merge conflict or "request changes" from the
@@ -289,7 +292,10 @@ through the shim's `signal`. The run then finishes through the same code as any 
 (`settleTask`); setup owed after the agent (`setup_owed` on the run) and the owner messages the run
 claimed (found by their run id) are restored first. If the shim is gone (reboot, shim crash), the
 run ends `interrupted`, not `failed`, and its task is re-queued with the attempt given back, so
-the interruption never uses one up, even on a task at its last attempt. The next run resumes the
+the interruption never uses one up, even on a task at its last attempt. `recover` reads this from
+the stored run, not from memory: a running task whose latest run is `interrupted` is re-queued
+this way, so a start that failed between ending the run and re-queuing its task is finished by
+the next start. The next run resumes the
 interrupted run's harness session with a note to check the worktree and carry on
 (`interruptedNote`); a run that had no session yet starts fresh with the same note. Reviews
 are treated the same. Before that, `recover` replays the agent's output past the stored offset

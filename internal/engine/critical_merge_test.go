@@ -2,7 +2,6 @@ package engine
 
 import (
 	"errors"
-	"os"
 	"sync/atomic"
 	"testing"
 
@@ -201,11 +200,7 @@ func TestDecideApprovalReadBackFailureIsFinishedByNextPass(t *testing.T) {
 }
 
 // The shepherd's auto-merge still ends merged when the write recording the merge fails once.
-// Expected to fail against the current code: the task is blocked although its PR merged.
 func TestLoopShepherdStatusWriteFailureAfterMergeStillEndsMerged(t *testing.T) {
-	if os.Getenv("ONETT_RUN_EXPOSING") == "" {
-		t.Skip(`exposes: a store write that fails right after a successful auto-merge makes the shepherd block the task as "merge failed" although its PR merged; nothing ever marks it merged`)
-	}
 	env, task := lpShepherdEnv(t, lpNotesFile)
 	lpSetTask(t, env, task.ID, func(x *domain.Task) { x.ApprovedSHA = env.head })
 	cs, _ := cpmFailWriteAfterMerge(env)
@@ -222,11 +217,8 @@ func TestLoopShepherdStatusWriteFailureAfterMergeStillEndsMerged(t *testing.T) {
 }
 
 // An owner's approval whose merge succeeds still ends merged when the write recording the merge
-// fails once. Expected to fail against the current code: the task is blocked although its PR merged.
+// fails once.
 func TestDecideApprovalStatusWriteFailureAfterMergeStillEndsMerged(t *testing.T) {
-	if os.Getenv("ONETT_RUN_EXPOSING") == "" {
-		t.Skip(`exposes: a store write that fails right after an approved merge blocks the task as "merge failed after approval" although its PR merged; nothing ever marks it merged`)
-	}
 	env, task := lpShepherdEnv(t, lpNotesFile)
 	a := cpmApproval(t, env, task, env.head)
 	cs, w := cpmFailWriteAfterMerge(env)
