@@ -201,6 +201,31 @@ Not blocking, for later: the "Trigger: <name>" conversation in Chat should link 
 trigger; and an issue that was ignored (wrong author, intake label) leaves no row, so the page
 cannot say why a particular issue did not fire. The backend proposal lists that as open.
 
+## The build: how the chosen parts join
+
+The owner chose state by state: direction B's list, empty state and read-only view; direction
+A's dialog for a new and an edited trigger; direction A's page for one trigger and its firings.
+The joins are these, and nothing else changes.
+
+- **Triggers** sits after Loops in the rail. The rail's rows keep their size; when the rail is
+  taller than the window, the rail scrolls.
+- **New trigger** in the list's header, **Edit** on a card and **Use this** on an empty page's
+  example all open A's dialog. Nothing is edited in place: B's in-place form is not built.
+- A card's name and its **All firings** link both go to A's page for that trigger. B's own
+  "firings of one trigger" view, the narrowed log and the outlined card, is not built.
+- A's page keeps its own **Run now**, **Edit**, **Turn off** and **Delete**. Delete is only
+  there, since A's dialog has no Delete and B's cards never had one outside the in-place form.
+- The log beside the cards lists every trigger's firings from one new route,
+  `GET /api/v1/trigger-firings`, and takes each trigger's name from the list of triggers.
+- A new trigger's dialog has "On" ticked, and always sends it: the API's own default is off.
+- Only an owner sees New trigger, Edit, Turn on, Turn off, Run now and Delete. Everyone else
+  gets B's read-only list and A's page without its buttons.
+- In Chat, a trigger's conversation shows its model and permissions without the pickers, and
+  one line says why: every turn there runs with the orchestrator's defaults.
+
+The pictures above are still the reference for each state. Where the built page differs from
+them, `docs/ui.md` describes what was built.
+
 ## Not done in this phase
 
 - Dark scheme screenshots. The mockups use only the app's tokens, so they follow the system

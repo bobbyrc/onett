@@ -362,6 +362,16 @@ export function keysFor(ev: OnettEvent): QueryKey[] {
     if (taskId) add(keys.task(taskId));
   } else if (ev.type === 'loop.error') {
     add(keys.loopsAll);
+  } else if (ev.type === 'trigger.updated' || ev.type === 'trigger.deleted') {
+    add(keys.triggersAll);
+    const data = ev.data as { id?: unknown } | undefined;
+    if (typeof data?.id === 'string') add(keys.trigger(data.id));
+    // A deleted trigger takes its firings with it.
+    if (ev.type === 'trigger.deleted') add(keys.triggerFiringsAll);
+  } else if (ev.type === 'trigger.fired') {
+    add(keys.triggersAll, keys.triggerFiringsAll);
+    const data = ev.data as { trigger_id?: unknown } | undefined;
+    if (typeof data?.trigger_id === 'string') add(keys.trigger(data.trigger_id));
   } else if (ev.type === 'system') {
     add(keys.control, keys.stats, keys.projectsAll);
   }
