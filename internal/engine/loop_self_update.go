@@ -18,6 +18,7 @@ import (
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/notify"
+	"github.com/bobbyrc/onett/internal/workspace"
 )
 
 // selfUpdateMaxFailures is how many times an update to one commit may fail before the loop stops
@@ -104,6 +105,12 @@ func (e *Engine) selfUpdateLog(path, text string) {
 type selfUpdateState struct {
 	mu    sync.Mutex
 	fails map[string]int // failed attempts by full commit SHA
+	// fetched is the last release the clone was fetched for, so that one release costs one
+	// successful fetch.
+	fetched string
+	// isAncestor replaces Workspaces.IsAncestor in tests whose releases are not real commits.
+	// Nil, as in production, means git.
+	isAncestor func(ctx context.Context, r workspace.Repo, ancestor, descendant string) (bool, error)
 }
 
 func (s *selfUpdateState) failures(ref string) int {
@@ -121,8 +128,22 @@ func (s *selfUpdateState) fail(ref string, n int) {
 	s.fails[ref] += n
 }
 
+// fetchedFor reports whether the clone has already been fetched for release ref.
+func (s *selfUpdateState) fetchedFor(ref string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.fetched == ref
+}
+
+// markFetched remembers that the clone was fetched for release ref.
+func (s *selfUpdateState) markFetched(ref string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.fetched = ref
+}
+
 // selfUpdateLoop updates the running daemon to the self project's latest release once that
-// release has been healthy on staging for min_healthy and the daemon is not already that commit.
+// release has been healthy on staging for min_healthy and is ahead of the commit the daemon runs.
 // Code decides when; the configured command does the work (for the dogfood setup,
 // examples/dogfood/update.sh). The command is started detached and not waited for: it restarts
 // this daemon, so it has to outlive it.
@@ -132,10 +153,11 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 	if su.Command == "" {
 		return errors.New("self_update: no command configured")
 	}
-	dep, ok, err := e.selfUpdateEligible(ctx, p)
+	dep, ok, hold, err := e.selfUpdateEligible(ctx, p)
 	if err != nil {
 		return err
 	}
+	e.selfUpdateHold(ctx, p.Name, hold)
 	if !ok {
 		return nil
 	}
@@ -203,19 +225,49 @@ func (e *Engine) selfUpdateLoop(ctx context.Context, p *config.Project) error {
 	return nil
 }
 
+// selfUpdateHold keeps why the loop cannot tell whether a release is newer than the running build
+// ("" when it can) in the loop's own state row, and says a new reason once, in the daemon's log
+// and in self-update.log, not on every pass. It is not the loop's error: nothing is failing that
+// a retry would fix, so the owner is not alerted.
+func (e *Engine) selfUpdateHold(ctx context.Context, project, why string) {
+	// The reason can quote a git error, so it is redacted before it is stored or logged.
+	why = redactSecrets(why, os.Environ())
+	st, err := e.d.Store.GetLoopState(ctx, loopSelfUpdate, project)
+	if err != nil {
+		e.d.Logger.Error("self_update: read loop state", "err", err)
+		return
+	}
+	if st.Cursor == why {
+		return
+	}
+	st.Cursor = why
+	if err := e.d.Store.SaveLoopState(ctx, st); err != nil {
+		e.d.Logger.Error("self_update: save loop state", "err", err)
+		return
+	}
+	if why != "" {
+		e.d.Logger.Warn("self_update: not updating", "reason", why)
+		e.selfUpdateLog(filepath.Join(e.Config().Server.DataDir, selfUpdateLogFile), "not updating: "+why)
+	}
+}
+
 // selfUpdateScan is how many recent deployments selfUpdateTarget looks through.
 const selfUpdateScan = 50
 
 // selfUpdateTarget picks the release to update to: the newest one that is healthy, has been for
-// min_healthy, and has not failed too often. Newer releases do not hide it, because with merges
-// landing every few minutes the newest one is rarely old enough. The scan stops at the release the
-// daemon already runs, since anything older is not an update.
-func (e *Engine) selfUpdateTarget(ctx context.Context, p *config.Project, minHealthy time.Duration, version string) (domain.Deployment, bool, error) {
+// min_healthy, has not failed too often, and is ahead of the commit the daemon was built from.
+// Newer releases do not hide it, because with merges landing every few minutes the newest one is
+// rarely old enough. The scan stops at the release the daemon already runs, and at the first
+// candidate that is not ahead of the running build: a daemon updated by hand can run a commit
+// newer than every release, and moving it to an older release is not an update. hold says why,
+// when git cannot compare the running build with a candidate; then nothing is chosen.
+func (e *Engine) selfUpdateTarget(ctx context.Context, p *config.Project, minHealthy time.Duration, version string) (dep domain.Deployment, ok bool, hold string, err error) {
 	deps, err := e.d.Store.ListDeployments(ctx, p.Name, selfUpdateScan) // newest first
 	if err != nil {
-		return domain.Deployment{}, false, fmt.Errorf("self_update: list deployments: %w", err)
+		return domain.Deployment{}, false, "", fmt.Errorf("self_update: list deployments: %w", err)
 	}
 	now := e.d.Now()
+	rev := versionRev(version)
 	for _, d := range deps {
 		if versionHasRef(version, d.Ref) {
 			break
@@ -226,19 +278,60 @@ func (e *Engine) selfUpdateTarget(ctx context.Context, p *config.Project, minHea
 		if e.selfUpd.failures(d.Ref) >= selfUpdateMaxFailures {
 			continue
 		}
-		return d, true, nil
+		ahead, err := e.selfUpdateAhead(ctx, p, rev, d.Ref)
+		if err != nil && !e.selfUpd.fetchedFor(d.Ref) {
+			// Nothing fetches the clone when a release merges, so its commit may not be there yet.
+			// A fetch that fails is tried again on the next pass. One that worked is not repeated
+			// for this release: a commit that is still unknown after it stays unknown.
+			if ferr := e.d.Workspaces.Fetch(ctx, e.repoFor(p)); ferr == nil {
+				e.selfUpd.markFetched(d.Ref)
+				ahead, err = e.selfUpdateAhead(ctx, p, rev, d.Ref)
+			}
+		}
+		if err != nil {
+			return domain.Deployment{}, false, fmt.Sprintf("cannot tell whether release %s is newer than the running build (version %q): %v", shortSHA(d.Ref), version, err), nil
+		}
+		if !ahead {
+			break
+		}
+		return d, true, "", nil
 	}
-	return domain.Deployment{}, false, nil
+	return domain.Deployment{}, false, "", nil
+}
+
+// selfUpdateAhead reports whether release commit ref is a strict descendant of rev, the commit
+// the daemon was built from, in the self project's clone. A commit the clone does not have is an
+// error, like any other git failure: the caller must not guess.
+func (e *Engine) selfUpdateAhead(ctx context.Context, p *config.Project, rev, ref string) (bool, error) {
+	isAncestor := e.selfUpd.isAncestor
+	if isAncestor == nil {
+		isAncestor = e.d.Workspaces.IsAncestor
+	}
+	repo := e.repoFor(p)
+	// Asked both ways, because IsAncestor is also true for the same commit, and a version that
+	// names that commit another way (a tag) would otherwise be "updated" to itself on every pass.
+	behind, err := isAncestor(ctx, repo, ref, rev)
+	if err != nil || behind {
+		return false, err
+	}
+	return isAncestor(ctx, repo, rev, ref)
 }
 
 // selfUpdateEligible returns the release the daemon should update to now, if any. Both the
-// self_update loop and the deploy loop's hold-back use it, so they cannot disagree. A dev build
-// never replaces itself, and a paused project does not update.
-func (e *Engine) selfUpdateEligible(ctx context.Context, p *config.Project) (domain.Deployment, bool, error) {
+// self_update loop and the deploy loop's hold-back use it, so they cannot disagree. hold says why
+// when the loop cannot tell whether any release is newer than the running build: a dev build or
+// one with uncommitted changes names no commit to compare, and selfUpdateTarget reports a commit
+// git cannot place. A paused project does not update.
+func (e *Engine) selfUpdateEligible(ctx context.Context, p *config.Project) (dep domain.Deployment, ok bool, hold string, err error) {
 	su := e.Config().LoopsFor(p.Name).SelfUpdate
 	version := e.d.Version
-	if version == "" || strings.HasPrefix(version, "dev") || e.projectPaused(p.Name) {
-		return domain.Deployment{}, false, nil
+	switch {
+	case version == "" || strings.HasPrefix(version, "dev"):
+		return domain.Deployment{}, false, fmt.Sprintf("the running build (version %q) is a dev build, which never replaces itself", version), nil
+	case strings.HasSuffix(version, "-dirty"):
+		return domain.Deployment{}, false, fmt.Sprintf("the running build (version %q) has uncommitted changes, so no release is known to be newer", version), nil
+	case e.projectPaused(p.Name):
+		return domain.Deployment{}, false, "", nil
 	}
 	return e.selfUpdateTarget(ctx, p, su.MinHealthy.Duration, version)
 }
@@ -252,7 +345,7 @@ func (e *Engine) selfUpdateWaiting(ctx context.Context) bool {
 	if name == "" || p == nil || !loopOn(cfg, loopSelfUpdate, name) || cfg.LoopsFor(name).SelfUpdate.Command == "" {
 		return false
 	}
-	_, ok, err := e.selfUpdateEligible(ctx, p)
+	_, ok, _, err := e.selfUpdateEligible(ctx, p)
 	return err == nil && ok
 }
 
@@ -331,14 +424,21 @@ func updaterRunning(lock string) bool {
 	return false
 }
 
-// versionHasRef reports whether the build version names the commit ref. Builds are stamped by
+// versionRev returns the revision a build version names, for git. Builds are stamped by
 // `git describe --tags --always --dirty`: "<short sha>", "<tag>-<n>-g<short sha>", either with
-// "-dirty".
-func versionHasRef(version, ref string) bool {
+// "-dirty". For both it is the short commit; a build made exactly on a tag is stamped with the
+// tag alone, and the tag is returned.
+func versionRev(version string) string {
 	v := strings.TrimSuffix(version, "-dirty")
 	if i := strings.LastIndex(v, "-g"); i >= 0 {
 		v = v[i+2:]
 	}
+	return v
+}
+
+// versionHasRef reports whether the build version names the commit ref.
+func versionHasRef(version, ref string) bool {
+	v := versionRev(version)
 	return len(v) >= 7 && strings.HasPrefix(ref, v)
 }
 

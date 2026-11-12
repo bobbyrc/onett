@@ -86,6 +86,7 @@ func TestDeployLoopHoldsNewReleaseForEligibleSelfUpdate(t *testing.T) {
 		"self_project: demo\n")
 	env := lpNewEngine(t, doc)
 	env.e.d.Version = "v0.1-3-g" + suRef[:7]
+	env.e.selfUpd.isAncestor = suLexicalAncestry
 	lpMergedTask(t, env, "Add notes", "sha-1")
 	at := env.now.Add(-20 * time.Minute)
 	if _, err := env.st.CreateDeployment(env.ctx, domain.Deployment{
