@@ -28,8 +28,9 @@ Managed, later (do not build these yet, but do not close them off):
   onett instance per customer, running the same code as self-hosted; true multi-tenancy is a
   later choice. Keep all state behind `store.Store` so another database can be added.
 - **Auth:** people already sign in with accounts and sessions (roles viewer, operator, owner;
-  `docs/proposals/accounts-and-config-editor.md`), and the API token is for the CLI and the
-  orchestrator only. Still to come: GitHub access moves from the user's `gh` login to a GitHub
+  `docs/proposals/accounts-and-config-editor.md`), and the API tokens are for the CLI (the owner
+  token) and the orchestrator (a lesser agent token, `docs/proposals/token-boundary.md`) only.
+  Still to come: GitHub access moves from the user's `gh` login to a GitHub
   App, which also gives agents a bot identity.
 - **Agent isolation is mandatory** when customers' code and agents run on shared hardware:
   containers or VMs per run (option B in `docs/proposals/agent-isolation.md`), never option C.
@@ -395,7 +396,7 @@ command line), so the next turn replaces the process and resumes the session wit
 (`set_model`, `set_permission_mode`) could change a live process in place, but that was not
 verified against the installed CLI, so it is not used **(review)**. The choices per harness are
 listed in one place each (`choices.go` in the adapter). Only a signed-in person may change the
-settings: the API token, which the orchestrator holds, cannot widen its own permissions.
+settings: the agent token, which the orchestrator holds, cannot widen its own permissions.
 
 The owner can keep typing while the orchestrator works. If its harness takes input mid-run, the
 message goes straight to the live agent. Otherwise it is queued (`Queued` on the message) and
@@ -553,7 +554,8 @@ A task agent's conversation stays open until something closes it, and closing on
 close it. The agent, by setting `"finished": true` in a completed or no-changes report, closed by
 `agent` with its summary as the reason (a blocked or failed report, and reviews, are ignored). The orchestrator, with `onett task close-conversation
 ID --reason R` (`POST /tasks/{id}/conversation/close`), closed by `orchestrator`. The owner, by
-cancelling the task (closed by `owner:<username>`, or `orchestrator` when the API token cancels)
+cancelling the task (closed by `owner:<username>`, `owner` for the owner's CLI, or `orchestrator` when the agent
+token cancels)
 or through the same route. A closed conversation refuses new messages; messages already queued
 stay queued and visible but are never delivered, because `continueConversation` does nothing for
 a closed one. Closing twice is a conflict. Retrying a cancelled task leaves the conversation closed, and the

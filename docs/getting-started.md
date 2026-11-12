@@ -184,9 +184,11 @@ running. Stop it with Ctrl-C.
 
 If there is no config file yet, `onett serve` writes the same starter file `onett init` writes
 (no project, only the log notifier; `--addr HOST:PORT` picks its listen address; it never overwrites an existing file) and says where. While no
-owner account exists it prints one line with the web UI address: open it, create the owner
-account, then follow the "Finish setting up onett" card on the Overview (add a project, check the
-agents, choose a policy, set up a way to reach you, set secrets). No token is put in that URL.
+owner account exists it prints one line saying so: run `./onett open` (below) and create the owner
+account on the page it opens, then follow the "Finish setting up onett" card on the Overview (add
+a project, check the agents, choose a policy, set up a way to reach you, set secrets). That
+address carries a setup code after `#`, not your token; opened without it, the page only says to
+run `onett open`.
 
 In a second terminal:
 
