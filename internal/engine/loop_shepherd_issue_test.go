@@ -16,7 +16,7 @@ func lpStagingShepherdEnv(t *testing.T) (*lpEnv, domain.Task) {
 	repo := lpNewRepo(t)
 	lpGit(t, repo.seed, "push", "origin", "main:refs/heads/staging")
 	repo.pushBranch(t, lpBranch, lpNotesFile)
-	env := lpNewEngine(t, lpDoc(t, repo.clone, "    default_branch: staging\n", ""))
+	env := lpNewEngine(t, lpRepoDoc(t, repo, "    default_branch: staging\n", ""))
 	env.repo = repo
 	env.head = lpRevParse(t, repo.seed, lpBranch)
 	env.fake.HeadSHA = func(string) string { return env.head }

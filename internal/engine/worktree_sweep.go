@@ -20,7 +20,9 @@ import (
 // project's setup can leave about 100 MB of dependencies in each. A leftover worktree may hold
 // the only copy of work the agent did not commit, so it is removed only once its task cannot
 // run again (see taskMayRunAgain). Until then it stays, and the task's next run saves that work
-// as a commit when it takes the branch (workspace.Prepare). Problems are logged and never
+// as a commit when it takes the branch (workspace.Prepare). A cancelled task is the one in
+// between: a person can still retry it, so its worktree stays while it holds uncommitted work
+// and goes when it holds none. Problems are logged and never
 // returned: this is housekeeping, and it must not fail a run or delay the engine's start.
 func (e *Engine) sweepWorktrees(ctx context.Context, p *config.Project) {
 	dir := filepath.Join(e.d.Workspaces.Root, p.Name)
@@ -40,11 +42,11 @@ func (e *Engine) sweepWorktrees(ctx context.Context, p *config.Project) {
 			continue
 		}
 		runID := ent.Name()
-		run, leftover := e.leftoverRun(ctx, runID)
+		path := filepath.Join(dir, runID)
+		run, leftover := e.leftoverRun(ctx, runID, path)
 		if !leftover {
 			continue
 		}
-		path := filepath.Join(dir, runID)
 		err = e.d.Workspaces.Remove(ctx, e.repoFor(p), workspace.Workspace{Dir: path})
 		if err != nil {
 			// Git refuses to remove a directory it no longer knows as a worktree. Such a
@@ -70,8 +72,9 @@ func (e *Engine) sweepWorktrees(ctx context.Context, p *config.Project) {
 // as well. A live run is kept even when its row says it ended: runTask sets EndedAt before it
 // publishes or removes its own worktree, so the row alone cannot tell a finished run from one
 // still finishing.
-// An ended run's worktree is leftover only when its task cannot run again.
-func (e *Engine) leftoverRun(ctx context.Context, runID string) (domain.Run, bool) {
+// An ended run's worktree is leftover only when its task cannot run again, and for a cancelled
+// task only when the worktree at dir holds no uncommitted work.
+func (e *Engine) leftoverRun(ctx context.Context, runID, dir string) (domain.Run, bool) {
 	e.runsMu.Lock()
 	_, live := e.active[runID]
 	e.runsMu.Unlock()
@@ -94,6 +97,15 @@ func (e *Engine) leftoverRun(ctx context.Context, runID string) (domain.Run, boo
 		e.d.Logger.Warn("read task for worktree sweep", "run", runID, "task", run.TaskID, "err", err)
 		return run, false
 	}
+	if task.Status == domain.TaskCancelled {
+		// A person can still retry a cancelled task, and that run saves this work as a commit.
+		// When git cannot say (the directory is no longer a worktree), no later run could save
+		// anything from it, so it is removed like any other leftover.
+		dirty, err := e.d.Workspaces.HasUncommittedWork(ctx, workspace.Workspace{Dir: dir})
+		if err == nil && dirty {
+			return run, false
+		}
+	}
 	return run, !taskMayRunAgain(task.Status)
 }
 
@@ -102,9 +114,10 @@ func (e *Engine) leftoverRun(ctx context.Context, runID string) (domain.Run, boo
 // counts as "may run again", and so does a status added later: keeping a worktree too long
 // costs disk, removing one too early loses work.
 //
-// shortcut: a person can retry a cancelled task, and by then the sweep has removed its
-// uncommitted work. Keeping every cancelled task's worktree would fill the disk; keep only the
-// ones with uncommitted work once internal/workspace can report that.
+// A person can retry a cancelled task, so leftoverRun keeps a cancelled task's worktree while it
+// holds uncommitted work.
+// shortcut: such a worktree stays until a person retries the task or deletes the directory;
+// give it an age limit if these pile up.
 func taskMayRunAgain(s domain.TaskStatus) bool {
 	switch s {
 	case domain.TaskDone, domain.TaskMerged, domain.TaskDeploying, domain.TaskCancelled:

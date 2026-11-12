@@ -230,13 +230,16 @@ func TestDiffNumstatRenameAndBinary(t *testing.T) {
 	for _, c := range changes {
 		got[c.Path] = c
 	}
+	// A rename is reported as a delete of the old path plus an add of the new one.
 	assert.Equal(t, map[string]policy.FileChange{
 		"README.md":  {Path: "README.md", Added: 1, Deleted: 0},
-		"pkg/a2.txt": {Path: "pkg/a2.txt", Added: 0, Deleted: 0},
-		"moved.txt":  {Path: "moved.txt", Added: 0, Deleted: 0},
+		"pkg/a.txt":  {Path: "pkg/a.txt", Added: 0, Deleted: 10},
+		"pkg/a2.txt": {Path: "pkg/a2.txt", Added: 10, Deleted: 0},
+		"pkg/b.txt":  {Path: "pkg/b.txt", Added: 0, Deleted: 10},
+		"moved.txt":  {Path: "moved.txt", Added: 10, Deleted: 0},
 		"bin.dat":    {Path: "bin.dat", Added: 0, Deleted: 0},
 	}, got)
-	assert.Len(t, changes, 4)
+	assert.Len(t, changes, 6)
 }
 
 // A commit SHA as head judges that commit, even after the branch has moved on.
@@ -281,14 +284,6 @@ func TestDiffNoChangesReturnsEmptySlice(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, changes)
 	assert.Empty(t, changes)
-}
-
-func TestNewPath(t *testing.T) {
-	assert.Equal(t, "pkg/a2.txt", newPath("pkg/{a.txt => a2.txt}"))
-	assert.Equal(t, "moved.txt", newPath("pkg/b.txt => moved.txt"))
-	assert.Equal(t, "lib/new/f.go", newPath("lib/{old => new}/f.go"))
-	assert.Equal(t, "sub/f.go", newPath("{ => sub}/f.go"))
-	assert.Equal(t, "plain/path.go", newPath("plain/path.go"))
 }
 
 func TestRemove(t *testing.T) {

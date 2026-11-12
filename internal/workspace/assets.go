@@ -31,7 +31,8 @@ func AssetsBranch(branch, label string) string {
 // returns the pushed commit and the file names, sorted. The agent wrote srcDir, so it is
 // untrusted: only regular files (no symlinks) named like <safe-chars>.png, at most maxAssetFiles
 // of at most maxAssetBytes each, are taken. The commit is made in a scratch repository, so the
-// run's worktree and branch are untouched. It returns no files, and no error, when srcDir holds
+// run's worktree and branch are untouched; the scratch repository is the only place onett's
+// credentials are used. It returns no files, and no error, when srcDir holds
 // nothing usable.
 func (m *Manager) PublishAssets(ctx context.Context, r Repo, ws Workspace, label, srcDir string) (string, []string, error) {
 	if !assetLabel.MatchString(label) {
@@ -60,28 +61,23 @@ func (m *Manager) PublishAssets(ctx context.Context, r Repo, ws Workspace, label
 		return "", nil, nil
 	}
 
-	origin, err := git(ctx, ws.Dir, "remote", "get-url", "origin")
+	url, err := syncOrigin(ctx, r)
 	if err != nil {
 		return "", nil, err
 	}
-	tmp, err := os.MkdirTemp("", "onett-assets-")
+	s, err := newScratch(ctx, m.scratchDir(), r.Path)
 	if err != nil {
 		return "", nil, err
 	}
-	defer os.RemoveAll(tmp)
+	defer s.close()
+	tmp := s.dir
 
 	assets := AssetsBranch(ws.Branch, label)
-	if _, err := git(ctx, tmp, "init", "--quiet"); err != nil {
-		return "", nil, err
-	}
-	if _, err := git(ctx, tmp, "remote", "add", "origin", origin); err != nil {
-		return "", nil, err
-	}
 	// Build on the remote assets branch when there is one, so earlier commits stay reachable.
-	if _, err := git(ctx, tmp, "fetch", "--quiet", "origin", "refs/heads/"+assets); err == nil {
-		_, err = git(ctx, tmp, "checkout", "--quiet", "-B", "assets", "FETCH_HEAD")
+	if _, err := s.gitNet(ctx, "fetch", "--quiet", url, "refs/heads/"+assets); err == nil {
+		_, err = s.git(ctx, "checkout", "--quiet", "-B", "assets", "FETCH_HEAD")
 	} else {
-		_, err = git(ctx, tmp, "checkout", "--quiet", "--orphan", "assets")
+		_, err = s.git(ctx, "checkout", "--quiet", "--orphan", "assets")
 	}
 	if err != nil {
 		return "", nil, err
@@ -95,23 +91,23 @@ func (m *Manager) PublishAssets(ctx context.Context, r Repo, ws Workspace, label
 			return "", nil, err
 		}
 	}
-	if _, err := git(ctx, tmp, "add", "-A"); err != nil {
+	if _, err := s.git(ctx, "add", "-A"); err != nil {
 		return "", nil, err
 	}
 	if code, err := gitExitCode(ctx, tmp, "diff", "--cached", "--quiet"); err != nil {
 		return "", nil, err
 	} else if code != 0 {
 		msg := "Screenshots: " + label + " for " + ws.Branch
-		if _, err := git(ctx, tmp, "-c", "user.name=Onett", "-c", "user.email=onett@localhost",
+		if _, err := s.git(ctx, "-c", "user.name=Onett", "-c", "user.email=onett@localhost",
 			"commit", "--quiet", "-m", msg); err != nil {
 			return "", nil, err
 		}
 	}
-	sha, err := git(ctx, tmp, "rev-parse", "HEAD")
+	sha, err := s.git(ctx, "rev-parse", "HEAD")
 	if err != nil {
 		return "", nil, err
 	}
-	if _, err := git(ctx, tmp, "push", "--quiet", "origin", "HEAD:refs/heads/"+assets); err != nil {
+	if _, err := s.gitNet(ctx, "push", "--quiet", url, "HEAD:refs/heads/"+assets); err != nil {
 		return "", nil, fmt.Errorf("push %s: %w", assets, err)
 	}
 	return sha, names, nil

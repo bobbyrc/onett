@@ -158,6 +158,20 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   another variable through, name it in the harness's `inherit_env` list. Agents still run as your user and can
   read what your user can read; isolating them is an open decision, see
   [docs/proposals/agent-isolation.md](docs/proposals/agent-isolation.md).
+- **Onett's git does not trust what an agent wrote.** An agent can write the project clone's
+  `.git/config`, and a git setting can name a program to run or another place to push to. So
+  before each of its own git commands onett rewrites that file to a short allowlist (remotes,
+  branch tracking, your name and email, a few `core` basics), turns hooks off, and refuses a
+  worktree whose `.git` file was replaced. Those commands get no credentials. A fetch or push,
+  which needs them, runs in a throwaway repository no agent has touched, against the project's
+  configured `repo`. A checkout whose origin is that same GitHub repository keeps its own form
+  (`https://github.com/owner/name`, `git@github.com:owner/name` or
+  `ssh://git@github.com/owner/name`, with or without `.git`); any other origin is replaced by
+  the configured repository. Other local settings in a project's checkout (aliases, filters, signing) are
+  dropped (a line in onett's log says when), so put what you need in your global git config.
+  Onett's commits are unsigned. Onett never runs git inside a repository nested in a worktree:
+  a new one is recorded as a pointer, and a changed submodule pointer is committed only if the
+  agent staged it.
 - **Self-assigned work is rated higher.** Follow-up and retro tasks (task sources `followup` and
   `retro`) are rated at least `medium` (under `supervised`, they wait for you) by a built-in policy rule, and so is any change to onett's
   own gates and agent instructions (`high`) or to the agent CLIs' own configuration (`.claude/`,

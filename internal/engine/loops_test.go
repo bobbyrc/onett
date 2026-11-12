@@ -32,19 +32,27 @@ import (
 )
 
 // lpYAML is the config every loop test starts from. %[3]s is extra lines under project demo
-// (indent four spaces); %[4]s is extra top-level lines (column zero).
+// (indent four spaces); %[4]s is extra top-level lines (column zero). %[5]s is the project's
+// repo: "bobbyrc/demo" for most tests, or a local remote for tests whose engine fetches from it.
 const lpYAML = `server:
   data_dir: %[1]s
 projects:
   demo:
-    repo: bobbyrc/demo
+    repo: %[5]s
     path: %[2]s
 %[3]s%[4]s`
 
 // lpDoc renders lpYAML for one project named demo.
 func lpDoc(t *testing.T, path, projectExtra, topExtra string) string {
 	t.Helper()
-	return fmt.Sprintf(lpYAML, t.TempDir(), path, projectExtra, topExtra)
+	return fmt.Sprintf(lpYAML, t.TempDir(), path, projectExtra, topExtra, "bobbyrc/demo")
+}
+
+// lpRepoDoc is lpDoc for a test whose engine reads repo's clone: the project's repo is the
+// fixture's local remote, because the engine fetches from the configured repository.
+func lpRepoDoc(t *testing.T, repo lpRepo, projectExtra, topExtra string) string {
+	t.Helper()
+	return fmt.Sprintf(lpYAML, t.TempDir(), repo.clone, projectExtra, topExtra, repo.remote)
 }
 
 // lpPath is a project path for tests that never touch the repository.

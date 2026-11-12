@@ -1,15 +1,15 @@
 package engine
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 )
 
 // This test asks whether a ref written into the project's shared clone from an agent's worktree
 // can change what the deploy watch believes a release contains. The shipped check compares two
-// commit IDs, so moving a remote-tracking branch such as origin/main cannot change its answer; a
-// replace ref can.
+// commit IDs, so moving a remote-tracking branch such as origin/main cannot change its answer. A
+// replace ref could (git replace --graft makes a release look as if it contained a commit it does
+// not, and can hide a revert the same way), so onett's git ignores replace refs on every call.
 
 // csrUnshipped pushes a branch that never reaches main and returns its commit: a merge commit no
 // release contains.
@@ -31,9 +31,6 @@ func csrAgentWorktree(t *testing.T, r lpRepo) string {
 // A replace ref in the shared clone must not make a release look as if it contained a commit it
 // does not.
 func TestShippedCheckIsNotFooledByAReplaceRefInTheSharedClone(t *testing.T) {
-	if os.Getenv("ONETT_RUN_EXPOSING") == "" {
-		t.Skip("exposes: a replace ref written into the shared clone from an agent's worktree (git replace --graft) makes the deploy watch's ancestry check say a release contains a commit it does not, so a task blocked by a failed release is marked done although its work never shipped; the same trick can hide a revert from the revert check")
-	}
 	env, r, p := cpsEnv(t)
 	unshipped := csrUnshipped(t, r)
 	released := lpShippedCommit(t, r, "released.txt")

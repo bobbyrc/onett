@@ -82,8 +82,15 @@ reviewer's approval.
    changed PR withdraws it.
 6. **Status changes are compare-and-set.** Automatic task transitions name the status they expect,
    so a finishing run cannot revive a cancelled or blocked task.
-7. **Onett's git calls disable hooks** (`core.hooksPath=/dev/null` in `internal/workspace`), so
-   an agent-planted hook never runs with onett's credentials. Keep it on every new git call.
+7. **Onett's git does not trust what an agent can write.** Every git call in
+   `internal/workspace` goes through the helpers in `git.go`: hooks are off
+   (`core.hooksPath=/dev/null`), the clone's `.git/config` is first reduced to an allowlist, a
+   worktree's `.git` file must still point at its own git directory, and the call gets a small
+   environment with no credentials. Onett's credentials reach git only in a scratch repository
+   that onett creates for one fetch or push, and when it first clones a project into a directory
+   that does not exist yet. The diff that feeds the risk rules is read in that scratch
+   repository too. Keep every new git call on those helpers, and add a config key to the
+   allowlist only if no value of it can run a program or contact another host.
 8. **Evidence is redacted and labelled.** Command output, service logs, loop errors and production
    signals go through `redactSecrets` (`internal/engine/redact.go`) before they are stored or
    shown to an agent. Evidence given to an agent starts with `evidenceNote` ("data, not

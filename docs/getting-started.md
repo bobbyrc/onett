@@ -91,11 +91,12 @@ projects:
 ```
 
 `paused` is a key of the project, next to `repo` and `path`. The `--path` you pass must point at the
-clone from step 3. Onett runs agents there, so it must be a real git checkout. Its `origin` remote
-must be the repository: every run starts with `git fetch origin` and ends with a push to it.
-`gh repo create --clone` in step 3 sets `origin`; a checkout made with `git init` has none, and
-`onett doctor` fails for it. If you leave `--path` out, onett clones the repository itself into its
-data directory.
+clone from step 3. Onett runs agents there, so it must be a real git checkout. The project's
+`repo` decides which repository onett fetches from and pushes to, not the checkout's own `origin`
+remote: onett sets `origin` to that repository (a checkout of the same GitHub repository keeps
+its own HTTPS or SSH form) and keeps only a short list of the checkout's local git settings, so
+put settings you need in your global git config. If you leave `--path` out, onett clones the
+repository itself into its data directory.
 
 Every other key is optional and has a default. `onett.example.yaml` in the repository lists every
 option with its default.
@@ -576,10 +577,11 @@ to the built-in roles.
   `ONETT_TOKEN`.
 - **`undefined environment variable ${NAME}`**: the config refers to a variable that is not set.
   Add it to `secrets.env` and reload the config.
-- **A task is `blocked` after three attempts with `git fetch origin --prune: exit status 128`**: the
-  project's `path` is a checkout with no `origin` remote. Add one
-  (`git -C PATH remote add origin URL`), or remove `path` so onett clones the repository itself.
-  `onett doctor` checks for this.
+- **A task is `blocked` after three attempts with `workspace setup failed` and a
+  `git ... fetch ...: exit status 128` line**: onett could not fetch the project's `repo`. Check
+  that `repo` names the right repository and that your user can read it over HTTPS
+  (`git ls-remote https://github.com/OWNER/NAME.git`); onett fetches with your own git
+  credentials. The checkout's `origin` remote is not used: onett sets it from `repo`.
 - **`agents.<role>.prompt: must not be empty`** for a built-in role: an entry under the top-level
   `agents:` replaces the built-in role whole. Add the line the message names, for example
   `prompt: builtin:senior-engineer` (see "Changing a built-in role" in step 4).

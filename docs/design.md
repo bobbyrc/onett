@@ -127,8 +127,9 @@ paths or accounts, nothing that assumes one machine and one person) when it cost
   approval, blocked or failed): the task's next run commits that work to the task's branch
   ("WIP: work from an earlier attempt") and removes the old worktree. When the task is done,
   merged, deploying or cancelled, a sweep that runs after every run and at start removes its
-  leftover worktrees. A cancelled task can still be retried by a person, and by then the sweep
-  has deleted its uncommitted work **(review)**.
+  leftover worktrees. A cancelled task can still be retried by a person, so its worktree is
+  kept while it holds uncommitted work (the retry commits it, as above) and removed when it
+  holds none. Such a worktree stays until the task is retried or a person deletes the directory.
 - **Outbox** — files an agent writes in `<worktree>/.onett-run/` to report back:
   `result.json` (status, summary, self-assessed risk, PR title/body, follow-up tasks, friction).
   Files, not network calls, so it works inside sandboxed harnesses such as Codex's.
@@ -798,6 +799,44 @@ web/                  React + Vite + TypeScript UI (built into internal/api/webd
   role's pre-approved `tools` rules; `codex` defaults to `--approve-for-me`, its workspace-write sandbox with automatic review
   of escalations; resumed Codex sessions get the same workspace-write sandbox through a config
   override, since `codex exec resume` takes no sandbox flag).
+- Onett's own git calls (`internal/workspace/git.go`) do not trust the clone. An agent can write
+  the clone's `.git/config`, its worktree's `.git` file and repositories nested in the worktree,
+  and git settings can run programs (`core.fsmonitor`, filters, merge drivers, `gpg.program`,
+  credential helpers) or redirect a push. There are three layers. (1) Git that needs credentials
+  (a fetch from the remote, a push) runs only in a scratch repository that onett creates beside
+  the worktrees (`<data_dir>/worktrees/.git-scratch`, not the system temp directory, which an
+  agent's sandbox may allow it to write) for that one operation, or to make a project's first
+  clone. It borrows the clone's objects, names the project's
+  remote URL and the commit itself, and never reads the clone's config, so this layer holds even
+  when an agent rewrites that config. The project's `repo` decides which repository that is: for
+  a GitHub project the clone's own origin is kept only when it is exactly the configured
+  repository over HTTPS or SSH (`https://github.com/owner/name`, `git@github.com:owner/name`,
+  `ssh://git@github.com/owner/name`, with or without `.git`), and any other origin is replaced
+  by the configured one with a warning in the log. This holds even
+  while an agent is still writing. A fetch downloads into the scratch repository, and the clone
+  then takes the branches from it with a command that has no credentials. (2) Every other git
+  command first rewrites the clone's config to an allowlist of settings that are harmless
+  whatever their value (remotes, branch tracking, identity, a few `core` and `extensions`
+  basics; the file is read without following a symlink and a log line says when it is
+  rewritten), checks that a worktree's
+  `.git` file names a worktree directory that points back at it, pins git's directories through
+  the environment, and runs with a small environment that holds no credentials. (3) Command-line
+  overrides turn off hooks, `core.fsmonitor`, commit signing, submodule recursion, the
+  commit-graph cache and the `ext::` transport, and the environment turns off replace refs and
+  grafts; git passes these on to any git it starts in a nested repository. Staging
+  skips nested repositories, because `git add` would start git inside them. Known limit: layer 2
+  repairs the config just before each command, so an agent that is still running and can write
+  the clone's `.git` could put a setting back between the repair and git reading it. The program
+  it names would then run outside the agent's sandbox, but with no onett credentials. The scratch
+  repository borrows the clone's objects, so an agent that is still running after a push could
+  also overwrite an object file there, and a later risk diff would read the forged content;
+  taking the changed-file list from the code host is the complete fix for that **(review)**.
+- The diff that feeds the risk rules has rename detection off and reads file names exactly
+  (`git diff --numstat -z --no-renames`), so a renamed file is rated as a delete of the old path
+  plus an add of the new one and a path rule for the old name still fires. It runs in the
+  scratch repository, between the branches the remote just reported, not in the clone: there an
+  agent can write replace refs, grafts, attributes and the remote-tracking refs, and each can
+  make a real change look empty.
 - Secrets for providers come from the environment or `~/.config/onett/secrets.env`.
 - Agents get an allowlist of onett's environment (PATH, HOME, locale, their own provider
   keys), plus what a harness's `inherit_env` and the project's `env` add. Onett's GitHub and

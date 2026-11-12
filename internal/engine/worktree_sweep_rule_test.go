@@ -54,7 +54,7 @@ func TestSweepRemovesTheWorktreesOfAFinishedTask(t *testing.T) {
 	env := wsNewEngine(t)
 	p := env.e.Config().Projects["demo"]
 	statuses := []domain.TaskStatus{
-		domain.TaskDone, domain.TaskMerged, domain.TaskDeploying, domain.TaskCancelled,
+		domain.TaskDone, domain.TaskMerged, domain.TaskDeploying,
 	}
 	type pair struct{ older, newer string }
 	dirs := map[domain.TaskStatus]pair{}
@@ -69,4 +69,20 @@ func TestSweepRemovesTheWorktreesOfAFinishedTask(t *testing.T) {
 		assert.False(t, wsExists(t, dirs[s].older), "older attempt of a %s task is removed", s)
 		assert.False(t, wsExists(t, dirs[s].newer), "newest attempt of a %s task is removed", s)
 	}
+}
+
+// A person can still retry a cancelled task, so its worktree goes only when nothing would be lost.
+func TestSweepKeepsACancelledTasksWorktreeOnlyWhileItHoldsUncommittedWork(t *testing.T) {
+	env := wsNewEngine(t)
+	p := env.e.Config().Projects["demo"]
+	t0 := time.Date(2026, 11, 12, 9, 0, 0, 0, time.UTC)
+	task := wsTask(t, env, domain.TaskCancelled)
+	dirty := wsWorktree(t, env, wsRun(t, env, task.ID, t0, true).ID)
+	clean := wsWorktree(t, env, wsRun(t, env, task.ID, t0.Add(time.Hour), true).ID)
+	require.NoError(t, os.WriteFile(filepath.Join(dirty, "work.txt"), []byte("uncommitted\n"), 0o644))
+
+	env.e.sweepWorktrees(env.ctx, p)
+
+	assert.FileExists(t, filepath.Join(dirty, "work.txt"), "a cancelled task's uncommitted work is kept")
+	assert.False(t, wsExists(t, clean), "a cancelled task's worktree with nothing to lose is removed")
 }
