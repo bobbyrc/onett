@@ -13,7 +13,7 @@ import (
 func TestAgentsViewMasksEnvironmentValues(t *testing.T) {
 	t.Setenv("ONETT_TEST_SECRET", "supersecretvalue")
 	x := newHarness(t)
-	withConfig(t, x, "agents:\n  reviewer:\n    harness: claude\n    prompt: builtin:reviewer\n    description: \"uses ${ONETT_TEST_SECRET}\"\n")
+	withConfig(t, x, "agents:\n  reviewer:\n    harness: claude\n    prompt: builtin:reviewer\n    model: \"${ONETT_TEST_SECRET}\"\n")
 
 	rec := x.call(t, http.MethodGet, "/api/v1/agents", "")
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())

@@ -67,6 +67,9 @@ Each is described under [Safety model](#safety-model) and annotated in
   chief of staff cannot be turned off), or add a custom role. A role's instructions are a Markdown
   file (`prompt`) or written inline in the config (`prompt_text`). Inline instructions cannot use
   `${NAME}` references, because they are given to the agent, which never gets credentials.
+  The same holds for a role's `description` and `args`, a harness's `args` and the arguments in
+  its `command` (everything after the program name), and a project's `instructions`: onett
+  refuses to load a config in which a `${NAME}` reference reaches any of them.
 - **Harness**: the adapter that runs one agent CLI non-interactively and streams its output back.
 - **Run**: one attempt at a task by one agent session, in its own git worktree (a second checkout
   of the repository on its own branch).
