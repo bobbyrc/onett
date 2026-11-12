@@ -7,6 +7,7 @@ import { deployStopped, deployWords, latestDeploys } from '../lib/boardDeploy';
 import type { Deployment, ProjectView } from '../types';
 import { ErrorLine } from './ErrorLine';
 import { RelTime } from './RelTime';
+import './AndonBoard.css';
 
 /**
  * The Overview's lamp board: one window per project, lit by what the project needs, and the line
@@ -39,7 +40,9 @@ export function AndonBoard() {
           );
         })}
         {projects.isSuccess && projects.data.length === 0 ? (
-          <p className="board-empty">No projects yet. Add one with <code>onett project add</code> and it appears here.</p>
+          <p className="board-empty">
+            No projects yet. Add one on the <Link to="/projects">Projects page</Link> and it appears here.
+          </p>
         ) : null}
         {projects.error ? (
           <div className="board-empty">
