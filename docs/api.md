@@ -249,9 +249,10 @@ case the approval is recorded as rejected and the task goes back to review so on
 
 // Problem: one thing that is wrong in a project. "kind" is blocked_tasks (the tasks blocked for one
 // cause, with "count", "tasks" and "last_at"), failing_loops (with "loops": each failing loop's
-// "name", "fails" and "since") or blocked_goal (with "goal_id"). "title" and "detail" are one line,
-// redacted and cut (title at 200 characters, detail at 300, keeping its end). "told_at" is when the
-// owner was last notified about it, and is absent when they were not.
+// "name", "fails" and "since") or blocked_goal (with "goal_id"). "title" is one line, redacted and
+// cut at 200 characters. "detail" is one to three lines, at most 300 characters in all: the first
+// line of the underlying error and its last two, each redacted and cut from its start. "told_at"
+// is when the owner was last notified about it, and is absent when they were not.
 // A project's blocked tasks are read 1,000 at most.
 {"kind":"blocked_tasks","project":"onett","key":"blocked_tasks:onett:9f2c1a7e",
  "title":"workspace setup failed","detail":"fatal: unable to access …",

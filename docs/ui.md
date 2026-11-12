@@ -224,14 +224,15 @@ as a fallback.
     ago" in the stop colour, "No deploys yet", or "No deployer" when the project has no
     `deploy`; `src/lib/boardDeploy.ts`). The window links to the project's tasks.
   - What needs you there, one row each (`NeedRow`): a lamp, a title that links to the thing, a
-    muted line, at most three lines of evidence and the actions. Seven tasks blocked by one
-    cause are one row: "Workspace setup failed", "7 tasks blocked · since 10:21 (3h ago) · told
-    you 10:36 · last blocked 2m ago", the end of the underlying error in monospace, **Check
+    muted line, the evidence (an error's first line and its last two) and the actions. Seven
+    tasks blocked by one cause are one row: "Workspace setup failed", "7 tasks blocked
+    · since 10:21 (3h ago) · told you 10:36 · last blocked 2m ago", the underlying error in
+    monospace, **Check
     again** (retries one task, the one blocked most recently, to see whether the cause is gone)
     and **Retry all 7** (asks to confirm, then retries each). One blocked task: "Blocked:
     title", "attempt 1 of 3 · 8h ago", the error or the reason, **Retry** and **Open**. Failing
     loops: "2 loops are failing: Issue Intake, Friction", since when, how many passes failed,
-    "told you 10:40" or "not told yet", the end of the error, **Open Loops**. A blocked goal:
+    "told you 10:40" or "not told yet", the error, **Open Loops**. A blocked goal:
     "Goal blocked: title", its reason, **Open goal**. An approval: "Merge approval: title", the
     risk badge, the PR number, "asked 12m ago", the risk reasons and **Review**, which opens the
     task page; approving happens there, where the risk and the commit are shown in full. "told

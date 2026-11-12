@@ -462,7 +462,7 @@ export interface Problem {
   key: string;
   /** One line: the cause (or the whole reason), or the goal's title. Empty for failing loops. */
   title: string;
-  /** One line, the end of the underlying error. May be empty. */
+  /** One to three lines: the first line of the underlying error and its last two. May be empty. */
   detail: string;
   count: number;
   since: string;

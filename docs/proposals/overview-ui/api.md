@@ -40,7 +40,7 @@ Response: a JSON array of `Problem`, sorted by project, then kind in the order b
 | `project` | string | the project's name |
 | `key` | string | unique in the response and stable while the problem lasts: `blocked_tasks:<project>:<fingerprint>` (eight hex characters from the cause or reason, so the key never carries its text), `failing_loops:<project>`, `blocked_goal:<goal id>` |
 | `title` | string | one line, at most 200 characters. `blocked_tasks`: the cause (`blocked_cause`), or the task's whole `blocked_reason` when the block recorded no cause. `blocked_goal`: the goal's title. `failing_loops`: empty (the page names the loops). |
-| `detail` | string | one line, at most 300 characters, keeping the end of the text (a wrapped error says what failed first and why last). `blocked_tasks`: `blocked_detail` of the task blocked most recently. `failing_loops`: `last_error` of the loop that failed most recently. `blocked_goal`: the goal's reason. May be empty. |
+| `detail` | string | one to three lines, at most 300 characters in all: the first non-empty line of the underlying error and its last two (every line when there are at most three), each cut from its start when its share runs out. `blocked_tasks`: `blocked_detail` of the task blocked most recently. `failing_loops`: `last_error` of the loop that failed most recently. `blocked_goal`: the goal's reason, one line. May be empty. |
 | `count` | integer | `blocked_tasks`: how many tasks. `failing_loops`: the longest run of failed passes among the loops. `blocked_goal`: 1. |
 | `since` | time | `blocked_tasks`: the earliest `blocked_at`. `failing_loops`: the earliest streak start. `blocked_goal`: the goal's `updated_at`. |
 | `last_at` | time, optional | `blocked_tasks`: the latest `blocked_at`. `failing_loops`: the latest `last_run_at`. |
@@ -134,9 +134,10 @@ their keys and events.
 3. **Row titles are the daemon's words.** The mockup wrote "Workspace setup fails: git fetch
    cannot reach the repository"; the page will say "Workspace setup failed" and show the error
    under it.
-4. **The error line is the end of the error, not a tidy first line.** A loop's `last_error` is
-   one string (name, command, output). Cutting it into parts would mean changing how every loop
-   wraps its errors; keeping the last 300 characters shows the tool's own words.
+4. **The error is the first line and the last two, not a tidy summary.** A loop's
+   `last_error` is one string (name, command, output). Cutting it into parts would mean
+   changing how every loop wraps its errors; the first line says what failed and the last two
+   carry the tool's own words.
 5. **"told you" appears only when set; "not told yet" only on failing loops.** A blocked task and
    a new approval notify the owner at once, so "not told yet" would be untrue there. `told_at`
    records the later telling (the heartbeat's escalation), as in the mockup's times.

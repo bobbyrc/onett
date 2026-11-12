@@ -20,7 +20,7 @@ import (
 // the task.
 const (
 	problemTitleLimit  = 200  // characters of a title
-	problemDetailLimit = 300  // characters of a detail line
+	problemDetailLimit = 300  // characters of a detail, over all its lines
 	problemTaskLimit   = 50   // tasks listed per problem; Count has the real number
 	blockedDetailLimit = 2000 // characters of the underlying error kept on a task
 )
@@ -60,6 +60,27 @@ func problemLine(s string, env []string, limit int, keepEnd bool) string {
 		return lastRunes(x, limit)
 	}
 	return firstRunes(x, limit)
+}
+
+// problemDetail shapes an underlying error for a problem row. An error from a command says
+// what failed on its first line and often ends with advice, so the row gets the first
+// non-empty line and the last two (every line when there are at most three), each redacted and
+// collapsed to single spaces. The lines share problemDetailLimit: each is cut to its share,
+// keeping its end, so the whole is bounded whatever the error was.
+func problemDetail(s string, env []string) string {
+	var lines []string
+	for _, l := range strings.Split(redactSecrets(s, env), "\n") {
+		if l = strings.Join(strings.Fields(l), " "); l != "" {
+			lines = append(lines, l)
+		}
+	}
+	if len(lines) > 3 {
+		lines = []string{lines[0], lines[len(lines)-2], lines[len(lines)-1]}
+	}
+	for i, l := range lines {
+		lines[i] = lastRunes(l, problemDetailLimit/len(lines))
+	}
+	return strings.Join(lines, "\n")
 }
 
 // heartbeatTold maps "kind:entity" to when the heartbeat last escalated that item, from the
@@ -149,7 +170,7 @@ func (e *Engine) blockedProblems(ctx context.Context, project string, env []stri
 			Project: project,
 			Key:     "blocked_tasks:" + project + ":" + reasonKey(text),
 			Title:   problemLine(text, env, problemTitleLimit, false),
-			Detail:  problemLine(first.BlockedDetail, env, problemDetailLimit, true),
+			Detail:  problemDetail(first.BlockedDetail, env),
 			Count:   len(g),
 			Since:   blockedAt(last),
 			LastAt:  &latest,
@@ -232,7 +253,7 @@ func loopProblems(cfg *config.Config, project string, env []string, byKey map[st
 	}
 	lastRun := latest.st.LastRunAt
 	p.LastAt = &lastRun
-	p.Detail = problemLine(latest.st.LastError, env, problemDetailLimit, true)
+	p.Detail = problemDetail(latest.st.LastError, env)
 	return []api.Problem{p}
 }
 

@@ -4413,7 +4413,7 @@ components:
           description: One line, at most 200 characters. For `blocked_tasks`, the cause or the whole reason; for `blocked_goal`, the goal's title; empty for `failing_loops`.
         detail:
           type: string
-          description: One line, at most 300 characters, keeping the end of the text. May be empty.
+          description: "One to three lines, at most 300 characters in all: the first non-empty line of the underlying error and its last two, each redacted and cut from its start. A blocked goal's reason is one line. May be empty."
         count:
           type: integer
           description: For `blocked_tasks`, how many tasks; for `failing_loops`, the longest run of failed passes; 1 for a goal.

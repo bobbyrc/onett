@@ -1147,7 +1147,7 @@ export const overviewBad: OverviewState = {
       project: 'widgets',
       key: 'failing_loops:widgets',
       title: '',
-      detail: '…' + GH_ERR.slice(-299),
+      detail: '…,labels,author,createdAt,updatedAt,comments --label onett: exit status 4: To get started with GitHub CLI, please run: gh auth login\nAlternatively, populate the GH_TOKEN environment variable with a GitHub API authentication token.',
       count: 13,
       since: ago(198),
       last_at: ago(2),

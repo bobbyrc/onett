@@ -15,7 +15,8 @@ const (
 
 // Problem is one thing that is wrong in a project, as GET /problems reports it: the tasks that
 // share one cause of a block, the project's failing loops, or a blocked goal. Title and Detail
-// quote agents and tools, so they are redacted, one line and bounded (see the engine).
+// quote agents and tools, so they are redacted and bounded (see the engine). Title is one line;
+// Detail is one to three lines: the first line of the underlying error and its last two.
 type Problem struct {
 	Kind    string `json:"kind"`
 	Project string `json:"project"`

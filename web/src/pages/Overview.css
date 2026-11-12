@@ -139,15 +139,12 @@
   font-size: 13.5px;
 }
 
-/* A tool's message says why last, so it gets a third line and, when it is longer than three,
-   shows its end: the text sits at the bottom of the box and the start is what gets cut. */
+/* A tool's message arrives as up to three lines (the first and the last two), so the line
+   breaks are kept; six lines at most, so a long one cannot push the buttons away. */
 .ov-need-line.mono {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  max-height: 4.5em;
-  -webkit-line-clamp: unset;
-  line-clamp: unset;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  white-space: pre-line;
   font-family: var(--mono);
   font-size: 12.5px;
   line-height: 1.5;
