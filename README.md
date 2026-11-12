@@ -104,9 +104,11 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
 - **Agents cannot approve their own work.** Worker agents get no API token. Only the chief of staff
   does, and it uses the CLI. A reviewer agent runs in the branch it reviews, but its CLI does not
   load that branch's own agent configuration: Claude Code takes no settings, hooks, MCP servers,
-  skills or instruction files (`CLAUDE.md`, `AGENTS.md`) from it. This is not isolation: the
-  project's `setup`, and anything the reviewer runs, still execute the branch's code as your user.
-  For Codex see the known limit below.
+  skills or instruction files (`CLAUDE.md`, `AGENTS.md`) from it. Onett puts the base branch's
+  root `AGENTS.md` and `CLAUDE.md` (up to 32 KiB each) in the reviewer's prompt instead, so the
+  reviewer holds a change to the project's merged rules, not to the branch's own copy of them.
+  This is not isolation: the project's `setup`, and anything the reviewer runs, still execute the
+  branch's code as your user. For Codex see the known limit below.
 - **People sign in; config and users change only through them.** The web UI signs people in with
   a username and password (roles: viewer reads, operator also acts on work, owner also edits
   `onett.yaml` and manages users). The API token, which the CLI and the chief of staff hold, can

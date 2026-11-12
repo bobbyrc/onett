@@ -319,9 +319,25 @@ func (e *Engine) runTask(ctx context.Context, t domain.Task, run domain.Run, ar 
 	}
 	attNote := taskAttachmentNote(placed)
 
+	// A review loads no instruction files from its worktree, whose copies belong to the change
+	// under review, so onett gives it the base branch's.
+	baseNote := ""
+	if t.Kind == domain.KindReview {
+		files, err := e.baseInstructions(ctx, repo, ws.BaseRef)
+		if err != nil {
+			if stopped() {
+				return
+			}
+			e.finishRun(bg, run.ID, domain.RunFailed, "project instructions: "+err.Error())
+			e.requeueOrBlock(bg, t.ID, "could not read the project's instructions from "+ws.BaseRef, err.Error())
+			return
+		}
+		baseNote = baseInstructionsSection(ws.BaseRef, files)
+	}
+
 	// Owner messages queued for this task's agent go with this run: a follow-up resumes the
 	// agent's session with just the messages; a first run gets them after the task prompt.
-	prompt := buildTaskPrompt(t, p, parent, conflicts) + contextSection(agent.Context, ws.Dir) + attNote + setupNote
+	prompt := buildTaskPrompt(t, p, parent, conflicts) + contextSection(agent.Context, ws.Dir) + baseNote + attNote + setupNote
 	resumeID := ""
 	root, claimed := e.claimOwnerMessages(bg, t)
 	st.root = root
