@@ -39,7 +39,7 @@ func lpBlockedTask(t *testing.T, env *lpEnv, title, sha, reason string) domain.T
 // does a task blocked for another reason, even when its commit is contained.
 func TestLoopDeployHealthyReleaseResolvesShippedBlockedTasks(t *testing.T) {
 	r := lpNewRepo(t)
-	env := lpNewEngine(t, lpDoc(t, r.clone, "    deploy:\n      type: test\n      verify_for: 10m\n", ""))
+	env := lpNewEngine(t, lpRepoDoc(t, r, "    deploy:\n      type: test\n      verify_for: 10m\n", ""))
 
 	earlier := lpShippedCommit(t, r, "earlier.txt")
 	r.pushBranch(t, "side", map[string]string{"side.txt": "side\n"})

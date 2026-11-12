@@ -141,6 +141,7 @@ var localEnvKeys = []string{
 	"PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "TZ",
 	"XDG_CONFIG_HOME", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_NOSYSTEM",
 	"GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
+	"GIT_ALLOW_PROTOCOL",
 }
 
 // localEnv returns the environment for a git command that needs no network; see localEnvKeys.

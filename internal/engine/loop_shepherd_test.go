@@ -31,7 +31,7 @@ func lpShepherdEnvPolicy(t *testing.T, files map[string]string, policy string) (
 	if policy != "" {
 		projectExtra = "    policy: " + policy + "\n"
 	}
-	env := lpNewEngine(t, lpDoc(t, repo.clone, projectExtra, ""))
+	env := lpNewEngine(t, lpRepoDoc(t, repo, projectExtra, ""))
 	env.repo = repo
 	env.head = lpRevParse(t, repo.seed, lpBranch)
 	env.fake.HeadSHA = func(string) string { return env.head }
@@ -537,7 +537,7 @@ func TestLoopShepherdHumanPushRestartsCIGrace(t *testing.T) {
 func TestLoopShepherdRequireChecksNeverMergesWithoutChecks(t *testing.T) {
 	repo := lpNewRepo(t)
 	repo.pushBranch(t, lpBranch, lpNotesFile)
-	doc := lpDoc(t, repo.clone, "", "policies:\n  default:\n    require_checks: true\n")
+	doc := lpRepoDoc(t, repo, "", "policies:\n  default:\n    require_checks: true\n")
 	env := lpNewEngine(t, doc)
 	env.repo = repo
 	env.head = lpRevParse(t, repo.seed, lpBranch)

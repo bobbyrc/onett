@@ -61,13 +61,16 @@ func (m *Manager) PublishAssets(ctx context.Context, r Repo, ws Workspace, label
 		return "", nil, nil
 	}
 
+	url, err := syncOrigin(ctx, r)
+	if err != nil {
+		return "", nil, err
+	}
 	s, err := newScratch(ctx, r.Path)
 	if err != nil {
 		return "", nil, err
 	}
 	defer s.close()
 	tmp := s.dir
-	url := remoteURL(r)
 
 	assets := AssetsBranch(ws.Branch, label)
 	// Build on the remote assets branch when there is one, so earlier commits stay reachable.

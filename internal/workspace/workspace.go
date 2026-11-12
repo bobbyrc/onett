@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -58,12 +59,62 @@ func New(root string) *Manager {
 // remoteURL turns Repo.Remote into something git can clone. A bare "owner/name" is a GitHub
 // repository; anything that looks like a path or URL is used as-is.
 func remoteURL(r Repo) string {
-	s := r.Remote
-	if strings.HasPrefix(s, "/") || strings.HasPrefix(s, ".") || strings.HasPrefix(s, "git@") ||
-		strings.Contains(s, "://") {
-		return s
+	if !githubRepo(r) {
+		return r.Remote
 	}
-	return "https://github.com/" + s + ".git"
+	return "https://github.com/" + r.Remote + ".git"
+}
+
+// githubRepo reports whether r.Remote is a GitHub repository written "owner/name", not a path
+// or a URL.
+func githubRepo(r Repo) bool {
+	s := r.Remote
+	return !(strings.HasPrefix(s, "/") || strings.HasPrefix(s, ".") || strings.HasPrefix(s, "git@") ||
+		strings.Contains(s, "://"))
+}
+
+// originURL returns the URL onett uses for r's remote and writes into the clone's config.
+// existing is the clone's current remote.origin.url. The project config decides WHICH
+// repository onett talks to. For a GitHub project the clone may keep its own spelling of that
+// same repository, over HTTPS or SSH, so a checkout its owner cloned over SSH keeps working
+// without an HTTPS credential. Any other value (another host, user, port, path, protocol or
+// repository) is replaced by the configured URL: an agent can write that setting.
+func originURL(r Repo, existing string) string {
+	if !githubRepo(r) {
+		return remoteURL(r)
+	}
+	for _, base := range []string{
+		"https://github.com/" + r.Remote,
+		"git@github.com:" + r.Remote,
+		"ssh://git@github.com/" + r.Remote,
+	} {
+		if strings.EqualFold(existing, base) || strings.EqualFold(existing, base+".git") {
+			return existing
+		}
+	}
+	return remoteURL(r)
+}
+
+// syncOrigin puts the clone's config back in order (see repairConfig) with remote.origin.url set
+// to originURL, and returns that URL for the fetch or push that follows.
+func syncOrigin(ctx context.Context, r Repo) (string, error) {
+	existing, err := gitOutputAllowExit(ctx, r.Path, "config", "--local", "--get", "remote.origin.url")
+	if err != nil {
+		return "", err
+	}
+	url := originURL(r, existing)
+	if existing != "" && existing != url {
+		// The rejected URL is not logged, because it may hold a token.
+		slog.Warn("the clone's origin was not the project's configured repository; onett put the configured one back", "project", r.Name)
+	}
+	l, err := resolveLayout(r.Path)
+	if err != nil {
+		return "", err
+	}
+	if err := repairConfig(l.commonDir, url); err != nil {
+		return "", err
+	}
+	return url, nil
 }
 
 // lockClone takes the lock for the clone at path and returns the function that releases it.
@@ -118,12 +169,9 @@ func (m *Manager) ensureClone(ctx context.Context, r Repo) error {
 // onett's credentials never reads the clone's config; the clone then takes the result from the
 // scratch repository with a command that holds none. The caller holds the clone lock.
 func fetchOrigin(ctx context.Context, r Repo) error {
-	l, err := resolveLayout(r.Path)
-	if err != nil {
-		return err
-	}
 	// This also puts remote.origin.url back to the project's remote.
-	if err := repairConfig(l.commonDir, remoteURL(r)); err != nil {
+	url, err := syncOrigin(ctx, r)
+	if err != nil {
 		return err
 	}
 	s, err := newScratch(ctx, r.Path)
@@ -136,7 +184,7 @@ func fetchOrigin(ctx context.Context, r Repo) error {
 	if _, err := s.git(ctx, "fetch", "--quiet", r.Path, "+refs/remotes/origin/*:refs/onett/*"); err != nil {
 		return err
 	}
-	if _, err := s.gitNet(ctx, "fetch", "--quiet", "--prune", remoteURL(r), "+refs/heads/*:refs/onett/*"); err != nil {
+	if _, err := s.gitNet(ctx, "fetch", "--quiet", "--prune", url, "+refs/heads/*:refs/onett/*"); err != nil {
 		return err
 	}
 	_, err = git(ctx, r.Path, "fetch", "--quiet", "--prune", s.dir, "+refs/onett/*:refs/remotes/origin/*")
@@ -478,10 +526,7 @@ func (m *Manager) Push(ctx context.Context, r Repo, ws Workspace) error {
 	if err := checkWorktreeOf(r.Path, ws.Dir); err != nil {
 		return fmt.Errorf("push %s: %w", ws.Branch, err)
 	}
-	l, err := resolveLayout(r.Path)
-	if err == nil {
-		err = repairConfig(l.commonDir, remoteURL(r))
-	}
+	url, err := syncOrigin(ctx, r)
 	if err != nil {
 		return fmt.Errorf("push %s: %w", ws.Branch, err)
 	}
@@ -495,7 +540,7 @@ func (m *Manager) Push(ctx context.Context, r Repo, ws Workspace) error {
 	}
 	defer s.close()
 	lease := "--force-with-lease=refs/heads/" + ws.Branch + ":" + ws.RemoteSHA
-	if _, err := s.gitNet(ctx, "push", "--quiet", lease, remoteURL(r), sha+":refs/heads/"+ws.Branch); err != nil {
+	if _, err := s.gitNet(ctx, "push", "--quiet", lease, url, sha+":refs/heads/"+ws.Branch); err != nil {
 		return fmt.Errorf("push %s: %w", ws.Branch, err)
 	}
 	// `git push origin` used to record what it pushed; keep origin/<branch> in step for the next reader.

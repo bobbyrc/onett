@@ -33,6 +33,8 @@ func setup(t *testing.T) (Repo, *Manager, string) {
 	t.Helper()
 	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(t.TempDir(), "no-such-gitconfig"))
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	// No test may reach a real host: git refuses every remote that is not a local path.
+	t.Setenv("GIT_ALLOW_PROTOCOL", "file")
 
 	root := t.TempDir()
 	origin := filepath.Join(root, "origin.git")

@@ -154,6 +154,8 @@ func TestCredentialProgramsFromCloneConfigNeverRun(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			repo, m, _ := setup(t)
 			t.Setenv("GH_TOKEN", canaryToken)
+			// These cases need http and ssh, which reach only the 127.0.0.1 test server and the ssh stub.
+			t.Setenv("GIT_ALLOW_PROTOCOL", "file:http:ssh")
 			ctx := context.Background()
 			ws, err := m.Prepare(ctx, repo, "onett/c", "run1")
 			require.NoError(t, err)

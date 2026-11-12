@@ -14,7 +14,7 @@ import (
 // the revert too. An unreverted task whose commit the release also contains still becomes done.
 func TestLoopDeployHealthyReleaseKeepsRevertedShippedTaskBlocked(t *testing.T) {
 	r := lpNewRepo(t)
-	env := lpNewEngine(t, lpDoc(t, r.clone, "    deploy:\n      type: test\n      verify_for: 10m\n", ""))
+	env := lpNewEngine(t, lpRepoDoc(t, r, "    deploy:\n      type: test\n      verify_for: 10m\n", ""))
 
 	reverted := lpShippedCommit(t, r, "reverted.txt")
 	kept := lpShippedCommit(t, r, "kept.txt")
