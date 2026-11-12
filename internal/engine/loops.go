@@ -233,6 +233,7 @@ func (e *Engine) runLoopOnce(ctx context.Context, name, project string, manual b
 	if serr := e.d.Store.SaveLoopState(ctx, st); serr != nil {
 		e.d.Logger.Error("save loop state", "loop", name, "project", project, "err", serr)
 	}
+	e.trackLoopStreak(ctx, name, project, msg, err != nil, prev != "")
 	if err != nil {
 		e.d.Logger.Error("loop failed", "loop", name, "project", project, "err", msg)
 		if st.LastError != prev {
