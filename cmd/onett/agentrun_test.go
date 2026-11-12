@@ -183,3 +183,48 @@ func TestOpenAddsTheSetupCodeOnlyWhileNoAccountExists(t *testing.T) {
 	t.Setenv("ONETT_API", closedURL)
 	assert.Equal(t, "", setupCode(nil))
 }
+
+func TestReadOnlyCommandsAllowedInsideAgentRun(t *testing.T) {
+	setAgentRun(t, "run-1", "orchestrator")
+	for _, args := range [][]string{
+		{"trigger", "list"},
+		{"trigger", "history", "x"},
+		{"signals"},
+		{"signals", "show", "x"},
+		{"friction"},
+		{"friction", "show", "x"},
+		{"conversations"},
+		{"conversations", "show", "x"},
+		{"deploys"},
+		{"deploys", "show", "x"},
+		{"run", "list"},
+		{"run", "show", "x"},
+		{"run", "logs", "x"},
+	} {
+		assert.NoError(t, refuseInAgentRun(args), "args %v", args)
+	}
+}
+
+func TestBackupRefusedInsideAgentRun(t *testing.T) {
+	setAgentRun(t, "run-1", "orchestrator")
+	target := filepath.Join(t.TempDir(), "copy.db")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"backup", target}, &stdout, &stderr)
+	assert.Equal(t, 1, code)
+	assert.Contains(t, stderr.String(), "does not run inside an agent run")
+	_, err := os.Stat(target)
+	assert.True(t, os.IsNotExist(err), "backup must not write the file, got err %v", err)
+}
+
+func TestEveryCommandIsDecidedForAgentRuns(t *testing.T) {
+	refused := map[string]bool{
+		"serve": true, "init": true, "token": true, "open": true, "user": true,
+		"backup": true, "service": true,
+	}
+	for _, c := range commandList() {
+		allowed := agentRunCommands[c.name]
+		assert.False(t, allowed && refused[c.name], "command %q is in both sets", c.name)
+		assert.True(t, allowed || refused[c.name],
+			"command %q is neither allowed nor listed as refused inside an agent run: decide which", c.name)
+	}
+}

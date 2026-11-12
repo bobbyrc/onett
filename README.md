@@ -115,7 +115,7 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   rejecting a merge, resuming the factory or a project, changing a goal you paused, running a loop
   by hand, writing in a chat as you, giving a blocked goal a fresh turn budget, and retrying a
   task that a denial stopped. Inside an agent run the commands that act on this machine with your
-  authority (`token`, `user`, `service`, `init`, `open`, `project add`, and `serve` for the chief
+  authority (`token`, `user`, `service`, `init`, `open`, `backup`, `project add`, and `serve` for the chief
   of staff) refuse to run. This boundary is the API's and the CLI's: an agent that
   deliberately reads `<data_dir>/token` as your user is stopped only by isolating agents (see
   [docs/proposals/agent-isolation.md](docs/proposals/agent-isolation.md)).

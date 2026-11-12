@@ -70,7 +70,7 @@ line on its own. Every agent session carries `ONETT_RUN_ID` and `ONETT_ROLE`. Wh
   access" error;
 - only the commands that call the API run, plus `doctor`, `version` and `help`. The commands
   that act with the owner's authority on this machine (`token`, `user`, `service`, `init`,
-  `open`, `project add`, and `run-shim`, the helper the daemon starts agents through) refuse
+  `open`, `backup`, `project add`, and `run-shim`, the helper the daemon starts agents through) refuse
   with a one-line reason. The list is an allowlist, so a command added later is refused inside
   an agent run until someone decides it is safe;
 - `serve` is refused for the orchestrator only. A second daemon on the owner's data directory

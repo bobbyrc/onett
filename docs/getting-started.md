@@ -8,8 +8,9 @@ Terms used here are defined in the [README](../README.md#terms-used-below). In s
 is a unit of work, a **run** is one agent attempt at it, a **role** picks the agent and its
 instructions, and an **approval** is a decision onett is waiting on from you.
 
-**The web UI is the easiest way through this guide.** After step 2, run `./onett serve`, open the
-link it prints, create the owner account and follow the "Finish setting up onett" card on the
+**The web UI is the easiest way through this guide.** After step 2, run `./onett serve`, then
+`./onett open` in a second terminal, create the owner account on the page it opens and follow
+the "Finish setting up onett" card on the
 Overview: add a project on the **Projects** page, check agents and policy on the **Config** page,
 connect Telegram, Discord or ntfy on its **Setup** tab, and set secrets on its **Secrets** tab.
 The steps below show the same setup with the CLI and `onett.yaml`, which suits scripts and

@@ -19,9 +19,10 @@ func insideAgentRun() bool {
 // inside an agent run until it is added here.
 var agentRunCommands = map[string]bool{
 	"status": true, "projects": true, "agents": true, "config": true, "task": true,
-	"goal": true, "run": true, "deploys": true, "approvals": true, "approve": true,
-	"events": true, "loops": true, "loop": true, "project": true, "pause": true,
-	"resume": true, "chat": true, "doctor": true, "version": true,
+	"goal": true, "trigger": true, "run": true, "deploys": true, "signals": true,
+	"friction": true, "approvals": true, "approve": true, "events": true, "loops": true,
+	"loop": true, "project": true, "pause": true, "resume": true, "chat": true,
+	"conversations": true, "doctor": true, "version": true,
 	"help": true, "-h": true, "-help": true, "--help": true,
 }
 
