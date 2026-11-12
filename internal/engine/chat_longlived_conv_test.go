@@ -54,7 +54,9 @@ func TestIdleTimeoutMakesTheNextMessageResumeInANewProcess(t *testing.T) {
 	r.cfg.Chat.SessionIdleTimeout.Duration = 50 * time.Millisecond
 
 	llSend(t, r, e, convID, "first")
-	time.Sleep(300 * time.Millisecond) // well past the idle timeout
+	// Wait for the idle timeout to end the process, not for a fixed time: on a loaded machine the
+	// timer fires late.
+	rtWait(t, 10*time.Second, "the idle process to end", func() bool { return h.Live() == 0 })
 	llSend(t, r, e, convID, "second")
 
 	turns := h.Turns()
