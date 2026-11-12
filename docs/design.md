@@ -370,6 +370,12 @@ restarts the daemon and rolls back on a failed health check; it leaves a result 
 daemon reports once. (The retired `max_defer` key is still accepted, ignored, with a warning in the
 log.) A PID lock file keeps one updater at a time, and a commit that fails three
 times (counted in memory) is skipped in favour of an older eligible release.
+The daemon writes its own timestamped lines (`<RFC 3339 UTC time> onett: ...`) into `self-update.log`
+around each attempt: the start with the target commit, a failure when the updater cannot start or
+exits non-zero, and the outcome (ok or rolled back) that the next daemon reports at startup. The
+updater's own output lines in between are not stamped. The updater must outlive the daemon it
+restarts, so its output goes straight to the file; stamping each line would put a pipe under it,
+and a pipe whose reader dies kills the writer (SIGPIPE) in the middle of an update.
 
 The retro loop (`loops.retro`, default every 24h) is the factory's retrospective. Each day, code
 gathers the evidence of the last `lookback` (blocked and failed tasks with their reasons,
@@ -491,7 +497,9 @@ goal, or whose goal is blocked, paused or done, stay in, and so do blocked goals
 The loop keeps the keys it has reported, with their first-seen times, in its `LoopState.Cursor`, so a
 restart does not repeat them. When the digest holds a key that is not stored, the loop calls
 `HeartbeatWaker.WakeHeartbeat`; otherwise nothing runs and no model is called. If the call fails, the
-keys are not stored and the next tick tries again. `quiet_hours` (`"22:00-07:00"`, daemon local time,
+tick still counts and escalates (see below) and then reports the error as the loop's failure; the
+new keys stay new, so the next tick wakes again, and the window for one-off items (runs, deploys,
+results) stays open so they are still in that digest. `quiet_hours` (`"22:00-07:00"`, daemon local time,
 may wrap midnight) skips the tick; what happened meanwhile is in the first digest after it. The
 loop records `next_run_at` and `item_count` in its `LoopState`. The waker (`heartbeat_waker.go`)
 posts the digest as a hidden internal message in one "Operations" conversation, created on first
@@ -514,8 +522,23 @@ call, and happens on unchanged digests too: once per key, the loop sends one hig
 notification (item, time open, actions tried, link to the Operations conversation) when the item
 reaches `escalate_after` heartbeats (default 3), or at once when a reply line says `escalate:`. The
 old cursor format (first-seen times only) is migrated on read.
-Not covered yet: a failed self-update is found from its system event, so it shows only while that
-event is in the project's recent events.
+A failed self-update (the updater could not start, exited non-zero, or was rolled back) is kept by
+the self_update loop in its own `LoopState` row (`self_update_failure`) and not found from its
+system event, which ages out. It stays in the digest until the daemon runs a version other than
+the one that failed to update, however it got there.
+
+Escalation depends on the heartbeat running at all, so a loop that keeps failing also tells the
+owner directly, in plain code with no model call (`internal/engine/loop_alert.go`). This covers
+every loop, the heartbeat included: an expired `gh` login shows up as `pr_shepherd` failing, a
+broken model call as `heartbeat` failing. After each pass `runLoopOnce` counts the loop's failed
+passes in a row for that project, whatever the error text (a text that changes every pass must not
+hide a loop that never succeeds). The owner gets one high-priority notification when both hold:
+at least 3 failed passes in a row, and a streak at least 10 minutes old (three failed passes of a
+30-second loop are a blip). It names the loop and project, the latest error (redacted like any
+loop error) and when the streak started. While the loop keeps failing it is repeated every 24h;
+the first successful pass ends the streak. The streak is kept in a `LoopState` row
+(`loop_alert:<loop>`), so a restart neither forgets it nor repeats the notification. The
+thresholds are constants, not config.
 
 ### Messaging a task's agent
 
