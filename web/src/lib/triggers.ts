@@ -194,3 +194,16 @@ function sameDay(a: Date, b: Date): boolean {
     a.getDate() === b.getDate()
   );
 }
+
+/** The line shown after "Run now": what the firing it recorded came to. */
+export function runNote(name: string, f: TriggerFiring): string {
+  const because = f.reason ? `: ${f.reason}` : '';
+  switch (f.outcome) {
+    case 'started':
+      return `Fired ${name}.`;
+    case 'skipped':
+      return `Skipped ${name}${because}.`;
+    case 'failed':
+      return `Could not fire ${name}${because}.`;
+  }
+}

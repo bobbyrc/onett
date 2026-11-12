@@ -490,6 +490,9 @@ function OrchestratorThread({
   const autoSent = useRef(false);
 
   const conv = conversation.data?.conversation;
+  // A trigger's turns always run with the orchestrator's defaults: the server stores settings
+  // on its conversation but never applies them, so the pickers would promise something false.
+  const fixedSettings = conv?.kind === 'trigger';
   const messages = conversation.data?.messages ?? [];
   const liveRunId = conv?.busy ? conv.active_run_id || undefined : undefined;
   const runIds = uniq([...messages.map((m) => m.run_id), liveRunId]);
@@ -643,17 +646,22 @@ function OrchestratorThread({
         stopping={!!liveRunId && stoppingRun === liveRunId}
         textareaRef={textareaRef}
         label="Message the orchestrator"
-        modelLabel={canOperate ? undefined : run?.model || run?.harness}
-        leftControls={canOperate ? <ComposerSettings conversationId={conversationId} side="permission" /> : undefined}
+        modelLabel={canOperate && !fixedSettings ? undefined : run?.model || run?.harness}
+        leftControls={canOperate && !fixedSettings ? <ComposerSettings conversationId={conversationId} side="permission" /> : undefined}
         rightControls={
           canOperate ? (
             <>
-              <ComposerSettings conversationId={conversationId} side="model" />
+              {fixedSettings ? null : <ComposerSettings conversationId={conversationId} side="model" />}
               <ContextRing fraction={latestContextFraction(runIds.map((id) => runs[id]))} />
             </>
           ) : undefined
         }
       />
+      {fixedSettings && canOperate ? (
+        <p className="muted small">
+          A trigger&apos;s turns always run with the orchestrator&apos;s default model and permissions, so they cannot be changed here.
+        </p>
+      ) : null}
       <ErrorLine error={stop.error} />
       <ErrorLine error={flush.error} />
       {sendError ? (

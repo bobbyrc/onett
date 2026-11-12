@@ -25,6 +25,7 @@ const SECTIONS: Record<string, [list: string, item?: string]> = {
   signals: ['Signals'],
   friction: ['Friction'],
   loops: ['Loops'],
+  triggers: ['Triggers', 'Trigger'],
   agents: ['Agents'],
   config: ['Config'],
   users: ['Users'],

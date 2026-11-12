@@ -1,0 +1,10 @@
+/* The rail is as tall as the window. With every page in it and a lamp per project, it can be
+   taller than a short window, so it scrolls instead of cutting off its foot. Under 760px the
+   rail is a drawer that already scrolls (styles.css). */
+@media (min-width: 760px) {
+  .sidebar {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--board-rule) transparent;
+  }
+}

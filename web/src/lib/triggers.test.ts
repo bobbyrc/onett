@@ -10,6 +10,7 @@ import {
   outcomeLamp,
   outcomeTone,
   outcomeWord,
+  runNote,
   sortTriggers,
   triggerCounts,
   triggerState,
@@ -206,5 +207,22 @@ describe('zoneWords', () => {
     expect(zoneWords('America/New_York')).toBe('America/New_York');
     expect(zoneWords('')).toBe("daemon's time zone");
     expect(zoneWords(undefined)).toBe("daemon's time zone");
+  });
+});
+
+describe('runNote', () => {
+  it('says what a started, skipped or failed firing came to', () => {
+    expect(runNote('Nightly', firing({ outcome: 'started' }))).toBe('Fired Nightly.');
+    expect(runNote('Nightly', firing({ outcome: 'skipped', reason: 'factory paused' }))).toBe(
+      'Skipped Nightly: factory paused.',
+    );
+    expect(runNote('Nightly', firing({ outcome: 'failed', reason: 'onett was shutting down' }))).toBe(
+      'Could not fire Nightly: onett was shutting down.',
+    );
+  });
+
+  it('leaves out the reason when there is none', () => {
+    expect(runNote('Nightly', firing({ outcome: 'skipped' }))).toBe('Skipped Nightly.');
+    expect(runNote('Nightly', firing({ outcome: 'failed' }))).toBe('Could not fire Nightly.');
   });
 });
