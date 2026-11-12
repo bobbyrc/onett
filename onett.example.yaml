@@ -110,7 +110,7 @@ agents:
     prompt: prompts/security.md        # must not be empty; appended to every run of this role
     args: ["--max-turns", "40"]        # extra harness arguments for this role only
     context: ["docs/security.md"]      # repo-relative files the agent reads before it starts; a file the worktree lacks is skipped (default none)
-    tools: ["Bash(go test:*)"]         # tool permission rules this role's runs are pre-approved for, in the harness's own words; only claude-code uses them (default none)
+    # tools: ["Bash(go test:*)"]       # tool permission rules this role's runs are pre-approved for, in the harness's own words; only claude-code uses them. Each rule lets the role run that tool with no permission check, so add only what it needs (default none)
     description: Audits changes that touch auth, secrets or network boundaries.
 
   # Inline instructions: give a custom role prompt_text instead of a prompt file. Set one of the
