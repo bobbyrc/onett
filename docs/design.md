@@ -169,8 +169,8 @@ queued ─► running ─► review ─► merged ─► deploying ─► done
   moves the task to `merged`. Onett never calls merge a second time for it.
   When CI fails, the task is re-queued with the failed run's log from the PR head commit as
   evidence. The shepherd takes that verdict only once every CI run of the head commit has ended:
-  GitHub gives out no log of a run that is still going, not even for a job in it that has already
-  failed, and a note without the log leaves the next attempt guessing.
+  the `gh` CLI prints no log of a run that is still going, not even for a job in it that has
+  already failed, and a note without the log leaves the next attempt guessing.
 - Every automatic status change is guarded by the status it expects, atomically. A run or loop
   that finishes after you cancelled or blocked a task cannot revive it.
 - An agent-reported failure, failing CI, a merge conflict or "request changes" from the
