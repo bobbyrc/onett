@@ -104,7 +104,8 @@
 }
 
 /* On a phone the two columns become two tabs. */
-.trg-tabs {
+/* Two classes, to outrank .segmented's own display. */
+.segmented.trg-tabs {
   display: none;
   margin-bottom: 14px;
 }
@@ -317,7 +318,7 @@
 }
 
 @media (max-width: 759px) {
-  .trg-tabs {
+  .segmented.trg-tabs {
     display: inline-flex;
   }
 
