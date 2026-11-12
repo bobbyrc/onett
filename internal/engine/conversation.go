@@ -630,18 +630,29 @@ func (e *Engine) closeOnFinished(ctx context.Context, t domain.Task, summary str
 // accepts.
 var stoppedStatuses = []domain.TaskStatus{domain.TaskBlocked, domain.TaskFailed, domain.TaskCancelled}
 
-// blockedByDenial reports whether t is stopped because a tool call was denied: its own latest
-// run was denied, or its newest review's was (a denied review blocks the task it reviews, and
-// retrying that task runs the review again). A denial is terminal (invariant 4): only a person
-// retries it. A cancelled or failed task counts as well as a blocked one, so cancelling a denied
-// task does not make it retryable. This reads the latest run, so after a person's retry the
-// agent stays refused until the task has a new run or a new review; that errs on the safe side.
+// blockedByDenial reports whether t is stopped because a tool call was denied. A denial is
+// terminal (invariant 4): only a person retries it. Two cases count:
+//
+//   - t's own latest run was denied and t rests in a stopped status. Cancelled and failed count
+//     as well as blocked, so cancelling a denied task does not make it retryable.
+//   - t's newest review was denied. A denied review blocks the task it reviews on the shepherd's
+//     next pass, and re-queuing that task runs the review again, so this counts while t still
+//     waits in review as well as after it is blocked. A review made before t's latest run
+//     judged an earlier attempt (a person has retried since) and does not count.
+//
+// After a person retries a task whose own run was denied, the agent stays refused until the
+// task has a new run; that errs on the safe side.
 func (e *Engine) blockedByDenial(ctx context.Context, t domain.Task) (bool, error) {
-	if !slices.Contains(stoppedStatuses, t.Status) {
+	stopped := slices.Contains(stoppedStatuses, t.Status)
+	if !stopped && t.Status != domain.TaskReview {
 		return false, nil
 	}
-	if denied, err := e.lastRunDenied(ctx, t.ID); err != nil || denied {
-		return denied, err
+	own, hasOwn, err := e.latestRun(ctx, t.ID)
+	if err != nil {
+		return false, err
+	}
+	if stopped && hasOwn && own.Status == domain.RunDenied {
+		return true, nil
 	}
 	reviews, err := e.d.Store.ListTasks(ctx, store.TaskFilter{ParentID: t.ID, Kind: domain.KindReview})
 	if err != nil {
@@ -656,16 +667,20 @@ func (e *Engine) blockedByDenial(ctx context.Context, t domain.Task) (bool, erro
 	if newest == nil || !slices.Contains(stoppedStatuses, newest.Status) {
 		return false, nil
 	}
-	return e.lastRunDenied(ctx, newest.ID)
+	if hasOwn && !newest.CreatedAt.After(own.StartedAt) {
+		return false, nil
+	}
+	last, ok, err := e.latestRun(ctx, newest.ID)
+	return ok && last.Status == domain.RunDenied, err
 }
 
-// lastRunDenied reports whether the latest run of task taskID ended because a tool call was denied.
-func (e *Engine) lastRunDenied(ctx context.Context, taskID string) (bool, error) {
+// latestRun returns the newest run of task taskID, and false when it has none.
+func (e *Engine) latestRun(ctx context.Context, taskID string) (domain.Run, bool, error) {
 	runs, err := e.d.Store.ListRuns(ctx, store.RunFilter{TaskID: taskID, Limit: 1})
-	if err != nil {
-		return false, err
+	if err != nil || len(runs) == 0 {
+		return domain.Run{}, false, err
 	}
-	return len(runs) == 1 && runs[0].Status == domain.RunDenied, nil
+	return runs[0], true, nil
 }
 
 // refuseAgentOnDenial returns the agent token's refusal when t is blocked by a denial, and nil

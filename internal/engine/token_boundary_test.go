@@ -12,6 +12,7 @@ import (
 	"github.com/bobbyrc/onett/internal/api"
 	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/domain"
+	"github.com/bobbyrc/onett/internal/store"
 )
 
 // tbBlockedTask makes a task in goalID with the given status, and a run of it with runStatus when
@@ -226,6 +227,54 @@ func tbReviewOf(t *testing.T, r *ctRig, parent domain.Task, status domain.TaskSt
 	return review
 }
 
+// tbRunStartedAt sets the start time of the newest run of taskID, so a test can order a review
+// against the task's own run.
+func tbRunStartedAt(t *testing.T, r *ctRig, taskID string, startedAt time.Time) {
+	t.Helper()
+	runs, err := r.st.ListRuns(context.Background(), store.RunFilter{TaskID: taskID, Limit: 1})
+	require.NoError(t, err)
+	require.Len(t, runs, 1)
+	_, err = r.st.UpdateRun(context.Background(), runs[0].ID, func(x *domain.Run) error {
+		x.StartedAt = startedAt
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestAgentCannotRequeueTaskInReviewWhoseReviewWasDenied(t *testing.T) {
+	ctx := context.Background()
+	agentCtx := auth.WithAgent(ctx)
+	r := ctNewRig(t)
+	e := r.engine(nil)
+	parent := tbBlockedTask(t, r, e, "", domain.TaskReview, domain.RunSucceeded)
+	tbRunStartedAt(t, r, parent.ID, time.Now().Add(-time.Hour))
+	tbReviewOf(t, r, parent, domain.TaskBlocked, domain.RunDenied, time.Now())
+
+	denied, err := e.blockedByDenial(ctx, parent)
+	require.NoError(t, err)
+	assert.True(t, denied)
+
+	_, err = e.SendTaskMessage(agentCtx, parent.ID, "go on", domain.AuthorOrchestrator)
+	assert.True(t, errors.Is(err, auth.ErrPersonOnly), "got %v", err)
+	got, err := r.st.GetTask(ctx, parent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.TaskReview, got.Status)
+}
+
+func TestReviewDeniedBeforeAPersonsRetryDoesNotCount(t *testing.T) {
+	ctx := context.Background()
+	agentCtx := auth.WithAgent(ctx)
+	r := ctNewRig(t)
+	e := r.engine(nil)
+	parent := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunFailed)
+	tbReviewOf(t, r, parent, domain.TaskCancelled, domain.RunDenied, time.Now().Add(-time.Hour))
+
+	denied, err := e.blockedByDenial(ctx, parent)
+	require.NoError(t, err)
+	assert.False(t, denied)
+	require.NoError(t, e.RetryTask(agentCtx, parent.ID, "try X"))
+}
+
 func TestClientCannotCreateConversationFollowUp(t *testing.T) {
 	ctx := context.Background()
 	r := ctNewRig(t)
@@ -248,6 +297,7 @@ func TestAgentCannotRetryTaskWhoseReviewWasDenied(t *testing.T) {
 	r := ctNewRig(t)
 	e := r.engine(nil)
 	parent := tbBlockedTask(t, r, e, "", domain.TaskBlocked, domain.RunSucceeded)
+	tbRunStartedAt(t, r, parent.ID, time.Now().Add(-time.Hour))
 	tbReviewOf(t, r, parent, domain.TaskBlocked, domain.RunDenied, time.Now())
 
 	err := e.RetryTask(agentCtx, parent.ID, "again")
