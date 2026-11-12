@@ -62,7 +62,16 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
   the agent's title, else its key in Title Case ("implementer-claude" → "Implementer Claude", "sre" → "SRE").
   URLs, form values, config, the API and the CLI keep the raw key; each Agents page card shows it as a small mono line.
 - **IdChip**: last 8 chars of an ID in monospace (IDs are UUIDv7, whose leading chars are a
-  timestamp shared by IDs created close together), copies the full ID on click.
+  timestamp shared by IDs created close together), copies the full ID on click. The chip is 17px
+  high; like the text links (`.link-button`), it has an invisible pad above and below, so the
+  area that takes a tap is at least 24px high.
+- **Modal**: a dialog over the page. Opening it moves keyboard focus to the first control in its
+  body (a field with `autoFocus` keeps it), Tab and Shift+Tab stay inside it and wrap at the ends,
+  and closing it (Esc, the "×", or a click on the backdrop) puts focus back on the control that
+  opened it.
+- **Field**: a label wrapped around its control, with an optional hint under it. The hint is
+  outside the label and linked with `aria-describedby`, so a screen reader reads "Name" as the
+  field's name and the hint as its description.
 - **Empty**: muted centred line in a dashed rule saying what would appear here and why it is
   empty.
 - **Markdown**: marked + dompurify. A fenced code block gets a header bar with its language (or "text"), a Copy button (copies the raw code; "Copied" shows for 1.5 s) and a Wrap toggle (`aria-pressed`; long lines scroll sideways by default). Colours come from highlight.js, loaded on first use as a separate chunk (`src/lib/hljsCore.ts`: go, js/ts, json, bash, yaml, diff, python, sql, css, html/xml, markdown); other languages stay plain. The highlighter runs on the block's text and its output is sanitised again, allowing only `<span class="hljs-*">`. Token colours are `--tok-*` variables in `CodeBlock.css`, for light and dark.
@@ -78,6 +87,12 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
 
 ## Shell
 
+- Tab title: every page names its browser tab "<page> · onett" (`src/lib/pageTitle.ts`). The route
+  names it first ("Tasks", or "Task 9W4Y6ABC" for a detail page that is still loading); a page
+  heading (`PageHeader`) then names it after its own text, so a task or goal page carries the
+  task's or goal's title. A run page keeps "Run <short ID>".
+- Skip link: the first Tab stop on every page is "Skip to content", hidden until it has focus. It
+  moves focus to the main area, past the navigation.
 - Left rail 216px in `--board`: wordmark "onett" in Barlow Condensed after the brand mark, a
   loop in the text colour with one call-yellow lit segment (work going round the line); nav items: Overview, Projects, Chat, Tasks, Approvals, Runs, Deploys,
   Signals, Friction, Loops, Agents, Config, and Users (owners only). Approvals carries a
@@ -89,7 +104,8 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
   each linking to that project's tasks. More than eight projects show the eight most urgent and
   an "All projects" row. Hidden on Overview, which has the full board, and under 760px.
 - Rail footer: the **account panel**, then the **pause switch**. The account panel shows the
-  signed-in username, the role in muted lower case, a "Sign out" link and a "Change password"
+  signed-in username, the role in muted lower case in parentheses ("bcraig (owner)"; a screen
+  reader hears "role: owner"), a "Sign out" link and a "Change password"
   link. Change password opens a dialog (current password, new password of at least 12
   characters, confirm); on success it says "Password changed." for three seconds. The dialog
   is drawn over the page, not inside the rail. The pause switch is the line's cord: a dark
@@ -227,7 +243,8 @@ repo (a muted link to `https://github.com/<repo>`) and the lamp's label in words
 "1 needs you". On the right is the pause toggle (secondary "Pause" / danger-fill
 "Paused — Resume"). When the project is paused in onett.yaml, the toggle is replaced by a muted
 "Paused in onett.yaml" label, because the file wins and the UI cannot unpause it. Below the name
-is a row of five counts: queued, running, review, needs you (awaiting approval) and blocked. Each
+is a row of five counts: queued, running, review, needs you (awaiting approval) and blocked, with
+12px labels at every width. Each
 non-zero count links to `/tasks`, filtered by that project and status. Blocked is red and needs
 you is yellow. Zero counts are muted and are not links. One muted line follows with the default
 branch, the deployer type (or "no deployer") and the observers (or "no observers"). The last line
@@ -380,7 +397,8 @@ columns: status, title (with kind tag and source muted under it), project, role,
 **Task detail** (`/tasks/:id`) — a header row with the title, StatusPill and the Cancel and Retry
 actions (role-gated as before). Under it, one muted line: kind · project · role · from source, then
 the IdChip and, once the task has run, an "Open conversation" link to `/chat/task/:id`. Below that is the task's line: seven lamps (Queued, Running, Review, Approval, Merged,
-Deploying, Done) joined by a rule. Passed stations show the done lamp; the current one lights in
+Deploying, Done) joined by a rule. The station names are 12px at every width; under 520px they
+give up their letter-spacing so all seven fit. Passed stations show the done lamp; the current one lights in
 its tone (running blinks); a stop is red and its label reads Blocked, Failed or Cancelled; skipped
 stations are hollow; stations not yet reached are dim. From 960px the page has two columns: the
 main column, and a 300px spec sheet that stays in view. The sheet lists risk with its reasons,
