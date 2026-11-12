@@ -120,6 +120,11 @@ paths or accounts, nothing that assumes one machine and one person) when it cost
 - **Outbox** — files an agent writes in `<worktree>/.onett-run/` to report back:
   `result.json` (status, summary, self-assessed risk, PR title/body, follow-up tasks, friction).
   Files, not network calls, so it works inside sandboxed harnesses such as Codex's.
+  Onett reads `result.json` only when it is a regular file of at most 1 MiB that holds one JSON
+  object: a symlink or a pipe in its place, or anything after the object, voids the report. A
+  field onett does not know is ignored, on purpose: an unknown field can do nothing, a missing one
+  reads as no approval and no risk rating (which policy treats as medium), and voiding a report
+  for a harmless extra key would throw away a whole run.
 - **Waiting** — a queued task can wait on other tasks (`waiting_on`); the scheduler does not
   claim it until each has merged or finished without a pull request, and it is cancelled, with
   the reason, if one ends blocked, failed or cancelled. A follow-up waits for the task that filed
@@ -269,6 +274,19 @@ a versioned JSON-lines protocol: `hello`, `replay` (from a byte offset, then liv
 shim exits when the agent has exited and the daemon acked the last offset, or 24 hours after the
 agent exits. Through the harness the session looks the same as a direct child. See
 `internal/runshim`.
+
+**Who the daemon talks to.** The daemon does not trust the socket path alone. It takes an answer
+only from the shim process it started, or after a restart from the process `status.json` names,
+and which process is listening is the kernel's word (`SO_PEERCRED` on Linux, `LOCAL_PEERPID` on
+macOS), not the peer's. That stops another process that takes over the socket path from posing as
+the shim. On other systems, and for a status file that names no process, the path is trusted as
+before. It does not stop a process that rewrites `status.json`: the run directory belongs to the
+user that agents run as, so this is part of the same-user limit that only agent isolation closes.
+Both ends refuse a message over a fixed size, and one stderr line is cut at 64 KiB. The socket
+directory must belong to the daemon's user (mode 0700). The spec file the shim starts from holds
+the agent's environment; the shim removes it once read, and the daemon removes it when the shim
+never gets that far. `stream.log` and `status.json` (mode 0600, in a 0700 directory) stay after
+the run, because a restarted daemon reads them to recover output.
 
 **Reattaching after a restart.** At shutdown the daemon lets go of a task run's agent instead of
 killing it (`Detacher`), and leaves the run and its task `running`. The run stores what a new
@@ -718,6 +736,9 @@ web/                  React + Vite + TypeScript UI (built into internal/api/webd
   session; the token is generated on first start at `<data_dir>/token` (mode 600). Remote access
   is opt-in: reach it over a VPN such as Tailscale or through a reverse proxy with TLS, and name
   the address in `server.public_url` or `server.allowed_hosts` (see the Host check below).
+- The database (`onett.db` and its `-wal` and `-shm` files) is created mode 600 and set back to it
+  at every start, so it does not rely on the data directory's mode. `onett service install` does
+  the same for the service file, which can hold environment values.
 - Agents never get push credentials from onett; onett pushes. Harness permissions are
   configured per agent profile (`claude-code` defaults to `--permission-mode auto` plus the
   role's pre-approved `tools` rules; `codex` defaults to `--approve-for-me`, its workspace-write sandbox with automatic review
