@@ -402,7 +402,7 @@ const (
 // SIGKILL after shimKillGrace, then it acks the final offset so the shim exits. Best effort: if
 // the shim cannot be dialled it is left to its own grace period.
 func (e *Engine) terminateShim(log *slog.Logger, st runshim.Status) {
-	c, err := runshim.Dial(st.Socket)
+	c, err := runshim.DialStatus(st)
 	if err != nil {
 		log.Warn("could not reach the shim to stop its agent", "err", err)
 		return

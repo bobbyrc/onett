@@ -1,8 +1,38 @@
 package runshim
 
+import (
+	"bufio"
+	"encoding/json"
+	"errors"
+)
+
 // Wire format: one JSON object per line in each direction. A client sends requests; the shim
 // answers each with a "response" carrying the same ID. A replay request additionally makes the
 // shim push "line", "stderr" and "eof" messages on that connection.
+
+// errTooLong is returned by readJSON for a line over its limit.
+var errTooLong = errors.New("runshim: message too long")
+
+// readJSON reads one line of at most max bytes from br and decodes it into v. A longer line is
+// an error, so the caller drops the connection instead of buffering whatever the other end
+// sends.
+func readJSON(br *bufio.Reader, max int, v any) error {
+	var buf []byte
+	for {
+		chunk, err := br.ReadSlice('\n')
+		if len(buf)+len(chunk) > max {
+			return errTooLong
+		}
+		buf = append(buf, chunk...)
+		if err == bufio.ErrBufferFull {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(buf, v)
+	}
+}
 
 // Request ops.
 const (

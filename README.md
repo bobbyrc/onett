@@ -206,6 +206,9 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   posted to GitHub has its @mentions neutralised, so an agent cannot notify people.
 - **Local API.** It listens on `127.0.0.1:7777`. Every call needs the bearer token from `onett token`.
   Requests whose Host header is not local or configured are refused (DNS-rebinding guard).
+  The database, the token and the files the run shim keeps for a run (the agent's output log and
+  its status) are readable by your user only (mode 600). On Linux and macOS the daemon also
+  checks that the process answering on a run's socket is the shim it expects.
 - **Known limit with Codex.** Claude Code reports refused tool calls in machine-readable form.
   Codex reports sandbox refusals only in prose. For Codex, "a denial stops the task" therefore relies
   on the agent prompt ("if denied, report blocked") and on the stall timeout. A Codex reviewer

@@ -37,7 +37,7 @@ func Main() int {
 // creating the directory, so it runs after the test's other cleanups.
 //
 // A PID read from a file may belong to another process by now, so a shim is signalled only while
-// it still answers on its socket and reports that PID itself.
+// the process answering on its socket is that PID (runshim.DialStatus).
 func StopAll(t testing.TB, dataDir string) {
 	t.Helper()
 	dirs, _ := filepath.Glob(filepath.Join(dataDir, "runs", "*"))
@@ -46,12 +46,9 @@ func StopAll(t testing.TB, dataDir string) {
 		if err != nil || st.ShimPID <= 1 {
 			continue
 		}
-		if c, err := runshim.Dial(st.Socket); err == nil {
-			live, err := c.Status()
+		if c, err := runshim.DialStatus(st); err == nil {
 			_ = c.Close()
-			if err == nil && live.ShimPID == st.ShimPID {
-				_ = syscall.Kill(st.ShimPID, syscall.SIGTERM)
-			}
+			_ = syscall.Kill(st.ShimPID, syscall.SIGTERM)
 		}
 		// Also for a shim that no longer answers: it may still be writing its last status.
 		deadline := time.Now().Add(15 * time.Second)
