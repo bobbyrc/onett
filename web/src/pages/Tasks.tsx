@@ -27,10 +27,12 @@ const KINDS: TaskKind[] = ['feature', 'bugfix', 'issue', 'incident', 'review', '
 
 /** Queued work in a paused project is not started, so the table says why next to the status. */
 function makeColumns(paused: string[]): Column<Task>[] {
+  // Every section is its own table; the set widths make their columns line up down the page.
   return [
     {
       key: 'status',
       header: 'Status',
+      width: 10.5,
       cell: (t) => (
         <>
           <StatusPill status={t.status} />
@@ -59,12 +61,13 @@ function makeColumns(paused: string[]): Column<Task>[] {
         );
       },
     },
-    { key: 'project', header: 'Project', cell: (t) => t.project },
-    { key: 'role', header: 'Role', cell: (t) => agentLabel(t.role) || '—' },
-    { key: 'risk', header: 'Risk', cell: (t) => <RiskBadge risk={t.risk} /> },
+    { key: 'project', header: 'Project', width: 7, cell: (t) => t.project },
+    { key: 'role', header: 'Role', width: 8.5, cell: (t) => agentLabel(t.role) || '—' },
+    { key: 'risk', header: 'Risk', width: 5.5, cell: (t) => <RiskBadge risk={t.risk} /> },
     {
       key: 'pr',
       header: 'PR',
+      width: 4,
       cell: (t) =>
         t.pr_number ? (
           safeHref(t.pr_url) ? (
@@ -78,8 +81,8 @@ function makeColumns(paused: string[]): Column<Task>[] {
           '—'
         ),
     },
-    { key: 'attempts', header: 'Attempts', cell: (t) => `${t.attempts}/${t.max_attempts}` },
-    { key: 'updated', header: 'Updated', cell: (t) => <RelTime value={t.updated_at} /> },
+    { key: 'attempts', header: 'Attempts', width: 5.5, cell: (t) => `${t.attempts}/${t.max_attempts}` },
+    { key: 'updated', header: 'Updated', width: 7, cell: (t) => <RelTime value={t.updated_at} /> },
   ];
 }
 

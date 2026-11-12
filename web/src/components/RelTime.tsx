@@ -1,4 +1,4 @@
-import { formatRelative, parseTime } from '../lib/time';
+import { formatDateTime, formatRelative, parseTime } from '../lib/time';
 import { useNow } from '../lib/clock';
 
 /**
@@ -9,7 +9,7 @@ export function RelTime({ value, className, spoken }: { value: string | null | u
   const now = useNow();
   const date = parseTime(value);
   if (!date) return <span className="muted">—</span>;
-  const full = date.toLocaleString();
+  const full = formatDateTime(date);
   return (
     <time className={className} dateTime={date.toISOString()} title={full}>
       {formatRelative(date, now)}
