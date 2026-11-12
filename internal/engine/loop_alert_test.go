@@ -160,3 +160,24 @@ func TestLoopAlertStreakIsStored(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "", st.Cursor)
 }
+
+// A second engine over the same store stands for the daemon after a restart: it carries the
+// streak on, and does not repeat a notification the first one sent.
+func TestLoopAlertStreakSurvivesRestart(t *testing.T) {
+	a := laNew(t, "")
+	a.fail(0, "sentry is down")
+	a.fail(6*time.Minute, "sentry is down")
+
+	restarted, err := New(a.e.d)
+	require.NoError(t, err)
+	a.e = restarted
+	a.fail(12*time.Minute, "sentry is down")
+	require.Len(t, a.rec.notes, 1, "the third failure in a row, counted across the restart")
+	assert.Contains(t, a.rec.notes[0].Body, "Failed 3 times in a row since 2026-10-27 12:00 UTC")
+
+	restarted, err = New(a.e.d)
+	require.NoError(t, err)
+	a.e = restarted
+	a.fail(18*time.Minute, "sentry is down")
+	assert.Len(t, a.rec.notes, 1, "already told about this streak")
+}

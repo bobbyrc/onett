@@ -52,9 +52,13 @@ type selfUpdateFailure struct {
 	At      time.Time `json:"at"`
 }
 
-// recordSelfUpdateFailure stores the failure for the heartbeat. Each call replaces the whole row,
+// recordSelfUpdateFailure stores the failure, redacted, for the heartbeat. Each call replaces the whole row,
 // so the loop and the goroutine that waits for the updater cannot lose each other's write.
 func (e *Engine) recordSelfUpdateFailure(ctx context.Context, project, ref, message string) {
+	// The message can quote the updater's exit error or a rollback reason from its result file, and
+	// the heartbeat shows it to an agent, so it is redacted before it is stored. The updater runs
+	// with onett's own environment, so that is what could leak.
+	message = redactSecrets(message, os.Environ())
 	raw, err := json.Marshal(selfUpdateFailure{Ref: ref, Version: e.d.Version, Message: message, At: e.d.Now().UTC()})
 	if err == nil {
 		err = e.d.Store.SaveLoopState(ctx, domain.LoopState{Name: selfUpdateFailureState, Project: project, Cursor: string(raw)})

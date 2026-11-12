@@ -3,6 +3,7 @@ package engine
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,14 +66,16 @@ func TestSelfUpdateLogHasTimestampedLines(t *testing.T) {
 	assert.Contains(t, readLog(), stamp+"starting update to "+ref+" (running "+s.e.d.Version+")\n")
 
 	s.waitC <- os.ErrInvalid // the updater exits with an error
+	// The failure is handled in another goroutine, which counts it before it writes the line, so
+	// wait for the line itself.
+	failed := stamp + "update to " + ref + " failed: exited with an error: invalid argument\n"
 	deadline := time.Now().Add(5 * time.Second)
-	for s.e.selfUpd.failures(ref) < 1 {
+	for !strings.Contains(readLog(), failed) {
 		if time.Now().After(deadline) {
-			t.Fatal("failure not counted")
+			t.Fatalf("no failure line in the log:\n%s", readLog())
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	assert.Contains(t, readLog(), stamp+"update to "+ref+" failed: exited with an error: invalid argument\n")
 
 	require.NoError(t, os.WriteFile(filepath.Join(s.dir, selfUpdateResultFile), []byte("old=v0.1-1-g1111111\nnew="+s.e.d.Version+"\nref="+suRef+"\nstatus=ok\n"), 0o600))
 	s.e.reportSelfUpdate(s.ctx)
@@ -81,4 +84,16 @@ func TestSelfUpdateLogHasTimestampedLines(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(s.dir, selfUpdateResultFile), []byte("old=x\nnew=y\nref="+ref+"\nstatus=rolled_back\n"), 0o600))
 	s.e.reportSelfUpdate(s.ctx)
 	assert.Contains(t, readLog(), stamp+"self-update to y did not come up healthy; rolled back to x\n")
+}
+
+// A secret from onett's own environment in a failure message is not stored.
+func TestSelfUpdateFailureIsStoredRedacted(t *testing.T) {
+	const secret = "ghp_secret_0123456789"
+	t.Setenv("ONETT_TEST_UPDATER_TOKEN", secret)
+	s := suNew(t)
+	s.e.recordSelfUpdateFailure(s.ctx, "demo", suRef, "self-update failed: push with "+secret+" refused")
+	st, err := s.st.GetLoopState(s.ctx, selfUpdateFailureState, "demo")
+	require.NoError(t, err)
+	assert.NotContains(t, st.Cursor, secret)
+	assert.Contains(t, st.Cursor, "***")
 }
