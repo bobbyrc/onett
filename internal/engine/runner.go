@@ -542,10 +542,7 @@ func (e *Engine) settleTask(ctx context.Context, st *taskRun, res harness.Result
 	}
 
 	// commit leftovers, then publish or close out.
-	commitMsg := result.PRTitle
-	if commitMsg == "" {
-		commitMsg = t.Title
-	}
+	commitMsg := e.commitMessage(p, result.PRTitle, t.Title)
 	if _, err := e.d.Workspaces.Commit(bg, ws, commitMsg); err != nil {
 		if errors.Is(err, workspace.ErrUnresolvedConflicts) {
 			fail(bg, t.ID, "unresolved merge conflicts", err.Error())

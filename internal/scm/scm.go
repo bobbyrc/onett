@@ -101,3 +101,11 @@ type SCM interface {
 	CloseIssue(ctx context.Context, number int, comment string) error
 	EditLabels(ctx context.Context, number int, add, remove []string) error
 }
+
+// MentionQuoter is implemented by a code host that notifies the people named in text pushed to
+// it. QuoteMentions returns s changed so that no @name in it notifies anyone. The engine passes
+// commit messages made from agent text through it; an SCM that does not implement it gets the
+// text unchanged.
+type MentionQuoter interface {
+	QuoteMentions(s string) string
+}

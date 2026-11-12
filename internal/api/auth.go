@@ -5,7 +5,9 @@ import (
 	"crypto/subtle"
 	"errors"
 	"net/http"
+	"net/netip"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bobbyrc/onett/internal/auth"
@@ -21,7 +23,8 @@ const (
 )
 
 // Password hashing is slow on purpose (see auth.passwordIterations), so the server runs only
-// hashSlotCount of them at once. A request that cannot get a slot within hashWait is answered 503
+// hashSlotCount of them at once, and no one client address may hold more than hashSlotsPerClient
+// of them (see clientLines). A request that cannot get a slot within hashWait is answered 503
 // rather than queued without limit.
 const (
 	hashSlotCount = 4
@@ -31,19 +34,110 @@ const (
 // hashSlots is the semaphore for hashing. It is process-wide, which is one server for the daemon.
 var hashSlots = make(chan struct{}, hashSlotCount)
 
-// takeHashSlot waits up to hashWait for a hashing slot. It returns the function that gives the
-// slot back. When no slot frees in time it answers 503 and returns false; when the client has
-// already gone it returns false without writing anything.
+// hashSlotsPerClient is how many hashing slots one client address may hold at once. Sign-in
+// hashes a password even for a name that does not exist, so without this one address could keep
+// every slot busy and nobody else could sign in. Loopback is exempt: behind a reverse proxy on
+// this machine every caller arrives from it, and a cap there would only shrink the pool.
+const hashSlotsPerClient = 2
+
+// clientLine is the queue of one client address for hashing slots.
+type clientLine struct {
+	slots chan struct{}
+	// users counts the requests holding or waiting for a slot; the line is dropped at zero.
+	users int
+}
+
+// clientLines holds a clientLine for every address that is hashing or waiting to.
+type clientLines struct {
+	mu    sync.Mutex
+	lines map[string]*clientLine
+}
+
+// hashLines is process-wide, like hashSlots.
+var hashLines = &clientLines{lines: map[string]*clientLine{}}
+
+// enter returns the line for key, making it if needed, and counts the caller in it.
+func (c *clientLines) enter(key string) *clientLine {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	l := c.lines[key]
+	if l == nil {
+		l = &clientLine{slots: make(chan struct{}, hashSlotsPerClient)}
+		c.lines[key] = l
+	}
+	l.users++
+	return l
+}
+
+// leave uncounts the caller and drops the line once nobody uses it, so the map holds only
+// addresses with a request in flight.
+func (c *clientLines) leave(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if l := c.lines[key]; l != nil {
+		if l.users--; l.users == 0 {
+			delete(c.lines, key)
+		}
+	}
+}
+
+// clientKey names the client of r for hashLines: its address, or for a public IPv6 address its
+// /64, because one public IPv6 network hands a client as many addresses as it likes. Private
+// and link-local IPv6 addresses are given one to a device (a VPN puts all its devices in one
+// /64), so they count singly. It is empty, meaning no per-client limit, for loopback and for
+// an address that does not parse.
+func clientKey(r *http.Request) string {
+	ap, err := netip.ParseAddrPort(r.RemoteAddr)
+	if err != nil {
+		return ""
+	}
+	a := ap.Addr().Unmap().WithZone("")
+	if a.IsLoopback() {
+		return ""
+	}
+	if a.Is6() && !a.IsPrivate() && !a.IsLinkLocalUnicast() {
+		p, err := a.Prefix(64)
+		if err != nil {
+			return ""
+		}
+		return p.String()
+	}
+	return a.String()
+}
+
+// takeHashSlot waits up to hashWait for a place in the client's line and then a global hashing
+// slot, both within the one wait. It returns the function that gives the slot back. When no
+// slot frees in time it answers 503 and returns false; when the client has already gone it
+// returns false without writing anything.
 func takeHashSlot(w http.ResponseWriter, r *http.Request) (func(), bool) {
 	timer := time.NewTimer(hashWait)
 	defer timer.Stop()
+	busy := func() { writeErrorMsg(w, http.StatusServiceUnavailable, "busy; try again") }
+
+	leaveLine := func() {}
+	if key := clientKey(r); key != "" {
+		line := hashLines.enter(key)
+		select {
+		case line.slots <- struct{}{}:
+			leaveLine = func() { <-line.slots; hashLines.leave(key) }
+		case <-timer.C:
+			hashLines.leave(key)
+			busy()
+			return nil, false
+		case <-r.Context().Done():
+			hashLines.leave(key)
+			return nil, false
+		}
+	}
 	select {
 	case hashSlots <- struct{}{}:
-		return func() { <-hashSlots }, true
+		return func() { <-hashSlots; leaveLine() }, true
 	case <-timer.C:
-		writeErrorMsg(w, http.StatusServiceUnavailable, "busy; try again")
+		leaveLine()
+		busy()
 		return nil, false
 	case <-r.Context().Done():
+		leaveLine()
 		return nil, false
 	}
 }
@@ -87,8 +181,9 @@ func principalFrom(ctx context.Context) (principal, bool) {
 var errNoSession = errors.New("no valid session")
 
 // principal resolves who is calling and stores it in the request context. The order is: the
-// bearer token (or ?token= on GET /events), then the session cookie. A request with neither gets
-// 401. A session cookie that no longer works is cleared.
+// bearer token from the Authorization header, then the session cookie. A token in the URL is
+// never read. A request with neither gets 401. A session cookie that no longer works is
+// cleared.
 func (s *server) principal(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -107,7 +202,7 @@ func (s *server) principal(next http.Handler) http.Handler {
 				s.fail(w, err)
 				return
 			}
-			if _, cerr := r.Cookie(auth.SessionCookie); cerr == nil {
+			if _, cerr := r.Cookie(s.cookieName()); cerr == nil {
 				http.SetCookie(w, s.cookie(r, "", -1))
 			}
 			writeErrorMsg(w, http.StatusUnauthorized, "unauthorized")
@@ -130,10 +225,6 @@ func (s *server) bearer(r *http.Request) (token, agent bool) {
 	if h := r.Header.Get("Authorization"); len(h) > len("Bearer ") && strings.EqualFold(h[:len("Bearer ")], "Bearer ") {
 		tok = h[len("Bearer "):]
 	}
-	// GET /events also accepts ?token=, because browsers' EventSource cannot set headers.
-	if tok == "" && r.URL.Path == "/api/v1/events" {
-		tok = r.URL.Query().Get("token")
-	}
 	if tok == "" {
 		return false, false
 	}
@@ -149,7 +240,7 @@ func (s *server) bearer(r *http.Request) (token, agent bool) {
 // sessionUser resolves the session cookie on r to its user and session ID. A missing, unknown or
 // expired session, or one whose user was deleted, gives errNoSession.
 func (s *server) sessionUser(r *http.Request) (domain.User, string, error) {
-	c, err := r.Cookie(auth.SessionCookie)
+	c, err := r.Cookie(s.cookieName())
 	if err != nil {
 		return domain.User{}, "", errNoSession
 	}
@@ -236,17 +327,27 @@ func (s *server) failPerson(w http.ResponseWriter, err error) {
 	s.fail(w, err)
 }
 
+// cookieName is the name of this server's session cookie; see auth.SessionCookieName.
+func (s *server) cookieName() string {
+	return auth.SessionCookieName(s.opts.ListenAddr)
+}
+
 // cookie returns the session cookie with the attributes onett always uses. Secure is set when
-// the public URL is https or the request itself came over TLS. maxAge -1 clears the cookie.
+// the public URL is https (asked afresh on each request through SecureCookiesFunc when set) or
+// the request itself came over TLS. maxAge -1 clears the cookie.
 func (s *server) cookie(r *http.Request, value string, maxAge int) *http.Cookie {
+	secure := s.opts.SecureCookies
+	if s.opts.SecureCookiesFunc != nil {
+		secure = s.opts.SecureCookiesFunc()
+	}
 	return &http.Cookie{
-		Name:     auth.SessionCookie,
+		Name:     s.cookieName(),
 		Value:    value,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   maxAge,
-		Secure:   s.opts.SecureCookies || r.TLS != nil,
+		Secure:   secure || r.TLS != nil,
 	}
 }
 
