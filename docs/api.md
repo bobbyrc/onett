@@ -116,7 +116,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /loops` | | `[]LoopView` |
 | `POST /loops/{name}/run` | `?project=` | 202 |
 | `GET /agents` | `?project=` (that project's merged view; an unknown project is 400) | `[]AgentView` |
-| `GET /config` | | `Config` with every `env` value (projects and harnesses) and every deploy, observer or notifier option whose key contains `token`, `secret`, `password` or `key` replaced by `"***"` |
+| `GET /config` | | `Config` with secrets replaced by `"***"`: every `env` value (projects and harnesses), every deploy, observer, notifier or channel option whose key contains `token`, `secret`, `password` or `key`, the ntfy `topic`, every value of six characters or more substituted for a `${NAME}` reference, and credentials written as literals in the commands and URLs of harnesses, loops, notifiers, channels and a project's deploy, observers, setup, checks and intake. The last is best effort: it finds the user and password of a URL, the value after a name that contains one of those four words, `Authorization` and bearer values, a `-u user:password` pair, and tokens with a well-known prefix such as `ghp_`. Agent `args` and prose (instructions, prompts, descriptions) are not scanned for literals |
 | `POST /config/reload` | | 204 |
 | `GET /conversations` | | `[]Conversation` |
 | `POST /conversations` | `{"title":"…","project":"…"}` | `Conversation` (201) |

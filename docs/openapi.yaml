@@ -1324,7 +1324,12 @@ paths:
       operationId: getConfig
       tags: [config]
       summary: Read the loaded configuration.
-      description: Env values, and the option values of deploy and observer entries, are replaced by `"***"`.
+      description: >-
+        Secrets are replaced by `"***"`. That covers env values, the deploy, observer, notifier and
+        channel options whose key names a secret, the ntfy topic, values of six characters or more
+        substituted for `${NAME}` references, and credentials written as literals in the commands
+        and URLs of harnesses, loops, notifiers, channels and projects (best effort; agent args
+        and prose are not scanned; see docs/api.md).
       responses:
         '200':
           description: The redacted configuration.

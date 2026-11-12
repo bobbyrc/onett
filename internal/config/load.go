@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -58,14 +59,22 @@ func Load(path string) (*Config, error) {
 // resolve relative agent prompt paths; an empty path resolves them against the working
 // directory. An empty document is valid and yields the defaults.
 func Parse(data []byte, path string) (*Config, error) {
-	if err := checkPromptRefs(data); err != nil {
+	marked, err := checkAgentRefs(data)
+	if err != nil {
 		return nil, err
 	}
 	expanded, values, err := expandEnv(data)
 	if err != nil {
 		return nil, err
 	}
+	if err := checkOneDocument(expanded); err != nil {
+		return nil, err
+	}
 	expanded, warnings := dropRetiredKeys(expanded)
+	// dropRetiredKeys can write the file out again, so this reads what the decoder reads.
+	if err := checkExpandedAgentText(marked, expanded); err != nil {
+		return nil, err
+	}
 	dec := yaml.NewDecoder(bytes.NewReader(expanded))
 	dec.KnownFields(true)
 	var cfg Config
@@ -83,52 +92,204 @@ func Parse(data []byte, path string) (*Config, error) {
 	return &cfg, nil
 }
 
-// promptTexts maps an agent name to its prompt_text as written in the file.
-type promptTexts map[string]struct {
-	PromptText *string `yaml:"prompt_text"`
+// envRefMarkA and envRefMarkB each stand in for every ${NAME} reference while the file is read
+// for the text it gives to agents. They are plain words, so the file parses however a reference
+// was written (a bare ${NAME} inside [a, b] is not valid YAML). Text that differs between the
+// two readings holds a reference.
+const (
+	envRefMarkA = "onettEnvRefA"
+	envRefMarkB = "onettEnvRefB"
+)
+
+// rawAgent is the part of one agent that agentText reads. The fields are nodes, so a value of
+// the wrong shape (args: ${ARGS}) is still read.
+type rawAgent struct {
+	PromptText  yaml.Node `yaml:"prompt_text"`
+	Description yaml.Node `yaml:"description"`
+	Args        yaml.Node `yaml:"args"`
 }
 
-// rawPrompts is the part of the file that checkPromptRefs reads.
-type rawPrompts struct {
-	Agents   promptTexts `yaml:"agents"`
+// rawAgentText is the part of the file that agentText reads.
+type rawAgentText struct {
+	Harnesses map[string]struct {
+		Command yaml.Node `yaml:"command"`
+		Args    yaml.Node `yaml:"args"`
+	} `yaml:"harnesses"`
+	Agents   map[string]rawAgent `yaml:"agents"`
 	Projects map[string]struct {
-		Agents promptTexts `yaml:"agents"`
+		Instructions yaml.Node           `yaml:"instructions"`
+		Agents       map[string]rawAgent `yaml:"agents"`
 	} `yaml:"projects"`
 }
 
-// checkPromptRefs refuses a ${NAME} reference in an inline prompt. An inline prompt goes to the
-// agent verbatim, and an agent never gets credentials, so the reference is refused whether or
-// not the variable is set. It reads the bytes before expandEnv runs, so the message names the
-// prompt rather than an unset variable. A file that does not decode here is left for Parse's
-// strict decode to report.
-func checkPromptRefs(data []byte) error {
-	var raw rawPrompts
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil
+// agentTextReasons says, for each setting agentText reads, why it must not hold a reference.
+var agentTextReasons = map[string]string{
+	"prompt_text":  "agent prompts are given to agents",
+	"description":  "agent descriptions are given to agents",
+	"instructions": "project instructions are given to agents",
+	"args":         "args are put on the command line of agents",
+	"command":      "everything after the program name is put on the command line of agents",
+}
+
+// agentText reads data as YAML and returns the text of every setting that reaches an agent,
+// keyed by the setting's dotted name: an agent's inline prompt, description and args (global and
+// per project), a harness's args and the arguments of its command, and a project's
+// instructions. A setting whose parent has the wrong shape is left out. The error is non-nil
+// only when data is not YAML at all.
+func agentText(data []byte) (map[string]string, error) {
+	var raw rawAgentText
+	var shape *yaml.TypeError
+	if err := yaml.Unmarshal(data, &raw); err != nil && !errors.As(err, &shape) {
+		return nil, err
 	}
-	var errs []error
-	report := func(prefix string, agents promptTexts) {
-		names := make([]string, 0, len(agents))
-		for name := range agents {
+	text := map[string]string{}
+	put := func(field string, n *yaml.Node) {
+		var b strings.Builder
+		writeScalars(&b, n, map[*yaml.Node]bool{})
+		if b.Len() > 0 {
+			text[field] = b.String()
+		}
+	}
+	agents := func(prefix string, agents map[string]rawAgent) {
+		for name, a := range agents {
+			at := prefix + "agents." + name
+			put(at+".prompt_text", &a.PromptText)
+			put(at+".description", &a.Description)
+			put(at+".args", &a.Args)
+		}
+	}
+	for name, h := range raw.Harnesses {
+		put("harnesses."+name+".args", &h.Args)
+		// The first element of command is the program to run, often a path under ${HOME}. The
+		// rest are arguments, like args.
+		command := &h.Command
+		if command.Kind == yaml.AliasNode && command.Alias != nil {
+			command = command.Alias
+		}
+		if command.Kind == yaml.SequenceNode && len(command.Content) > 1 {
+			put("harnesses."+name+".command", &yaml.Node{Kind: yaml.SequenceNode, Content: command.Content[1:]})
+		}
+	}
+	agents("", raw.Agents)
+	for name, p := range raw.Projects {
+		put("projects."+name+".instructions", &p.Instructions)
+		agents("projects."+name+".", p.Agents)
+	}
+	return text, nil
+}
+
+// writeScalars writes every scalar at or below n to b, following aliases. seen stops an anchor
+// that contains itself from recursing for ever.
+func writeScalars(b *strings.Builder, n *yaml.Node, seen map[*yaml.Node]bool) {
+	if n == nil || seen[n] {
+		return
+	}
+	seen[n] = true
+	if n.Kind == yaml.AliasNode {
+		writeScalars(b, n.Alias, seen)
+		return
+	}
+	if n.Kind == yaml.ScalarNode {
+		b.WriteString(n.Value)
+		b.WriteByte(0)
+	}
+	for _, c := range n.Content {
+		writeScalars(b, c, seen)
+	}
+}
+
+// changedAgentText returns the names of the settings whose text differs between a and b, sorted.
+func changedAgentText(a, b map[string]string) []string {
+	var names []string
+	for name, text := range a {
+		if other, ok := b[name]; !ok || other != text {
 			names = append(names, name)
 		}
-		sort.Strings(names)
-		for _, name := range names {
-			if text := agents[name].PromptText; text != nil && envRef.MatchString(*text) {
-				errs = append(errs, fmt.Errorf("%sagents.%s.prompt_text: must not contain ${NAME} references; agent prompts are given to agents, which never get credentials", prefix, name))
-			}
+	}
+	for name := range b {
+		if _, ok := a[name]; !ok {
+			names = append(names, name)
 		}
 	}
-	report("", raw.Agents)
-	projects := make([]string, 0, len(raw.Projects))
-	for name := range raw.Projects {
-		projects = append(projects, name)
-	}
-	sort.Strings(projects)
-	for _, name := range projects {
-		report("projects."+name+".", raw.Projects[name].Agents)
+	slices.Sort(names)
+	return names
+}
+
+// refuseAgentRefs returns one error for each named setting, or nil for none. A name that itself
+// came from a reference is shown with ${NAME} in its place.
+func refuseAgentRefs(fields []string) error {
+	unmark := strings.NewReplacer(envRefMarkA, "${NAME}", envRefMarkB, "${NAME}")
+	seen := map[string]bool{}
+	var errs []error
+	for _, field := range fields {
+		field = unmark.Replace(field)
+		if seen[field] {
+			continue
+		}
+		seen[field] = true
+		reason := agentTextReasons[field[strings.LastIndex(field, ".")+1:]]
+		errs = append(errs, fmt.Errorf("%s: must not contain ${NAME} references; %s, which never get credentials. Remove the reference; to hand agents the variable itself, name it in the harness's inherit_env", field, reason))
 	}
 	return errors.Join(errs...)
+}
+
+// checkAgentRefs refuses a ${NAME} reference in a setting whose text reaches an agent (see
+// agentText). Prompts, descriptions and instructions are given to agents verbatim and arguments
+// are put on their command line, and an agent never gets credentials, so the reference is
+// refused whether or not the variable is set. It reads the bytes before expandEnv runs, so the
+// message names the setting rather than an unset variable. It returns the text it read, for
+// checkExpandedAgentText, or nil when the file does not parse with its references masked.
+func checkAgentRefs(data []byte) (map[string]string, error) {
+	marked, err := agentText(envRef.ReplaceAllLiteral(data, []byte(envRefMarkA)))
+	if err != nil {
+		return nil, nil
+	}
+	other, err := agentText(envRef.ReplaceAllLiteral(data, []byte(envRefMarkB)))
+	if err != nil {
+		return nil, nil
+	}
+	return marked, refuseAgentRefs(changedAgentText(marked, other))
+}
+
+// checkExpandedAgentText is the second half of the check, run on the bytes Parse decodes, with
+// the references filled in: the text that reaches agents must be what checkAgentRefs read. It
+// differs when a reference stood for a setting's name or a whole section, or when its value
+// held YAML of its own. A setting that exists only now may take its name from a variable's
+// value, so it is refused without being named. A file that parses only once its references are
+// filled in cannot be checked, so it is refused. A file that does not parse at all is left for
+// Parse's decode to report.
+func checkExpandedAgentText(marked map[string]string, expanded []byte) error {
+	text, err := agentText(expanded)
+	if err != nil {
+		return nil
+	}
+	if marked == nil {
+		return errors.New("a ${NAME} reference stands where YAML syntax is expected, so onett cannot check that no reference reaches an agent; write references only inside values")
+	}
+	var added error
+	var changed []string
+	for _, field := range changedAgentText(marked, text) {
+		if _, ok := marked[field]; ok {
+			changed = append(changed, field)
+		} else {
+			added = errors.New("a ${NAME} reference adds a setting whose text is given to agents (a prompt_text, description, args, command or instructions), and agents never get credentials; write such settings out in the file itself")
+		}
+	}
+	return errors.Join(added, refuseAgentRefs(changed))
+}
+
+// checkOneDocument refuses a file that holds more than one YAML document. Parse decodes only the
+// first, so settings after a second "---" line would be dropped without a word. A file that does
+// not parse is left for Parse's decode to report.
+func checkOneDocument(data []byte) error {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	if err := dec.Decode(new(yaml.Node)); err != nil {
+		return nil
+	}
+	if err := dec.Decode(new(yaml.Node)); !errors.Is(err, io.EOF) {
+		return errors.New(`the file holds more than one YAML document; onett reads only one, so move every setting into the first document and remove the extra "---" line`)
+	}
+	return nil
 }
 
 // minSecretLen is the shortest substituted value that Redacted masks. Shorter values are too
