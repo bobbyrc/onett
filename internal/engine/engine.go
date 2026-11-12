@@ -300,8 +300,6 @@ func (e *Engine) recover(ctx context.Context) error {
 	// reattached holds the tasks whose run was picked up again: they are still running.
 	reattached := map[string]bool{}
 	reattachedRuns := map[string]bool{} // by run ID: includes orchestrator turns, which have no task
-	// interrupted holds the tasks whose run lost its agent to the restart: they resume, for free.
-	interrupted := map[string]bool{}
 	endedByRestart := map[string]bool{} // by run ID: runs this sweep ended, as opposed to ones that had finished
 	for _, r := range runs {
 		if e.reattachRun(ctx, r) {
@@ -312,7 +310,6 @@ func (e *Engine) recover(ctx context.Context) error {
 		status, msg := domain.RunFailed, "onett restarted during this run"
 		if e.interruptible(ctx, r) {
 			status, msg = domain.RunInterrupted, "onett restarted and the agent's shim is gone; the run resumes from its session"
-			interrupted[r.TaskID] = true
 			e.ingestStreamLog(ctx, r)
 		}
 		endedByRestart[r.ID] = true
@@ -337,7 +334,11 @@ func (e *Engine) recover(ctx context.Context) error {
 		if reattached[t.ID] {
 			continue
 		}
-		if interrupted[t.ID] {
+		resume, err := e.interruptedByRestart(ctx, t.ID)
+		if err != nil {
+			return err
+		}
+		if resume {
 			// The restart, not the agent, ended the run: give the attempt back and resume.
 			if _, _, err := e.setTaskFrom(ctx, t.ID, []domain.TaskStatus{domain.TaskRunning},
 				"re-queued to resume after restart", func(t *domain.Task) error {
@@ -390,6 +391,21 @@ func (e *Engine) recover(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// interruptedByRestart reports whether the latest run of a running task ended interrupted. Only
+// recover ends a run that way, and it re-queues the task next, so a task still running behind an
+// interrupted run is one whose recovery stopped between those two writes: on this start, or on an
+// earlier one that failed or was killed. It is read from the run row, not kept in memory, so the
+// next start finishes what a failed one began. It also holds for a task the scheduler claimed
+// again after an interruption when onett died before the new run row existed: no agent ran on
+// that claim either.
+func (e *Engine) interruptedByRestart(ctx context.Context, taskID string) (bool, error) {
+	runs, err := e.d.Store.ListRuns(ctx, store.RunFilter{TaskID: taskID, Limit: 1}) // newest first
+	if err != nil {
+		return false, err
+	}
+	return len(runs) == 1 && runs[0].Status == domain.RunInterrupted, nil
 }
 
 // controlLoop is the LoopState name that persists the pause switch (Cursor "paused").
