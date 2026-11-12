@@ -622,6 +622,17 @@ web/                  React + Vite + TypeScript UI (built into internal/api/webd
   denial. Codex does not report sandbox refusals in machine-readable form (only in prose), so
   for Codex the "denial is terminal" rule relies on the prompt ("if denied, report blocked")
   and the stall timeout.
+- No harness reports a dollar cost while a run is going: Claude Code reports it, and Codex the
+  tokens to estimate it from, when the run ends. The daily budget is checked before each run
+  starts and sums today's runs, those in flight included, but a running run counts only what
+  onett can estimate. With a `price` on its harness that has a `cached_input_per_mtok` rate,
+  that is the prompt tokens of its requests so far (Claude Code streams each request's prompt
+  size) at that rate, the cheapest kind of input, with output left out, so the estimate stays
+  at or below the cost the run reports at the end and never stops runs on a guess that is too
+  high. A run stopped before it reports a cost keeps the estimate. The billing mode is also
+  detected only at the end, so the estimate of a run on a subscription counts while it runs
+  unless its harness says `billing: subscription`. Without such a `price`, and for Codex, a
+  running run counts as $0, so runs started together can still overshoot the budget.
 
 ## Not in v0
 
