@@ -102,12 +102,11 @@ paths:
         - If a client falls too far behind, the server closes the stream. The client reconnects
           with its last `id`.
 
-        Authentication: browsers' `EventSource` cannot set headers, so this route also accepts
-        the token in the `token` query parameter (`/events?token=…`). Use either the bearer
-        header or `token`.
+        Authentication: the bearer header or the session cookie. A token in the URL is not
+        accepted.
       security:
         - bearer: []
-        - queryToken: []
+        - session: []
       parameters:
         - name: after
           in: query
@@ -2119,7 +2118,7 @@ paths:
       operationId: setUserPassword
       tags: [users]
       summary: Set an account's password.
-      description: Owner only. The account's other sessions end. When the owner sets their own password, their current session stays.
+      description: Owner only. The account's sessions end. An owner cannot set their own password here (403); `POST /auth/password` does that and asks for the current password.
       parameters:
         - $ref: '#/components/parameters/UserName'
       requestBody:
@@ -2471,13 +2470,8 @@ components:
     session:
       type: apiKey
       in: cookie
-      name: onett_session
-      description: Set by signing in (POST /auth/login or /auth/setup). HttpOnly, SameSite=Strict. Browsers only. The role decides what the session may do.
-    queryToken:
-      type: apiKey
-      in: query
-      name: token
-      description: Accepted only by `GET /events`, because browsers' EventSource cannot set headers.
+      name: onett_session_7777
+      description: Set by signing in (POST /auth/login or /auth/setup). HttpOnly, SameSite=Strict. Browsers only. The role decides what the session may do. The name ends in the port onett listens on (`onett_session_<port>`; 7777 by default), so two onetts on one host keep separate sessions.
 
   parameters:
     UserName:
@@ -2603,7 +2597,7 @@ components:
 
   headers:
     SessionCookie:
-      description: onett_session=<value>; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000 (30 days). Secure when public_url is https.
+      description: onett_session_<port>=<value>; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000 (30 days). Secure when public_url is https.
       schema:
         type: string
 

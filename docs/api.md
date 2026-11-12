@@ -18,9 +18,10 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
   `POST /control/resume`, `POST /projects/{name}/resume`, `POST /goals/{id}/resume`, `/done` and
   `/block` for a paused goal, `POST /loops/{name}/run`, `POST /conversations/{id}/messages` and
   `/flush`, and `POST /tasks/{id}/retry` or `/messages` for a task that a denial stopped. Neither
-  token can **ever** edit the config file or manage users. `GET /events` also accepts `?token=`
-  because browsers' `EventSource` cannot set headers.
-- **A signed-in person** uses the `onett_session` cookie, set by `POST /auth/setup` (the first
+  token can **ever** edit the config file or manage users. A token is read only from the
+  `Authorization` header, never from the URL.
+- **A signed-in person** uses the session cookie (`onett_session_<port>`, named after the port
+  onett listens on, so two onetts on one host keep separate sessions), set by `POST /auth/setup` (the first
   account) or `POST /auth/login`. The cookie is HttpOnly and SameSite=Strict, lasts 30 days, and
   is `Secure` when `server.public_url` is https. Sign-out (`POST /auth/logout`) ends the session.
   Changing a password ends that user's other sessions. What a person may do depends on their role:
@@ -36,7 +37,7 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
   site gets 403. Requests with no `Sec-Fetch-Site` or `Origin` header (the CLI's) pass.
 
 - Errors are `{"error": "<message>"}` with:
-  - 400 invalid request (bad JSON, unknown field, bad value in the URL or query).
+  - 400 invalid request (bad JSON, unknown field, data after the JSON value, bad value in the URL or query).
   - 401 no valid token or session. A wrong username or password on sign-in also gets 401, with
     the same message for both.
   - 403 `"forbidden"`: signed in, or with the token, but the role or token may not do this. Also
@@ -49,6 +50,8 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
     hidden and the error is logged).
   - 503 `"busy; try again"`: the server is already running its maximum of four password checks
     (sign-in, setup and password change) and none freed within five seconds. Retry after a moment.
+    A client address other than loopback may hold two of the four at once, so one address cannot
+    keep everyone else out.
   - 422 the input is well formed but not acceptable. Usually `{"error": "..."}`. A config that does
     not validate gets `{"error": "...", "problems": [{"path","message"}]}`, where `path` is the
     dotted setting (`""` when the message names none).
@@ -76,13 +79,13 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `GET /users` | | `[]User` (owner) |
 | `POST /users` | `{"username","password","role"}` | `User` (201, owner); 409 taken |
 | `POST /users/{name}/role` | `{"role"}` | `User` (owner); 409 last owner |
-| `POST /users/{name}/password` | `{"password"}` | 204 (owner); ends that user's other sessions |
+| `POST /users/{name}/password` | `{"password"}` | 204 (owner); ends that user's sessions; 403 for your own account: change it with `POST /auth/password`, which asks for the current password |
 | `DELETE /users/{name}` | | 204 (owner); 409 last owner |
 | `GET /config/file` | | `{"path","version","text"}` (owner) |
 | `PUT /config/file` | `{"version","text"}` | `ConfigSaved` (owner); 409 stale version; 422 `problems` |
 | `GET /config/document` | | `{"path","version","document","schema","default_routing"}` (owner); `default_routing` maps each task kind to its built-in agent |
 | `PATCH /config/document` | `{"version","changes":[{"op":"set"\|"delete","path":[...],"value"}]}` | `ConfigSaved` (owner); keeps comments |
-| `GET /events` | `?after=<id>&token=` | SSE stream (below) |
+| `GET /events` | `?after=<id>` | SSE stream (below) |
 | `GET /ws` | `?after=<id>` | WebSocket stream for the web UI (below) |
 | `GET /events/history` | `?after=&project=&task_id=&limit=` (default 500) | `[]Event` |
 | `GET /stats` | | `Stats` |
