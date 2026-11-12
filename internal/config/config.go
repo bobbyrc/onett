@@ -77,8 +77,8 @@ type Chat struct {
 	// supervised policy is held only by the agent's instructions, in every turn it runs.
 	AgentMayApproveMerges bool `yaml:"agent_may_approve_merges" json:"agent_may_approve_merges" default:"false"`
 	// AgentMayResume lets the chief of staff resume the factory, a project and a goal someone
-	// paused when you tell it to in chat (default false). Off, agents can pause but only a person
-	// resumes.
+	// paused when you tell it to in chat, and block or finish such a goal (default false). Off,
+	// agents can pause but only a person resumes, and a paused goal is the owner's alone.
 	AgentMayResume bool `yaml:"agent_may_resume" json:"agent_may_resume" default:"false"`
 }
 

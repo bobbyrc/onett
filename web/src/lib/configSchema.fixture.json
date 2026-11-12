@@ -89,7 +89,7 @@
         {
           "key": "agent_may_resume",
           "type": "bool",
-          "help": "Agent may resume lets the chief of staff resume the factory, a project and a goal someone paused when you tell it to in chat (default false). Off, agents can pause but only a person resumes.",
+          "help": "Agent may resume lets the chief of staff resume the factory, a project and a goal someone paused when you tell it to in chat, and block or finish such a goal (default false). Off, agents can pause but only a person resumes, and a paused goal is the owner's alone.",
           "default": false
         }
       ]

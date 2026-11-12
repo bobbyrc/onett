@@ -24,7 +24,7 @@ chat:
     retention: 720h                    # files older than this are deleted daily; the message shows without them (default 720h = 30 days)
   # session_idle_timeout: 30m          # an orchestrator or goal conversation keeps one claude process alive between messages (so the prompt cache keeps hitting) until it has been idle this long; the next message then resumes the session in a new process. Negative = one process per message (default 30m)
   # agent_may_approve_merges: false    # true lets the chief of staff approve or reject a merge approval when you tell it to in chat. Off (the default), only a person decides one: the approval card, a chat channel, or `onett approve` in your own terminal. On, the supervised gate is held only by the agent's instructions
-  # agent_may_resume: false            # true lets the chief of staff resume the factory, a project or a paused goal when you tell it to in chat. Off (the default), agents can pause but only a person resumes
+  # agent_may_resume: false            # true lets the chief of staff resume the factory, a project or a paused goal when you tell it to in chat, and block or finish a paused goal. Off (the default), agents can pause but only a person resumes
 
 # Limits: caps on how much runs at once and how long a run may go.
 limits:

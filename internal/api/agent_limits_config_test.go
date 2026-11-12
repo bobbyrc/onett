@@ -25,6 +25,8 @@ func TestAgentMayApproveMergesSetting(t *testing.T) {
 
 	setAgentLimits(x, false, false)
 	assertPersonOnly(t, x.authReq(t, http.MethodPost, target, body, withToken(agentTok)), "owner's decision")
+	assertNotDenied(t, x.authReq(t, http.MethodPost, target, body, withToken(testToken)), "owner token")
+	assertNotDenied(t, x.authReq(t, http.MethodPost, target, body, withCookie(cookie)), "owner session")
 
 	setAgentLimits(x, true, false)
 	assertNotDenied(t, x.authReq(t, http.MethodPost, target, body, withToken(agentTok)), "agent with approve setting on")
@@ -43,6 +45,8 @@ func TestAgentMayResumeSetting(t *testing.T) {
 	setAgentLimits(x, false, false)
 	for _, target := range targets {
 		assertPersonOnly(t, x.authReq(t, http.MethodPost, target, "", withToken(agentTok)), "owner's decision")
+		assertNotDenied(t, x.authReq(t, http.MethodPost, target, "", withToken(testToken)), "owner token")
+		assertNotDenied(t, x.authReq(t, http.MethodPost, target, "", withCookie(cookie)), "owner session")
 	}
 
 	setAgentLimits(x, false, true)

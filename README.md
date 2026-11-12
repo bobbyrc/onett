@@ -116,7 +116,7 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   by hand, writing in a chat as you, giving a blocked goal a fresh turn budget, and retrying a
   task that a denial stopped. Two of these are yours to allow in `onett.yaml`, both off by
   default: `chat.agent_may_approve_merges` (approve or reject a merge when you tell it to) and
-  `chat.agent_may_resume` (resume the factory, a project or a paused goal). Only a signed-in
+  `chat.agent_may_resume` (resume the factory or a project, and change a goal you paused). Only a signed-in
   owner can edit `onett.yaml`, so an agent cannot switch them on for itself; with one on, that
   decision is held only by the agent's instructions. Inside an agent run the commands that act on this machine with your
   authority (`token`, `user`, `service`, `init`, `open`, `backup`, `project add`, and `serve` for the chief
