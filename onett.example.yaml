@@ -292,7 +292,7 @@ loops:
   prod_watch:
     every: 10m                         # polls observers and opens incident tasks (default 10m)
     min_level: error                   # error, warning or fatal (default error)
-    min_count: 1                       # occurrences before an incident is opened (default 1)
+    min_count: 1                       # occurrences before an incident is opened (default 1); a signal below min_level or min_count does not fail a release that is being verified either
   friction:
     every: 10m                         # collects friction reports into GitHub issues (default 10m)
     label: friction                    # label on filed issues (default "friction")
