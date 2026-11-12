@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
+import { useCan } from '../auth';
 import { DEPLOYMENT_LIMIT, useControl, useDeployments, useProjects, useStats } from '../queries';
 import { formatCost } from '../lib/format';
 import { lampDetail, projectLamp } from '../lib/lamp';
@@ -15,6 +16,7 @@ import './AndonBoard.css';
  */
 export function AndonBoard() {
   const projects = useProjects();
+  const owner = useCan('administer');
   const deployments = useDeployments('');
   const latest = latestDeploys(deployments.data ?? []);
   // Only a loaded list shorter than the limit can say a project never deployed.
@@ -40,8 +42,11 @@ export function AndonBoard() {
           );
         })}
         {projects.isSuccess && projects.data.length === 0 ? (
+          // Only an owner has the Add project button there.
           <p className="board-empty">
-            No projects yet. Add one on the <Link to="/projects">Projects page</Link> and it appears here.
+            {owner ? 'No projects yet. Add one on the ' : 'No projects yet. An owner can add one on the '}
+            <Link to="/projects">Projects page</Link>
+            {owner ? ' and it appears here.' : '.'}
           </p>
         ) : null}
         {projects.error ? (

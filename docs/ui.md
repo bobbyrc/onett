@@ -199,7 +199,8 @@ as a fallback.
   runs, queued tasks and cost today. Windows are 208px, and the band is only as wide as its
   windows and the line window, so one project is a small board, not a wide empty one; when the
   windows do not fit in one row they wrap into a grid that fills the main column. Empty:
-  "No projects yet", with a link to the Projects page, where a project is added.
+  "No projects yet", with a link to the Projects page, where an owner adds one (anyone else is
+  told an owner can).
   On a phone the band sits inside the page margins with one row per project (the
   lamp as a side bar, name and reason on the first line, the other counts and the last deploy
   under them) and the line window on one row.
