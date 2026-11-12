@@ -18,6 +18,11 @@ export function formatDate(date: Date, locale?: string): string {
   return date.toLocaleDateString(locale, { dateStyle: 'medium' });
 }
 
+/** The same date with the time to the second ("Aug 7, 2026, 3:04:05 PM"), for hover titles. */
+export function formatDateTime(date: Date, locale?: string): string {
+  return date.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'medium' });
+}
+
 /** "just now", "12s ago", "3m ago", "2h ago", "4d ago", then a date with the month as a word. */
 export function formatRelative(date: Date, now: number): string {
   const diff = now - date.getTime();

@@ -57,7 +57,8 @@ blinks on and off rather than pulsing; both stop under `prefers-reduced-motion`.
   stop. The tone names in `src/lib/status.ts` are unchanged; the stylesheet maps them to lamps.
 - **RiskBadge**: condensed caps on one fixed ramp, the same everywhere: low outlined, medium on
   call yellow, high on stop red, unrated as quiet muted text.
-- **RelTime**: "3m ago", full timestamp in `title`. A time over 30 days old shows as a date
+- **RelTime**: "3m ago", full timestamp in `title`, with the month as a word ("Aug 7, 2026,
+  3:04:05 PM"). A time over 30 days old shows as a date
   with the month as a word ("Aug 7, 2026" or "7 Aug 2026", by the browser's locale), so day and
   month cannot be confused.
 - **Agent names**: wherever the UI shows an agent or role as text it uses `agentLabel` (`web/src/lib/agentLabel.ts`):
