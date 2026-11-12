@@ -61,7 +61,7 @@ Each is described under [Safety model](#safety-model) and annotated in
 - **Task**: one unit of work for one project, such as a feature, a bug fix or an incident.
 - **Role** (agent profile): a named recipe for who does a task: which agent CLI runs it, which
   model, and which instructions. Built-in roles are `chief-of-staff` (the agent you chat with),
-  `senior-engineer`, `code-reviewer`, `tech-lead`, `sre` and `platform-engineer` (the old names
+  `senior-engineer`, `code-reviewer`, `tech-lead`, `sre`, `platform-engineer`, `product-designer` and `visual-designer` (the old names
   still work). A role can carry a `title`, `context` files and `tools` rules. You can edit a built-in role, turn it
   off with `disabled: true` (it cannot be turned off while a route still uses it, and the
   chief of staff cannot be turned off), or add a custom role. A role's instructions are a Markdown
@@ -333,7 +333,8 @@ onett goal block ID --reason "what only you can unblock"
 
 `onett task create --goal ID` links a task to a goal; it defaults to `$ONETT_GOAL`, which onett
 sets for the chief of staff in a goal conversation. You can chat in that conversation to steer the
-goal. The web UI shows the conversation as a normal chat; it has no goals page yet.
+goal. The web UI shows the conversation as a normal chat; its Goals page lists the goals, and
+each goal's page shows its tasks.
 
 ### Retro loop and friction
 
@@ -360,7 +361,6 @@ internal/observe/ Observer interface; exec and sentry observers
 internal/notify/  Notifier interface; log, ntfy, discord, telegram and exec notifiers
 internal/channel/ two-way chat channels: Telegram and Discord bots, wired in by `onett serve` from `channels:`
 internal/engine/  scheduler, supervisor, PR shepherd, loops, prompt assembly
-internal/chat/    chief-of-staff conversations
 internal/api/     HTTP API, SSE stream (CLI), WebSocket (web UI) and the embedded web UI
 web/              React + Vite + TypeScript UI (built into internal/api/webdist)
 docs/             design, API, UI and plugin documentation

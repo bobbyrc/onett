@@ -389,11 +389,12 @@ task list`, `onett run logs`, and so on. Its answer streams back to the UI over 
 Each conversation may carry settings: a model, a reasoning effort and a permission mode, all
 optional (empty means the role's default from the config). The owner changes them in the composer
 footer; they apply from the next turn, and each run records the model, effort and permission mode
-it used. For Claude Code a settings change alters the long-lived process's fingerprint (its
-command line), so the next turn replaces the process and resumes the session with the new
-`--model`, `--effort` and `--permission-mode`. Claude's `control_request` messages
-(`set_model`, `set_permission_mode`) could change a live process in place, but that was not
-verified against the installed CLI, so it is not used **(review)**. The choices per harness are
+it used. For Claude Code a new model or permission mode reaches the long-lived process in place:
+onett writes a `set_model` or `set_permission_mode` control request to it ahead of the next
+message, so the process and its prompt cache stay (see "One agent process per conversation").
+A new effort has no such request, and neither has clearing a model back to a default the role
+does not name: those cannot be done in place, so the next turn replaces the process and resumes
+the session with the new flags. The choices per harness are
 listed in one place each (`choices.go` in the adapter). Only a signed-in person may change the
 settings: the API token, which the orchestrator holds, cannot widen its own permissions.
 
@@ -584,7 +585,6 @@ internal/observe/     Observer interface; exec observer; sentry observer
 internal/notify/      Notifier interface; ntfy, discord, telegram, exec, log
 internal/channel/     two-way chat bots (telegram, discord) the daemon starts from the channels config; each type registers itself (`channel.Register`) and `channel/all` links them in
 internal/engine/      scheduler, supervisor, shepherd, loops, prompt assembly
-internal/chat/        orchestrator conversations
 internal/attach/      chat attachments: sanitised names, type sniffing, size limit, retention
 internal/api/         chi HTTP API + SSE + WebSocket + embedded web UI
 web/                  React + Vite + TypeScript UI (built into internal/api/webdist)
@@ -592,12 +592,13 @@ web/                  React + Vite + TypeScript UI (built into internal/api/webd
 
 ## Security defaults
 
-- Binds `127.0.0.1:7777`. Every API call needs `Authorization: Bearer <token>`; the token is
-  generated on first start at `<data_dir>/token` (mode 600). Expose remotely only over a VPN
-  such as Tailscale.
+- Binds `127.0.0.1:7777`. Every API call needs `Authorization: Bearer <token>` or a signed-in
+  session; the token is generated on first start at `<data_dir>/token` (mode 600). Remote access
+  is opt-in: reach it over a VPN such as Tailscale or through a reverse proxy with TLS, and name
+  the address in `server.public_url` or `server.allowed_hosts` (see the Host check below).
 - Agents never get push credentials from onett; onett pushes. Harness permissions are
-  configured per agent profile (`claude-code` defaults to `acceptEdits` plus an allowed-tools
-  list; `codex` defaults to `--approve-for-me`, its workspace-write sandbox with automatic review
+  configured per agent profile (`claude-code` defaults to `--permission-mode auto` plus the
+  role's pre-approved `tools` rules; `codex` defaults to `--approve-for-me`, its workspace-write sandbox with automatic review
   of escalations; resumed Codex sessions get the same workspace-write sandbox through a config
   override, since `codex exec resume` takes no sandbox flag).
 - Secrets for providers come from the environment or `~/.config/onett/secrets.env`.
@@ -625,6 +626,6 @@ web/                  React + Vite + TypeScript UI (built into internal/api/webd
 
 ## Not in v0
 
-Native/mobile apps (API is ready for them), multi-machine workers, a config editor in the UI
-(the UI shows config; edit the file), cost budgets beyond per-run limits, Vercel/Render native
+Native/mobile apps (API is ready for them), multi-machine workers, cost budgets finer than the
+one daily limit (`limits.daily_budget_usd`), Vercel/Render native
 deployers (use the `command` deployer with their CLIs meanwhile).

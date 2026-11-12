@@ -159,6 +159,9 @@ and match the existing spelling and tone.
 - Status colours and labels come from `src/lib/status.ts`; every colour has a text label.
 - No inline scripts (the server's CSP forbids them). Rendered Markdown goes through the sanitiser
   in `components/Markdown.tsx`; do not render agent text as raw HTML.
+- Do not run Prettier on `web/`: there is no Prettier config, so `prettier --write` rewrites
+  whole files (quotes, imports); match the surrounding style, and `npm run lint` (ESLint) is the
+  only style check.
 - Check a UI change in a real browser at desktop and phone width against a throwaway daemon, not
   only with tests. Screenshots for a UI PR: `npm run shots:chat` for the Chat page and
   `npm run shots` for every other page (mocked backend, no daemon or token); details in
