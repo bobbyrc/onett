@@ -3,6 +3,8 @@ package github
 import (
 	"regexp"
 	"strings"
+
+	"github.com/bobbyrc/onett/internal/scm"
 )
 
 // mentionAtStart matches a GitHub @mention at the start of its input: an @, a login, and an
@@ -58,6 +60,14 @@ func quoteMentions(s string) string {
 // friction loop looks for an existing issue by its title).
 func unquoteMentions(s string) string {
 	return strings.ReplaceAll(s, "@"+neutralizeMention, "@")
+}
+
+var _ scm.MentionQuoter = (*GitHub)(nil)
+
+// QuoteMentions is quoteMentions for text that reaches GitHub without passing through this
+// package, such as a commit message.
+func (g *GitHub) QuoteMentions(s string) string {
+	return quoteMentions(s)
 }
 
 // skippedFences returns the fenced blocks that quoteMentions copies unchanged, keyed by the index of
