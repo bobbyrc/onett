@@ -85,7 +85,8 @@ type SCM interface {
 	// MergePR squash-merges and deletes the branch. When headSHA is non-empty the merge only
 	// happens if the PR head is still that commit (the one CI, review and policy approved).
 	MergePR(ctx context.Context, number int, headSHA string) error
-	// CILog returns a tail of the failing checks' logs, for the agent fixing them.
+	// CILog returns a tail of the failing checks' logs, for the agent fixing them. It returns
+	// ErrCIRunning while a CI run of the head commit has not ended and its log cannot be read yet.
 	CILog(ctx context.Context, number int, maxBytes int) (string, error)
 
 	ListIssues(ctx context.Context, label string, state string) ([]Issue, error)

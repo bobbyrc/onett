@@ -284,6 +284,8 @@ func (g *GitHub) MergePR(ctx context.Context, number int, headSHA string) error 
 // and the header names its short SHA, so a log from an older push is never taken for the current
 // one. A run whose failed-step log comes back empty says so rather than leaving a blank block. Lines are cleaned of gh's job/step/timestamp prefix and ANSI escapes;
 // if the result exceeds maxBytes it is cut down to the lines around failures (see condenseLog).
+// While any run of the head commit has not ended it returns scm.ErrCIRunning and reads nothing:
+// gh refuses to print a log, even of a job that has already failed, until the whole run is over.
 func (g *GitHub) CILog(ctx context.Context, number int, maxBytes int) (string, error) {
 	pr, err := g.GetPR(ctx, number)
 	if err != nil {
@@ -306,6 +308,14 @@ func (g *GitHub) CILog(ctx context.Context, number int, maxBytes int) (string, e
 	}
 	if err := json.Unmarshal(out, &runs); err != nil {
 		return "", fmt.Errorf("decode runs for %s: %w", pr.HeadBranch, err)
+	}
+	// A run has no conclusion until every job in it has ended, and gh prints no log of it before
+	// then. Reading the other runs now would hand the agent a note without the log of the job
+	// that failed in this one.
+	for _, r := range runs {
+		if r.Conclusion == "" {
+			return "", scm.ErrCIRunning
+		}
 	}
 
 	var b strings.Builder
