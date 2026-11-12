@@ -518,18 +518,22 @@ event is in the project's recent events.
 
 ### Triggers
 
-A trigger (`domain.Trigger`) is a rule the owner defines in the UI. When it fires, it starts one
-orchestrator turn with a prompt the owner wrote. There are two kinds: `schedule` (at times the owner
-sets) and `github_issue` (when a new issue is opened in the project's repository). Triggers are
-stored in the database (tables `triggers` and `trigger_firings`), not in `onett.yaml`. Only a
-signed-in owner can create, change, delete, enable, disable or fire one.
+A trigger (`domain.Trigger`) is a rule a signed-in owner defines, on the Triggers page of the UI or
+through the API. When it fires, it starts one orchestrator turn with a prompt the owner wrote.
+There are two kinds: `schedule` (at times the owner sets) and `github_issue` (when a new issue is
+opened in the project's repository). Triggers are stored in the database (tables `triggers` and
+`trigger_firings`), not in `onett.yaml`. Only a signed-in owner can create, change, delete, enable,
+disable or fire one.
 
 Each trigger has its own orchestrator conversation, titled `Trigger: <name>`, created at its first
 firing. A firing posts one internal message there and starts a turn, or queues behind the turn
 already running, through `wakeConversation`, the same function the heartbeat uses. The owner's
 prompt comes first, between two marker lines that carry the firing's ID. For an issue, its title
 and body follow as redacted evidence inside a code fence, so issue text cannot pass as the owner's
-words.
+words. A firing that reads `started` can still be waiting: if its turn cannot start, or it sat
+behind a turn that then fails, is denied, stalls or times out, the prompt stays queued until the
+trigger's next firing or a person's message in that conversation. Onett does not retry after a
+denial or a stall.
 
 The conversation has the kind `trigger`. Every turn in it, whether a firing or a person typing
 there, runs with the orchestrator role's default model, reasoning effort and permission mode.

@@ -24,7 +24,7 @@ func (t Trigger) NextRun(after time.Time) (time.Time, error) {
 	if next.IsZero() {
 		return time.Time{}, fmt.Errorf("cron: %q never fires in the next five years", t.Cron)
 	}
-	return next, nil
+	return next.UTC(), nil
 }
 
 // Validate checks the owner-written parts of a trigger: the name, the prompt, the kind and the

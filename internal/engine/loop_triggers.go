@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/bobbyrc/onett/internal/config"
@@ -12,6 +13,11 @@ import (
 	"github.com/bobbyrc/onett/internal/scm"
 	"github.com/bobbyrc/onett/internal/store"
 )
+
+// hasLabel reports whether labels contains want. GitHub label names are case-insensitive.
+func hasLabel(labels []string, want string) bool {
+	return slices.ContainsFunc(labels, func(l string) bool { return strings.EqualFold(l, want) })
+}
 
 // triggersEvery is how often the triggers loop checks a project: a schedule fires within about
 // this long after its time, and a new issue is seen within it.
@@ -148,7 +154,7 @@ func (e *Engine) checkIssues(ctx context.Context, p *config.Project, t domain.Tr
 			continue
 		}
 		// The trigger watches only issues with its label.
-		if t.Label != "" && !slices.Contains(is.Labels, t.Label) {
+		if t.Label != "" && !hasLabel(is.Labels, t.Label) {
 			continue
 		}
 		// The repo may be public: only people with write access may start a turn.
@@ -156,11 +162,11 @@ func (e *Engine) checkIssues(ctx context.Context, p *config.Project, t domain.Tr
 			continue
 		}
 		// An issue onett filed itself: firing on it could loop.
-		if loops.Friction.Label != "" && slices.Contains(is.Labels, loops.Friction.Label) {
+		if loops.Friction.Label != "" && hasLabel(is.Labels, loops.Friction.Label) {
 			continue
 		}
 		// Issue intake already turns it into a task; intake wins.
-		if loopOn(cfg, loopIssueIntake, p.Name) && slices.Contains(is.Labels, loops.IssueIntake.Label) {
+		if loopOn(cfg, loopIssueIntake, p.Name) && hasLabel(is.Labels, loops.IssueIntake.Label) {
 			continue
 		}
 
@@ -176,8 +182,22 @@ func (e *Engine) checkIssues(ctx context.Context, p *config.Project, t domain.Tr
 			continue // this skip is already recorded; the issue stays pending
 		}
 
+		// The owner may have disabled, re-enabled or deleted the trigger since this tick read it
+		// (listing the issues takes a while): the stored trigger decides.
+		cur, err := e.d.Store.GetTrigger(ctx, t.ID)
+		if errors.Is(err, store.ErrNotFound) {
+			return errors.Join(errs...) // deleted: nothing more to fire
+		}
+		if err != nil {
+			errs = append(errs, fmt.Errorf("issue #%d: %w", is.Number, err))
+			continue
+		}
+		if !cur.Enabled || cur.IssuesAfter == nil || !is.CreatedAt.After(*cur.IssuesAfter) {
+			continue
+		}
+
 		is := is
-		if _, err := e.fireTrigger(ctx, t, domain.TriggerFiring{Cause: domain.FiringCauseGitHubIssue, IssueNumber: is.Number, IssueURL: is.URL}, &is); err != nil {
+		if _, err := e.fireTrigger(ctx, cur, domain.TriggerFiring{Cause: domain.FiringCauseGitHubIssue, IssueNumber: is.Number, IssueURL: is.URL}, &is); err != nil {
 			errs = append(errs, fmt.Errorf("issue #%d: %w", is.Number, err))
 		}
 	}

@@ -44,7 +44,7 @@ func triggerFlags(e *env, name string, usageLines ...string) *flag.FlagSet {
 func triggerList(e *env, args []string) error {
 	fs := triggerFlags(e, "trigger list",
 		"usage: onett trigger list [--json]",
-		"Triggers are created, changed and run in the UI by a signed-in owner; the CLI only reads them.")
+		"Only a signed-in owner creates, changes or runs triggers (in the UI or through the API); the CLI only reads them.")
 	jsonOut := fs.Bool("json", false, "print the raw JSON")
 	positional, err := parseArgs(fs, args)
 	if err != nil {

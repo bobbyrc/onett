@@ -34,7 +34,8 @@ adds two kinds: `schedule` and `github_issue`.
   existing SCM plugin (the piece of code that talks to the code host, here GitHub).
 - Other events: a pull request opened, CI failing, a comment, an issue edited.
 - Firing for issues that existed before the trigger was created or enabled.
-- Triggers in `onett.yaml`. They are created in the UI and stored in the database.
+- Triggers in `onett.yaml`. A signed-in owner creates them, in the UI or through the API, and they
+  are stored in the database.
 - Creating or changing triggers from the CLI. The CLI is read-only for triggers
   (`onett trigger list`, `onett trigger history <id>`), because the CLI signs in with the API token.
 - "Run now" for a `github_issue` trigger, since there is no issue to hand it. The owner tests one
@@ -100,6 +101,13 @@ newest firing, so a list page needs one request.
 
 `started` means the prompt was handed to the orchestrator: its turn started, or the prompt is
 queued behind the turn already running in that conversation.
+
+A prompt can wait in the queue after that. If the turn that should carry it cannot start (for
+example, the harness is rate-limited at that moment), or it was queued behind a turn that then
+fails, is denied, stalls or times out, the prompt stays queued in the conversation, and onett does
+not retry after a denial or a stall. The queued prompt goes out with the trigger's next turn (its
+next firing), or when a person sends a message in or flushes that conversation. The firing still
+reads `started`; the message named by its `message_id` then has `queued: true` and no `run_id`.
 
 ## How a firing reaches the orchestrator
 
@@ -175,8 +183,8 @@ Clocks change twice a year, which gives three cases. Each example uses America/N
 3. Clocks go back, so some wall-clock times happen twice. `30 1 * * *` on 1 November 2026 fires
    at 01:30 EDT (05:30 UTC) and does not fire again at 01:30 EST.
 
-One consequence of case 3: a schedule with a step shorter than an hour pauses for the repeated
-hour once a year.
+One consequence of case 3: a schedule that fires every hour or more often skips the repeated hour
+once a year. An hourly `0 * * * *` fires at 01:00 EDT and next at 02:00 EST, two hours later.
 
 ### Catch-up
 
@@ -197,7 +205,7 @@ hour once a year.
 - An issue can fire a trigger when all of these hold:
   - it was created after `issues_after`;
   - it carries the trigger's `label`, when the trigger has one (a label added later counts, the
-    first time the loop sees it);
+    first time the loop sees it). Label names are compared without regard to case, as GitHub does;
   - its author is trusted (see Issue trust);
   - it does not carry the friction label;
   - issue intake does not handle it (see below).
@@ -213,6 +221,12 @@ hour once a year.
 - An issue that onett filed itself never fires a trigger. An issue carrying the project's friction
   label (`loops.friction.label`) is skipped, whatever the trigger's `label` is. This stops the
   feedback loop named in the anti-goals.
+- `issues_after` is the daemon's clock and GitHub's `created_at` is GitHub's clock, in whole
+  seconds. An issue opened in the same second the trigger was created or enabled, or within the
+  difference between the two clocks, is treated as already existing and does not fire.
+- A firing is remembered by trigger and issue number. If the project is later pointed at another
+  repository, an issue there with a number the trigger already handled does not fire; create a new
+  trigger for the new repository.
 
 ### Relation to issue intake
 
@@ -426,7 +440,8 @@ edit it.
   only a person changes.
 - `docs/design.md`, `docs/api.md`, `docs/openapi.yaml` and `web/src/types.ts` describe the new
   routes and types. The page that manages triggers is a separate change, and `docs/ui.md` goes with
-  it.
+  it. Until that page exists, a signed-in owner uses the API directly, and the settings control of a
+  trigger's conversation still looks editable although its settings are not applied.
 
 ## What stays open (for the owner)
 
@@ -441,3 +456,7 @@ edit it.
 - Turns in a trigger's conversation always use the orchestrator role's default model, reasoning
   effort and permission mode. If the owner wants a different model for one trigger, that needs a
   per-trigger setting that only an owner can change. That is a follow-up.
+- A prompt that is left in the queue after a failed turn waits for the trigger's next firing.
+  Flushing it automatically would be a retry after a denial or a stall, which invariant 4 forbids,
+  so that is the owner's decision. Until then the firing reads `started` while its message is still
+  queued.

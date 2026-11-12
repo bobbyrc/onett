@@ -61,7 +61,7 @@ func commandList() []command {
 		{"config", "print the redacted config, or --reload it", cmdConfig},
 		{"task", "create, list, show, cancel and retry tasks", cmdTask},
 		{"goal", "create, list, show, pause, resume and finish goals the orchestrator works on unattended", cmdGoal},
-		{"trigger", "list triggers and their firing history (triggers are created and changed in the UI by a signed-in owner)", cmdTrigger},
+		{"trigger", "list triggers and their firing history (only a signed-in owner creates or changes triggers)", cmdTrigger},
 		{"run", "list, show, cancel and print logs of agent runs", cmdRun},
 		{"deploys", "list releases, or show one with its log: deploys show ID", cmdDeploys},
 		{"approvals", "list approvals waiting for a decision", cmdApprovals},

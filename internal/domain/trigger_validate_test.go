@@ -3,6 +3,7 @@ package domain
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -78,4 +79,5 @@ func TestNextRun(t *testing.T) {
 	next, err := tr.NextRun(ts(t, "2026-11-12T00:00:00Z"))
 	require.NoError(t, err)
 	assert.True(t, ts(t, "2026-11-12T11:00:00Z").Equal(next), "got %s", next.UTC())
+	assert.Equal(t, time.UTC, next.Location())
 }

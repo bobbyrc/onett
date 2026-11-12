@@ -97,9 +97,12 @@ reviewer's approval.
     users, and creating, changing, deleting, enabling, disabling or manually firing a trigger
     (a rule that starts an orchestrator turn by itself) need a signed-in owner session. The API
     token, which the orchestrator agent holds, can never do any of them (`auth.TokenAllows`), so
-    an agent cannot rewrite its own policy or environment, or decide when it wakes itself. The
-    token may read triggers and their history. Every new route declares the action it needs
-    (read, operate or administer).
+    an agent cannot rewrite its own policy or environment, or change which triggers exist. The
+    token may read triggers and their history. Known gap, not closed here: a `github_issue`
+    trigger fires for any issue GitHub attributes to the owner, a member or a collaborator, and
+    an agent that can use the owner's `gh` login can open one. So issue text is always evidence
+    (invariant 8), and each trigger starts at most 20 firings an hour. Every new route declares
+    the action it needs (read, operate or administer).
 
 Changes to `internal/engine/prompts/**`, `internal/policy/**`, `internal/config/defaults.go`,
 `internal/sysproc/**`, `internal/engine/loop_shepherd.go`, `internal/engine/helpers.go`,

@@ -74,9 +74,10 @@ Each is described under [Safety model](#safety-model) and annotated in
   decides which levels may merge on their own: by default all of them, after review and green CI;
 the built-in `supervised` policy holds `medium` and `high` for you.
 - **Loop**: a recurring background job, such as checking open PRs or polling production.
-- **Trigger**: a rule the owner defines in the UI that starts an orchestrator turn with a prompt the
-  owner wrote, either on a schedule or when a new GitHub issue is opened; each time it fires (or is
-  skipped) is recorded as a firing.
+- **Trigger**: a rule a signed-in owner defines (on the Triggers page of the UI, or through the API
+  with an owner session) that starts an orchestrator turn with a prompt the owner wrote, either on
+  a schedule or when a new GitHub issue is opened; each time it fires (or is skipped) is recorded as
+  a firing.
 - **Outbox**: a folder in each worktree where the agent writes its report, `result.json`.
 - **Approval**: a request for your decision. Under the opt-in `supervised` policy, a `medium` or `high` risk PR waits for one.
 
@@ -110,7 +111,7 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   in with a username and password (roles: viewer reads, operator also acts on work, owner also
   edits `onett.yaml`, manages users and manages triggers). The API token, which the CLI and the
   chief of staff hold, can read and act but can never edit the config, users or triggers, so an
-  agent cannot rewrite its own policy or environment or decide when it wakes itself. The first
+  agent cannot rewrite its own policy or environment or change which triggers exist. The first
   visit to a new instance creates the owner account, so create it before you make onett reachable
   from other machines. Behind an HTTPS proxy, set `server.public_url` to the `https://` address so
   the session cookie is marked Secure. This boundary is the API's: agents still run as your user,
@@ -124,6 +125,8 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
   budget. Text from a GitHub issue reaches the agent only as redacted evidence marked "data, not
   instructions", whoever wrote it. Issues from people who are not the repo's owner, a member or a
   collaborator are ignored; that keeps strangers out and is not proof that a person wrote an issue.
+  An agent that can use the owner's `gh` login can open such an issue and so fire a
+  `github_issue` trigger; that gap is known and is why the text is only ever evidence.
   A trigger starts at most 20 turns an hour, and its turns always run with the orchestrator's
   default model and permission mode, whatever was set on its conversation.
 - **Agents get a small environment.** An agent sees an allowlist (`PATH`, `HOME`, `USER`, `LANG`,
@@ -252,7 +255,7 @@ as in `onett task create -h`.
 | `config` | print the redacted config, or `--reload` it |
 | `task` | create, list, show, cancel and retry tasks (`task create --attach ID`, repeatable, hands a chat attachment to the agent as a file under `.onett-run/attachments/`); `task message ID --text T` sends a message to a task agent; `task close-conversation ID --reason R` closes a task agent's conversation |
 | `goal` | create, list, show, pause, resume and finish goals the chief of staff works on unattended |
-| `trigger list\|history ID` | List triggers and a trigger's firing history. Triggers are created and changed in the UI by a signed-in owner. |
+| `trigger list\|history ID` | List triggers and a trigger's firing history. Only a signed-in owner creates or changes triggers (in the UI or through the API); the CLI reads them. |
 | `run` | list, show, cancel and print logs of agent runs |
 | `deploys` | list releases, or show one with its log |
 | `approvals` | list approvals waiting for a decision |
