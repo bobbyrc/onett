@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/bobbyrc/onett/internal/secrets"
 	"github.com/bobbyrc/onett/internal/store/sqlite"
@@ -56,7 +58,10 @@ func cmdBackup(e *env, args []string) error {
 		return err
 	}
 	src := filepath.Join(cfg.Server.DataDir, "onett.db")
-	if err := sqlite.Backup(context.Background(), src, dst); err != nil {
+	// Ctrl-C cancels the copy, and Backup then removes its unfinished files instead of leaving them.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := sqlite.Backup(ctx, src, dst); err != nil {
 		return err
 	}
 	info, err := os.Stat(dst)

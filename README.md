@@ -358,6 +358,9 @@ API. The copy holds password hashes and sign-in sessions, so:
   committed or read by an agent;
 - the command refuses to run inside an agent run.
 
+A backup that is killed part-way can leave an empty FILE and a `FILE.partial` beside it. Delete both
+and run it again.
+
 The backup does not include what lives outside the database: the config file, `secrets.env`, the
 API token (`token` in the data directory) and the files of chat attachments (`attachments/` in the
 data directory). Copy those yourself if you need them.
@@ -368,7 +371,8 @@ To restore:
 2. In the data directory, delete `onett.db-wal` and `onett.db-shm` if they exist. They are SQLite's
    side files for the old database and must not be applied to the restored one.
 3. Copy the backup over `onett.db`.
-4. Start the daemon again, with the onett version that took the backup or a newer one.
+4. Start the daemon again (`./onett service install`, or `onett serve`), with the onett version
+   that took the backup or a newer one.
 
 ### Goals: unattended multi-step work
 

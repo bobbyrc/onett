@@ -12,7 +12,9 @@ import (
 // Backup writes a consistent copy of the database at src to the new file dst. It is safe while
 // another process, such as the daemon, is writing src: SQLite's VACUUM INTO reads one snapshot,
 // so the copy is the database as it was at one moment. The source is opened read-only and no
-// migration runs.
+// migration runs, so the database file is never written. SQLite may still create its empty -wal
+// and -shm side files next to a database that no other process has open; they are harmless, and
+// the daemon removes them when it next shuts down.
 //
 // The copy holds password hashes and sessions, so it is created with mode 0600. Backup never
 // overwrites: it fails when dst exists. It builds the copy in dst+".partial" and renames it into
