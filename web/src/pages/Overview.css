@@ -1,0 +1,447 @@
+/* The Overview page (docs/ui.md, "Overview"): the sentence on the board, a lane per project, the
+   setup steps, and the foot with the orchestrator card and the activity feed. Tokens, the board
+   window, lamps, buttons and the run bar come from styles.css. */
+
+/* ---- the sentence on the board ---- */
+
+.ov-verdict {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 2px;
+  background: var(--board);
+  color: var(--board-text);
+  padding: 14px;
+  margin-bottom: 16px;
+  --focus: var(--lamp-call);
+}
+
+.ov-verdict-main {
+  padding: 12px 16px 14px;
+  background: var(--board-3);
+}
+
+.ov-verdict-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+
+.ov-verdict-head .lamp {
+  width: 14px;
+  height: 14px;
+}
+
+.ov-verdict-text {
+  max-width: 72ch;
+  margin: 8px 0 0 26px;
+  color: var(--board-muted);
+  overflow-wrap: anywhere;
+}
+
+.ov-verdict-text:empty {
+  display: none;
+}
+
+.ov-verdict-text b {
+  color: var(--board-text);
+  font-weight: 600;
+}
+
+/* ---- lanes: a project's board window, what needs you there, what is running there ---- */
+
+.ov-lanes {
+  display: grid;
+  gap: 8px;
+}
+
+.ov-lane {
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr) 300px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.ov-lane > .board-window {
+  --focus: var(--lamp-call);
+}
+
+.ov-needs {
+  min-width: 0;
+  padding: 2px 16px;
+}
+
+.ov-need {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 0 10px;
+  align-items: start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ov-need:last-child {
+  border-bottom: 0;
+}
+
+.ov-need > .lamp {
+  width: 12px;
+  height: 12px;
+  margin-top: 5px;
+}
+
+.ov-need-text {
+  min-width: 0;
+}
+
+.ov-need-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ov-need-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ov-need-title a:hover {
+  text-decoration: underline;
+}
+
+.ov-need-title .badge {
+  margin-right: 8px;
+}
+
+.ov-need-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ov-need-meta .badge {
+  margin-right: 4px;
+}
+
+/* Two lines at most: enough for a reason, never a wall. */
+.ov-need-line {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  margin: 2px 0 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 13.5px;
+}
+
+/* A tool's message says why last, so it gets a third line and, when it is longer than three,
+   shows its end: the text sits at the bottom of the box and the start is what gets cut. */
+.ov-need-line.mono {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  max-height: 4.5em;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.ov-need-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 260px;
+}
+
+.ov-need-actions .btn {
+  padding: 4px 12px;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.ov-need-actions .error-line {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+  text-align: right;
+}
+
+.ov-none {
+  margin: 0;
+  padding: 14px 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.ov-label {
+  margin: 0 0 4px;
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ov-flight {
+  min-width: 0;
+  padding: 10px 16px;
+  border-left: 1px solid var(--rule);
+}
+
+.ov-flight .run-list .run-item {
+  padding: 6px 0;
+}
+
+.ov-flight .run-track {
+  height: 6px;
+  margin-top: 6px;
+}
+
+.ov-flight-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.ov-lane-quiet {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.ov-lane-quiet .lamp {
+  transform: translateY(1px);
+}
+
+.ov-lane-quiet b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ov-lanes-empty {
+  margin-bottom: 0;
+}
+
+/* ---- setup: stations on a fresh install, one line once a project exists ---- */
+
+.ov-stations {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+.ov-station {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.ov-station.is-next {
+  padding: 11px 13px;
+  border: 2px solid var(--text);
+}
+
+.ov-station.is-done {
+  color: var(--muted);
+}
+
+.ov-station-n {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ov-station-label {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ov-station-detail {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.ov-station .btn {
+  align-self: flex-start;
+  margin-top: auto;
+  text-decoration: none;
+}
+
+.ov-setup-strip {
+  margin: 16px 0 0;
+  padding: 10px 18px;
+}
+
+.ov-setup-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.ov-setup-left {
+  flex: 1;
+  min-width: 200px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.ov-setup-row .btn {
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.ov-setup-strip .setup-steps {
+  display: grid;
+  margin-bottom: 0;
+}
+
+/* ---- the foot: orchestrator card and activity ---- */
+
+.ov-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 32px;
+  align-items: start;
+  margin-top: 28px;
+}
+
+.ov-foot > .section {
+  margin-top: 0;
+}
+
+.ov-lead {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
+/* Activity: a time, one sentence, and the project at the right so it never starts a wrapped line. */
+.ov-feed .feed-row {
+  grid-template-columns: 68px minmax(0, 1fr) auto;
+}
+
+.ov-feed .feed-message a {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ov-feed .feed-message .lamp {
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+}
+
+.ov-feed-note,
+.ov-feed-where {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ov-feed-where {
+  white-space: nowrap;
+}
+
+/* ---- phones ---- */
+
+@media (max-width: 760px) {
+  .ov-verdict {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 8px;
+  }
+
+  .ov-verdict-main {
+    padding: 10px 12px 12px;
+  }
+
+  .ov-verdict-head {
+    align-items: baseline;
+    font-size: 22px;
+  }
+
+  .ov-verdict-head .lamp {
+    width: 12px;
+    height: 12px;
+  }
+
+  .ov-verdict-text {
+    margin-left: 0;
+  }
+
+  .ov-lane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ov-needs {
+    padding: 2px 12px;
+  }
+
+  .ov-need {
+    grid-template-columns: 12px minmax(0, 1fr);
+  }
+
+  .ov-need-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+    max-width: none;
+    margin-top: 8px;
+  }
+
+  .ov-need-actions .btn,
+  .ov-station .btn,
+  .ov-setup-row .btn {
+    min-height: 44px;
+  }
+
+  .ov-need-actions .error-line {
+    text-align: left;
+  }
+
+  .ov-flight {
+    padding: 8px 12px 10px;
+    border-left: 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .ov-lane-quiet {
+    padding: 10px 12px;
+  }
+
+  .ov-stations {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ov-setup-strip {
+    padding: 10px 14px;
+  }
+
+  .ov-foot {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+}

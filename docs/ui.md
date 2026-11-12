@@ -189,58 +189,93 @@ as a fallback.
 
 ## Pages
 
-**Overview** (`/`): the andon board, then the work.
-- **Finish setting up onett** (owners only): a card above everything while setup is incomplete,
-  with a live check per step, each linking to where it is done: Add a project (`/projects`),
-  Agents ready (at least one enabled agent; `/config?section=agents`), Choose a policy (a project
-  with no policy uses the default, which counts; `/config?section=policies`), Reach me (not
-  `owner_unreachable` in `/stats`; `/config?mode=setup`), Secrets set (every secret the config
-  refers to is set, from `/secrets`; `/config?mode=secrets`). It hides itself when all are done
-  and has a Dismiss button (remembered in the browser). Logic is in `src/lib/setupChecklist.ts`.
-- **Blocked reason** (`BlockedReason`, used by the Needs you cards and the task page): the reason
-  is clamped to three lines with a Show more / Show less toggle (only when it overflows), keeps
-  the agent's line breaks and wraps long flags and paths inside the box, so Retry and Cancel stay
-  in view.
-- **Owner-unreachable banner**: above the board, a red callout "Nobody will be told" while
+**Overview** (`/`): the board says where to start, then one lane per project.
+- **The sentence on the board** (`BoardVerdict`, words from `src/lib/verdict.ts`): a charcoal
+  band with a lamp, a headline and one sentence that names the most urgent thing and how many
+  more follow: "Work is stopped on widgets. 7 tasks on widgets are blocked: workspace setup
+  failed. Start there. 4 more things follow." With nothing waiting it says "Nothing needs you"
+  and whether runs are active or the line is paused; with no project, "Not set up yet". It waits
+  for both lists (problems and approvals) before it says anything. At its right end is the line
+  window: "Line running" or "Line paused", active runs, queued tasks and cost today.
+- **What needs you** (`src/lib/needs.ts`): problems from `GET /problems` and pending approvals
+  from `GET /approvals`, in one order: problems first (blocked tasks with the most tasks first,
+  then failing loops, then blocked goals, each oldest first), then approvals, oldest first. The
+  first one carries a "Start here" tag when there is more than one.
+- **Owner-unreachable banner**: under the sentence, a red callout "Nobody will be told" while
   `/stats` says `owner_unreachable` (only the log notifier, no channel). For an owner it links
   to the fix, Config's Setup tab (`/config?mode=setup`), where Telegram, Discord or ntfy is set up;
   anyone else is told an owner can do that. It lists each blocked goal as "Goal X is blocked and you
-  have not been notified: reason".
-- **Rate-limit holds**: under the board, an info note per harness held for a rate limit (from
+  have not been notified: reason". With no project it is not shown: the setup step "Reach me"
+  says the same.
+- **Rate-limit holds**: under the sentence, an info note per harness held for a rate limit (from
   `holds` in `/stats`): "claude is rate limited. New runs wait until 15:04." Gone once the hold lifts.
-- **Board**: a charcoal band with one window per project (from `/projects`). A window's lamp
-  bar is lit by what the project needs (`src/lib/lamp.ts`): red when a task is blocked, yellow
-  when approvals wait, off when paused, green when tasks run or are in review, off when only
-  queued or idle. Under the project name the reason in words ("1 blocked", "2 need you",
-  "3 running") and the other non-zero counts, then at the foot the last deploy from
-  `/deployments` ("Deployed · 2d ago", "Rolled back · 1h ago" in the stop colour, "No deploys yet",
-  or "No deployer" when the project has no `deploy`; `src/lib/boardDeploy.ts`). A window links to
-  the project's tasks. At the right end, the line window: "Line running" or "Line paused", active
-  runs, queued tasks and cost today. Windows are 208px, and the band is only as wide as its
-  windows and the line window, so one project is a small board, not a wide empty one; when the
-  windows do not fit in one row they wrap into a grid that fills the main column. Empty:
-  "No projects yet", with a link to the Projects page, where an owner adds one (anyone else is
-  told an owner can).
-  On a phone the band sits inside the page margins with one row per project (the
-  lamp as a side bar, name and reason on the first line, the other counts and the last deploy
-  under them) and the line window on one row.
-- Below, two columns (one on a phone, with Needs you moved above the setup card and the board
-  when it has items):
-- Left: **Needs you**, with "N waiting · oldest 14m" beside the heading. Pending approvals
-  (ApprovalCard) and blocked tasks, each a call item: a sheet with a lit lamp before the title
-  (yellow for approvals, red for blocked), a muted line under it, then the body. Blocked items:
-  "Blocked · project · attempt 2 of 3 · 11m ago", the `blocked_reason` in a stop callout, Retry
-  with note and Cancel. Empty: "Nothing needs you. The factory is handling everything in flight."
-- Right: **Live runs** on one shared time axis (`src/lib/runbar.ts`; 20m, 40m, 1h, 2h, ...
-  whichever fits the longest run). Each run: task title (links to the run), Cancel, "role ·
-  project", elapsed time and "output 12s ago", then a bar whose length is the elapsed time:
-  green up to the last output, yellow after it once the run has been quiet for 5 minutes ("quiet
-  for 7m" in the text). Then the **Heartbeat** card (hidden when `/loops` has no heartbeat entry):
-  on, disabled or quiet hours; last and next run; items needing attention; actions and
-  escalations in 24h (added up over projects); the last error; and "Open Operations" once the
-  Operations conversation exists (`src/components/HeartbeatCard.tsx`). Then **Activity**: the event feed, newest first, in fixed columns:
-  clock time, event type in words, message with one "task" (or "run") link. Ten rows show, with
+- **Lanes** (`AndonBoard`, order from `src/lib/lanes.ts`): one row per project, the projects
+  that need you first. A lane has three parts.
+  - Its board window (from `/projects`). The lamp bar is lit by what the project needs
+    (`src/lib/lamp.ts`): red when a task is blocked, yellow when approvals wait, off when paused,
+    green when tasks run or are in review, off when only queued or idle. Under the project name
+    the reason in words ("1 blocked", "2 need you", "3 running") and the other non-zero counts,
+    then at the foot the last deploy from `/deployments` ("Deployed · 2d ago", "Rolled back · 1h
+    ago" in the stop colour, "No deploys yet", or "No deployer" when the project has no
+    `deploy`; `src/lib/boardDeploy.ts`). The window links to the project's tasks.
+  - What needs you there, one row each (`NeedRow`): a lamp, a title that links to the thing, a
+    muted line, at most three lines of evidence and the actions. Seven tasks blocked by one
+    cause are one row: "Workspace setup failed", "7 tasks blocked · since 10:21 (3h ago) · told
+    you 10:36 · last blocked 2m ago", the end of the underlying error in monospace, **Check
+    again** (retries one task, the one blocked most recently, to see whether the cause is gone)
+    and **Retry all 7** (asks to confirm, then retries each). One blocked task: "Blocked:
+    title", "attempt 1 of 3 · 8h ago", the error or the reason, **Retry** and **Open**. Failing
+    loops: "2 loops are failing: Issue Intake, Friction", since when, how many passes failed,
+    "told you 10:40" or "not told yet", the end of the error, **Open Loops**. A blocked goal:
+    "Goal blocked: title", its reason, **Open goal**. An approval: "Merge approval: title", the
+    risk badge, the PR number, "asked 12m ago", the risk reasons and **Review**, which opens the
+    task page; approving happens there, where the risk and the commit are shown in full. "told
+    you" is the time onett last notified the owner after the problem stayed open (the
+    heartbeat's escalation or the loop alert). A lane with nothing says "Nothing needs you
+    here." The retry buttons need the operate action.
+  - In flight: the project's live runs (`RunItem`): task title (links to the run), Cancel, the
+    role, elapsed time and "output 12s ago", then a bar whose length is the elapsed time on one
+    scale for the whole page (`src/lib/runbar.ts`): green up to the last output, yellow after it
+    once the run has been quiet for 5 minutes ("quiet for 7m" in the text). Under them "3
+    queued", or "Nothing running."
+  - Projects with nothing going on (no need, no run, nothing queued, not paused) fold into one
+    line: "Quiet: dotfiles, notes · no work in flight". Live runs of no configured project (a
+    chat with no project) get a last lane named "No project". Empty: "No projects yet", with a
+    link to the Projects page, where an owner adds one (anyone else is told an owner can).
+  - On a phone a lane stacks: the window as a bar with the lamp at its side, then the rows with
+    their actions under the text, then In flight.
+- **Finish setting up onett** (owners only, `SetupChecklist`), while setup is incomplete. The
+  steps, each linking to where it is done: Add a project (`/projects`), Agents ready (at least
+  one enabled agent; `/config?section=agents`), Choose a policy (a project with no policy uses
+  the default, which counts; `/config?section=policies`), Reach me (not `owner_unreachable` in
+  `/stats`; `/config?mode=setup`), Secrets set (every secret the config refers to is set, from
+  `/secrets`; `/config?mode=secrets`). With no project they are a row of five stations between
+  the sentence and the lanes: "Step 1 · next" is outlined and holds the filled button, a done
+  step says "done ✓", and Choose a policy "waits for a project". Once a project exists the card
+  is one line under the lanes ("4 of 5 done · left: Secrets set (Not set: SLACK_BOT_TOKEN)")
+  with "Show steps" to open the list and a Dismiss button (remembered in the browser). It hides
+  itself when all are done. Logic is in `src/lib/setupChecklist.ts`.
+- Below, two columns (one on a phone):
+- Left: the **Orchestrator** card (`src/components/HeartbeatCard.tsx`): whether the heartbeat is
+  on, disabled or in quiet hours and when it next checks; one sentence saying what it does; the
+  last check; how often it told you and acted itself in 24h (added up over projects); the last
+  error; and "Open Operations" once the Operations conversation exists. With no heartbeat entry
+  in `/loops` it says "The heartbeat starts once a project exists."
+- Right: **Activity** (`src/lib/activity.ts`): the event feed, newest first, as a time, one
+  sentence and the project. The time is the clock for today, the weekday and clock for the last
+  six days, then the date. The sentence names its subject as a link ("Senior Engineer started on
+  Fix flaky widget cache test", "Blocked: Publish agent screenshots", "Merge approval asked:
+  …", "Issue Intake failed · 13 times since 10:24", "Told you: blocked task on widgets").
+  Stopped things carry a red lamp and approvals a yellow one, always with the words. Repeats
+  within ten minutes fold into one row: the same thing again keeps its sentence and says how
+  often ("… · 3 times"), and many things of one kind become a count ("7 tasks blocked:
+  workspace setup failed · 10:21 to 10:27", "21 Senior Engineer runs failed"). Plumbing is left
+  out: chat messages, a run that is running or succeeded, chat turns that did not fail, and
+  the notification a block sends (its "Blocked" row is already there). Ten rows show, with
   "Show all N" to expand in place. Live events prepend.
+- **Blocked reason** (`BlockedReason`, on the task page): the reason is clamped to three lines
+  with a Show more / Show less toggle (only when it overflows), keeps the agent's line breaks
+  and wraps long flags and paths inside the box, so Retry and Cancel stay in view.
 - Not built yet: a compact lamp row on pages other than Overview, and fuller window details on
   focus. The nav badges carry "needs you" and "blocked" everywhere meanwhile.
 

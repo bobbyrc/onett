@@ -65,6 +65,11 @@ export interface Task {
   pushed_at?: string;
   summary?: string;
   blocked_reason?: string;
+  /** The short reason tasks with the same trouble share; set when onett gave up after its attempts. */
+  blocked_cause?: string;
+  /** The underlying error of the block, redacted and bounded. */
+  blocked_detail?: string;
+  blocked_at?: string;
   follow_up_pending?: boolean;
   attempts: number;
   max_attempts: number;
@@ -431,6 +436,42 @@ export interface LoopView {
   /** Empty or absent until the Operations conversation exists. */
   operations_conversation_id?: string;
   quiet_now?: boolean;
+}
+
+export type ProblemKind = 'blocked_tasks' | 'failing_loops' | 'blocked_goal';
+
+export interface ProblemTask {
+  id: string;
+  title: string;
+  attempts: number;
+  max_attempts: number;
+}
+
+export interface ProblemLoop {
+  name: string;
+  /** Failed passes in a row. */
+  fails: number;
+  since: string;
+}
+
+/** One thing that is wrong in a project (GET /problems): one entry per cause. */
+export interface Problem {
+  kind: ProblemKind;
+  project: string;
+  /** Unique in one response; the same while the problem lasts. */
+  key: string;
+  /** One line: the cause (or the whole reason), or the goal's title. Empty for failing loops. */
+  title: string;
+  /** One line, the end of the underlying error. May be empty. */
+  detail: string;
+  count: number;
+  since: string;
+  last_at?: string;
+  /** When onett last notified the owner about it after it stayed open. Absent when it has not. */
+  told_at?: string;
+  tasks?: ProblemTask[];
+  loops?: ProblemLoop[];
+  goal_id?: string;
 }
 
 /** Where an agent's settings come from: the built-in definition, a built-in with changes, or a custom agent. */

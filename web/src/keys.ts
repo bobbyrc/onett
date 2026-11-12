@@ -23,6 +23,7 @@ export const keys = {
   frictionAll: ['friction'] as const,
   frictionList: (filters: object) => ['friction', filters] as const,
   loopsAll: ['loops'] as const,
+  problemsAll: ['problems'] as const,
   agentsAll: ['agents'] as const,
   configAll: ['config'] as const,
   configDocument: ['config', 'document'] as const,

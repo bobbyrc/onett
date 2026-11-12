@@ -1,189 +1,76 @@
-import { chatRunHref } from '../lib/chatRunLink';
+import './Overview.css';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getEventsHistory } from '../api';
+import { getEventsHistory, listProblems } from '../api';
 import { subscribe } from '../events';
 import { keys } from '../keys';
-import { formatClock } from '../lib/format';
-import { elapsedMs, formatDuration, formatRelative, parseTime } from '../lib/time';
-import { axisMinutes, axisTicks, runBar } from '../lib/runbar';
+import { useCan } from '../auth';
+import { feedRows, shortTime } from '../lib/activity';
+import { formatDateTime, parseTime } from '../lib/time';
+import { axisMinutes } from '../lib/runbar';
 import { useNow } from '../lib/clock';
-import { agentLabel } from '../lib/agentLabel';
+import { buildNeeds } from '../lib/needs';
+import { verdictFor } from '../lib/verdict';
 import { AndonBoard } from '../components/AndonBoard';
-import { ApprovalCard } from '../components/ApprovalCard';
-import { Button } from '../components/Button';
-import { BlockedReason } from '../components/BlockedReason';
+import { BoardVerdict } from '../components/BoardVerdict';
 import { Empty } from '../components/Empty';
+import { ErrorLine } from '../components/ErrorLine';
 import { HeartbeatCard } from '../components/HeartbeatCard';
 import { HoldBanner } from '../components/HoldBanner';
-import { ErrorLine } from '../components/ErrorLine';
-import { RelTime } from '../components/RelTime';
-import { RetryTaskControl, CancelTaskButton } from '../components/TaskActions';
-import { useCan } from '../auth';
-import { SetupChecklist } from '../components/SetupChecklist';
 import { OwnerUnreachableBanner } from '../components/OwnerUnreachableBanner';
-import { useApprovals, useCancelRun, useRuns, useTask, useTasks } from '../queries';
-import type { OnettEvent, Run, Task } from '../types';
+import { SetupChecklist } from '../components/SetupChecklist';
+import { LIST_REFRESH_MS, useApprovals, useControl, useProjects, useRuns, useStats } from '../queries';
+import type { OnettEvent, Problem } from '../types';
 
-const STALE_OUTPUT_MS = 5 * 60_000;
+export { RunItem } from '../components/RunItem';
+
 const ACTIVITY_LIMIT = 100;
 /** Rows shown before "Show all": enough to see what just happened without burying the page. */
 const ACTIVITY_SHOWN = 10;
 
 export function Overview() {
+  const owner = useCan('administer');
+  const projects = useProjects();
+  const problems = useQuery({ queryKey: keys.problemsAll, queryFn: listProblems, refetchInterval: LIST_REFRESH_MS });
+  const approvals = useApprovals('pending');
+  const runs = useRuns({ status: 'starting,running', limit: 50 });
+  const stats = useStats();
+  const control = useControl();
+  const now = useNow();
+  const needs = useMemo(() => buildNeeds(problems.data ?? [], approvals.data ?? []), [problems.data, approvals.data]);
+  const longest = Math.max(0, ...(runs.data ?? []).map((r) => now - (parseTime(r.started_at)?.getTime() ?? now)));
+  // The sentence waits for both lists, so it never says "nothing needs you" from half the news.
+  const settled = !problems.isPending && !approvals.isPending;
+  const count = projects.data?.length;
+  const verdict = verdictFor({
+    projects: count === undefined ? undefined : count === 0 || settled ? count : undefined,
+    owner,
+    needs,
+    activeRuns: stats.data?.active_runs ?? runs.data?.length ?? 0,
+    paused: control.data?.paused ?? false,
+    now,
+  });
+
   return (
     <div className="overview">
       <h1 className="sr-only">Overview</h1>
-      <SetupChecklist />
-      <OwnerUnreachableBanner />
-      <AndonBoard />
+      <BoardVerdict verdict={verdict} />
+      <ErrorLine error={problems.error ?? approvals.error ?? runs.error} />
+      {count ? <OwnerUnreachableBanner /> : null}
       <HoldBanner />
-      <div className="overview-grid">
-        <NeedsYou />
-        <div className="overview-side">
-          <LiveRuns />
-          <HeartbeatCard />
-          <Activity />
-        </div>
+      <SetupChecklist form="stations" />
+      <AndonBoard needs={needs} runs={runs.data ?? []} scale={axisMinutes(longest)} now={now} />
+      <SetupChecklist form="strip" />
+      <div className="ov-foot">
+        <HeartbeatCard />
+        <Activity problems={problems.data ?? []} />
       </div>
     </div>
   );
 }
 
-function NeedsYou() {
-  const approvals = useApprovals('pending');
-  const blocked = useTasks({ status: 'blocked', limit: 50 });
-  const loaded = approvals.isSuccess && blocked.isSuccess;
-  const count = (approvals.data?.length ?? 0) + (blocked.data?.length ?? 0);
-  const oldest = useMemo(() => {
-    const times = [...(approvals.data ?? []).map((a) => a.created_at), ...(blocked.data ?? []).map((t) => t.updated_at)]
-      .map((t) => parseTime(t)?.getTime())
-      .filter((t): t is number => t !== undefined);
-    return times.length > 0 ? new Date(Math.min(...times)) : null;
-  }, [approvals.data, blocked.data]);
-  const now = useNow();
-
-  return (
-    <section className={`section needs-you${count > 0 ? ' has-items' : ''}`} aria-labelledby="needs-you">
-      <h2 id="needs-you">
-        Needs you
-        {loaded && count > 0 ? (
-          <span className="section-note">
-            {count} waiting{oldest ? ` · oldest ${formatRelative(oldest, now)}` : ''}
-          </span>
-        ) : null}
-      </h2>
-      <ErrorLine error={approvals.error ?? blocked.error} />
-      {approvals.data?.map((approval) => <ApprovalCard key={approval.id} approval={approval} />)}
-      {blocked.data?.map((task) => <BlockedTaskCard key={task.id} task={task} />)}
-      {loaded && count === 0 ? <Empty>Nothing needs you. The factory is handling everything in flight.</Empty> : null}
-    </section>
-  );
-}
-
-function BlockedTaskCard({ task }: { task: Task }) {
-  return (
-    <article className="call-item is-stop">
-      <div className="call-title">
-        <span className="lamp lamp-stop" aria-hidden="true" />
-        <h3>
-          <Link to={`/tasks/${task.id}`}>{task.title}</Link>
-        </h3>
-      </div>
-      <p className="call-meta">
-        Blocked · {task.project} · attempt {task.attempts} of {task.max_attempts} · <RelTime value={task.updated_at} />
-      </p>
-      <div className="call-body">
-        <BlockedReason>{task.blocked_reason || 'No reason was recorded.'}</BlockedReason>
-        <div className="row-actions">
-          <RetryTaskControl taskId={task.id} />
-          <CancelTaskButton taskId={task.id} />
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function LiveRuns() {
-  const runs = useRuns({ status: 'starting,running', limit: 50 });
-  const now = useNow();
-  const longest = Math.max(0, ...(runs.data ?? []).map((r) => now - (parseTime(r.started_at)?.getTime() ?? now)));
-  const scale = axisMinutes(longest);
-  const count = runs.data?.length ?? 0;
-
-  return (
-    <section className="section" aria-labelledby="live-runs">
-      <h2 id="live-runs">
-        Live runs
-        {count > 0 ? <span className="section-note">{count} active</span> : null}
-      </h2>
-      <ErrorLine error={runs.error} />
-      {runs.isSuccess && count === 0 ? <Empty>No runs are active. Queued work starts when a slot is free.</Empty> : null}
-      {count > 0 ? (
-        <>
-          <div className="run-axis" aria-hidden="true">
-            <div className="run-axis-ticks">
-              {axisTicks(scale).map((tick) => (
-                <span key={tick}>{tick}</span>
-              ))}
-            </div>
-          </div>
-          <ul className="run-list">
-            {runs.data?.map((run) => <RunItem key={run.id} run={run} scale={scale} now={now} />)}
-          </ul>
-        </>
-      ) : null}
-    </section>
-  );
-}
-
-export function RunItem({ run, scale, now }: { run: Run; scale: number; now: number }) {
-  const task = useTask(run.task_id);
-  const cancel = useCancelRun(run.id);
-  const canOperate = useCan('operate');
-  const started = parseTime(run.started_at);
-  const lastOutput = parseTime(run.last_output_at);
-  const quietMs = lastOutput ? now - lastOutput.getTime() : started ? now - started.getTime() : 0;
-  const stale = quietMs > STALE_OUTPUT_MS;
-  const bar = started ? runBar(started.getTime(), lastOutput?.getTime() ?? null, now, scale, STALE_OUTPUT_MS) : { flow: 0, quiet: 0 };
-
-  return (
-    <li className="run-item">
-      <div className="run-item-head">
-        <Link to={run.task_id ? `/runs/${run.id}` : chatRunHref(run)}>
-          {run.task_id ? (task.data?.task.title ?? 'Loading task…') : `Chat with ${agentLabel(run.role)}`}
-        </Link>
-        {canOperate ? (
-          <Button variant="ghost" confirm disabled={cancel.isPending} onClick={() => cancel.mutate()}>
-            Cancel
-          </Button>
-        ) : null}
-      </div>
-      <div className="run-item-meta">
-        <span>
-          {[run.task_id ? agentLabel(run.role) : '', run.project].filter(Boolean).join(' · ')}
-        </span>
-        <span>
-          {started ? formatDuration(elapsedMs(started, null, now)) : 'starting'}
-          {' · '}
-          {stale ? (
-            <span className="warn-text">quiet for {formatDuration(quietMs)}</span>
-          ) : (
-            <>output {lastOutput ? <RelTime value={run.last_output_at} /> : 'none yet'}</>
-          )}
-        </span>
-      </div>
-      <div className="run-track" aria-hidden="true">
-        <span className="run-flow" style={{ width: `${bar.flow}%` }} />
-        {bar.quiet > 0 ? <span className="run-quiet" style={{ left: `${bar.flow}%`, width: `${bar.quiet}%` }} /> : null}
-      </div>
-      <ErrorLine error={cancel.error} />
-    </li>
-  );
-}
-
-function Activity() {
+export function Activity({ problems }: { problems: Problem[] }) {
   const history = useQuery({
     queryKey: keys.eventsHistory,
     queryFn: () => getEventsHistory({ limit: ACTIVITY_LIMIT }),
@@ -215,6 +102,10 @@ function Activity() {
       .sort((a, b) => (parseTime(b.time)?.getTime() ?? 0) - (parseTime(a.time)?.getTime() ?? 0))
       .slice(0, ACTIVITY_LIMIT);
   }, [live, history.data]);
+  const now = useNow();
+  // Whole minutes: the rows only change their words when the minute does.
+  const minute = Math.floor(now / 60_000) * 60_000;
+  const rows = useMemo(() => feedRows(events, problems, minute), [events, problems, minute]);
 
   return (
     <section className="section" aria-labelledby="activity">
@@ -222,50 +113,35 @@ function Activity() {
         Activity <span className="section-note">newest first</span>
       </h2>
       <ErrorLine error={history.error} />
-      {history.isSuccess && events.length === 0 ? <Empty>No activity yet. Events appear here as work moves.</Empty> : null}
-      <ol className="feed">
-        {(showAll ? events : events.slice(0, ACTIVITY_SHOWN)).map((ev, index) => {
-          const time = parseTime(ev.time);
-          return (
-            <li key={ev.id > 0 ? ev.id : `${ev.type}-${index}`} className="feed-row">
-              <time className="feed-time" dateTime={time?.toISOString()} title={time?.toLocaleString()}>
-                {time ? formatClock(time) : '—'}
-              </time>
-              <span className="tag" title={ev.type}>
-                {eventLabel(ev.type)}
-              </span>
-              <span className="feed-message">
-                {ev.message}
-                {ev.task_id ? (
-                  <>
-                    {' '}
-                    <Link to={`/tasks/${ev.task_id}`} className="feed-link">
-                      task
-                    </Link>
-                  </>
-                ) : ev.run_id ? (
-                  <>
-                    {' '}
-                    <Link to={`/runs/${ev.run_id}`} className="feed-link">
-                      run
-                    </Link>
-                  </>
-                ) : null}
-              </span>
-            </li>
-          );
-        })}
+      {history.isSuccess && rows.length === 0 ? <Empty>No activity yet. Events appear here as work moves.</Empty> : null}
+      <ol className="feed ov-feed">
+        {(showAll ? rows : rows.slice(0, ACTIVITY_SHOWN)).map((row) => (
+          <li key={row.key} className="feed-row">
+            <time className="feed-time" dateTime={row.time?.toISOString()} title={row.time ? formatDateTime(row.time) : undefined}>
+              {row.time ? shortTime(row.time, minute) : '—'}
+            </time>
+            <span className="feed-message">
+              {row.lamp ? <span className={`lamp lamp-${row.lamp}`} aria-hidden="true" /> : null}
+              {row.parts.map((part, i) =>
+                part.to ? (
+                  <Link key={i} to={part.to}>
+                    {part.text}
+                  </Link>
+                ) : (
+                  <span key={i}>{part.text}</span>
+                ),
+              )}
+              {row.note ? <span className="ov-feed-note"> · {row.note}</span> : null}
+            </span>
+            {row.project ? <span className="ov-feed-where">{row.project}</span> : null}
+          </li>
+        ))}
       </ol>
-      {events.length > ACTIVITY_SHOWN ? (
+      {rows.length > ACTIVITY_SHOWN ? (
         <button type="button" className="link-button small feed-more" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>
-          {showAll ? 'Show fewer' : `Show all ${events.length}`}
+          {showAll ? 'Show fewer' : `Show all ${rows.length}`}
         </button>
       ) : null}
     </section>
   );
-}
-
-/** "approval.requested" reads as "approval requested". */
-function eventLabel(type: string): string {
-  return type.replace(/[._]/g, ' ');
 }

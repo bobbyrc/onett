@@ -20,7 +20,7 @@ const VIEWPORTS = [
 ] as const;
 const SCHEMES = ['dark', 'light'] as const;
 
-type Variant = 'default' | 'emptyTasks' | 'emptyRuns' | 'oneProject';
+type Variant = 'default' | 'emptyTasks' | 'emptyRuns' | 'oneProject' | 'overviewFresh' | 'overviewBusy' | 'overviewBad';
 
 /** The fixture body for a GET path (without /api/v1), or undefined to fall back to mock.ts. */
 function respond(path: string, variant: Variant, query: URLSearchParams): unknown {
@@ -30,6 +30,23 @@ function respond(path: string, variant: Variant, query: URLSearchParams): unknow
     return want?.length ? rows.filter((r) => want.includes(r.status)) : rows;
   };
   const [head, a, b] = path.split('/').filter(Boolean);
+  // The three Overview states answer from their own state; anything not listed falls through.
+  if (variant === 'overviewFresh' || variant === 'overviewBusy' || variant === 'overviewBad') {
+    const o = d[variant];
+    if (head === 'problems') return o.problems;
+    if (head === 'projects') return o.projects;
+    if (head === 'stats') return o.stats;
+    if (head === 'secrets') return { secrets: o.secrets };
+    if (head === 'approvals') return byStatus(o.approvals);
+    if (head === 'loops') return o.loops;
+    if (head === 'deployments') return o.deployments;
+    if (head === 'events') return o.events;
+    if (head === 'runs' && !a) return byStatus(o.runs);
+    if (head === 'tasks' && !a) return byStatus(o.tasks);
+    if (head === 'tasks' && a && !b) {
+      return { task: o.tasks.find((t) => t.id === a) ?? o.tasks[0] ?? d.tasks[0], runs: [], approvals: o.approvals.filter((x) => x.task_id === a), children: [] };
+    }
+  }
   switch (head) {
     case 'auth':
       return a === 'state' ? { setup_required: false, user: d.owner } : undefined;
@@ -58,6 +75,8 @@ function respond(path: string, variant: Variant, query: URLSearchParams): unknow
       if (!a) return variant === 'emptyRuns' ? [] : byStatus(d.runs);
       if (b === 'logs') return a === d.IDS.chatRun ? d.chatRunLogs : a === d.IDS.goalRun ? d.goalRunLogs : d.runLogs;
       return d.runs.find((r) => r.id === a) ?? d.runs[0];
+    case 'problems':
+      return d.problems;
     case 'approvals':
       return byStatus(d.approvals);
     case 'deployments':
@@ -153,6 +172,9 @@ const SCENES: Scene[] = [
   { route: `/chat/${d.IDS.goalChat}`, variant: 'default' },
   { route: `/goals/${d.IDS.doneGoal}`, variant: 'default' },
   { route: '/', variant: 'oneProject', name: 'overview_one_project' },
+  { route: '/', variant: 'overviewFresh', name: 'overview_fresh' },
+  { route: '/', variant: 'overviewBusy', name: 'overview_busy' },
+  { route: '/', variant: 'overviewBad', name: 'overview_bad' },
   { route: '/tasks', variant: 'emptyTasks', name: 'tasks_empty' },
   { route: '/runs', variant: 'emptyRuns', name: 'runs_empty' },
 ];

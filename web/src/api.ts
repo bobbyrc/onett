@@ -28,6 +28,7 @@ import type {
   Friction,
   LogLine,
   LoopView,
+  Problem,
   NewTask,
   ChatMessage,
   PausedBy,
@@ -251,6 +252,7 @@ export const listFriction = (q: { project?: string; limit?: number } = {}) =>
 // ---- loops, agents, config ----
 
 export const listLoops = () => request<LoopView[]>('GET', '/loops');
+export const listProblems = () => request<Problem[]>('GET', '/problems');
 
 export const runLoop = (name: string, project = '') =>
   request<void>('POST', withQuery(`/loops/${encodeURIComponent(name)}/run`, { project }));
