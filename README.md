@@ -266,6 +266,8 @@ as in `onett task create -h`.
 | `trigger list\|history ID` | List triggers and a trigger's firing history. Only a signed-in owner creates or changes triggers (in the UI or through the API); the CLI reads them. |
 | `run` | list, show, cancel and print logs of agent runs |
 | `deploys` | list releases, or show one with its log |
+| `signals [show ID]` | list production signals (problems an observer reported for a deployed project), or show one in full |
+| `friction [show ID]` | list friction (what slowed an agent down, as agents reported it), or show one with its body |
 | `approvals` | list approvals waiting for a decision |
 | `approve` | approve or reject an approval |
 | `events` | show history, or follow the event stream |
@@ -275,6 +277,7 @@ as in `onett task create -h`.
 | `pause` | stop starting runs and loops (`status` shows who paused it and since when) |
 | `resume` | resume a paused factory |
 | `chat` | message the chief of staff and print its reply |
+| `conversations [--tasks]`, `conversations show ID\|--task TASK_ID` | list the chats with the chief of staff, or with `--tasks` the task agents' conversations; `show` prints one conversation's messages |
 | `service` | install, uninstall or check the launchd service that keeps serve running |
 | `doctor [--no-daemon]` | check the setup: config, git, gh, harness CLIs, each project's clone and the daemon; warns when the daemon runs a different version than this binary. `--no-daemon` skips the daemon checks, to validate a config file on its own |
 | `version` | print the onett version |
