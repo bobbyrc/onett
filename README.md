@@ -307,7 +307,7 @@ as in `onett task create -h`.
 | `project add\|pause\|resume` | add a project to the config, or pause or resume one |
 | `agents [--all]` | list agent roles; `--all` also shows removed (disabled) ones |
 | `config` | print the redacted config, or `--reload` it |
-| `task` | create, list, show, cancel and retry tasks (`task create --attach ID`, repeatable, hands a chat attachment to the agent as a file under `.onett-run/attachments/`); `task message ID --text T` sends a message to a task agent; `task close-conversation ID --reason R` closes a task agent's conversation |
+| `task` | create, list, show, cancel and retry tasks (`task create --attach ID`, repeatable, hands a chat attachment to the agent as a file under `.onett-run/attachments/`; `--after ID`, repeatable, holds the task until that task merges); `task message ID --text T` sends a message to a task agent; `task close-conversation ID --reason R` closes a task agent's conversation |
 | `goal` | create, list, show, pause, resume and finish goals the chief of staff works on unattended |
 | `trigger list\|history ID` | List triggers and a trigger's firing history. Only a signed-in owner creates or changes triggers (in the UI or through the API); the CLI reads them. |
 | `run` | list, show, cancel and print logs of agent runs |

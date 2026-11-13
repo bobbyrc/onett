@@ -3715,6 +3715,11 @@ components:
         goal_id:
           type: string
           description: The goal this task works toward. It must exist and belong to the same project.
+        waiting_on:
+          type: array
+          items:
+            type: string
+          description: Tasks that must merge before this one starts, for work that builds on another task's unmerged pull request. An unknown task, or one that ended blocked, failed or cancelled, is 400; one that already merged is dropped.
         attachments:
           type: array
           items:
