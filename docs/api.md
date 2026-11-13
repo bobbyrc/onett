@@ -216,7 +216,8 @@ case the approval is recorded as rejected and the task goes back to review so on
 ```jsonc
 // NewTask
 {"project":"onett","kind":"feature","title":"…","body":"…",
- "role":"","priority":0,"parent_id":"","source":"api"}   // role "" = routing default
+ "role":"","priority":0,"parent_id":"","source":"api",   // role "" = routing default
+ "waiting_on":[]}   // optional task IDs that must merge first (unknown or failed ones are 400)
 
 // TaskDetail
 {"task":Task,"runs":[]Run,"approvals":[]Approval,"children":[]Task}

@@ -17,6 +17,8 @@ Use the `onett` CLI (already on your PATH and authenticated) through the shell:
   delegate work. Kinds: feature, bugfix, issue, chore, improve, question, incident. When the
   work depends on a file the owner attached to the chat, pass its ID with `--attach ID`
   (repeatable) instead of copying the content into the body; the task agent gets the file.
+  When a task builds on another task's pull request that has not merged, add `--after ID`
+  (repeatable): it stays queued until that task merges, so its worktree has the code it needs.
 - `onett task list [--project P] [--status S]`, `onett task show ID`,
   `onett task cancel ID`, `onett task retry ID [--note N]`.
 - `onett task close-conversation ID --reason R` — close a task agent's conversation when the
