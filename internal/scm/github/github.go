@@ -282,7 +282,8 @@ func (g *GitHub) MergePR(ctx context.Context, number int, headSHA string) error 
 // CILog returns the logs of up to three failed workflow runs on the PR's branch, each preceded by
 // a "=== <name> ===" header. Once the PR head commit is known only runs for that commit are used,
 // and the header names its short SHA, so a log from an older push is never taken for the current
-// one. A run whose failed-step log comes back empty says so rather than leaving a blank block. Lines are cleaned of gh's job/step/timestamp prefix and ANSI escapes;
+// one. A run whose failed-step log comes back empty falls back to the tail of its full log, and
+// only if that is empty too says so rather than leaving a blank block. Lines are cleaned of gh's job/step/timestamp prefix and ANSI escapes;
 // if the result exceeds maxBytes it is cut down to the lines around failures (see condenseLog).
 // While any run of the head commit has not ended it returns scm.ErrCIRunning and reads nothing:
 // gh refuses to print a log, even of a job that has already failed, until the whole run is over.
@@ -339,6 +340,14 @@ func (g *GitHub) CILog(ctx context.Context, number int, maxBytes int) (string, e
 		}
 		body := cleanLog(string(log))
 		if strings.TrimSpace(body) == "" {
+			// --log-failed prints nothing for some failed jobs (the Playwright job's output
+			// arrived empty). The full log still has the output, so read that instead.
+			if full, err := g.run(ctx, "", "run", "view", strconv.FormatInt(r.DatabaseID, 10),
+				"--repo", g.Repo, "--log"); err == nil {
+				body = condenseLog(cleanLog(string(full)), maxBytes/maxCILogRuns)
+			}
+		}
+		if strings.TrimSpace(body) == "" {
 			body = "(GitHub returned no failed-step log for this run; it may still be finalising, or the job failed before any step ran)\n"
 		}
 		fmt.Fprintf(&b, "=== %s ===\n%s", name, body)
@@ -378,7 +387,7 @@ func cleanLog(raw string) string {
 
 // isFailureLine reports whether a log line looks like a failure worth keeping.
 func isFailureLine(line string) bool {
-	for _, k := range []string{"FAIL", "panic:", "Error", "error:"} {
+	for _, k := range []string{"FAIL", "panic:", "Error", "error:", "✘", "Timeout"} {
 		if strings.Contains(line, k) {
 			return true
 		}
