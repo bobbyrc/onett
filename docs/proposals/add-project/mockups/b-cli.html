@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Add project, Direction B: CLI</title>
+<link rel="stylesheet" href="../../../../web/src/styles.css">
+<link rel="stylesheet" href="add.css">
+</head>
+<body>
+<div class="ap-cli-page">
+<h1>Direction B from the terminal</h1>
+<p class="ap-lede">Adding takes one argument and saves at once, paused. The same five steps as the project page follow, and <span class="ap-mono">onett project ready</span> finishes them. Yellow is what the person typed.</p>
+
+<h2>Adding, then finishing</h2>
+<pre class="ap-term"><span class="p">$</span> onett project add <span class="u">bobbyrc/pimlo</span>
+<span class="ok">Added pimlo</span> to ~/.config/onett/onett.yaml, paused until it is ready, and reloaded onett.
+Getting pimlo ready:
+  1 <span class="ok">done</span>       copied     onett's own copy, in ~/.local/share/onett/repos/pimlo; keep working in yours
+  2 <span class="ok">done</span>       branch     main, from GitHub
+  3 <span class="ok">done</span>       pull requests   GitHub CLI signed in as bobbyrc
+  4 <span class="call">needs you</span>  setup and checks, guessed from package.json:
+                          setup npm ci · checks npm run lint, npm test
+  5 waiting    first task
+Next: onett project ready pimlo
+
+<span class="p">$</span> onett project ready pimlo
+Setup and checks for pimlo, guessed from package.json and package-lock.json:
+  setup    npm ci
+  checks   npm run lint
+           npm test
+[t]ry them on a fresh copy of main, [u]se them, [e]dit, [n]o setup or checks: <span class="u">t</span>
+  <span class="ok">passed</span>  npm ci         48s
+  <span class="ok">passed</span>  npm run lint    9s
+  <span class="ok">passed</span>  npm test       15s
+Use these? [Y/n]: <span class="u">y</span>
+<span class="ok">pimlo is ready</span> and no longer paused.
+See it work once (a question opens no pull request):
+  onett task create --project pimlo --kind question --title "Explain how pimlo is built and tested"
+
+<span class="p">$</span> onett project status pimlo        <span class="m"># the same five steps, any time</span></pre>
+
+<h2>GitHub CLI not signed in</h2>
+<pre class="ap-term"><span class="p">$</span> onett project add <span class="u">bobbyrc/dotfiles-and-agent-configs</span>
+<span class="ok">Added dotfiles-and-agent-configs</span>, paused until it is ready.
+  1 <span class="ok">done</span>       copied (public, so no sign-in was needed)
+  2 <span class="ok">done</span>       branch main, from the repository
+  3 <span class="stop">STOPPED</span>    pull requests: the GitHub CLI is not signed in on this machine.
+                          Run gh auth login, then onett project check dotfiles-and-agent-configs
+  4 <span class="call">needs you</span>  setup and checks, guessed from Makefile: check make test
+  5 waiting    first task</pre>
+
+<h2>Nothing guessed</h2>
+<pre class="ap-term"><span class="p">$</span> onett project ready home-lab
+<span class="call">onett found nothing it knows how to install or test</span> in home-lab.
+At the top: README.md  Makefile (no test target)  ansible/  scripts/
+Setup command, empty for none: <span class="u">./scripts/bootstrap.sh</span>
+Check command, empty when done: <span class="u">make lint</span>
+Check command, empty when done: <span class="u"></span>
+[t]ry them, [u]se them, [e]dit: <span class="u">t</span>
+...</pre>
+
+<h2>The copy fails</h2>
+<pre class="ap-term"><span class="p">$</span> onett project add <span class="u">bobbyrc/pimlo-app</span>
+<span class="ok">Added pimlo-app</span>, paused until it is ready.
+  1 <span class="stop">STOPPED</span>    could not copy the repository. GitHub said:
+                            remote: Repository not found.
+                          Either the name is wrong, or bobbyrc cannot read it. Did you mean bobbyrc/pimlo?
+  2-5 waiting
+Fix the name with onett project remove pimlo-app, then add the right one.</pre>
+
+<h2>Without a terminal</h2>
+<pre class="ap-term"><span class="p">$</span> onett project add bobbyrc/pimlo
+<span class="p">$</span> onett project ready pimlo --use-guess          <span class="m"># or --setup CMD --check CMD, or --no-checks</span></pre>
+</div>
+</body>
+</html>

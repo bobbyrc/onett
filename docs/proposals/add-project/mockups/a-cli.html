@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Add project, Direction A: CLI</title>
+<link rel="stylesheet" href="../../../../web/src/styles.css">
+<link rel="stylesheet" href="add.css">
+</head>
+<body>
+<div class="ap-cli-page">
+<h1>Direction A from the terminal</h1>
+<p class="ap-lede">The same questions as the dialog, in the same order, with the same defaults. Nothing is written to onett.yaml until the last answer. Yellow is what the person typed.</p>
+
+<h2>Picking a repository, with a guess for setup and checks</h2>
+<pre class="ap-term"><span class="p">$</span> onett project add
+Your repositories, most recently pushed first (GitHub CLI signed in as bobbyrc):
+   1  bobbyrc/pimlo                             private  2h ago
+   2  bobbyrc/home-lab                          private  yesterday
+   3  bobbyrc/dotfiles-and-agent-configs        public   3d ago
+   4  bobbyrc/retro-diffusion-sprite-pipeline   private  2w ago
+Repository (a number, owner/name, or a GitHub link): <span class="u">1</span>
+
+Checking bobbyrc/pimlo
+  <span class="ok">done</span>  copied   onett's own copy, in ~/.local/share/onett/repos/pimlo; keep working in yours
+  <span class="ok">done</span>  branch   main, from GitHub
+  <span class="ok">done</span>  pull requests   GitHub CLI signed in as bobbyrc
+
+Before every task, guessed from package.json and package-lock.json:
+  setup    npm ci
+  checks   npm run lint
+           npm test
+They run in each task's copy with the agent's limited environment, never your credentials.
+Use these? [Y]es, [e]dit, [n]o setup or checks: <span class="u">y</span>
+
+Who merges: small, low-risk changes merge on their own once the reviewing agent approves
+and CI passes; bigger ones, and changes to dependencies, CI, migrations or auth, wait for you.
+
+Add pimlo? [Y/n]: <span class="u">y</span>
+<span class="ok">Added pimlo</span> to ~/.config/onett/onett.yaml and reloaded onett.
+See it work once (a question opens no pull request):
+  onett task create --project pimlo --kind question --title "Explain how pimlo is built and tested"</pre>
+
+<h2>Nothing guessed</h2>
+<pre class="ap-term"><span class="p">$</span> onett project add <span class="u">bobbyrc/home-lab</span>
+Checking bobbyrc/home-lab
+  <span class="ok">done</span>  copied · branch main · pull requests as bobbyrc
+
+Before every task: <span class="call">onett found nothing it knows how to install or test.</span>
+At the top of home-lab: README.md  Makefile (no test target)  ansible/  scripts/
+Setup command, empty for none: <span class="u">./scripts/bootstrap.sh</span>
+Check command, empty when done: <span class="u">make lint</span>
+Check command, empty when done: <span class="u"></span>
+...</pre>
+
+<h2>GitHub CLI not signed in</h2>
+<pre class="ap-term"><span class="p">$</span> onett project add
+<span class="stop">The GitHub CLI is not signed in on this machine.</span> onett uses it to list your repositories
+and to open pull requests, so it cannot add a project until it is. Run:
+  gh auth login
+then run onett project add again.</pre>
+
+<h2>The copy fails</h2>
+<pre class="ap-term"><span class="p">$</span> onett project add <span class="u">bobbyrc/pimlo-app</span>
+Checking bobbyrc/pimlo-app
+  <span class="stop">STOP</span>  could not copy the repository. GitHub said:
+          remote: Repository not found.
+        Either the name is wrong, or bobbyrc cannot read it. Did you mean bobbyrc/pimlo?
+Nothing was added.</pre>
+
+<h2>Without a terminal (scripts, onett init)</h2>
+<pre class="ap-term"><span class="p">$</span> onett project add bobbyrc/pimlo --yes
+onett project add: onett guessed setup and checks for pimlo:
+  setup npm ci · checks npm run lint, npm test
+Pass --use-guess to accept them, --setup CMD / --check CMD to give your own,
+or --no-checks for none. Nothing was added.
+
+<span class="p">$</span> onett project add bobbyrc/pimlo --use-guess --yes
+<span class="ok">Added pimlo</span> to ~/.config/onett/onett.yaml and reloaded onett.
+
+<span class="p">$</span> onett project add bobbyrc/home-lab --setup ./scripts/bootstrap.sh --check "make lint" --yes
+<span class="ok">Added home-lab</span> to ~/.config/onett/onett.yaml and reloaded onett.
+
+<span class="m"># Rarely needed: --name, --branch, --policy. There is no --path; onett places its own copy.</span></pre>
+</div>
+</body>
+</html>
