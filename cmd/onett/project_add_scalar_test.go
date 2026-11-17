@@ -27,12 +27,12 @@ const scalarTailConfig = `projects:
 func TestProjectAddKeepsBlockScalarEndingInCommentLikeLine(t *testing.T) {
 	path := writeAddTestConfig(t, scalarTailConfig)
 
-	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--config", path)
+	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--no-checks", "--config", path)
 	require.Equal(t, 0, code, errOut)
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, scalarTailConfig+"  demo:\n    repo: acme/demo\n", string(data), "the entry goes after the scalar")
+	assert.Equal(t, scalarTailConfig+"  demo:\n    repo: acme/demo\n    default_branch: main\n    policy: supervised\n", string(data), "the entry goes after the scalar")
 
 	cfg, err := config.Parse(data, path)
 	require.NoError(t, err)

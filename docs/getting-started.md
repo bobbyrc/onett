@@ -55,19 +55,25 @@ cd onett-trial
 pwd    # note this path; you will need it in step 4
 ```
 
-`--add-readme` gives the repository a `main` branch, which onett expects by default.
+`--add-readme` gives the repository a first commit, so it has a default branch for onett to read.
+Onett reads the branch name when you add the project, so the branch need not be called `main`.
 
 ## 4. Write the config
 
-*In the UI:* skip `init`. Run `./onett serve` (step 5) and use **Projects**, **Add project**, then
-pause the new project from the same page. The rest of this step is the file-based way.
+*In the UI:* skip `init`. Run `./onett serve` (step 5), open **Projects** and use **Add project**
+(see **Adding a project** below). To hold the project until you are ready, pause it
+from the same page. The rest of this step is the file-based way.
 
 ```sh
-./onett init --project trial --repo YOUR_GITHUB_USER/onett-trial --path /absolute/path/to/onett-trial
+./onett init --project trial --repo YOUR_GITHUB_USER/onett-trial --no-checks
 ```
 
 This writes `~/.config/onett/onett.yaml`. It refuses to overwrite an existing file. The starter
-file has a `log` notifier and one project.
+file has a `log` notifier. Then it adds the `trial` project with the same flow as
+the **Adding a project** steps below: onett copies the repository from GitHub, reads its branch and
+checks it. `--no-checks` says the project has no setup or checks, which is right for this
+repository. Without a terminal, `init` needs one of `--use-guess`, `--setup`/`--check` or
+`--no-checks` for the project, as `onett project add` does.
 
 With only the `log` notifier, onett cannot tell you when a goal blocks. So when you run `init` in a
 terminal it asks once how to reach you: `[1] Telegram [2] Discord [3] ntfy [4] skip`, and then only
@@ -90,13 +96,12 @@ projects:
     paused: true        # nothing starts for this project until you set this to false
 ```
 
-`paused` is a key of the project, next to `repo` and `path`. The `--path` you pass must point at the
-clone from step 3. Onett runs agents there, so it must be a real git checkout. The project's
-`repo` decides which repository onett fetches from and pushes to, not the checkout's own `origin`
-remote: onett sets `origin` to that repository (a checkout of the same GitHub repository keeps
-its own HTTPS or SSH form) and keeps only a short list of the checkout's local git settings, so
-put settings you need in your global git config. If you leave `--path` out, onett clones the
-repository itself into its data directory.
+`paused` is a key of the project, next to `repo`. There is no `path` line: onett keeps its own copy
+of the repository in its data directory (`<data_dir>/repos/trial`) and runs agents there. That copy
+is not the clone from step 3, and it is never your checkout. The project's `repo` decides which
+repository onett fetches from and pushes to. onett sets the copy's `origin` to that repository and
+keeps only a short list of the copy's local git settings, so put settings you need in your global
+git config.
 
 Every other key is optional and has a default. `onett.example.yaml` in the repository lists every
 option with its default.
@@ -136,9 +141,65 @@ Leave either one out and the config does not load; the error names the line to a
 `description` and the rest if you want them (`onett.example.yaml` shows every field). The
 per-project form below is different: it keeps what it leaves out.
 
-**Adding another project.** You do not need to edit the file by hand for a second repository. Run
-`./onett project add NAME --repo OWNER/NAME`, with `--path` and `--branch` optional, and it adds
-the project under `projects:` and keeps the file's comments. It refuses a name that already exists.
+**Adding a project.** You do not edit the file by hand for a second repository. The UI's **Add
+project** dialog and `onett project add` run the same flow, and onett checks the repository before
+it saves anything.
+
+1. **Pick the repository.** In the UI, pick one of your GitHub repositories from the list, or type
+   `owner/name` or paste a GitHub link. The list comes from the GitHub CLI (`gh`) on the machine
+   onett runs on.
+2. **onett copies it** into its own data directory (`<data_dir>/repos/<name>`, where the name is the
+   repository's name), reads the default branch and checks that it can open pull requests. If the
+   copy fails, nothing is saved: the dialog or the CLI shows GitHub's own message and, when one of
+   your repositories has a close name, a "Did you mean" suggestion.
+3. **onett guesses setup and checks** from the repository's files: `npm ci` and `npm run lint` from a
+   `package.json` with a lockfile and scripts, `go mod download` with `go vet ./...` and `go test
+   ./...` from a `go.mod`, and so on. It only reads files; it runs nothing to guess. These run in each
+   task's copy, before the agent starts (setup) and before onett opens a pull request (checks), with
+   the agent's limited environment, never your credentials. You can change them. When nothing is
+   guessed, you type your own commands or choose **No setup or checks**. Either way you choose
+   explicitly; a project is never saved with setup and checks you did not see.
+4. **You add it.** Only then is the project written to `onett.yaml`. A new project starts with the
+   `supervised` policy: small, low-risk changes merge on their own once the reviewing agent approves
+   and CI passes, and bigger ones, and any change to dependencies, CI, migrations or auth, wait for
+   you. **Advanced** (in the UI) or `--policy default` gives the other policy, where every change
+   merges on its own. A project already in `onett.yaml` with no `policy` line still uses `default`.
+5. **onett offers one first task**, a question that asks an agent to explain how the repository is
+   built and tested. It is offered after the project is added and is never started without a click
+   (the CLI prints the command; nothing runs unless you run it). The task asks the agent to read the
+   code and change nothing. It still runs setup and checks in a task copy, so you see the whole path
+   work before you hand over real work. If the agent did change files, onett would commit them and
+   open a pull request as it does for any task, so the question is read-only only by its instruction.
+
+onett keeps its own copy, and gives each task a copy of its own. Keep working in your own checkout.
+Never point onett at your checkout: a directory already at onett's place for that name that is not
+a clean copy of the same repository (another `origin`, or uncommitted changes) stops the add with an
+error, so onett never takes over a checkout.
+
+If `gh` is not signed in on this machine, the dialog shows `gh auth login` with a **Check again**
+button. A public repository can still be checked, but a GitHub project cannot be added until `gh` is
+signed in, because onett opens its pull requests through it. The CLI stops with the same fix and
+adds nothing. Run `gh auth login`, then run the command again.
+
+On the command line:
+
+```sh
+./onett project add                                  # lists your repositories and asks the same questions as the UI
+./onett project add YOUR_GITHUB_USER/onett-two       # the repository is given; the same questions follow
+./onett project add YOUR_GITHUB_USER/onett-two --use-guess --yes   # no terminal: accept the guessed setup and checks
+./onett project add YOUR_GITHUB_USER/onett-two --no-checks --yes   # no terminal: no setup or checks
+./onett project add YOUR_GITHUB_USER/onett-two --setup ./scripts/bootstrap.sh --check "make lint" --yes
+```
+
+`--name`, `--branch` and `--policy supervised|default` are optional and rarely needed. `--yes`
+answers the final "Add NAME?" question. There is no `--path`: passing it is a usage error. The
+older `onett project add NAME --repo OWNER/NAME` still works, with NAME taken as `--name`.
+
+Without a terminal (in a script, or from `init`), the repository is required and the setup choice must
+be explicit: `--use-guess`, one or more `--setup`/`--check`, or `--no-checks`. Otherwise the command
+prints what it guessed, says "Nothing was added." and exits with status 1. The command edits
+`onett.yaml` itself, then asks the running daemon to reload it. If onett is not running, it says the
+project is read when onett starts.
 Then run `./onett config --reload` (or restart `onett serve`) so the daemon starts using it.
 
 **Per-project agents.** A project can change the agent roles for itself. Under `agents:`, give a

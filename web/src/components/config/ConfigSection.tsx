@@ -2,6 +2,7 @@
 // Every edit goes through the EditContext, which writes to the change list. Nothing here holds
 // the file's values itself, so the page always shows what would be saved.
 import { useId, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { SchemaNode } from '../../types';
 import {
   activeVariant,
@@ -567,7 +568,14 @@ function MapEditor({ node, path, ctx }: { node: SchemaNode; path: Path; ctx: Edi
           </div>
         );
       })}
-      <AddEntry singular={singular} taken={names} onAdd={add} />
+      {path.length === 1 && path[0] === 'projects' ? (
+        <p className="muted small">
+          To add a project, use <Link to="/projects?add=1">Add project</Link> on the Projects page: onett checks the repository
+          first.
+        </p>
+      ) : (
+        <AddEntry singular={singular} taken={names} onAdd={add} />
+      )}
     </section>
   );
 }

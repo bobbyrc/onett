@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,15 +40,19 @@ limits:
 	cfg, err := config.Parse([]byte(text), path)
 	require.NoError(t, err)
 	x.ctl.cfg = cfg
+	x.enableOnboard(t)
 	return x, path, text
 }
 
 func TestCreateProjectInsertsKeepsCommentsAndReloads(t *testing.T) {
 	x, path, _ := projectsHarness(t)
 	c := x.newUserSession(t, "boss", domain.RoleOwner)
+	repo := bareRepo(t)
+	inspectRepo(t, x, c, repo)
 
 	rec := x.authReq(t, http.MethodPost, "/api/v1/projects",
-		`{"name":"web","repo":"acme/web","branch":"develop","policy":"default","instructions":"Be brief.\nUse tabs."}`, withCookie(c))
+		jsonBody(t, map[string]string{"name": "web", "repo": repo, "branch": "develop", "policy": "default", "instructions": "Be brief.\nUse tabs."}),
+		withCookie(c))
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	var out struct {
 		Name    string `json:"name"`
@@ -56,7 +61,7 @@ func TestCreateProjectInsertsKeepsCommentsAndReloads(t *testing.T) {
 	}
 	decode(t, rec, &out)
 	assert.Equal(t, "web", out.Name)
-	assert.Equal(t, "acme/web", out.Repo)
+	assert.Equal(t, repo, out.Repo)
 	assert.NotEmpty(t, out.Version)
 	assert.Equal(t, 1, x.ctl.reloadCalls)
 
@@ -74,22 +79,26 @@ func TestCreateProjectInsertsKeepsCommentsAndReloads(t *testing.T) {
 }
 
 func TestCreateProjectRefusals(t *testing.T) {
+	// REPO is replaced by a local repository that was checked first.
 	cases := []struct {
 		name, body string
 		status     int
 	}{
-		{"duplicate name", `{"name":"app","repo":"acme/other"}`, http.StatusConflict},
-		{"bad repo", `{"name":"web","repo":"not a repo"}`, http.StatusUnprocessableEntity},
-		{"unknown policy", `{"name":"web","repo":"acme/web","policy":"nope"}`, http.StatusUnprocessableEntity},
-		{"bad name", `{"name":"we b","repo":"acme/web"}`, http.StatusUnprocessableEntity},
+		{"duplicate name", `{"name":"app","repo":"REPO"}`, http.StatusConflict},
+		{"bad repo", `{"name":"web","repo":"not a repo"}`, http.StatusBadRequest},
+		{"unknown policy", `{"name":"web","repo":"REPO","policy":"nope"}`, http.StatusUnprocessableEntity},
+		{"bad name", `{"name":"we b","repo":"REPO"}`, http.StatusUnprocessableEntity},
 		{"missing repo", `{"name":"web"}`, http.StatusBadRequest},
-		{"unknown field", `{"name":"web","repo":"acme/web","bogus":1}`, http.StatusBadRequest},
+		{"unknown field", `{"name":"web","repo":"REPO","bogus":1}`, http.StatusBadRequest},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			x, path, text := projectsHarness(t)
 			c := x.newUserSession(t, "boss", domain.RoleOwner)
-			rec := x.authReq(t, http.MethodPost, "/api/v1/projects", tc.body, withCookie(c))
+			repo := bareRepo(t)
+			inspectRepo(t, x, c, repo)
+			body := strings.ReplaceAll(tc.body, "REPO", repo)
+			rec := x.authReq(t, http.MethodPost, "/api/v1/projects", body, withCookie(c))
 			assert.Equal(t, tc.status, rec.Code, rec.Body.String())
 			got, _ := os.ReadFile(path)
 			assert.Equal(t, text, string(got), "a refused add writes nothing")
@@ -101,7 +110,9 @@ func TestCreateProjectRefusals(t *testing.T) {
 func TestCreateProjectReportsProblems(t *testing.T) {
 	x, _, _ := projectsHarness(t)
 	c := x.newUserSession(t, "boss", domain.RoleOwner)
-	rec := x.authReq(t, http.MethodPost, "/api/v1/projects", `{"name":"web","repo":"acme/web","policy":"nope"}`, withCookie(c))
+	repo := bareRepo(t)
+	inspectRepo(t, x, c, repo)
+	rec := x.authReq(t, http.MethodPost, "/api/v1/projects", jsonBody(t, map[string]string{"name": "web", "repo": repo, "policy": "nope"}), withCookie(c))
 	var out struct {
 		Problems []config.Problem `json:"problems"`
 	}

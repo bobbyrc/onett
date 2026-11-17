@@ -839,12 +839,23 @@ export interface ConfigSaved {
   restart_required: string[];
 }
 
-/** POST /projects. Only name and repo are required; nothing is cloned. */
-export interface NewProjectRequest {
-  name: string;
-  repo: string;
-  path?: string;
-  branch?: string;
-  policy?: string;
-  instructions?: string;
+export interface GithubRepo { full_name: string; private: boolean; description: string; default_branch: string; pushed_at: string; project: string | null }
+export interface GhStatus { signed_in: boolean; user: string; host: string; fix?: string; error?: string }
+export interface GithubReposResponse { gh: GhStatus; repos: GithubRepo[] }
+export interface SetupCommand { name: string; run: string; from?: string }
+export interface InspectResult {
+  name: string; repo: string; github: boolean; private: boolean;
+  copy: { ok: boolean; error: string };
+  default_branch: string; branch_from: 'github' | 'repository' | '';
+  pull_requests: { ok: boolean; gh_user: string; error: string };
+  guess: { setup: SetupCommand[]; checks: SetupCommand[]; top_files: string[] };
+  suggest: string;
 }
+export type InspectStepName = 'copy' | 'branch' | 'pull_requests' | 'guess';
+export type InspectStepState = 'running' | 'done' | 'failed' | 'skipped';
+export interface InspectStep { name: InspectStepName; state: InspectStepState; detail?: string }
+export type InspectLine = { step: InspectStep } | { result: InspectResult } | { error: string };
+
+/** POST /projects. Only repo is required; nothing is cloned here, the check already copied it. */
+export interface NewProjectRequest { repo: string; name?: string; branch?: string; policy?: string; instructions?: string;
+  setup?: { name: string; run: string }[]; checks?: { name: string; run: string }[] }

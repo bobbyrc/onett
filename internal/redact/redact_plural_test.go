@@ -1,4 +1,4 @@
-package engine
+package redact
 
 import (
 	"testing"
@@ -23,6 +23,6 @@ func TestSecretEnvNamePluralsCount(t *testing.T) {
 }
 
 func TestRedactSecretsCoversPluralNames(t *testing.T) {
-	got := redactSecrets("login with hunter2secret failed", []string{"DB_PASSWORDS=hunter2secret"})
+	got := Secrets("login with hunter2secret failed", []string{"DB_PASSWORDS=hunter2secret"})
 	assert.Equal(t, "login with *** failed", got)
 }

@@ -251,7 +251,8 @@ as a fallback.
   - On a phone a lane stacks: the window as a bar with the lamp at its side, then the rows with
     their actions under the text, then In flight.
 - **Finish setting up onett** (owners only, `SetupChecklist`), while setup is incomplete. The
-  steps, each linking to where it is done: Add a project (`/projects`), Agents ready (at least
+  steps, each linking to where it is done: Add a project (`/projects?add=1`, which opens the Add
+  project dialog), Agents ready (at least
   one enabled agent; `/config?section=agents`), Choose a policy (a project with no policy uses
   the default, which counts; `/config?section=policies`), Reach me (not `owner_unreachable` in
   `/stats`; `/config?mode=setup`), Secrets set (every secret the config refers to is set, from
@@ -301,14 +302,51 @@ branch, the deployer type (or "no deployer") and the observers (or "no observers
 is the loops: "Loops: 5 on, 2 off", where "Loops" links to `/loops`. If any loop's last run
 failed, its name follows in red ("pr_shepherd failing"), and the error shows as a tooltip.
 Owners also get an **Add project** button in the page header and, on each sheet, **Edit settings**
-(opens the Config page at that project's card) and **Remove**. Add opens a form: name, repository
-(`owner/name`), local path, default branch, a policy dropdown of the configured policies and an
-instructions box. Empty optional fields keep their defaults. Onett does not clone the repository:
-the clone must already be at the path (default `<data_dir>/repos/<name>`). Problems the server
-finds show under the form. Remove asks first, naming the project; when the project has queued or
-running tasks the question says so and the removal is forced. It only edits `onett.yaml`; no file
-on disk is deleted. Other roles see neither control. The sidebar gets **Projects** between Overview and Chat.
+(opens the Config page at that project's card) and **Remove**. Add opens the **Add project** dialog
+(below); the header button is `/projects?add=1`. Remove asks first, naming the project; when the
+project has queued or running tasks the question says so and the removal is forced. It only edits
+`onett.yaml`; no file on disk is deleted. Other roles see neither control. The sidebar gets
+**Projects** between Overview and Chat.
 
+**Add project dialog** (owners only; a dialog over the Projects page). Adding a project is one
+flow, and onett checks the repository before it saves anything. It has four steps and a last
+screen, and nothing is written to `onett.yaml` until the **Add** button is pressed.
+
+- **Pick.** The one thing you give is the GitHub repository. With the GitHub CLI (`gh`) signed in
+  on the machine onett runs on, the dialog lists your repositories, most recently pushed first, and
+  a search box filters them. You can also type `owner/name` or paste a GitHub link. A repository
+  already used by a project is shown as added and cannot be picked again. Signed out, the dialog
+  says so in one sentence, names the machine, and shows `gh auth login` with a Copy button and
+  **Check again**. A public repository can still be checked then, but **Add** stays off, because a
+  GitHub project cannot open pull requests without `gh`.
+- **Check.** onett copies the repository into its own data directory (`<data_dir>/repos/<name>`),
+  reads the default branch, and checks that it can open pull requests. Three rows show each step as
+  Waiting, Checking, Done, Stopped or Skipped, with what it found. The copy is onett's own, not your
+  checkout: "onett keeps its own copy and gives each task a separate one. Keep working in your own
+  checkout; onett never touches it." When the copy fails, the dialog shows GitHub's own words
+  (redacted), a plain reading of them, and a "Did you mean" link when the owner has a close name.
+  Nothing is saved.
+- **Review.** Under **Before every task**, onett shows the setup and check commands it guessed from
+  the repository's files (for example `npm ci` from `package-lock.json`, and `npm run lint` from
+  `package.json`), each as an editable command, and says which file it came from. They run in each
+  task's copy with the agent's limited environment, never with your credentials. When nothing is
+  guessed, the dialog asks you to choose: **Run these commands**, with the commands you type, or
+  **No setup or checks**. **Add** stays off until one of those is chosen. Under **Who merges** the
+  new project's policy is written in one sentence: small, low-risk changes merge on their own once
+  the reviewing agent approves and CI passes; bigger ones, and any change to dependencies, CI,
+  migrations or auth, wait for you. **Advanced** (closed by default) holds the name, the branch
+  (read from GitHub when `gh` is signed in, otherwise from the repository), the choice between
+  **Small changes merge on their own** and **Everything merges on its own** (the `default`
+  policy), and instructions for the agents. Cancel, or Change repository after a copy was made,
+  deletes that copy unless a project uses it.
+- **Add.** **Add `<name>`** saves the project to `onett.yaml` and reloads the daemon. It is off
+  while a value is missing or wrong, and the reason shows beside it.
+- **Ready.** The dialog says the project is added, summarises the branch, setup, checks and policy,
+  and offers one first task, after the project is added: a question, **Explain how `<name>` is built
+  and tested**. It asks the agent to read the code and change nothing. The task still makes a task
+  copy and runs the setup and checks, so you see the whole path work before you hand over real work.
+  Nothing is started without a click: **Start this task** creates it only when you click; **Write my own task** opens New task with the project chosen; **Done** closes the
+  dialog.
 **Chat** (`/chat`, `/chat/:id`, `/chat/task/:taskId`) — talk to the orchestrator or to any task
 agent, and read what an agent did as it works. With no conversation open, a centred block 640px
 wide sits 8vh from the top: the heading "Talk to the orchestrator", a muted line on what it can and
@@ -640,7 +678,9 @@ with a built-in default shows it as the input's placeholder ("default: 15m") whi
 it is set a "Reset to default" link removes the key again. A number, text or duration setting is an input; a
 checkbox is "On", with a "Default: on" note while unset when leaving it out of the file means on (a loop's `enabled`, friction's `auto_file`, a deploy's `auto_rollback`); clearing an input removes the key. A value written as `${NAME}` shows as text with
 a note that onett reads that environment variable. A map is one card per entry, with Rename and
-Remove (Remove asks first), and a form at the end to add one. The Agents map also names the built-in agents the file does not write (they are in effect without an entry), so a fresh install's empty list is not read as no agents. A list has a row or a card per item,
+Remove (Remove asks first), and a form at the end to add one. The projects map is the exception:
+it has no add form. Its place holds a muted line that links to the Add project dialog on the
+Projects page (`/projects?add=1`), because onett checks a repository before it saves a project. The Agents map also names the built-in agents the file does not write (they are in effect without an entry), so a fresh install's empty list is not read as no agents. A list has a row or a card per item,
 with Remove, and an Add button. A setting with fixed choices, such as a notifier's `type`, is a
 dropdown. The `options` of a notifier, channel, deploy block or observer show the fields of the
 selected `type`. A setting that names an environment variable for a secret is a picker: a box that

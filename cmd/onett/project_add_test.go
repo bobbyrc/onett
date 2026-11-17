@@ -23,9 +23,9 @@ projects:
     path: "/src/app"
 `
 
-// demoBlock is the text project add writes for `demo --repo acme/demo --path /tmp/x --branch dev`
+// demoBlock is the text project add writes for `demo --repo acme/demo --branch dev --no-checks`
 // under a projects section indented two spaces.
-const demoBlock = "  demo:\n    repo: acme/demo\n    path: /tmp/x\n    default_branch: dev\n"
+const demoBlock = "  demo:\n    repo: acme/demo\n    default_branch: dev\n    policy: supervised\n"
 
 func writeAddTestConfig(t *testing.T, content string) string {
 	t.Helper()
@@ -38,10 +38,9 @@ func TestProjectAddKeepsCommentsAndLoads(t *testing.T) {
 	path := writeAddTestConfig(t, addTestConfig)
 
 	code, out, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo",
-		"--path", "/tmp/x", "--branch", "dev", "--config", path)
+		"--branch", "dev", "--no-checks", "--config", path)
 	require.Equal(t, 0, code, errOut)
-	assert.Contains(t, out, "added project demo (acme/demo) to "+path)
-	assert.Contains(t, out, `run "onett config --reload"`)
+	assert.Contains(t, out, "Added demo to "+path+" and reloaded onett.")
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -53,8 +52,8 @@ func TestProjectAddKeepsCommentsAndLoads(t *testing.T) {
 	assert.Equal(t, "/src/app", cfg.Projects["app"].Path)
 	require.Contains(t, cfg.Projects, "demo")
 	assert.Equal(t, "acme/demo", cfg.Projects["demo"].Repo)
-	assert.Equal(t, "/tmp/x", cfg.Projects["demo"].Path)
 	assert.Equal(t, "dev", cfg.Projects["demo"].DefaultBranch)
+	assert.Equal(t, "supervised", cfg.Projects["demo"].Policy)
 	assert.Empty(t, cfg.SelfProject)
 }
 
@@ -68,7 +67,7 @@ func TestProjectAddToExampleFileOnlyInsertsLines(t *testing.T) {
 	path := writeAddTestConfig(t, string(original))
 
 	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo",
-		"--path", "/tmp/x", "--branch", "dev", "--config", path)
+		"--branch", "dev", "--no-checks", "--config", path)
 	require.Equal(t, 0, code, errOut)
 
 	data, err := os.ReadFile(path)
@@ -88,12 +87,12 @@ func TestProjectAddBeforeNextKeyKeepsBlankLineAndComment(t *testing.T) {
 	original := "projects:\n  app:\n    repo: a/app\n\n# notes for the next key\nnotify:\n  - type: log\n"
 	path := writeAddTestConfig(t, original)
 
-	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--config", path)
+	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--no-checks", "--config", path)
 	require.Equal(t, 0, code, errOut)
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, "projects:\n  app:\n    repo: a/app\n  demo:\n    repo: acme/demo\n\n# notes for the next key\nnotify:\n  - type: log\n",
+	assert.Equal(t, "projects:\n  app:\n    repo: a/app\n  demo:\n    repo: acme/demo\n    default_branch: main\n    policy: supervised\n\n# notes for the next key\nnotify:\n  - type: log\n",
 		string(data))
 }
 
@@ -101,12 +100,12 @@ func TestProjectAddCreatesProjectsKeyAtEnd(t *testing.T) {
 	original := "# just a server\nserver:\n  addr: 127.0.0.1:7777\n"
 	path := writeAddTestConfig(t, original)
 
-	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--config", path)
+	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--no-checks", "--config", path)
 	require.Equal(t, 0, code, errOut)
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, original+"\nprojects:\n  demo:\n    repo: acme/demo\n", string(data))
+	assert.Equal(t, original+"\nprojects:\n  demo:\n    repo: acme/demo\n    default_branch: main\n    policy: supervised\n", string(data))
 	cfg, err := config.Parse(data, path)
 	require.NoError(t, err)
 	assert.Equal(t, "acme/demo", cfg.Projects["demo"].Repo)
@@ -116,12 +115,12 @@ func TestProjectAddFillsEmptyProjectsLine(t *testing.T) {
 	original := "server:\n  addr: 127.0.0.1:7777\nprojects:   # none yet\nnotify:\n  - type: log\n"
 	path := writeAddTestConfig(t, original)
 
-	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--config", path)
+	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--no-checks", "--config", path)
 	require.Equal(t, 0, code, errOut)
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, "server:\n  addr: 127.0.0.1:7777\nprojects:   # none yet\n  demo:\n    repo: acme/demo\nnotify:\n  - type: log\n",
+	assert.Equal(t, "server:\n  addr: 127.0.0.1:7777\nprojects:   # none yet\n  demo:\n    repo: acme/demo\n    default_branch: main\n    policy: supervised\nnotify:\n  - type: log\n",
 		string(data))
 }
 
@@ -129,7 +128,7 @@ func TestProjectAddRefusesFlowStyleProjects(t *testing.T) {
 	original := "projects: {}\n"
 	path := writeAddTestConfig(t, original)
 
-	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--config", path)
+	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--no-checks", "--config", path)
 	assert.Equal(t, 1, code)
 	assert.Contains(t, errOut, "cannot add to the projects block in "+path+" automatically (flow style); add it by hand")
 	data, err := os.ReadFile(path)
@@ -141,7 +140,7 @@ func TestProjectAddPreservesFilePermissions(t *testing.T) {
 	path := writeAddTestConfig(t, addTestConfig)
 	require.NoError(t, os.Chmod(path, 0o640))
 
-	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--config", path)
+	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--no-checks", "--config", path)
 	require.Equal(t, 0, code, errOut)
 	info, err := os.Stat(path)
 	require.NoError(t, err)
@@ -174,43 +173,43 @@ func TestProjectAddMissingConfigSuggestsInit(t *testing.T) {
 func TestProjectAddEmptyFileBecomesValidConfig(t *testing.T) {
 	path := writeAddTestConfig(t, "")
 
-	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--config", path)
+	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--no-checks", "--config", path)
 	require.Equal(t, 0, code, errOut)
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, "projects:\n  demo:\n    repo: acme/demo\n", string(data))
+	assert.Equal(t, "projects:\n  demo:\n    repo: acme/demo\n    default_branch: main\n    policy: supervised\n", string(data))
 }
 
 func TestProjectAddQuotesValuesThatNeedIt(t *testing.T) {
 	path := writeAddTestConfig(t, "projects:\n  app:\n    repo: a/app\n")
-	odd := "/tmp/x: y #z"
+	odd := "release: y #z"
 
-	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--path", odd, "--config", path)
+	code, _, errOut := runCLI("project", "add", "demo", "--repo", "acme/demo", "--branch", odd, "--no-checks", "--config", path)
 	require.Equal(t, 0, code, errOut)
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	cfg, err := config.Parse(data, path)
 	require.NoError(t, err)
-	assert.Equal(t, odd, cfg.Projects["demo"].Path)
+	assert.Equal(t, odd, cfg.Projects["demo"].DefaultBranch)
 }
 
 func TestProjectAddSetsSelfProjectOnlyWhenUnset(t *testing.T) {
 	original := "server:\n  addr: 127.0.0.1:7777\n"
 	path := writeAddTestConfig(t, original)
 
-	code, _, errOut := runCLI("project", "add", "onett", "--repo", selfRepo, "--config", path)
+	code, _, errOut := runCLI("project", "add", "onett", "--repo", selfRepo, "--no-checks", "--config", path)
 	require.Equal(t, 0, code, errOut)
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, original+"\nprojects:\n  onett:\n    repo: bobbyrc/onett\nself_project: onett\n", string(data))
+	assert.Equal(t, original+"\nprojects:\n  onett:\n    repo: bobbyrc/onett\n    default_branch: main\n    policy: supervised\nself_project: onett\n", string(data))
 	cfg, err := config.Parse(data, path)
 	require.NoError(t, err)
 	assert.Equal(t, "onett", cfg.SelfProject)
 
 	path2 := writeAddTestConfig(t, "self_project: keep\nprojects:\n  keep:\n    repo: a/keep\n")
-	code, _, errOut = runCLI("project", "add", "onett", "--repo", selfRepo, "--config", path2)
+	code, _, errOut = runCLI("project", "add", "onett", "--repo", selfRepo, "--no-checks", "--config", path2)
 	require.Equal(t, 0, code, errOut)
 	data, err = os.ReadFile(path2)
 	require.NoError(t, err)
@@ -228,8 +227,8 @@ func TestProjectAddRejectsInvalidInput(t *testing.T) {
 		{"project", "add", "bad name", "--repo", "acme/demo", "--config", path},
 		{"project", "add", "-lead", "--repo", "acme/demo", "--config", path},
 		{"project", "add", "demo", "--config", path},
-		{"project", "add", "--repo", "acme/demo", "--config", path},
 		{"project", "add", "a", "b", "--repo", "acme/demo", "--config", path},
+		{"project", "add", "--path", "/tmp/x", "acme/demo", "--config", path},
 	} {
 		code, _, errOut := runCLI(args...)
 		assert.Equal(t, 2, code, "args %v: %s", args, errOut)

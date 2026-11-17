@@ -43,7 +43,7 @@ describe('SetupChecklist stations (no project yet)', () => {
     show('stations');
     expect(screen.getByText('Step 1 · next')).toBeTruthy();
     const add = screen.getByRole('link', { name: 'Add a project' });
-    expect(add.getAttribute('href')).toBe('/projects');
+    expect(add.getAttribute('href')).toBe('/projects?add=1');
     expect(add.classList.contains('btn-primary')).toBe(true);
     expect(screen.getByText('Step 3 · waits for a project')).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Choose a policy' })).toBeNull();

@@ -45,4 +45,5 @@ export const keys = {
   eventsHistory: ['events', 'history'] as const,
   usersAll: ['users'] as const,
   secrets: ['secrets'] as const,
+  githubRepos: ['github-repos'] as const,
 };

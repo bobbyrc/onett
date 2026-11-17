@@ -5,6 +5,7 @@
 // 401 from them is a wrong password, not an expired session. Sign-out and password change run
 // inside a session, so a 401 from them means the session is gone and the app must sign in again.
 import { UNAUTHORIZED_EVENT } from './auth';
+import { LineSplitter, parseInspectLine } from './lib/inspectStream';
 import type {
   AgentView,
   Approval,
@@ -15,6 +16,9 @@ import type {
   ConfigProblem,
   ConfigSaved,
   ConfigText,
+  GithubReposResponse,
+  InspectResult,
+  InspectStep,
   NewProjectRequest,
   AgentConversation,
   Conversation,
@@ -451,6 +455,63 @@ export const createProject = (body: NewProjectRequest) =>
 
 export const deleteProject = (name: string, force: boolean) =>
   configRequest<ConfigSaved>('DELETE', `/projects/${encodeURIComponent(name)}${force ? '?force=true' : ''}`);
+
+/** The owner's GitHub repositories, as the GitHub CLI on this machine lists them. */
+export const listGithubRepos = () => request<GithubReposResponse>('GET', '/github/repos');
+
+/** Drops the copy a check made, when the person cancels before adding the project. */
+export const discardInspect = (name: string) => request<void>('DELETE', `/projects/inspect/${encodeURIComponent(name)}`);
+
+/**
+ * Checks a repository, streaming each step to onStep as the server reports it, and resolves with
+ * the result. The answer is one JSON line per step; see lib/inspectStream.ts.
+ */
+export async function inspectProject(
+  repo: string,
+  onStep: (step: InspectStep) => void,
+  signal?: AbortSignal,
+): Promise<InspectResult> {
+  const res = await fetch('/api/v1/projects/inspect', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ repo }),
+    cache: 'no-store',
+    signal,
+  });
+  if (!res.ok) {
+    if (res.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    let message = res.statusText || `HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body.error) message = body.error;
+    } catch {
+      // Not JSON: keep the status text.
+    }
+    throw new ApiError(res.status, message);
+  }
+  if (!res.body) throw new ApiError(500, 'the check ended without a result');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  const splitter = new LineSplitter();
+  const results: InspectResult[] = [];
+  const feed = (lines: string[]) => {
+    for (const line of lines) {
+      const msg = parseInspectLine(line);
+      if ('step' in msg) onStep(msg.step);
+      else if ('result' in msg) results.push(msg.result);
+      else throw new ApiError(500, msg.error);
+    }
+  };
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    feed(splitter.push(decoder.decode(value, { stream: true })));
+  }
+  feed([...splitter.push(decoder.decode()), ...splitter.end()]);
+  if (results.length === 0) throw new ApiError(500, 'the check ended without a result');
+  return results[results.length - 1];
+}
 
 // ---- test sends (owner only) ----
 

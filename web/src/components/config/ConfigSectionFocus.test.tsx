@@ -3,6 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import type { SchemaNode } from '../../types';
 import { NodeEditor, type EditContext } from './ConfigSection';
 
@@ -35,7 +36,14 @@ function render(focusEntry?: string) {
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
-  act(() => root?.render(<NodeEditor node={projects} path={['projects']} ctx={ctx} nested={false} />));
+  // The projects map links to the Projects page, so it needs a router.
+  act(() =>
+    root?.render(
+      <MemoryRouter>
+        <NodeEditor node={projects} path={['projects']} ctx={ctx} nested={false} />
+      </MemoryRouter>,
+    ),
+  );
 }
 
 describe('focusEntry', () => {

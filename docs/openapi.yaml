@@ -314,11 +314,15 @@ paths:
       tags: [projects]
       summary: Add a project to the config file.
       description: >-
-        Owner only. The same logic as `onett project add`: the new block is inserted into
-        onett.yaml as text, so comments and formatting elsewhere stay as they were. It is then
-        validated, written atomically and reloaded, as PATCH /config/document does, but with no
-        version check, because the block is inserted into whatever the file holds. Nothing is
-        cloned: an empty `path` means `<data_dir>/repos/<name>`, and the clone must exist there.
+        Owner session only; both API tokens get 403. The same logic as `onett project add`: the new
+        block is inserted into onett.yaml as text, so comments and formatting elsewhere stay as they
+        were. It is then validated, written atomically and reloaded, as PATCH /config/document does,
+        but with no version check, because the block is inserted into whatever the file holds.
+        The repository must have a ready check from POST /projects/inspect first, or the call is
+        409. No copy is made here: the copy is the one that check made. `path` is refused as an
+        unknown field.
+      security:
+        - session: []
       requestBody:
         required: true
         content:
@@ -359,6 +363,107 @@ paths:
                   $ref: '#/components/schemas/ProjectView'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /github/repos:
+    get:
+      operationId: listGithubRepos
+      tags: [projects]
+      summary: List the GitHub repositories the GitHub CLI can see for this machine.
+      description: >-
+        Owner session only; both API tokens get 403. Lists the 100 repositories most recently
+        pushed to, as `gh repo list` shows them for the account signed in to the GitHub CLI on
+        this machine. Not signed in is a 200 with `gh.signed_in` false and `gh.fix` set, not an
+        error. A list that fails is a 200 with `gh.error` set and no repositories.
+      security:
+        - session: []
+      responses:
+        '200':
+          description: The sign-in state and, when signed in, the repositories.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GithubRepos'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /projects/inspect:
+    post:
+      operationId: inspectProject
+      tags: [projects]
+      summary: Check a repository before it is added, streaming each step.
+      description: >-
+        Owner session only; both API tokens get 403. Copies the repository into onett's data
+        directory, reads its default branch, checks that pull requests can be opened and guesses
+        setup and checks from its files. Nothing is written to onett.yaml, and no repository code
+        runs. The response is NDJSON (`application/x-ndjson`): one JSON object per line, flushed as
+        each line is written. Step lines come first (`{"step":…}`), then exactly one last line,
+        `{"result":…}` or, when the check fails after the stream began, `{"error":"…"}`. A failed
+        copy or branch is a result with `copy.ok` false, not an error. Refusals before the stream
+        starts are plain JSON errors: 400 for an empty or unreadable repository text, 409 when a
+        project already has the derived name or works on that repository, or when another check of
+        the same name is running.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectRequest'
+      security:
+        - session: []
+      responses:
+        '200':
+          description: The check, one JSON object per line.
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/InspectLine'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '501':
+          description: Adding projects is not set up on this daemon.
+
+  /projects/inspect/{name}:
+    delete:
+      operationId: discardInspect
+      tags: [projects]
+      summary: Discard the copy of a check that was not saved.
+      description: >-
+        Owner session only; both API tokens get 403. Removes the copy that a check under this name
+        made, for a repository that has not been saved as a project. A copy that a project uses is
+        refused with 409.
+      parameters:
+        - $ref: '#/components/parameters/InspectName'
+      security:
+        - session: []
+      responses:
+        '204':
+          description: The copy is removed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: No check made a copy under this name, or it was already discarded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -2583,6 +2688,13 @@ components:
       description: Project name as it appears in onett.yaml.
       schema:
         type: string
+    InspectName:
+      name: name
+      in: path
+      required: true
+      description: The name a check gave its copy (the repository's name unless the check was given another).
+      schema:
+        type: string
     ConversationId:
       name: id
       in: path
@@ -2862,26 +2974,208 @@ components:
 
     NewProjectRequest:
       type: object
-      required: [name, repo]
+      required: [repo]
+      additionalProperties: false
       properties:
-        name:
-          type: string
-          description: Letters, digits, `.`, `_` and `-`; must not exist yet.
         repo:
           type: string
-          description: The GitHub repository, `owner/name`, or an absolute local path.
-        path:
+          description: The GitHub repository, `owner/name` or a GitHub link (an absolute local path is accepted too). It must have a ready check from POST /projects/inspect.
+        name:
           type: string
-          description: The local clone. Default `<data_dir>/repos/<name>`. Nothing is cloned.
+          description: Letters, digits, `.`, `_` and `-`; must not exist yet. Default is the repository's name.
         branch:
           type: string
-          description: Written as `default_branch`. Default `main`.
+          description: Written as `default_branch`. Default is the default branch the check read.
         policy:
           type: string
-          description: Must name a configured policy. Default `default`.
+          description: Must name a configured policy. Default `supervised` when left out. A project already in onett.yaml with no policy still uses `default`, the loader's default, which is unchanged.
         instructions:
           type: string
           description: Appended to every agent prompt for this project.
+        setup:
+          type: array
+          description: Commands run in each fresh copy before an agent starts. Written as the project's `setup`.
+          items:
+            $ref: '#/components/schemas/ProjectCommand'
+        checks:
+          type: array
+          description: Commands run before onett opens a pull request. Written as the project's `checks`.
+          items:
+            $ref: '#/components/schemas/ProjectCommand'
+    ProjectCommand:
+      type: object
+      required: [name, run]
+      properties:
+        name:
+          type: string
+          description: A label for the command.
+        run:
+          type: string
+          description: The shell command, run in the project's copy with the agent's limited environment.
+    GhStatus:
+      type: object
+      required: [signed_in, user, host]
+      properties:
+        signed_in:
+          type: boolean
+        user:
+          type: string
+          description: The account signed in to the GitHub CLI. Empty when signed out or unknown.
+        host:
+          type: string
+          description: The short host name of this machine.
+        fix:
+          type: string
+          description: Set when signed out. The command to run on this machine, `gh auth login`.
+        error:
+          type: string
+          description: Set when signed in but the repository list failed. Redacted.
+    GitHubRepo:
+      type: object
+      required: [full_name, private, description, default_branch, pushed_at, project]
+      properties:
+        full_name:
+          type: string
+          description: owner/name.
+        private:
+          type: boolean
+        description:
+          type: string
+        default_branch:
+          type: string
+        pushed_at:
+          type: string
+          format: date-time
+        project:
+          description: The configured project that uses this repository, or null.
+          oneOf:
+            - type: string
+            - type: 'null'
+    GithubRepos:
+      type: object
+      required: [gh, repos]
+      properties:
+        gh:
+          $ref: '#/components/schemas/GhStatus'
+        repos:
+          type: array
+          description: Most recently pushed first. Never null.
+          items:
+            $ref: '#/components/schemas/GitHubRepo'
+    InspectRequest:
+      type: object
+      required: [repo]
+      additionalProperties: false
+      properties:
+        repo:
+          type: string
+          description: owner/name, a GitHub link, or an absolute path. Empty is a 400.
+    InspectStep:
+      type: object
+      required: [name, state]
+      properties:
+        name:
+          type: string
+          enum: [copy, branch, pull_requests, guess]
+        state:
+          type: string
+          enum: [running, done, failed, skipped]
+        detail:
+          type: string
+          description: Set for a failed step (redacted), and for a finished branch step (the branch name).
+    GuessedCommand:
+      type: object
+      required: [name, run]
+      properties:
+        name:
+          type: string
+        run:
+          type: string
+        from:
+          type: string
+          description: The file the guess came from, such as `package-lock.json`.
+    InspectResult:
+      type: object
+      required: [name, repo, github, private, copy, default_branch, branch_from, pull_requests, guess, suggest]
+      properties:
+        name:
+          type: string
+          description: The derived project name, and the name of the copy.
+        repo:
+          type: string
+          description: The repository, normalised to owner/name or an absolute path.
+        github:
+          type: boolean
+          description: True when the repository is owner/name on GitHub.
+        private:
+          type: boolean
+        copy:
+          type: object
+          required: [ok, error]
+          properties:
+            ok:
+              type: boolean
+            error:
+              type: string
+              description: Why the copy failed, redacted. Empty when it worked.
+        default_branch:
+          type: string
+          description: Empty when it could not be read.
+        branch_from:
+          type: string
+          enum: ['', github, repository]
+          description: Where the default branch was read. GitHub when `gh` is signed in, otherwise the repository itself.
+        pull_requests:
+          type: object
+          required: [ok, gh_user, error]
+          properties:
+            ok:
+              type: boolean
+            gh_user:
+              type: string
+            error:
+              type: string
+        guess:
+          type: object
+          required: [setup, checks, top_files]
+          properties:
+            setup:
+              type: array
+              items:
+                $ref: '#/components/schemas/GuessedCommand'
+            checks:
+              type: array
+              items:
+                $ref: '#/components/schemas/GuessedCommand'
+            top_files:
+              type: array
+              description: The files and directories at the top of the copy, at most 12. Never null.
+              items:
+                type: string
+        suggest:
+          type: string
+          description: When the copy failed, the closest repository the owner has. Empty otherwise.
+    InspectLine:
+      description: One line of the NDJSON stream from POST /projects/inspect. Each line holds exactly one of the three keys.
+      oneOf:
+        - type: object
+          required: [step]
+          additionalProperties: false
+          properties:
+            step:
+              $ref: '#/components/schemas/InspectStep'
+        - type: object
+          required: [result]
+          additionalProperties: false
+          properties:
+            result:
+              $ref: '#/components/schemas/InspectResult'
+        - type: object
+          required: [error]
+          additionalProperties: false
+          properties:
+            error:
+              type: string
     CreatedProject:
       allOf:
         - $ref: '#/components/schemas/ProjectView'

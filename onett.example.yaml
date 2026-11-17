@@ -203,7 +203,7 @@ policies:
 projects:
   onett:
     repo: bobbyrc/onett              # GitHub owner/name, or an absolute local path
-    path: ~/code/onett               # local clone; default <data_dir>/repos/<name>
+    path: ~/code/onett               # onett keeps its own copy by default (<data_dir>/repos/<name>); path is only for an existing onett-made copy, never your own checkout
     default_branch: main               # default main
     policy: default                    # a name from policies; default "default"
     instructions: |                    # appended to every agent prompt for this project
@@ -230,7 +230,7 @@ projects:
 
   myapp:
     repo: bobbyrc/myapp
-    path: ~/code/myapp
+    path: ~/code/myapp               # onett keeps its own copy by default (<data_dir>/repos/<name>); path is only for an existing onett-made copy, never your own checkout
     default_branch: main
     policy: strict                     # uses the "strict" policy defined above
     instructions: Keep the mobile API backward compatible.

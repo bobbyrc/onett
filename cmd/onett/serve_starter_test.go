@@ -24,7 +24,7 @@ func TestWriteStarterConfigCreatesOnceAndNeverOverwrites(t *testing.T) {
 	created, err := writeStarterConfig(path, "")
 	require.NoError(t, err)
 	assert.True(t, created)
-	assert.Equal(t, initialConfig("", "", ""), readFile(t, path), "serve and init share one generator")
+	assert.Equal(t, initialConfig(), readFile(t, path), "serve and init share one generator")
 
 	info, err := os.Stat(path)
 	require.NoError(t, err)

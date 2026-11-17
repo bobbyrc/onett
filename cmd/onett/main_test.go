@@ -263,7 +263,7 @@ func TestInitWritesLoadableConfigAndRefusesOverwrite(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sub", "onett.yaml")
 
 	code, out, errOut := runCLI("init", "--config", path, "--project", "onett",
-		"--repo", "bobbyrc/onett", "--path", "/src/onett")
+		"--repo", "bobbyrc/onett", "--no-checks")
 	require.Equal(t, 0, code, errOut)
 	assert.Contains(t, out, "Wrote "+path)
 
@@ -271,7 +271,6 @@ func TestInitWritesLoadableConfigAndRefusesOverwrite(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "onett", cfg.SelfProject)
 	assert.Equal(t, "bobbyrc/onett", cfg.Projects["onett"].Repo)
-	assert.Equal(t, "/src/onett", cfg.Projects["onett"].Path)
 	assert.Equal(t, []config.Notifier{{Type: "log"}}, cfg.Notify)
 
 	before, err := os.ReadFile(path)
@@ -298,7 +297,7 @@ func TestInitProjectNeedsRepo(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "onett.yaml")
 	code, _, errOut := runCLI("init", "--config", path, "--project", "app")
 	assert.Equal(t, 2, code)
-	assert.Contains(t, errOut, "go together")
+	assert.Contains(t, errOut, "--project needs --repo")
 	_, err := os.Stat(path)
 	assert.True(t, os.IsNotExist(err), "no file is written on a usage error")
 }

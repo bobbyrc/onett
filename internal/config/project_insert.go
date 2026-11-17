@@ -20,10 +20,11 @@ const SelfRepo = "bobbyrc/onett"
 // NewProject is what AddProject writes for a new project. Only Name and Repo are required; an
 // empty field is left out of the file, so the project keeps the default for it.
 type NewProject struct {
-	Name, Repo   string
-	Path, Branch string // Branch is written as default_branch
-	Policy       string
-	Instructions string
+	Name, Repo    string
+	Path, Branch  string // Branch is written as default_branch
+	Policy        string
+	Instructions  string
+	Setup, Checks []Check // written as setup: and checks: when non-empty; Timeout is never written
 }
 
 // ErrProjectExists is matched (errors.Is) by the error AddProject returns for a duplicate name.
@@ -56,6 +57,17 @@ func AddProject(data []byte, path string, p NewProject) ([]byte, error) {
 	name := p.Name
 	if !ProjectNamePattern.MatchString(name) {
 		return nil, fmt.Errorf("project name %q may use letters, digits, '.', '_' and '-'", name)
+	}
+	if p.Policy == "" {
+		// A new project starts supervised: small, low-risk changes merge on their own, the rest
+		// wait for the owner (the owner's decision of 2026-11-16).
+		p.Policy = "supervised"
+	}
+	if err := checkCommands("setup", p.Setup); err != nil {
+		return nil, err
+	}
+	if err := checkCommands("checks", p.Checks); err != nil {
+		return nil, err
 	}
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
@@ -142,10 +154,40 @@ func AddProject(data []byte, path string, p NewProject) ([]byte, error) {
 	// The new project must read back as given; a text that block style mangled is refused
 	// rather than saved altered.
 	if got, _ := Parse(out, path); got == nil || got.Projects[name] == nil ||
-		got.Projects[name].Instructions != p.Instructions || got.Projects[name].Repo != p.Repo {
+		got.Projects[name].Instructions != p.Instructions || got.Projects[name].Repo != p.Repo ||
+		!sameCommands(got.Projects[name].Setup, p.Setup) || !sameCommands(got.Projects[name].Checks, p.Checks) {
 		return nil, fmt.Errorf("the new project %q would not read back as given, so %s was not changed", name, path)
 	}
 	return out, nil
+}
+
+// checkCommands refuses a setup or checks list that would not run: each command needs a name and
+// a command line, and names must be unique within the list. kind is "setup" or "checks".
+func checkCommands(kind string, list []Check) error {
+	seen := map[string]bool{}
+	for i, c := range list {
+		if strings.TrimSpace(c.Name) == "" || strings.TrimSpace(c.Run) == "" {
+			return fmt.Errorf("%s command %d needs a name and a command", kind, i+1)
+		}
+		if seen[c.Name] {
+			return fmt.Errorf("%s has the name %q twice", kind, c.Name)
+		}
+		seen[c.Name] = true
+	}
+	return nil
+}
+
+// sameCommands reports whether two command lists have the same names and command lines, in order.
+func sameCommands(a, b []Check) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name || a[i].Run != b[i].Run {
+			return false
+		}
+	}
+	return true
 }
 
 // CheckInsertion is the semantic guard for insertProject. The text can still load and yet hold
@@ -253,10 +295,41 @@ func entryLines(indent string, p NewProject) ([]string, error) {
 		}
 		lines = append(lines, indent+"  "+f[0]+": "+v+"\n")
 	}
+	for _, block := range []struct {
+		key  string
+		list []Check
+	}{{"setup", p.Setup}, {"checks", p.Checks}} {
+		cl, err := commandLines(indent+"  ", block.key, block.list)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, cl...)
+	}
 	if p.Instructions != "" {
 		// Instructions may span lines, so they are written as a literal block, which keeps the
 		// text exactly. A text that block style cannot hold falls back to a quoted string.
 		lines = append(lines, instructionLines(indent+"  ", p.Instructions)...)
+	}
+	return lines, nil
+}
+
+// commandLines returns a setup or checks block at indent, one "- name:" / "run:" pair per command.
+// An empty list writes nothing.
+func commandLines(indent, key string, list []Check) ([]string, error) {
+	if len(list) == 0 {
+		return nil, nil
+	}
+	lines := []string{indent + key + ":\n"}
+	for _, c := range list {
+		name, err := yamlScalar(c.Name)
+		if err != nil {
+			return nil, err
+		}
+		run, err := yamlScalar(c.Run)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, indent+"  - name: "+name+"\n", indent+"    run: "+run+"\n")
 	}
 	return lines, nil
 }
