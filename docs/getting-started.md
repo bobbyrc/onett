@@ -72,8 +72,8 @@ This writes `~/.config/onett/onett.yaml`. It refuses to overwrite an existing fi
 file has a `log` notifier. Then it adds the `trial` project with the same flow as
 the **Adding a project** steps below: onett copies the repository from GitHub, reads its branch and
 checks it. `--no-checks` says the project has no setup or checks, which is right for this
-repository. Without a terminal, `init` needs one of `--use-guess`, `--setup`/`--check` or
-`--no-checks` for the project, as `onett project add` does.
+repository. Without a terminal, `init` needs one of `--use-guess`, `--setup CMD --check CMD` or
+`--no-checks` for the project, as `onett project add` does; `--yes` answers its final question.
 
 With only the `log` notifier, onett cannot tell you when a goal blocks. So when you run `init` in a
 terminal it asks once how to reach you: `[1] Telegram [2] Discord [3] ntfy [4] skip`, and then only
@@ -196,7 +196,7 @@ answers the final "Add NAME?" question. There is no `--path`: passing it is a us
 older `onett project add NAME --repo OWNER/NAME` still works, with NAME taken as `--name`.
 
 Without a terminal (in a script, or from `init`), the repository is required and the setup choice must
-be explicit: `--use-guess`, one or more `--setup`/`--check`, or `--no-checks`. Otherwise the command
+be explicit: `--use-guess`, `--setup CMD` (repeatable) with `--check CMD` (repeatable), or `--no-checks`. Otherwise the command
 prints what it guessed, says "Nothing was added." and exits with status 1. The command edits
 `onett.yaml` itself, then asks the running daemon to reload it. If onett is not running, it says the
 project is read when onett starts.

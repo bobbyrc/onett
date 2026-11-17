@@ -301,12 +301,12 @@ as in `onett task create -h`.
 | Command | What it does |
 |---------|--------------|
 | `serve [--addr HOST:PORT]` | run the daemon: API, web UI and engine; `--addr` sets the listen address in the starter config written on first run |
-| `init [--project NAME --repo REPO [--use-guess\|--setup CMD\|--check CMD\|--no-checks]] [--notify ntfy --ntfy-topic T] [--channel telegram\|discord --user-ids IDS]` | write a starter onett.yaml; `--project` and `--repo` then add that project with the same flow as `project add`; the flags set up notifications without prompts |
+| `init [--repo REPO [--project NAME] [--use-guess \| --setup CMD... --check CMD... \| --no-checks] [--yes]] [--notify ntfy --ntfy-topic T] [--channel telegram\|discord --user-ids IDS]` | write a starter onett.yaml; with `--repo`, then add that repository with the same flow as `project add` (the project name comes from the repository unless `--project` names it); the flags set up notifications without prompts |
 | `token` | print the API token |
 | `open` | open the web UI (sign in there) |
 | `status` | what is running, what needs you, and the daemon's version |
 | `projects` | list managed projects |
-| `project add [REPO] [--name N] [--branch B] [--policy supervised\|default] [--use-guess] [--setup CMD]... [--check CMD]... [--no-checks] [--yes] [--config P]` | add a project: lists your GitHub repositories when no REPO is given, copies and checks the repository, guesses its setup and checks, then writes it to the config and reloads the daemon. New projects are `supervised`. Without a terminal, the setup choice must be explicit (`--use-guess`, `--setup`/`--check`, or `--no-checks`). There is no `--path`; onett keeps its own copy |
+| `project add [REPO] [--name N] [--branch B] [--policy supervised\|default] [--use-guess \| --setup CMD... --check CMD... \| --no-checks] [--yes] [--config P]` | add a project: lists your GitHub repositories when no REPO is given, copies and checks the repository, guesses its setup and checks, then writes it to the config and reloads the daemon. New projects are `supervised`. Without a terminal, the setup choice must be explicit (`--use-guess`, `--setup` with `--check`, or `--no-checks`). There is no `--path`; onett keeps its own copy |
 | `project pause\|resume` | pause or resume one project |
 | `agents [--all]` | list agent roles; `--all` also shows removed (disabled) ones |
 | `config` | print the redacted config, or `--reload` it |

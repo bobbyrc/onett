@@ -43,7 +43,7 @@ var reloadDaemon = func(cfg *config.Config) error {
 }
 
 const projectAddUsage = "project add [REPO] [--name N] [--branch B] [--policy supervised|default] " +
-	"[--use-guess | --setup CMD... | --check CMD... | --no-checks] [--yes] [--config P]"
+	"[--use-guess | --setup CMD... --check CMD... | --no-checks] [--yes] [--config P]"
 
 // errNothingAdded ends a run that wrote nothing. "Nothing was added." is printed before it.
 var errNothingAdded = errors.New("nothing was added")

@@ -47,7 +47,7 @@ func cmdInit(e *env, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := requireArgs(positional, 0, "init [--config P] [--project NAME] [--repo REPO [--use-guess | --setup CMD... | --check CMD... | --no-checks] [--yes]] [--notify ntfy --ntfy-topic T [--ntfy-server URL]] [--channel telegram|discord --user-ids IDS]"); err != nil {
+	if err := requireArgs(positional, 0, "init [--config P] [--project NAME] [--repo REPO [--use-guess | --setup CMD... --check CMD... | --no-checks] [--yes]] [--notify ntfy --ntfy-topic T [--ntfy-server URL]] [--channel telegram|discord --user-ids IDS]"); err != nil {
 		return err
 	}
 	if *project != "" && *repo == "" {

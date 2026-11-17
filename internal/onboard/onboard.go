@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -142,7 +143,7 @@ func (s *Service) Inspect(ctx context.Context, req Request, progress func(Step))
 		return Result{}, fmt.Errorf("%w: a project named %s already exists", ErrExists, name)
 	}
 	for other, r := range req.Existing {
-		if r == repo {
+		if sameRepo(r, repo) {
 			return Result{}, fmt.Errorf("%w: project %s already works on %s", ErrExists, other, repo)
 		}
 	}
@@ -186,17 +187,16 @@ func (s *Service) Inspect(ctx context.Context, req Request, progress func(Step))
 		// The client that started this check may be gone (dialog closed, Ctrl-C) and has no name
 		// to discard the copy with, so a cancelled check removes the copy it made.
 		defer func() {
-			if ctx.Err() == nil {
-				return
+			if ctx.Err() != nil {
+				s.removeCopy(name, path)
 			}
-			s.mu.Lock()
-			defer s.mu.Unlock()
-			os.RemoveAll(path)
-			delete(s.made, name)
-			delete(s.checked, name)
 		}()
 	}
 	if err != nil {
+		// Nothing can use a copy whose fetch failed, and no client gets a name to discard it with.
+		if created {
+			s.removeCopy(name, path)
+		}
 		msg := redact.Secrets(err.Error(), os.Environ())
 		res.Copy = CopyResult{OK: false, Error: msg}
 		// The signed-in account is named even here, so the UI can say which login to check.
@@ -282,7 +282,7 @@ func (s *Service) Checked(repo string) (Result, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, r := range s.checked {
-		if r.Repo == repo {
+		if sameRepo(r.Repo, repo) {
 			return r, true
 		}
 	}
@@ -297,7 +297,7 @@ func (s *Service) Claim(dataDir, repo, name string) error {
 	var res Result
 	found := false
 	for _, r := range s.checked {
-		if r.Repo == repo {
+		if sameRepo(r.Repo, repo) {
 			res, found = r, true
 			break
 		}
@@ -318,6 +318,17 @@ func (s *Service) Claim(dataDir, repo, name string) error {
 	delete(s.checked, res.Name)
 	delete(s.made, res.Name)
 	return nil
+}
+
+// removeCopy deletes the copy at path that this Service made for name, and forgets it.
+func (s *Service) removeCopy(name, path string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.RemoveAll(path); err != nil {
+		slog.Warn("could not remove a copy onett made", "project", name, "error", err)
+	}
+	delete(s.made, name)
+	delete(s.checked, name)
 }
 
 // Discard removes the copy this Service made for name. A name a configured project uses is
@@ -401,7 +412,7 @@ func (s *Service) Repos(ctx context.Context, existing map[string]string) ReposRe
 			PushedAt:      it.PushedAt,
 		}
 		for name, repo := range existing {
-			if repo == it.NameWithOwner {
+			if sameRepo(repo, it.NameWithOwner) {
 				p := name
 				r.Project = &p
 			}
@@ -429,4 +440,13 @@ func hostName() string {
 		h = h[:i]
 	}
 	return h
+}
+
+// sameRepo reports whether two normalized repos are the same repository. GitHub names are
+// case-insensitive; a local path is compared exactly, because the file system may be.
+func sameRepo(a, b string) bool {
+	if IsGitHub(a) && IsGitHub(b) {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
 }

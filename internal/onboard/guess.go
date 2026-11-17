@@ -2,10 +2,12 @@ package onboard
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 )
 
 // maxSubdirs caps how many subdirectories are scanned, so a monorepo gives a short list a person
@@ -24,6 +26,13 @@ var skipDirs = map[string]bool{
 // makeTest finds a "test:" target in a Makefile.
 var makeTest = regexp.MustCompile(`(?m)^test\s*:`)
 
+// subdirName is the subdirectory names a command may enter. The name goes into a shell `cd`
+// command unquoted, so anything else is skipped.
+var subdirName = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
+// maxReadBytes caps how much of a repository's file detection reads. A larger file is unreadable.
+const maxReadBytes = 1 << 20
+
 // scanDir is one directory the guess looks at. cd, from and name are the prefixes it adds to
 // each command: the directory to enter, the path shown as the file a guess came from, and the
 // display name.
@@ -36,7 +45,7 @@ type scanDir struct {
 func GuessCommands(dir string) Guess {
 	g := Guess{Setup: []Command{}, Checks: []Command{}, TopFiles: topFiles(dir)}
 	mise := ""
-	if anyExists(dir, "mise.toml", ".mise.toml", ".tool-versions") {
+	if anyRegular(dir, "mise.toml", ".mise.toml", ".tool-versions") {
 		mise = "mise exec -- "
 	}
 	scans := []scanDir{{dir: dir}}
@@ -73,7 +82,7 @@ func guessDir(sc scanDir, mise string) (setup, checks []Command) {
 	}
 	in := func(name string) string { return filepath.Join(sc.dir, name) }
 
-	if exists(in("package.json")) {
+	if regularFile(in("package.json")) {
 		install, from, pm := nodeInstall(sc.dir)
 		setup = append(setup, cmd(install, from))
 		scripts := packageScripts(in("package.json"))
@@ -83,35 +92,35 @@ func guessDir(sc scanDir, mise string) (setup, checks []Command) {
 			}
 		}
 	}
-	if exists(in("go.mod")) {
+	if regularFile(in("go.mod")) {
 		setup = append(setup, cmd("go mod download", "go.mod"))
 		checks = append(checks, cmd("go vet ./...", "go.mod"), cmd("go test ./...", "go.mod"))
 	}
 	switch {
-	case exists(in("pyproject.toml")) && exists(in("uv.lock")):
+	case regularFile(in("pyproject.toml")) && regularFile(in("uv.lock")):
 		setup = append(setup, cmd("uv sync", "uv.lock"))
 		if marker := pytestMarker(sc.dir); marker != "" {
 			checks = append(checks, cmd("uv run pytest", marker))
 		}
-	case exists(in("poetry.lock")):
+	case regularFile(in("poetry.lock")):
 		setup = append(setup, cmd("poetry install", "poetry.lock"))
 		if marker := pytestMarker(sc.dir); marker != "" {
 			checks = append(checks, cmd("poetry run pytest", marker))
 		}
-	case exists(in("requirements.txt")):
+	case regularFile(in("requirements.txt")):
 		setup = append(setup, cmd("pip install -r requirements.txt", "requirements.txt"))
 		if marker := pytestMarker(sc.dir); marker != "" {
 			checks = append(checks, cmd("python -m pytest", marker))
 		}
 	}
-	if exists(in("Cargo.toml")) {
+	if regularFile(in("Cargo.toml")) {
 		setup = append(setup, cmd("cargo fetch", "Cargo.toml"))
 		checks = append(checks, cmd("cargo test", "Cargo.toml"))
 	}
 	// A Makefile's test target is the fallback: it is used only when the language files gave no check.
 	if len(checks) == 0 {
 		for _, mk := range []string{"Makefile", "makefile", "GNUmakefile"} {
-			if data, err := os.ReadFile(in(mk)); err == nil && makeTest.Match(data) {
+			if data, ok := readSmall(in(mk)); ok && makeTest.Match(data) {
 				checks = append(checks, cmd("make test", mk))
 				break
 			}
@@ -130,7 +139,7 @@ func nodeInstall(dir string) (install, from, pm string) {
 		{"bun.lock", "bun", "bun install --frozen-lockfile"},
 		{"package-lock.json", "npm", "npm ci"},
 	} {
-		if exists(filepath.Join(dir, l.file)) {
+		if regularFile(filepath.Join(dir, l.file)) {
 			return l.install, l.file, l.pm
 		}
 	}
@@ -160,8 +169,8 @@ func nodeRun(pm, script string) string {
 // packageScripts returns the keys of package.json's "scripts" object. A file that is not valid
 // JSON has no scripts.
 func packageScripts(path string) map[string]json.RawMessage {
-	data, err := os.ReadFile(path)
-	if err != nil {
+	data, ok := readSmall(path)
+	if !ok {
 		return nil
 	}
 	var doc struct {
@@ -175,8 +184,12 @@ func packageScripts(path string) map[string]json.RawMessage {
 
 // pytestMarker names the file or directory that shows the project has tests, or "" when it has none.
 func pytestMarker(dir string) string {
-	for _, m := range []string{"tests/", "pytest.ini", "conftest.py"} {
-		if exists(filepath.Join(dir, strings.TrimSuffix(m, "/"))) {
+	// tests/ is a directory; the other markers are files. Both are looked up without following links.
+	if dirExists(filepath.Join(dir, "tests")) {
+		return "tests/"
+	}
+	for _, m := range []string{"pytest.ini", "conftest.py"} {
+		if regularFile(filepath.Join(dir, m)) {
 			return m
 		}
 	}
@@ -193,7 +206,8 @@ func subdirs(dir string) []string {
 	var out []string
 	for _, e := range entries {
 		n := e.Name()
-		if !e.IsDir() || strings.HasPrefix(n, ".") || skipDirs[n] {
+		// DirEntry reports a symlink as a symlink, not a directory, so linked directories are not entered.
+		if !e.IsDir() || strings.HasPrefix(n, ".") || skipDirs[n] || !subdirName.MatchString(n) {
 			continue
 		}
 		out = append(out, n)
@@ -228,14 +242,42 @@ func topFiles(dir string) []string {
 	return out
 }
 
-func exists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+// regularFile reports whether path is a regular file. Lstat, not Stat: a symlink, a device or a
+// FIFO is not a file detection may read. A repository can commit `package.json -> /dev/zero` or a
+// link to a file outside it, and detection runs inside the daemon.
+func regularFile(path string) bool {
+	fi, err := os.Lstat(path)
+	return err == nil && fi.Mode().IsRegular()
 }
 
-func anyExists(dir string, names ...string) bool {
+// dirExists reports whether path is a directory, without following a symlink.
+func dirExists(path string) bool {
+	fi, err := os.Lstat(path)
+	return err == nil && fi.IsDir()
+}
+
+// readSmall returns the contents of the regular file at path, when it is one and at most
+// maxReadBytes long. O_NOFOLLOW makes the open itself refuse a symlink that appears after the
+// Lstat above.
+func readSmall(path string) ([]byte, bool) {
+	if !regularFile(path) {
+		return nil, false
+	}
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, false
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, maxReadBytes+1))
+	if err != nil || len(data) > maxReadBytes {
+		return nil, false
+	}
+	return data, true
+}
+
+func anyRegular(dir string, names ...string) bool {
 	for _, n := range names {
-		if exists(filepath.Join(dir, n)) {
+		if regularFile(filepath.Join(dir, n)) {
 			return true
 		}
 	}
