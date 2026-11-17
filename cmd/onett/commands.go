@@ -352,14 +352,15 @@ func taskCreate(e *env, args []string) error {
 	parent := fs.String("parent", "", "parent task ID")
 	source := fs.String("source", "", "task source (default: chat:<id> inside an orchestrator chat turn, else api)")
 	goal := fs.String("goal", os.Getenv("ONETT_GOAL"), "goal this task works toward (default: $ONETT_GOAL)")
-	var attach multiFlag
+	var attach, after multiFlag
 	fs.Var(&attach, "attach", "chat attachment ID to hand to the agent (repeatable)")
+	fs.Var(&after, "after", "task ID that must merge before this one starts (repeatable)")
 	jsonOut := fs.Bool("json", false, "print the created task as JSON")
 	positional, err := parseArgs(fs, args)
 	if err != nil {
 		return err
 	}
-	if err := requireArgs(positional, 0, "task create --project P --kind K --title T [--body B | --body-file F] [--attach ID]..."); err != nil {
+	if err := requireArgs(positional, 0, "task create --project P --kind K --title T [--body B | --body-file F] [--attach ID]... [--after ID]..."); err != nil {
 		return err
 	}
 	if *project == "" || *kind == "" || *title == "" {
@@ -383,7 +384,7 @@ func taskCreate(e *env, args []string) error {
 	task, err := c.CreateTask(context.Background(), client.NewTask{
 		Project: *project, Kind: *kind, Title: *title, Body: text, Role: *role,
 		Priority: *priority, ParentID: *parent, Source: taskSource(*source, os.Getenv("ONETT_CONVERSATION_ID")), GoalID: *goal,
-		Attachments: attach,
+		Attachments: attach, WaitingOn: after,
 	})
 	if err != nil {
 		return err

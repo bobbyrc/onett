@@ -2,10 +2,12 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
+	"github.com/bobbyrc/onett/internal/api"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/store"
 )
@@ -51,6 +53,34 @@ func (e *Engine) inheritFromParent(ctx context.Context, t *domain.Task) {
 	if len(t.WaitingOn) == 0 && dependencyOutcome(parent) == depPending {
 		t.WaitingOn = []string{parent.ID}
 	}
+}
+
+// checkWaitingOn validates the waiting_on a client supplied when it created a task. An unknown
+// task, or one that ended blocked, failed or cancelled and so will not merge, is an error; one that
+// has already landed is dropped, because there is nothing left to wait for. It returns the tasks
+// still in flight, without repeats.
+func (e *Engine) checkWaitingOn(ctx context.Context, ids []string) ([]string, error) {
+	var pending []string
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" || slices.Contains(pending, id) {
+			continue
+		}
+		dep, err := e.d.Store.GetTask(ctx, id)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return nil, fmt.Errorf("%w: waiting_on: unknown task %q", api.ErrInvalid, id)
+			}
+			return nil, err
+		}
+		switch dependencyOutcome(dep) {
+		case depGone:
+			return nil, fmt.Errorf("%w: waiting_on: task %s is %s and will not merge", api.ErrInvalid, id, dep.Status)
+		case depPending:
+			pending = append(pending, id)
+		}
+	}
+	return pending, nil
 }
 
 // releaseWaiting clears the entries of WaitingOn whose task has landed, so the scheduler may

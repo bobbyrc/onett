@@ -193,6 +193,8 @@ type NewTask struct {
 	ParentID string `json:"parent_id"`
 	Source   string `json:"source"`
 	GoalID   string `json:"goal_id,omitempty"`
+	// WaitingOn lists tasks that must merge before this one starts.
+	WaitingOn []string `json:"waiting_on,omitempty"`
 	// Attachments are IDs of chat attachments to hand to the task's agent.
 	Attachments []string `json:"attachments,omitempty"`
 }
