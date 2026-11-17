@@ -18,6 +18,7 @@ import (
 
 	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/config"
+	"github.com/bobbyrc/onett/internal/onboard"
 )
 
 // projectName matches names usable as YAML keys and in CLI flags.
@@ -29,29 +30,41 @@ const selfRepo = config.SelfRepo
 func cmdInit(e *env, args []string) error {
 	fs := newFlagSet("init", e)
 	cfgFlag := fs.String("config", "", "config file to write (default $ONETT_CONFIG or ~/.config/onett/onett.yaml)")
-	project := fs.String("project", "", "add this project to the config")
-	repo := fs.String("repo", "", "the project's GitHub repository, owner/name (with --project)")
-	dir := fs.String("path", "", "the project's local clone (with --project; default <data_dir>/repos/<name>)")
+	project := fs.String("project", "", "the project's name (with --repo; default: the repository's name)")
+	repo := fs.String("repo", "", "the repository to add after writing the config: owner/name or a GitHub link")
 	notifyFlag := fs.String("notify", "", "how to reach you: ntfy (needs --ntfy-topic)")
 	ntfyTopic := fs.String("ntfy-topic", "", "the ntfy topic to publish to (with --notify ntfy)")
 	ntfyServer := fs.String("ntfy-server", "", "a self-hosted ntfy server URL (with --notify ntfy; default https://ntfy.sh)")
 	channelFlag := fs.String("channel", "", "a chat channel to talk to onett: telegram or discord (needs --user-ids)")
 	userIDs := fs.String("user-ids", "", "your user IDs on the channel, comma separated (with --channel)")
+	useGuess := fs.Bool("use-guess", false, "with --repo: use the setup and checks onett guessed from the repository")
+	noChecks := fs.Bool("no-checks", false, "with --repo: no setup and no checks")
+	yes := fs.Bool("yes", false, "with --repo: do not ask to confirm adding the project")
+	var setup, checks multiFlag
+	fs.Var(&setup, "setup", "with --repo: a setup command that runs before each task (repeatable)")
+	fs.Var(&checks, "check", "with --repo: a check command that must pass before a change merges (repeatable)")
 	positional, err := parseArgs(fs, args)
 	if err != nil {
 		return err
 	}
-	if err := requireArgs(positional, 0, "init [--config P] [--project NAME --repo OWNER/NAME [--path DIR]] [--notify ntfy --ntfy-topic T [--ntfy-server URL]] [--channel telegram|discord --user-ids IDS]"); err != nil {
+	if err := requireArgs(positional, 0, "init [--config P] [--project NAME] [--repo REPO [--use-guess | --setup CMD... --check CMD... | --no-checks] [--yes]] [--notify ntfy --ntfy-topic T [--ntfy-server URL]] [--channel telegram|discord --user-ids IDS]"); err != nil {
 		return err
 	}
-	if (*project == "") != (*repo == "") {
-		return usagef("--project and --repo go together")
+	if *project != "" && *repo == "" {
+		return usagef("--project needs --repo")
 	}
-	if *project == "" && *dir != "" {
-		return usagef("--path needs --project")
+	if *repo == "" && (*useGuess || *noChecks || *yes || len(setup) > 0 || len(checks) > 0) {
+		return usagef("--use-guess, --setup, --check, --no-checks and --yes need --repo")
 	}
-	if *project != "" && !projectName.MatchString(*project) {
-		return usagef("project name %q may use letters, digits, '.', '_' and '-'", *project)
+	opts := addOptions{repo: *repo, name: *project, useGuess: *useGuess, noChecks: *noChecks, yes: *yes,
+		setup: setup, checks: checks}
+	if err := checkAddFlags(opts); err != nil {
+		return err
+	}
+	if *repo != "" {
+		if _, err := onboard.NormalizeRepo(*repo); err != nil {
+			return usagef("%v", err)
+		}
 	}
 	notify, err := notifyFromFlags(*notifyFlag, *ntfyTopic, *ntfyServer, *channelFlag, *userIDs)
 	if err != nil {
@@ -66,8 +79,16 @@ func cmdInit(e *env, args []string) error {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
+	// One reader for every question: the notify, add-project and add-flow prompts share it, so
+	// none of them reads ahead of another's answer.
+	var in *bufio.Reader
+	if e.in != nil {
+		in = bufio.NewReader(e.in)
+		e.in = in
+	}
+	interactive := e.isTTY && e.in != nil
 	offered := false
-	if !notify.set() && e.isTTY && e.in != nil {
+	if !notify.set() && interactive {
 		offered = true
 		if notify, err = askNotify(e); err != nil {
 			return err
@@ -80,7 +101,7 @@ func cmdInit(e *env, args []string) error {
 	if err != nil {
 		return fmt.Errorf("create %s: %w", path, err)
 	}
-	_, werr := f.WriteString(initialConfigWith(*project, *repo, *dir, notify))
+	_, werr := f.WriteString(initialConfigWith(notify))
 	if cerr := f.Close(); werr == nil {
 		werr = cerr
 	}
@@ -96,15 +117,37 @@ func cmdInit(e *env, args []string) error {
 	if err := reportNotify(e, notify, offered); err != nil {
 		return err
 	}
+	// The project is added after the config is written, so a failed add leaves the starter
+	// config in place and the error is returned after the next steps are printed.
+	var addErr error
+	added := ""
+	switch {
+	case *repo != "":
+		added, addErr = *repo, addFlow(e, path, opts)
+	case interactive:
+		fmt.Fprint(e.out, "\nAdd a project now? Repository (owner/name, a GitHub link, or blank to skip): ")
+		line, _ := in.ReadString('\n')
+		if answer := strings.TrimSpace(line); answer != "" {
+			added = answer
+			opts.repo = answer
+			addErr = addFlow(e, path, opts)
+		}
+	}
 	fmt.Fprintf(e.out, "\nNext steps:\n")
 	fmt.Fprintf(e.out, "  %s    start the daemon\n", serveHint)
 	fmt.Fprintln(e.out, "  onett open     open the web UI in a browser")
-	if *repo == selfRepo {
+	if addErr == nil && added != "" && normalizedIs(added, selfRepo) {
 		fmt.Fprintln(e.out, "\nSelf-update is on by default for this project once its command is known;")
 		fmt.Fprintln(e.out, "set loops.self_update.enabled: false to turn it off (see the comments in the file).")
 	}
 	fmt.Fprintln(e.out, "\nonett.example.yaml in the onett repository lists every option.")
-	return nil
+	return addErr
+}
+
+// normalizedIs reports whether repo text names the repository want (owner/name or a link to it).
+func normalizedIs(repo, want string) bool {
+	got, err := onboard.NormalizeRepo(repo)
+	return err == nil && got == want
 }
 
 // writeStarterConfig writes the starter config (no project, no notifier beyond the log) to
@@ -122,7 +165,7 @@ func writeStarterConfig(path, addr string) (created bool, err error) {
 	if err != nil {
 		return false, fmt.Errorf("create %s: %w", path, err)
 	}
-	body := initialConfig("", "", "")
+	body := initialConfig()
 	if addr != "" {
 		body = strings.Replace(body, "  addr: "+starterAddr+" ", "  addr: "+strconv.Quote(addr)+" ", 1)
 	}
@@ -137,8 +180,8 @@ func writeStarterConfig(path, addr string) (created bool, err error) {
 }
 
 // initialConfig is the starter onett.yaml. Every key it leaves out has a default.
-func initialConfig(project, repo, dir string) string {
-	return initialConfigWith(project, repo, dir, notifySetup{})
+func initialConfig() string {
+	return initialConfigWith(notifySetup{})
 }
 
 // notifySetup is how the owner chose to be reached. It holds no secrets: tokens are named by
@@ -255,7 +298,7 @@ func askNotify(e *env) (notifySetup, error) {
 // starterAddr is the listen address the starter config names.
 const starterAddr = "127.0.0.1:7777"
 
-func initialConfigWith(project, repo, dir string, n notifySetup) string {
+func initialConfigWith(n notifySetup) string {
 	var b strings.Builder
 	b.WriteString("# onett.yaml: the daemon's settings. Every key is optional; unset keys take the\n")
 	b.WriteString("# defaults. onett.example.yaml in the onett repository lists every option.\n\n")
@@ -285,25 +328,6 @@ func initialConfigWith(project, repo, dir string, n notifySetup) string {
 				q[i] = strconv.Quote(id)
 			}
 			fmt.Fprintf(&b, "      allowed_user_ids: [%s]\n", strings.Join(q, ", "))
-		}
-	}
-	if project != "" {
-		b.WriteString("\n")
-		if repo == selfRepo {
-			fmt.Fprintf(&b, "self_project: %s           # onett itself: friction is filed here\n\n", project)
-			b.WriteString("# Self-update is on by default for onett's own project once a command is known: the daemon\n")
-			b.WriteString("# then moves itself to each release that has been healthy on staging. Turn it off with\n")
-			b.WriteString("# `enabled: false`. With the binary at <dir>/onett, this file at <dir>/onett.yaml, data_dir\n")
-			b.WriteString("# <dir>/data, mise on PATH and a clone with examples/dogfood/update.sh, onett works out the\n")
-			b.WriteString("# command itself; otherwise set it (see examples/dogfood/README.md).\n")
-			b.WriteString("# loops:\n#   self_update:\n#     enabled: false\n#     command: DOGFOOD=<dir> mise exec -- <clone>/examples/dogfood/update.sh\n\n")
-		}
-		b.WriteString("projects:\n")
-		fmt.Fprintf(&b, "  %s:\n", project)
-		fmt.Fprintf(&b, "    repo: %s\n", strconv.Quote(repo))
-		b.WriteString("    # policy: supervised   # opt in: medium- and high-risk merges wait for you\n")
-		if dir != "" {
-			fmt.Fprintf(&b, "    path: %s\n", strconv.Quote(dir))
 		}
 	}
 	return b.String()

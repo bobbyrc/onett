@@ -98,8 +98,11 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
 | `POST /control/pause` | | `{"paused":bool,"pause":PauseView\|null}` |
 | `POST /control/resume` | | `{"paused":false,"pause":null}`; clears the reason |
 | `GET /projects` | | `[]ProjectView` |
-| `POST /projects` | `{"name","repo","path"?,"branch"?,"policy"?,"instructions"?}` | `ProjectView` plus `ConfigSaved` fields (owner); same insertion as `onett project add`, comments kept; no clone is made; 409 name taken; 422 `problems` |
+| `POST /projects` | `{"repo","name"?,"branch"?,"policy"?,"instructions"?,"setup"?,"checks"?}`; `setup` and `checks` are lists of `{"name","run"}` | `ProjectView` plus `ConfigSaved` fields (owner); same insertion as `onett project add`, comments kept. `repo` must have been checked first (`POST /projects/inspect`): 409 otherwise, with `check the repository first: POST /projects/inspect`. `name` defaults to the repository's name and `branch` to the checked default branch. `policy` defaults to `supervised` when it is left out; an existing config block that sets no policy keeps `default`, the loader's default, and is not rewritten. `path` is an unknown field (400). No copy is made here; 409 name taken, or a copy already sits at `<data_dir>/repos/<name>` for a different name; 422 `problems` |
 | `DELETE /projects/{name}` | `?force=true` | `ConfigSaved` (owner); removes the block from `onett.yaml` and reloads; 409 while the project has queued or running tasks (unless `force`); 404 unknown; deletes no files |
+| `GET /github/repos` | | `{"gh":GhStatus,"repos":[]GitHubRepo}` (owner session only). The 100 repositories most recently pushed to, as the GitHub CLI (`gh`) on this machine lists them for its signed-in account. `gh` not signed in is a 200 with `gh.signed_in` false, `gh.fix` `"gh auth login"` and no repositories. A list that failed is a 200 with `gh.error` set. `project` names the configured project that uses the repository, or is null |
+| `POST /projects/inspect` | `{"repo":"…"}`: `owner/name`, a GitHub link or an absolute path | NDJSON stream of one check (owner session only; see below). Before the stream starts: 400 for an empty or unreadable repository text, 409 when a project already has the derived name or works on that repository, 409 `already being checked` when another check of the same name is running, 501 when adding projects is not set up |
+| `DELETE /projects/inspect/{name}` | | 204 (owner session only): discards the copy an unsaved check made under that name. 404 when there is no such copy; 409 while a project uses the name |
 | `POST /projects/{name}/pause`, `POST /projects/{name}/resume` | | `{"paused":bool,"paused_by":""\|"config"\|"owner"}` (409 resuming a project paused in config) |
 | `GET /tasks` | `?project=&status=queued,running&kind=&goal_id=&sort=pickup\|created&limit=` | `[]Task`, in pickup order by default: running (oldest start first); review, approval, merged, deploying; queued in the scheduler's claim order; queued tasks waiting on others; blocked; then finished, newest first. A claimable queued task has `queue_position` (overall) and `project_queue_position` (among its project). `sort=created` is newest created first |
 | `POST /tasks` | `NewTask` | `Task` (201); 400 for `source: "conversation"`, which only onett creates |
@@ -161,7 +164,9 @@ them; other `system` messages (errors, denials) stay visible. Clients that ignor
 Which role may call each route: every `GET` needs `viewer` or better (the token included). Every
 `POST` that acts on work (tasks, approvals, pause, loops, chat, `config/reload`, projects) needs
 `operator` or better (the token included). Everything under `/users`, `/secrets`, `/notify/test`, `/channels/test`, `/restart` and `/config/file` and
-`/config/document` needs `owner` (the token gets 403).
+`/config/document` needs `owner` (the token gets 403). So do `/github/repos` and the three
+`/projects/inspect` and `POST /projects` routes of adding a project (see below): an owner session
+only, and both API tokens get 403.
 
 `User` is `{"username","role","created_at","updated_at"}`. `ConfigSaved` is
 `{"version","restart_required":[...]}`: `restart_required` lists settings read only at start-up
@@ -206,6 +211,25 @@ field. `approve: false` rejects the approval.
 survives restarts. A project paused by `paused: true` in onett.yaml shows `paused_by: "config"`.
 The API cannot resume it, so `/resume` returns 409 until the config changes. An unknown project is a
 400. While a project is paused, the scheduler starts none of its runs and its loops create no tasks.
+
+**Adding a project** is three owner-session steps. `GET /github/repos` lists the repositories to
+pick from. `POST /projects/inspect` checks one: it copies the repository into onett's data
+directory, reads its default branch, checks that onett can open pull requests for it (for a GitHub
+repository, through `gh`) and guesses its setup and checks from its files. Nothing is written to
+`onett.yaml` by the check. The copy is onett's own and is never a person's checkout: a directory
+already at that place that is not a clean clone of the same repository, with no uncommitted changes,
+stops the check with an error. The guess reads files only; no repository code runs.
+
+`POST /projects/inspect` answers `application/x-ndjson`, one JSON object per line, flushed as each
+line is written. Step lines come first, `{"step":{"name","state","detail"?}}`, with `name` one of
+`copy`, `branch`, `pull_requests` or `guess` and `state` one of `running`, `done`, `failed` or
+`skipped`. Then exactly one last line: `{"result":…}` with the check result (error texts are redacted, as
+they are everywhere else), or `{"error":"…"}` when the check failed after the stream had begun.
+A failed copy or branch is not an error: it is in the result, with `copy.ok` false. Only a ready
+result is kept in memory for `POST /projects`, and only until onett restarts. A ready result has
+`copy.ok` true, a `default_branch`, and, for a GitHub repository, `pull_requests.ok` true. After a
+restart, check again. A saved copy keeps its derived name unless `POST /projects` gives another
+name, in which case it is moved to `<data_dir>/repos/<name>` (409 if that already exists).
 
 `POST /approvals/{id}/decide` returns 409 when the task is not awaiting approval. For a merge
 approval it also returns 409 when the PR head changed since the approval was requested. In that

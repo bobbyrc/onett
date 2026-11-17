@@ -4,55 +4,92 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
+	"github.com/bobbyrc/onett/internal/onboard"
 	"github.com/bobbyrc/onett/internal/store"
 )
 
-// newProject is the body of POST /projects. It mirrors `onett project add`: only name and repo
-// are required, and a field left out keeps the project's default. No clone is made: path, when
-// empty, defaults to <data_dir>/repos/<name>, exactly as it does for the CLI.
+// newProject is the body of POST /projects. Only repo is required; a field left out keeps the
+// project's default. The repository must have been checked with POST /projects/inspect first,
+// which made the copy this project uses. No clone is made here.
 type newProject struct {
-	Name         string `json:"name"`
-	Repo         string `json:"repo"`
-	Path         string `json:"path"`
-	Branch       string `json:"branch"`
-	Policy       string `json:"policy"`
-	Instructions string `json:"instructions"`
+	Name         string       `json:"name"`
+	Repo         string       `json:"repo"`
+	Branch       string       `json:"branch"`
+	Policy       string       `json:"policy"`
+	Instructions string       `json:"instructions"`
+	Setup        []newCommand `json:"setup"`
+	Checks       []newCommand `json:"checks"`
+}
+
+// newCommand is one setup or checks command of newProject.
+type newCommand struct {
+	Name string `json:"name"`
+	Run  string `json:"run"`
 }
 
 // createProject adds a project to the config file through the same save path as PATCH
-// /config/document, so it is validated, written atomically and reloaded.
+// /config/document, so it is validated, written atomically and reloaded. Once saved, the checked
+// copy becomes the project's (see onboard.Service.Claim).
 func (s *server) createProject(w http.ResponseWriter, r *http.Request) {
+	if s.noOnboard(w) {
+		return
+	}
 	var in newProject
 	if err := readJSON(w, r, &in); err != nil {
 		s.fail(w, err)
 		return
 	}
-	in.Name, in.Repo = strings.TrimSpace(in.Name), strings.TrimSpace(in.Repo)
-	if in.Name == "" || in.Repo == "" {
-		s.fail(w, invalidf("name and repo are required"))
+	repo, err := onboard.NormalizeRepo(in.Repo)
+	if err != nil {
+		s.fail(w, onboardErr(err))
 		return
+	}
+	name := strings.TrimSpace(in.Name)
+	if name == "" {
+		name = onboard.NameFor(repo)
+	}
+	res, ok := s.opts.Onboard.Checked(repo)
+	if !ok {
+		s.fail(w, fmt.Errorf("%w: check the repository first: POST /projects/inspect", ErrConflict))
+		return
+	}
+	branch := strings.TrimSpace(in.Branch)
+	if branch == "" {
+		branch = res.DefaultBranch
+	}
+	dataDir := s.opts.Controller.Config().Server.DataDir
+	if dest := filepath.Join(dataDir, "repos", name); name != res.Name {
+		if _, err := os.Stat(dest); err == nil {
+			s.fail(w, fmt.Errorf("%w: %s already exists", ErrConflict, dest))
+			return
+		}
 	}
 	s.saveConfigAs(w, r, nil, func(current []byte) ([]byte, error) {
 		path := s.opts.Controller.Config().Path
 		out, err := config.AddProject(current, path, config.NewProject{
-			Name: in.Name, Repo: in.Repo, Path: strings.TrimSpace(in.Path),
-			Branch: strings.TrimSpace(in.Branch), Policy: strings.TrimSpace(in.Policy),
-			Instructions: in.Instructions,
+			Name: name, Repo: repo, Branch: branch,
+			Policy: strings.TrimSpace(in.Policy), Instructions: in.Instructions,
+			Setup: toChecks(in.Setup), Checks: toChecks(in.Checks),
 		})
 		if err != nil && errors.Is(err, config.ErrProjectExists) {
 			return nil, fmt.Errorf("%w: %s", ErrConflict, err)
 		}
 		return out, err
 	}, func(saved configSaved, cfg *config.Config) any {
-		p := cfg.Redacted().Projects[in.Name]
+		if err := s.opts.Onboard.Claim(dataDir, repo, name); err != nil {
+			s.log.Warn("could not hand the checked copy to the new project", "project", name, "err", err)
+		}
+		p := cfg.Redacted().Projects[name]
 		if p == nil {
-			p = &config.Project{Name: in.Name}
+			p = &config.Project{Name: name}
 		}
 		counts := make(map[string]int, len(projectCountStatuses))
 		for _, st := range projectCountStatuses {
@@ -67,6 +104,16 @@ func (s *server) createProject(w http.ResponseWriter, r *http.Request) {
 			configSaved
 		}{ProjectView{Project: *p, Observe: observe, Deploy: p.Deploy, Counts: counts}, saved}
 	})
+}
+
+// toChecks maps the commands of a request onto config checks. Each command needs a name and a
+// command, which config validation checks.
+func toChecks(cs []newCommand) []config.Check {
+	out := make([]config.Check, 0, len(cs))
+	for _, c := range cs {
+		out = append(out, config.Check{Name: c.Name, Run: c.Run})
+	}
+	return out
 }
 
 // deleteProject removes a project's block from the config file and reloads. It refuses with 409

@@ -17,6 +17,7 @@ import (
 	"github.com/bobbyrc/onett/internal/auth"
 	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/events"
+	"github.com/bobbyrc/onett/internal/onboard"
 	"github.com/bobbyrc/onett/internal/secrets"
 	"github.com/bobbyrc/onett/internal/store"
 )
@@ -55,6 +56,8 @@ type Options struct {
 	Secrets *secrets.Store
 	// Attachments stores files attached to chat. Nil makes the attachment routes answer 501.
 	Attachments *attach.Manager
+	// Onboard runs the checks behind adding a project (see internal/onboard). Nil makes GET /github/repos, POST /projects/inspect, DELETE /projects/inspect/{name} and POST /projects answer 501.
+	Onboard *onboard.Service
 	// ChannelTest sends a test message through the running bot of a channel entry; see
 	// channel.Supervisor.Test. Nil makes POST /channels/test answer 501.
 	ChannelTest func(ctx context.Context, ch config.Channel) error

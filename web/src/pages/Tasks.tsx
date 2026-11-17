@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { Task, TaskKind } from '../types';
 import { useCan } from '../auth';
@@ -92,7 +92,8 @@ export function Tasks() {
   const [kind, setKind] = useParamState('kind');
   const [search, setSearch] = useParamState('q');
   const [sort, setSort] = useParamState('sort');
-  const [creating, setCreating] = useState(false);
+  // ?new=1 opens the New task dialog, so the Projects page can start one with ?project= preselected.
+  const [creating, setCreating] = useParamState('new');
   const canOperate = useCan('operate');
 
   // An absent status param means the default active set; an empty one means every status.
@@ -135,7 +136,7 @@ export function Tasks() {
     <>
       <PageHeader
         title="Tasks"
-        actions={canOperate ? <Button variant="primary" onClick={() => setCreating(true)}>New task</Button> : undefined}
+        actions={canOperate ? <Button variant="primary" onClick={() => setCreating('1')}>New task</Button> : undefined}
       />
       <div className="filter-bar">
         <ProjectSelect value={project} onChange={setProject} />
@@ -199,7 +200,7 @@ export function Tasks() {
             ),
           )
         : null}
-      <NewTaskModal open={creating} onClose={() => setCreating(false)} defaultProject={project} />
+      <NewTaskModal open={creating === '1'} onClose={() => setCreating('')} defaultProject={project} />
     </>
   );
 }

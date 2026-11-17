@@ -763,6 +763,33 @@ automatic retry after a failure never has the flag, so it keeps its attempt note
 queue alone. Messages to a review task's agent are not continued after the review finishes (the
 review outcome is applied first and returns).
 
+### Adding a project
+
+Adding a project checks the repository before anything is saved. The check copies the repository
+into onett's data directory, reads its default branch, confirms that pull requests can be opened
+(through the GitHub CLI, `gh`, for a GitHub repository) and guesses setup and checks from the
+repository's files, which are only read, never run. The owner confirms the guess, types their own
+commands, or chooses none before the project is written to `onett.yaml`. A typo, or a `gh` that is
+not signed in, therefore never leaves a broken project in the file. The check lives in one package,
+`internal/onboard`, which the API and the CLI both call.
+
+- **New projects start `supervised`.** The added block says `policy: supervised`, so a change that
+  is medium or high risk waits for the owner. The default policy merges every risk level, and a
+  project with no checks and no CI would then merge agent code on the reviewer's approval alone.
+  The other policy stays one explicit choice away, under Advanced in the dialog or `--policy default`.
+  The default is `supervised` only when a project is added through onett: a block already in the
+  file with no `policy` line keeps `default`, because the loader's default is unchanged.
+- **onett keeps its own copy and refuses to take over a checkout.** The copy is at
+  `<data_dir>/repos/<name>` and each task gets a separate copy of it. A directory already there that
+  is not a clean copy of the same repository (another `origin`, or uncommitted changes) stops the
+  add with an error, because onett rewrites a clone's git config and moves its HEAD. `path` leaves
+  the add flow; the key stays in the file for a copy onett made itself.
+- **The CLI edits the file and asks the daemon to reload.** API tokens cannot change projects
+  (AGENTS.md, invariant 12), so the add routes need a signed-in owner session. `onett project add`
+  writes `onett.yaml` directly, as it always has, and then asks the running daemon to reload it.
+- **The check result is held in memory.** Only a ready result is kept, and only until onett
+  restarts; after a restart, the repository is checked again.
+
 ## Code layout
 
 ```text

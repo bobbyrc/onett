@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Add project, Direction A</title>
+<link rel="stylesheet" href="../../../../web/src/styles.css">
+<link rel="stylesheet" href="../../../../web/src/components/RailLamps.css">
+<link rel="stylesheet" href="../../../../web/src/pages/Projects.css">
+<link rel="stylesheet" href="add.css">
+<script src="shell.js" defer></script>
+</head>
+<body>
+<div class="app">
+<main class="main">
+
+<!-- ============ 1. Pick: the owner's repositories, from gh on the server ============ -->
+<section data-state="pick">
+<header class="page-header"><h1>Projects</h1><div class="page-actions"><button type="button" class="btn btn-primary">Add project</button></div></header>
+<div class="empty">No projects yet. Add the first one above.</div>
+<div class="modal-backdrop">
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-pick">
+  <header class="modal-header"><h2 id="t-pick">Add project</h2><button type="button" class="btn btn-ghost" aria-label="Close">×</button></header>
+  <div class="modal-body">
+    <p class="ap-lede">Pick the repository onett should work on. onett checks it and fills in the rest; you look it over before anything is saved.</p>
+    <div class="field">
+      <label class="field-control"><span class="field-label">Repository</span>
+        <input type="text" placeholder="Search, or paste owner/name or a GitHub link" autofocus></label>
+    </div>
+    <ul class="ap-repos" aria-label="Your repositories">
+      <li><button type="button" class="ap-repo"><span class="ap-repo-name">bobbyrc/pimlo</span><span class="ap-repo-when">2h ago</span><span class="ap-repo-desc"><span class="tag">private</span>Photo library organiser</span></button></li>
+      <li><button type="button" class="ap-repo"><span class="ap-repo-name">bobbyrc/home-lab</span><span class="ap-repo-when">yesterday</span><span class="ap-repo-desc"><span class="tag">private</span>Ansible for the rack</span></button></li>
+      <li><button type="button" class="ap-repo"><span class="ap-repo-name">bobbyrc/dotfiles-and-agent-configs</span><span class="ap-repo-when">3d ago</span><span class="ap-repo-desc"><span class="tag">public</span>Shell, editor and agent settings</span></button></li>
+      <li><button type="button" class="ap-repo"><span class="ap-repo-name">bobbyrc/retro-diffusion-sprite-pipeline</span><span class="ap-repo-when">2w ago</span><span class="ap-repo-desc"><span class="tag">private</span>Sprite sheets from prompts</span></button></li>
+      <li><button type="button" class="ap-repo"><span class="ap-repo-name">bobbyrc/ledger</span><span class="ap-repo-when">1mo ago</span><span class="ap-repo-desc"><span class="tag">private</span>No description</span></button></li>
+    </ul>
+    <p class="ap-source">Your repositories, most recently pushed first, listed with the GitHub CLI on this machine (signed in as bobbyrc). Not here? Type owner/name above.</p>
+    <div class="ap-foot"><button type="button" class="btn btn-ghost">Cancel</button></div>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ============ 2. Review: checked, guessed, nothing saved yet ============ -->
+<section data-state="review">
+<header class="page-header"><h1>Projects</h1><div class="page-actions"><button type="button" class="btn btn-primary">Add project</button></div></header>
+<div class="empty">No projects yet. Add the first one above.</div>
+<div class="modal-backdrop">
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-review">
+  <header class="modal-header"><h2 id="t-review">Add project</h2><button type="button" class="btn btn-ghost" aria-label="Close">×</button></header>
+  <div class="modal-body">
+    <div class="ap-picked"><strong>bobbyrc/pimlo</strong><span class="tag">private</span><button type="button" class="link-button">Change</button></div>
+
+    <h3 class="ap-heading">What onett checked</h3>
+    <ul class="ap-checks">
+      <li class="ap-check"><span class="ap-state is-done"><span class="lamp lamp-run" aria-hidden="true"></span>Done</span><span class="ap-check-title">Copied the repository</span>
+        <span class="ap-check-detail">onett keeps its own copy and gives each task a separate one. Keep working in your own checkout; onett never touches it.</span></li>
+      <li class="ap-check"><span class="ap-state is-done"><span class="lamp lamp-run" aria-hidden="true"></span>Done</span><span class="ap-check-title">Default branch is <span class="ap-mono">main</span></span>
+        <span class="ap-check-detail">Read from GitHub. Agents start from it and open pull requests against it.</span></li>
+      <li class="ap-check"><span class="ap-state is-done"><span class="lamp lamp-run" aria-hidden="true"></span>Done</span><span class="ap-check-title">Can open pull requests</span>
+        <span class="ap-check-detail">With the GitHub CLI on this machine, signed in as bobbyrc.</span></li>
+    </ul>
+
+    <h3 class="ap-heading">Before every task</h3>
+    <p class="ap-lede">Guessed from <span class="ap-mono">package.json</span> and <span class="ap-mono">package-lock.json</span>. Change them if they are wrong. They run in each task's copy with the agent's limited environment, never with your credentials.</p>
+    <div class="ap-cmds">
+      <div class="ap-cmd-group">
+        <span class="field-label">Setup</span><span class="field-hint">Runs before the agent starts, so it can build and test.</span>
+        <div class="ap-cmd"><input type="text" value="npm ci" aria-label="Setup command 1"><button type="button" class="link-button">Remove</button></div>
+      </div>
+      <div class="ap-cmd-group">
+        <span class="field-label">Checks</span><span class="field-hint">Run before onett opens a pull request. A failure sends the work back to the agent.</span>
+        <div class="ap-cmd"><input type="text" value="npm run lint" aria-label="Check command 1"><button type="button" class="link-button">Remove</button></div>
+        <div class="ap-cmd"><input type="text" value="npm test" aria-label="Check command 2"><button type="button" class="link-button">Remove</button></div>
+        <button type="button" class="link-button">Add a check</button>
+      </div>
+    </div>
+
+    <h3 class="ap-heading">Who merges</h3>
+    <p class="ap-policy">Small, low-risk changes merge on their own once the reviewing agent approves and CI passes. Bigger ones, and any change to dependencies, CI, migrations or auth, wait for you.</p>
+
+    <details class="ap-adv"><summary>Advanced<span>name pimlo · branch main · policy supervised</span></summary></details>
+
+    <div class="ap-foot">
+      <button type="button" class="btn btn-primary">Add pimlo</button>
+      <button type="button" class="btn btn-ghost">Cancel</button>
+    </div>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ============ 2b. Review with Advanced open ============ -->
+<section data-state="advanced">
+<header class="page-header"><h1>Projects</h1><div class="page-actions"><button type="button" class="btn btn-primary">Add project</button></div></header>
+<div class="empty">No projects yet. Add the first one above.</div>
+<div class="modal-backdrop">
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-adv">
+  <header class="modal-header"><h2 id="t-adv">Add project</h2><button type="button" class="btn btn-ghost" aria-label="Close">×</button></header>
+  <div class="modal-body">
+    <div class="ap-picked"><strong>bobbyrc/pimlo</strong><span class="tag">private</span><button type="button" class="link-button">Change</button></div>
+    <p class="ap-summary-line">Copied · branch <span class="ap-mono">main</span> · pull requests as bobbyrc · setup <span class="ap-mono">npm ci</span> · checks <span class="ap-mono">npm run lint</span>, <span class="ap-mono">npm test</span></p>
+    <details class="ap-adv" open><summary>Advanced</summary>
+      <div class="form-stack" style="margin-top:12px">
+        <div class="field"><label class="field-control"><span class="field-label">Name</span><input type="text" value="pimlo"></label><span class="field-hint">How onett refers to it. Taken from the repository's name.</span></div>
+        <div class="field"><label class="field-control"><span class="field-label">Branch</span><input type="text" value="main" class="ap-mono"></label><span class="field-hint">The branch agents start from. GitHub says <span class="ap-mono">main</span>.</span></div>
+        <div class="field"><span class="field-label">Who merges</span>
+          <div class="ap-choice" role="radiogroup" aria-label="Who merges" style="margin-top:0">
+            <label><input type="radio" name="pol" checked><span>Small changes merge on their own <small>Low-risk changes merge after review and CI; the rest wait for you. Policy <span class="ap-mono">supervised</span>.</small></span></label>
+            <label><input type="radio" name="pol"><span>Everything merges on its own <small>Any change merges once the reviewing agent approves and CI passes. Policy <span class="ap-mono">default</span>.</small></span></label>
+          </div></div>
+        <div class="field"><label class="field-control"><span class="field-label">Instructions for agents</span><textarea rows="3" placeholder="Optional. Most projects keep these in AGENTS.md or CLAUDE.md in the repository, which agents read anyway."></textarea></label></div>
+      </div>
+    </details>
+    <div class="ap-foot">
+      <button type="button" class="btn btn-primary">Add pimlo</button>
+      <button type="button" class="btn btn-ghost">Cancel</button>
+    </div>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ============ 3. Ready: saved, loaded, first task offered ============ -->
+<section data-state="ready" data-lamps="pimlo|off|ready">
+<header class="page-header"><h1>Projects</h1><div class="page-actions"><button type="button" class="btn btn-primary">Add project</button></div></header>
+<div class="projects-sheets">
+<article class="project-sheet" data-lamp="off"><div class="sheet-lamp" aria-hidden="true"></div><div class="sheet-body">
+  <header class="sheet-head"><div class="sheet-id"><h3 class="sheet-name">pimlo</h3><a class="sheet-repo" href="#">bobbyrc/pimlo</a><p class="sheet-state">ready</p></div></header>
+</div></article>
+</div>
+<div class="modal-backdrop">
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-ready">
+  <header class="modal-header"><h2 id="t-ready">pimlo is added</h2><button type="button" class="btn btn-ghost" aria-label="Close">×</button></header>
+  <div class="modal-body">
+    <p class="ap-state is-done" style="margin:0 0 6px"><span class="lamp lamp-run" aria-hidden="true"></span>Ready for work</p>
+    <p class="ap-summary-line">Saved to onett.yaml and loaded. Branch <span class="ap-mono">main</span> · setup <span class="ap-mono">npm ci</span> · checks <span class="ap-mono">npm run lint</span>, <span class="ap-mono">npm test</span> · small changes merge on their own.</p>
+    <div class="ap-first">
+      <h3>See it work once</h3>
+      <p class="ap-lede" style="margin:0">A question opens no pull request. It makes a task copy, runs setup, and has an agent read the code, so you watch the whole path before you hand over real work.</p>
+      <div class="ap-task"><strong>Explain how pimlo is built and tested</strong><span>question · pimlo · edit before starting if you like</span></div>
+      <div class="row-actions"><button type="button" class="btn btn-primary">Start this task</button><button type="button" class="btn btn-secondary">Write my own task</button><button type="button" class="btn btn-ghost">Done</button></div>
+    </div>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ============ 4. gh not signed in ============ -->
+<section data-state="signed-out">
+<header class="page-header"><h1>Projects</h1><div class="page-actions"><button type="button" class="btn btn-primary">Add project</button></div></header>
+<div class="empty">No projects yet. Add the first one above.</div>
+<div class="modal-backdrop">
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-out">
+  <header class="modal-header"><h2 id="t-out">Add project</h2><button type="button" class="btn btn-ghost" aria-label="Close">×</button></header>
+  <div class="modal-body">
+    <div class="callout callout-info" role="note">
+      <strong>The GitHub CLI is not signed in on this machine.</strong> onett uses it to list your repositories and to open pull requests, so it cannot add a project until it is. On the machine onett runs on (apple), run:
+      <div class="row-actions" style="margin-top:8px"><code class="ap-code">gh auth login</code><button type="button" class="link-button">Copy</button><button type="button" class="btn btn-secondary">Check again</button></div>
+    </div>
+    <div class="field">
+      <label class="field-control"><span class="field-label">Repository</span>
+        <span class="ap-input-row"><input type="text" value="bobbyrc/dotfiles-and-agent-configs"><button type="button" class="btn btn-secondary">Check</button></span></label>
+      <span class="field-hint">owner/name or a GitHub link. You can check a public repository now; Add stays off until the GitHub CLI is signed in.</span>
+    </div>
+    <div class="ap-foot"><button type="button" class="btn btn-ghost">Cancel</button></div>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ============ 5. Setup and checks cannot be guessed ============ -->
+<section data-state="no-guess">
+<header class="page-header"><h1>Projects</h1><div class="page-actions"><button type="button" class="btn btn-primary">Add project</button></div></header>
+<div class="empty">No projects yet. Add the first one above.</div>
+<div class="modal-backdrop">
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-ng">
+  <header class="modal-header"><h2 id="t-ng">Add project</h2><button type="button" class="btn btn-ghost" aria-label="Close">×</button></header>
+  <div class="modal-body">
+    <div class="ap-picked"><strong>bobbyrc/home-lab</strong><span class="tag">private</span><button type="button" class="link-button">Change</button></div>
+    <p class="ap-summary-line">Copied · branch <span class="ap-mono">main</span> · pull requests as bobbyrc</p>
+
+    <h3 class="ap-heading">Before every task</h3>
+    <ul class="ap-checks"><li class="ap-check"><span class="ap-state is-call"><span class="lamp lamp-call" aria-hidden="true"></span>Needs you</span><span class="ap-check-title">onett found nothing it knows how to install or test</span>
+      <span class="ap-check-detail">At the top of home-lab: <span class="ap-mono">README.md</span>, <span class="ap-mono">Makefile</span> (no <span class="ap-mono">test</span> target), <span class="ap-mono">ansible/</span>, <span class="ap-mono">scripts/</span>.</span></li></ul>
+    <div class="ap-choice" role="radiogroup" aria-label="Setup and checks">
+      <div class="ap-choice-card">
+        <label><input type="radio" name="ng" checked><span>Run these commands
+          <small>Setup runs before the agent starts; checks run before onett opens a pull request.</small></span></label>
+        <div class="ap-cmds">
+          <div class="ap-cmd-group"><span class="field-label">Setup</span>
+            <div class="ap-cmd"><input type="text" placeholder="for example ./scripts/bootstrap.sh" aria-label="Setup command 1"></div></div>
+          <div class="ap-cmd-group"><span class="field-label">Checks</span>
+            <div class="ap-cmd"><input type="text" placeholder="for example make lint" aria-label="Check command 1"></div>
+            <button type="button" class="link-button">Add a check</button></div>
+        </div>
+      </div>
+      <label><input type="radio" name="ng"><span>No setup or checks
+        <small>Agents get the code with nothing installed, and onett opens pull requests without testing them first. Your CI, if any, still runs.</small></span></label>
+    </div>
+    <div class="ap-foot">
+      <button type="button" class="btn btn-primary" disabled>Add home-lab</button>
+      <button type="button" class="btn btn-ghost">Cancel</button>
+      <span class="ap-why">Fill in a command, or choose no setup or checks.</span>
+    </div>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ============ 6. The copy failed ============ -->
+<section data-state="clone-failed">
+<header class="page-header"><h1>Projects</h1><div class="page-actions"><button type="button" class="btn btn-primary">Add project</button></div></header>
+<div class="empty">No projects yet. Add the first one above.</div>
+<div class="modal-backdrop">
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-cf">
+  <header class="modal-header"><h2 id="t-cf">Add project</h2><button type="button" class="btn btn-ghost" aria-label="Close">×</button></header>
+  <div class="modal-body">
+    <div class="ap-picked"><strong>bobbyrc/pimlo-app</strong><button type="button" class="link-button">Change</button></div>
+    <h3 class="ap-heading">What onett checked</h3>
+    <ul class="ap-checks">
+      <li class="ap-check"><span class="ap-state is-stop"><span class="lamp lamp-stop" aria-hidden="true"></span>Stopped</span><span class="ap-check-title">Could not copy the repository</span>
+        <div class="ap-check-body">
+          <span class="ap-check-detail" style="display:block">GitHub said:</span>
+          <div class="ap-said">remote: Repository not found.
+fatal: repository 'https://github.com/bobbyrc/pimlo-app.git/' not found</div>
+          <span class="ap-check-detail" style="display:block">Either the name is wrong, or the GitHub account signed in on this machine (bobbyrc) cannot read it. Did you mean <button type="button" class="link-button">bobbyrc/pimlo</button>?</span>
+          <div class="row-actions"><button type="button" class="btn btn-secondary">Check again</button><button type="button" class="btn btn-secondary">Change repository</button></div>
+        </div></li>
+      <li class="ap-check"><span class="ap-state is-wait"><span class="lamp lamp-off" aria-hidden="true"></span>Waiting</span><span class="ap-check-title">Default branch</span><span class="ap-check-detail">Read after the copy.</span></li>
+      <li class="ap-check"><span class="ap-state is-wait"><span class="lamp lamp-off" aria-hidden="true"></span>Waiting</span><span class="ap-check-title">Setup and checks</span><span class="ap-check-detail">Guessed from the files, after the copy.</span></li>
+    </ul>
+    <div class="ap-foot">
+      <button type="button" class="btn btn-primary" disabled>Add project</button>
+      <button type="button" class="btn btn-ghost">Cancel</button>
+      <span class="ap-why">Nothing was saved. onett adds a project only once it can copy it.</span>
+    </div>
+  </div>
+</div>
+</div>
+</section>
+
+</main>
+</div>
+</body>
+</html>

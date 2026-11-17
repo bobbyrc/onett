@@ -1,0 +1,428 @@
+/* The Add project dialog. Direction A rules copied from docs/proposals/add-project/mockups/add.css
+   (keep the two in step while the proposal stands). Tokens only, no new colours. */
+
+.ap-lede {
+  color: var(--muted);
+  margin: 0 0 14px;
+  max-width: 72ch;
+}
+
+.ap-heading {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 18px 0 8px;
+}
+
+.ap-heading:first-child {
+  margin-top: 0;
+}
+
+.ap-mono {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+code.ap-code {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--input);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+}
+
+/* ---- repository picker ---- */
+
+/* ---- repository picker ---- */
+
+.ap-repos {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--input);
+}
+
+.ap-repos li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.ap-repo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  width: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.ap-repo:hover,
+.ap-repo.is-hl {
+  background: var(--panel-2);
+}
+
+.ap-repo-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ap-repo-when {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ap-repo-desc {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ap-repo-desc .tag {
+  margin-right: 6px;
+}
+
+.ap-repo mark {
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+}
+
+.ap-source {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+.ap-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.ap-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- the chosen repository, at the top of the review step ---- */
+
+/* ---- the chosen repository, at the top of the review step ---- */
+
+.ap-picked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ap-picked strong {
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+
+/* ---- check rows: a lamp and its word, then what was checked ---- */
+
+/* ---- check rows: a lamp and its word, then what was checked ---- */
+
+.ap-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ap-check {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 2px 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ap-check:last-child {
+  border-bottom: 0;
+}
+
+.ap-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.ap-state .lamp {
+  flex: none;
+}
+
+.ap-state.is-done { color: var(--ok); }
+
+.ap-state.is-call { color: var(--call); }
+
+.ap-state.is-stop { color: var(--danger); }
+
+.ap-state.is-wait { color: var(--muted); }
+
+.ap-check-title {
+  font-weight: 600;
+}
+
+.ap-check-detail {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.ap-check-detail .row-actions,
+.ap-check-body .row-actions {
+  margin-top: 8px;
+}
+
+.ap-check-body {
+  grid-column: 2;
+}
+
+.ap-said {
+  font-family: var(--mono);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 6px 0;
+  padding: 6px 10px;
+  background: var(--input);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+/* ---- command editor for setup and checks ---- */
+
+/* ---- command editor for setup and checks ---- */
+
+.ap-cmds {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.ap-cmd-group > .field-label {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.ap-cmd-group > .field-hint {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.ap-cmd {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 10px;
+  margin-bottom: 6px;
+}
+
+.ap-cmd input {
+  font-family: var(--mono);
+  font-size: 13.5px;
+}
+
+.ap-cmd input::placeholder {
+  font-family: var(--font);
+  font-style: italic;
+}
+
+.ap-cmd .ap-because {
+  grid-column: 1;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.ap-trial {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* ---- the explicit choice when nothing was guessed ---- */
+
+/* ---- the explicit choice when nothing was guessed ---- */
+
+.ap-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ap-choice-card {
+  padding: 10px 12px;
+  border: 1px solid var(--field);
+  background: var(--input);
+}
+
+.ap-choice-card > label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 10px;
+  align-items: start;
+  cursor: pointer;
+}
+
+.ap-choice-card > label input {
+  margin-top: 3px;
+  accent-color: var(--lamp-run);
+}
+
+.ap-choice-card > label small {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ap-choice-card .ap-cmds {
+  margin: 10px 0 2px 23px;
+}
+
+.ap-choice > label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--field);
+  background: var(--input);
+  cursor: pointer;
+}
+
+.ap-choice > label input {
+  margin-top: 3px;
+  accent-color: var(--lamp-run);
+}
+
+.ap-choice > label small {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ---- who merges ---- */
+
+/* ---- who merges ---- */
+
+.ap-policy {
+  padding: 10px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  margin: 0;
+}
+
+/* ---- advanced, folded ---- */
+
+/* ---- advanced, folded ---- */
+
+.ap-adv {
+  margin-top: 14px;
+  border-top: 1px solid var(--rule);
+  padding-top: 10px;
+}
+
+.ap-adv summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ap-adv summary span {
+  color: var(--muted);
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.ap-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 18px;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--rule);
+}
+
+/* In a dialog the actions stay in view while the body scrolls under them. */
+/* In a dialog the actions stay in view while the body scrolls under them. */
+.modal .ap-foot {
+  position: sticky;
+  bottom: -18px;
+  margin-bottom: -18px;
+  padding-bottom: 18px;
+  background: var(--panel);
+}
+
+.ap-foot .ap-why {
+  color: var(--muted);
+  font-size: 13px;
+  flex-basis: 100%;
+}
+
+/* ---- the first task ---- */
+
+/* ---- the first task ---- */
+
+.ap-first {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+
+.ap-first h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.ap-first .ap-task {
+  margin: 10px 0;
+  padding: 10px 12px;
+  background: var(--input);
+  border: 1px solid var(--field);
+}
+
+.ap-first .ap-task strong {
+  display: block;
+}
+
+.ap-first .ap-task span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ap-summary-line {
+  color: var(--muted);
+  font-size: 13.5px;
+  margin: 0;
+}
+
+@media (max-width: 759px) {
+  .ap-check {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ap-check-detail,
+  .ap-check-body {
+    grid-column: 1;
+  }
+}

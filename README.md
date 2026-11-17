@@ -254,10 +254,12 @@ Then finish setup in the web UI:
    the owner account on that page. (`./onett open` opens the UI later.)
 2. **Follow the "Finish setting up onett" card** on the **Overview** page. It has one live check per
    step and links to where each is done:
-   - **Add a project**: the **Projects** page, **Add project** (a repository, plus an optional
-     checkout path and branch). **Remove** is there too.
+   - **Add a project**: the **Projects** page, **Add project**. Pick one of your GitHub repositories
+     (or type one); onett copies it itself, checks it and guesses its setup and checks before anything
+     is saved. **Remove** is there too.
    - **Agents ready**: the **Config** page, Agents group. Check that at least one agent is enabled.
-   - **Choose a policy**: the Config page, Policies group. With none chosen, the default applies.
+   - **Choose a policy**: the Config page, Policies group. A project added from the dialog starts
+     `supervised`; a project with no policy uses the default.
    - **Reach me**: the Config page's **Setup** tab walks through Telegram, Discord or ntfy and has
      a **Send test** button. See [docs/channels.md](docs/channels.md).
    - **Secrets set**: the Config page's **Secrets** tab stores tokens in `secrets.env`. It only
@@ -272,8 +274,8 @@ it starts with a throwaway repository and a paused project.
 **Prefer a terminal or config-as-code?** Everything above can also be done with the CLI and files:
 
 ```sh
-./onett init --project myproject --repo you/myproject   # writes ~/.config/onett/onett.yaml
-./onett project add other --repo you/other               # add a project to the file
+./onett init --project myproject --repo you/myproject   # writes ~/.config/onett/onett.yaml, then adds the project
+./onett project add you/other                            # add a project: copies and checks it, then asks the same questions as the UI
 ./onett doctor     # checks your setup: config, git, gh, harness CLIs, daemon
 ./onett serve      # run the daemon; leave it running in its own terminal
 ./onett open       # open the web UI in your browser (second terminal)
@@ -299,12 +301,13 @@ as in `onett task create -h`.
 | Command | What it does |
 |---------|--------------|
 | `serve [--addr HOST:PORT]` | run the daemon: API, web UI and engine; `--addr` sets the listen address in the starter config written on first run |
-| `init [--notify ntfy --ntfy-topic T] [--channel telegram\|discord --user-ids IDS]` | write a starter onett.yaml; the flags set up notifications without prompts |
+| `init [--repo REPO [--project NAME] [--use-guess \| --setup CMD... --check CMD... \| --no-checks] [--yes]] [--notify ntfy --ntfy-topic T] [--channel telegram\|discord --user-ids IDS]` | write a starter onett.yaml; with `--repo`, then add that repository with the same flow as `project add` (the project name comes from the repository unless `--project` names it); the flags set up notifications without prompts |
 | `token` | print the API token |
 | `open` | open the web UI (sign in there) |
 | `status` | what is running, what needs you, and the daemon's version |
 | `projects` | list managed projects |
-| `project add\|pause\|resume` | add a project to the config, or pause or resume one |
+| `project add [REPO] [--name N] [--branch B] [--policy supervised\|default] [--use-guess \| --setup CMD... --check CMD... \| --no-checks] [--yes] [--config P]` | add a project: lists your GitHub repositories when no REPO is given, copies and checks the repository, guesses its setup and checks, then writes it to the config and reloads the daemon. New projects are `supervised`. Without a terminal, the setup choice must be explicit (`--use-guess`, `--setup` with `--check`, or `--no-checks`). There is no `--path`; onett keeps its own copy |
+| `project pause\|resume` | pause or resume one project |
 | `agents [--all]` | list agent roles; `--all` also shows removed (disabled) ones |
 | `config` | print the redacted config, or `--reload` it |
 | `task` | create, list, show, cancel and retry tasks (`task create --attach ID`, repeatable, hands a chat attachment to the agent as a file under `.onett-run/attachments/`); `task message ID --text T` sends a message to a task agent; `task close-conversation ID --reason R` closes a task agent's conversation |

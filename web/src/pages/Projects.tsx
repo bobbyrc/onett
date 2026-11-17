@@ -1,14 +1,12 @@
 import { Link } from 'react-router-dom';
 import { useCan } from '../auth';
-import { useState } from 'react';
-import { useConfig, useCreateProject, useDeleteProject, useLoops, useProjects, useSetProjectPaused } from '../queries';
+import { useDeleteProject, useLoops, useProjects, useSetProjectPaused } from '../queries';
+import { useParamState } from '../useParamState';
+import { AddProjectDialog } from '../components/AddProjectDialog';
 import { Button } from '../components/Button';
 import { Empty } from '../components/Empty';
 import { ErrorLine } from '../components/ErrorLine';
-import { Modal } from '../components/Modal';
 import { PageHeader } from '../components/PageHeader';
-import { ProjectForm } from '../components/ProjectForm';
-import { projectFormRequest } from '../lib/projectForm';
 import { cx } from '../lib/format';
 import { projectLamp } from '../lib/lamp';
 import { loopSummary, repoUrl } from '../lib/projects';
@@ -28,7 +26,8 @@ export function Projects() {
   const projects = useProjects();
   const loops = useLoops();
   const canAdminister = useCan('administer');
-  const [adding, setAdding] = useState(false);
+  // ?add=1 opens the dialog, so the setup checklist and the config page can link straight to it.
+  const [adding, setAdding] = useParamState('add');
 
   return (
     <>
@@ -36,14 +35,14 @@ export function Projects() {
         title="Projects"
         actions={
           canAdminister ? (
-            <Button variant="primary" onClick={() => setAdding(true)}>
+            <Button variant="primary" onClick={() => setAdding('1')}>
               Add project
             </Button>
           ) : undefined
         }
       />
       {canAdminister ? (
-        <AddProjectModal open={adding} onClose={() => setAdding(false)} existing={(projects.data ?? []).map((p) => p.name)} />
+        <AddProjectDialog open={adding === '1'} onClose={() => setAdding('')} existing={(projects.data ?? []).map((p) => p.name)} />
       ) : null}
       <ErrorLine error={projects.error ?? loops.error} />
       {projects.isSuccess && projects.data.length === 0 ? (
@@ -218,27 +217,5 @@ function OwnerControls({ project }: { project: ProjectView }) {
       </Button>
       <ErrorLine error={remove.error} />
     </div>
-  );
-}
-
-/** The Add project dialog. It closes on success; the new sheet appears when the list refetches. */
-function AddProjectModal({ open, onClose, existing }: { open: boolean; onClose: () => void; existing: string[] }) {
-  const config = useConfig();
-  const create = useCreateProject();
-  const close = () => {
-    create.reset();
-    onClose();
-  };
-  return (
-    <Modal open={open} title="Add project" onClose={close}>
-      <ProjectForm
-        policies={Object.keys(config.data?.policies ?? {}).sort()}
-        existing={existing}
-        pending={create.isPending}
-        error={create.error}
-        onSubmit={(values) => create.mutate(projectFormRequest(values), { onSuccess: close })}
-        onCancel={close}
-      />
-    </Modal>
   );
 }

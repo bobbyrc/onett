@@ -31,6 +31,7 @@ import (
 	"github.com/bobbyrc/onett/internal/harness"
 	"github.com/bobbyrc/onett/internal/notify"
 	"github.com/bobbyrc/onett/internal/observe"
+	"github.com/bobbyrc/onett/internal/onboard"
 	"github.com/bobbyrc/onett/internal/runshim"
 	"github.com/bobbyrc/onett/internal/scm"
 	"github.com/bobbyrc/onett/internal/scm/github"
@@ -198,6 +199,7 @@ func cmdServe(e *env, args []string) error {
 		Controller: eng,
 		Token:      token,
 		Version:    version,
+		Onboard:    onboard.New(workspace.New(filepath.Join(cfg.Server.DataDir, "worktrees")), nil),
 		// Asked on every request, like the allowed hosts below: a reload that changes
 		// public_url to or from https changes the cookie's Secure flag without a restart.
 		SecureCookiesFunc: func() bool { return strings.HasPrefix(eng.Config().Server.PublicURL, "https://") },

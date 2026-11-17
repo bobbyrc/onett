@@ -37,7 +37,7 @@ export function setupSteps(in_: SetupInputs): SetupStep[] {
       label: 'Add a project',
       detail: projects.length > 0 ? `${projects.length} configured` : 'No project yet: tell onett which repository to work on.',
       done: projects.length > 0,
-      to: '/projects',
+      to: '/projects?add=1',
       action: 'Add a project',
     });
   }

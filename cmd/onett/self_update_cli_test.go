@@ -9,15 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInitialConfigExplainsSelfUpdateForSelfRepo(t *testing.T) {
-	got := initialConfig("onett", selfRepo, "")
-	assert.Contains(t, got, "Self-update is on by default")
-	assert.Contains(t, got, "enabled: false")
-	assert.Contains(t, got, "update.sh")
+func TestInitialConfigLoadsWithoutAProject(t *testing.T) {
+	got := initialConfig()
+	assert.NotContains(t, got, "projects:", "the starter config names no project")
 	_, err := config.Parse([]byte(got), "")
 	require.NoError(t, err, "the comments must leave a loadable file")
-
-	assert.NotContains(t, initialConfig("app", "o/app", ""), "Self-update")
 }
 
 func TestDoctorSelfUpdateLine(t *testing.T) {
