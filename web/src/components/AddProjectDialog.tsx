@@ -1,7 +1,7 @@
 // The Add project dialog (Direction A of docs/proposals/add-project). It picks a repository,
 // checks it on the server (a copy, the default branch, pull requests, guessed commands), shows the
 // result for the person to look over, and only then saves the project and offers a first task.
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ConfigApiError, discardInspect, inspectProject, listGithubRepos } from '../api';
@@ -55,6 +55,9 @@ export function AddProjectDialog({ open, onClose, existing }: { open: boolean; o
   const [values, setValues] = useState<AddProjectValues | null>(null);
   const [checkError, setCheckError] = useState<unknown>(null);
   const attempt = useRef<AbortController | null>(null);
+  const repoId = useId();
+  const hintId = useId();
+  const signedOut = repos.data !== undefined && !repos.data.gh.signed_in;
 
   // A check still running when the dialog goes away is abandoned.
   useEffect(() => () => attempt.current?.abort(), []);
@@ -181,29 +184,32 @@ export function AddProjectDialog({ open, onClose, existing }: { open: boolean; o
             </div>
           ) : null}
           <div className="field">
-            <label className="field-control">
+            {/* The label holds only its text, so the input's name is exactly "Repository". */}
+            <label className="field-control" htmlFor={repoId}>
               <span className="field-label">Repository</span>
-              <span className="ap-input-row">
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="Search, or paste owner/name or a GitHub link"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      start(query);
-                    }
-                  }}
-                />
-                <button type="button" className="btn btn-secondary" disabled={!query.trim()} onClick={() => start(query)}>
-                  Check
-                </button>
-              </span>
             </label>
-            {repos.data && !repos.data.gh.signed_in ? (
-              <span className="field-hint">
+            <span className="ap-input-row">
+              <input
+                id={repoId}
+                type="text"
+                autoFocus
+                aria-describedby={signedOut ? hintId : undefined}
+                placeholder="Search, or paste owner/name or a GitHub link"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    start(query);
+                  }
+                }}
+              />
+              <button type="button" className="btn btn-secondary" disabled={!query.trim()} onClick={() => start(query)}>
+                Check
+              </button>
+            </span>
+            {signedOut ? (
+              <span id={hintId} className="field-hint">
                 owner/name or a GitHub link. You can check a public repository now; Add stays off until the GitHub CLI is
                 signed in.
               </span>

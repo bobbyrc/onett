@@ -118,6 +118,12 @@ describe('AddProjectDialog', () => {
     await waitFor(() => expect((screen.getByRole('button', { name: 'Add home-lab' }) as HTMLButtonElement).disabled).toBe(false));
   });
 
+  it('names the repository field exactly Repository', async () => {
+    open();
+    const field = await screen.findByRole('textbox', { name: 'Repository' });
+    expect(field.getAttribute('placeholder')).toBe('Search, or paste owner/name or a GitHub link');
+  });
+
   it('shows the gh auth login callout when the GitHub CLI is not signed in', async () => {
     api.listGithubRepos.mockResolvedValue({ gh: { signed_in: false, user: '', host: 'apple', fix: 'gh auth login' }, repos: [] });
     open();

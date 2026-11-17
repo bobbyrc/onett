@@ -86,13 +86,20 @@ test('add a project from Projects', async () => {
   await page.getByRole('link', { name: 'Projects', exact: true }).click();
   await page.getByRole('button', { name: 'Add project' }).click();
   const dialog = page.getByRole('dialog', { name: 'Add project' });
-  await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill('widgets');
-  await dialog.getByRole('textbox', { name: 'Repository', exact: true }).fill('acme/widgets');
-  await dialog.getByRole('textbox', { name: 'Local path', exact: true }).fill(daemon.repoDir);
-  await dialog.getByRole('button', { name: 'Add project' }).click();
-  await expect(dialog).toBeHidden();
+  // The project is a local repository because this job has no network: onett copies it into its
+  // data directory, and nothing is guessed, so the owner chooses no setup or checks.
+  await dialog.getByRole('textbox', { name: 'Repository', exact: true }).fill(daemon.repoDir);
+  await dialog.getByRole('button', { name: 'Check', exact: true }).click();
+  await expect(dialog.getByText('Copied the repository')).toBeVisible({ timeout: 60_000 });
+  await expect(dialog.getByText('Needs you')).toBeVisible();
+  await dialog.getByRole('radio', { name: /No setup or checks/ }).check();
+  await dialog.getByRole('button', { name: 'Add widgets' }).click();
+  const ready = page.getByRole('dialog', { name: 'widgets is added' });
+  await expect(ready.getByText('Ready for work')).toBeVisible();
+  await ready.getByRole('button', { name: 'Done' }).click();
+  await expect(ready).toBeHidden();
   const sheet = page.locator('article.project-sheet', { hasText: 'widgets' });
-  await expect(sheet).toContainText('acme/widgets');
+  await expect(sheet).toContainText(daemon.repoDir);
   await expect(sheet).toContainText('idle');
 });
 
@@ -110,9 +117,9 @@ test('Config → Agents & routing: add a fake harness and an agent that uses it'
   await saveVisualEditor();
 });
 
-test('Config → project policy: set supervised and see it reload live', async () => {
+test('Config → project policy: change it and see it reload live', async () => {
   await page.goto(`${daemon.url}/config?section=projects`);
-  await page.getByRole('textbox', { name: 'Policy' }).fill('supervised');
+  await page.getByRole('textbox', { name: 'Policy' }).fill('default');
   await saveVisualEditor();
   await page.screenshot({ path: `${SCREENSHOTS}/policy-saved.png` });
 });
@@ -170,8 +177,8 @@ test('on disk: onett.yaml and secrets.env hold the setup', async () => {
   const yaml = readFileSync(daemon.configPath, 'utf8');
   expect(yaml).toMatch(/^projects:\s*$/m);
   expect(yaml).toContain('widgets:');
-  expect(yaml).toContain('repo: acme/widgets');
-  expect(yaml).toMatch(/policy: supervised/);
+  expect(yaml).toMatch(new RegExp(`repo: ["']?${daemon.repoDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']?`));
+  expect(yaml).toMatch(/policy: default/);
   expect(yaml).toContain('type: ntfy');
   expect(yaml).toContain(`topic: ${TOPIC}`);
   expect(yaml).toContain('token_env: NTFY_TOKEN');
