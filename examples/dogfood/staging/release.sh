@@ -41,7 +41,8 @@ log "ref $REF_IN -> $FULL"
 # is rebuilt, so a rollback never brings back a UI-less one.
 if [ ! -x "$BIN" ] || [ ! -f "$BIN.ui" ]; then
   SRC=$STAGE/src/$REF12
-  rm -rf "$SRC"
+  # A source tree is only build input (~225 MB with node_modules); clear any left by a failed build.
+  rm -rf "$STAGE/src"
   mkdir -p "$SRC"
   git -C "$CLONE" archive "$FULL" | tar -x -C "$SRC"
   log "building web UI"
@@ -61,9 +62,17 @@ if [ ! -x "$BIN" ] || [ ! -f "$BIN.ui" ]; then
   )
   mv "$BIN.tmp" "$BIN"
   : > "$BIN.ui"
+  rm -rf "$SRC"
 else
   log "reusing $BIN"
 fi
+
+# Keep the 10 most recently released binaries (~25 MB each); an older rollback target is rebuilt.
+# Each binary's .ui marker carries the time it was last released.
+touch "$BIN.ui"
+ls -t "$STAGE"/bin/onett-*.ui | tail -n +11 | while read -r ui; do
+  rm -f "$ui" "${ui%.ui}"
+done
 
 # (c) Stop the instance we started earlier, if its PID is alive and is still our binary.
 if [ -f "$STAGE/pid" ]; then
