@@ -644,7 +644,8 @@ the one that failed to update, however it got there.
 A harness whose login has expired (a failed run whose error holds "Failed to authenticate", which
 the Claude CLI prints when `claude auth login` has lapsed) is one item, `harness_auth` with the
 harness name as its id, not one item per failed run. It counts the failed runs since that
-harness's last success and stays open until a run on it succeeds. It escalates on its first
+harness's last success and stays open until a run on it succeeds or `claude auth status` reports
+`loggedIn` (the loop asks each tick, since it starts no turn that could succeed). It escalates on its first
 heartbeat, since only the owner can log in again. While it is open on the harness the
 orchestrator runs on, the loop starts no turn (it would fail at once and add another failed run);
 the other new items stay new and wake the orchestrator after the item clears.

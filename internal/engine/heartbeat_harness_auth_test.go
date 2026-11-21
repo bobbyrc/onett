@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/notify"
 )
@@ -84,5 +86,20 @@ func TestHeartbeatAuthItemEscalatesOnceAndWakesNothing(t *testing.T) {
 	require.Len(t, h.rec.digests, 1)
 	d := h.rec.digests[0]
 	assert.True(t, hbHas(d, hbBlockedTask, blocked.ID))
+	assert.Empty(t, h.authItems())
+}
+
+func TestHeartbeatAuthItemClearsWhenLoginCheckPasses(t *testing.T) {
+	h := hbMemNew(t, "")
+	h.harnessRun(domain.RunFailed, hbAuthError, h.now.Add(-10*time.Minute))
+	blocked := h.blocked("Waits for a login")
+	h.tick()
+	require.Empty(t, h.rec.digests)
+
+	// The owner logs in again; no run has happened since, only the login check sees it.
+	h.e.d.HarnessLoggedIn = func(context.Context, config.Harness) (bool, bool) { return true, true }
+	h.tick()
+	require.Len(t, h.rec.digests, 1)
+	assert.True(t, hbHas(h.rec.digests[0], hbBlockedTask, blocked.ID))
 	assert.Empty(t, h.authItems())
 }

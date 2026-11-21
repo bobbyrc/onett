@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bobbyrc/onett/internal/config"
 	"github.com/bobbyrc/onett/internal/domain"
 )
 
@@ -29,6 +30,8 @@ func hbNewEnv(t *testing.T, topExtra string) (*lpEnv, *hbRecorder) {
 	env := lpNewEngine(t, lpDoc(t, lpPath(t), "", topExtra))
 	rec := &hbRecorder{}
 	env.e.d.Heartbeat = rec
+	// Never run a real CLI from a test.
+	env.e.d.HarnessLoggedIn = func(context.Context, config.Harness) (bool, bool) { return false, false }
 	return env, rec
 }
 

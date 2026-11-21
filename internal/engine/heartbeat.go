@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/bobbyrc/onett/internal/domain"
 	"github.com/bobbyrc/onett/internal/notify"
 	"github.com/bobbyrc/onett/internal/store"
+	"github.com/bobbyrc/onett/internal/sysproc"
 )
 
 // Heartbeat item kinds.
@@ -729,10 +731,43 @@ func (e *Engine) harnessAuthItems(ctx context.Context, project string) ([]hbAuth
 		}
 	}
 	out := make([]hbAuth, 0, len(open))
-	for _, a := range open {
+	for name, a := range open {
+		// While the item is open the heartbeat starts no turn on this harness, so a run may never
+		// succeed to clear it. Ask the CLI whether the login works again instead.
+		if h, ok := e.Config().Harness[name]; ok {
+			if in, known := e.d.HarnessLoggedIn(ctx, h); known && in {
+				continue
+			}
+		}
 		out = append(out, *a)
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].harness < out[j].harness })
 	return out, nil
+}
+
+// claudeLoggedIn runs `claude auth status`, which prints JSON with a loggedIn flag, with the
+// agent environment (never onett's own). Other harness types have no such check.
+func claudeLoggedIn(ctx context.Context, h config.Harness) (loggedIn, known bool) {
+	if h.Type != "claude-code" {
+		return false, false
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	args := append([]string(nil), h.Command...)
+	if len(args) == 0 {
+		args = []string{"claude"}
+	}
+	cmd := exec.CommandContext(ctx, args[0], append(args[1:], "auth", "status")...)
+	cmd.Env = sysproc.AgentEnv(h.InheritEnv, h.Env)
+	// A logged-out CLI may exit non-zero yet still print the JSON, so read the output either way.
+	out, _ := cmd.Output()
+	var st struct {
+		LoggedIn *bool `json:"loggedIn"`
+	}
+	if json.Unmarshal(out, &st) != nil || st.LoggedIn == nil {
+		return false, false
+	}
+	return *st.LoggedIn, true
 }
 
 // heartbeatHarnessBlocked reports whether the digest holds a login failure on the harness the

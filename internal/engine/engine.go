@@ -65,6 +65,11 @@ type Deps struct {
 	StartUpdater func(cmd *exec.Cmd) (pid int, wait func() error, err error)
 	// Heartbeat is woken by the heartbeat loop when its digest has a new item. Default: a turn in the Operations conversation.
 	Heartbeat HeartbeatWaker
+	// HarnessLoggedIn reports whether a harness's login works, without starting an agent turn. The
+	// heartbeat asks it while a login-failure item is open, so the item clears once the owner logs
+	// in again even if no other run happens. known is false when the harness type has no such
+	// check. Default: `claude auth status` for claude-code. Tests replace it.
+	HarnessLoggedIn func(ctx context.Context, h config.Harness) (loggedIn, known bool)
 	// Now defaults to time.Now.
 	Now func() time.Time
 	// SchedulerTick is how often the scheduler looks for work without being woken (default 5s).
@@ -204,6 +209,9 @@ func New(d Deps) (*Engine, error) {
 	}
 	if d.Heartbeat == nil {
 		e.d.Heartbeat = operationsWaker{e}
+	}
+	if d.HarnessLoggedIn == nil {
+		e.d.HarnessLoggedIn = claudeLoggedIn
 	}
 	return e, nil
 }
