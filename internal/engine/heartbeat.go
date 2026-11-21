@@ -32,6 +32,9 @@ const (
 	hbPreflight         = "preflight"
 	hbApproval          = "approval"
 	hbAgentQuestion     = "agent_question"
+	// hbHarnessAuth is a harness whose login has expired: one item per harness, however many runs
+	// failed on it, with the harness name as its entity id.
+	hbHarnessAuth = "harness_auth"
 )
 
 // hbFirstWindowMin is the least the first digest looks back for runs, deploys and results, when
@@ -316,7 +319,16 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 	st.ItemCount = len(items)
 
 	var wakeErr error
-	if len(digest.NewKeys) > 0 {
+	if len(digest.NewKeys) > 0 && e.heartbeatHarnessBlocked(p, digest.Items) {
+		// The orchestrator's own harness cannot log in, so a turn would fail at once and add one
+		// more failed run. The items stay new and wake it once the login item clears.
+		for _, key := range digest.NewKeys {
+			mem := cur.Items[key]
+			mem.Unwoken = true
+			cur.Items[key] = mem
+		}
+		cur.BuiltAt = since
+	} else if len(digest.NewKeys) > 0 {
 		if wakeErr = e.d.Heartbeat.WakeHeartbeat(ctx, digest); wakeErr != nil {
 			// The orchestrator has not seen the new items, so they stay new and the next tick wakes
 			// again; the window for one-off things (runs, deploys, results) stays where it was, so
@@ -339,7 +351,11 @@ func (e *Engine) heartbeatLoop(ctx context.Context, p *config.Project) error {
 	}
 	for _, it := range digest.Items {
 		mem := cur.Items[it.Key]
-		if mem.Escalated || (mem.Heartbeats < limit && !escalateNow[it.Key]) {
+		need := limit
+		if it.Kind == hbHarnessAuth {
+			need = 1 // only the owner can log in again, so there is nothing to wait for
+		}
+		if mem.Escalated || (mem.Heartbeats < need && !escalateNow[it.Key]) {
 			continue
 		}
 		mem.Escalated = true
@@ -505,6 +521,15 @@ func (e *Engine) heartbeatItems(ctx context.Context, p *config.Project, stale ti
 		add(hbBlockedGoal, g.ID, g.Summary, fmt.Sprintf("goal %q is blocked: %s", g.Title, quote(g.Summary)))
 	}
 
+	authItems, err := e.harnessAuthItems(ctx, p.Name)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range authItems {
+		add(hbHarnessAuth, a.harness, "", fmt.Sprintf("%s login failed on %d run(s) since %s, and no run has worked since: log in again (for claude: `claude auth login`)",
+			a.harness, a.count, a.first.UTC().Format("2006-01-02 15:04 MST")))
+	}
+
 	runs, err := e.d.Store.ListRuns(ctx, store.RunFilter{
 		Project: p.Name, Limit: hbScanLimit,
 		Statuses: []domain.RunStatus{domain.RunStalled, domain.RunDenied, domain.RunFailed, domain.RunTimedOut},
@@ -517,7 +542,7 @@ func (e *Engine) heartbeatItems(ctx context.Context, p *config.Project, stale ti
 		if r.EndedAt != nil {
 			ended = *r.EndedAt
 		}
-		if ended.Before(since) {
+		if ended.Before(since) || runAuthFailure(r) {
 			continue
 		}
 		// A run of a task that later succeeded or was abandoned needs no action.
@@ -660,4 +685,67 @@ func reasonKey(reason string) string {
 	}
 	sum := sha256.Sum256([]byte(reason))
 	return hex.EncodeToString(sum[:4])
+}
+
+// runAuthFailure reports whether a run failed because its harness could not log in. The Claude CLI
+// ends such a run at once with "Failed to authenticate: ...", and no retry can succeed until the
+// owner logs in again, so it is a credentials problem and not an ordinary failed run.
+func runAuthFailure(r domain.Run) bool {
+	return r.Status == domain.RunFailed && strings.Contains(r.Error, "Failed to authenticate")
+}
+
+// hbAuth is one harness with an open login failure.
+type hbAuth struct {
+	harness string
+	count   int       // failed runs since the last good one
+	first   time.Time // when the oldest of them started
+}
+
+// harnessAuthItems finds the harnesses whose newest runs failed to log in. A harness is open until
+// one of its runs next succeeds, so the item outlives the digest window, and the count and first
+// time cover every failed run since the last success. Runs are read newest first.
+func (e *Engine) harnessAuthItems(ctx context.Context, project string) ([]hbAuth, error) {
+	runs, err := e.d.Store.ListRuns(ctx, store.RunFilter{Project: project, Limit: hbScanLimit})
+	if err != nil {
+		return nil, fmt.Errorf("list runs: %w", err)
+	}
+	done := map[string]bool{} // harness has had a run that worked, so older failures are history
+	open := map[string]*hbAuth{}
+	for _, r := range runs {
+		if r.Harness == "" || done[r.Harness] {
+			continue
+		}
+		switch {
+		case r.Status == domain.RunSucceeded:
+			done[r.Harness] = true
+		case runAuthFailure(r):
+			a := open[r.Harness]
+			if a == nil {
+				a = &hbAuth{harness: r.Harness}
+				open[r.Harness] = a
+			}
+			a.count++
+			a.first = r.StartedAt
+		}
+	}
+	out := make([]hbAuth, 0, len(open))
+	for _, a := range open {
+		out = append(out, *a)
+	}
+	return out, nil
+}
+
+// heartbeatHarnessBlocked reports whether the digest holds a login failure on the harness the
+// orchestrator runs on: a wake would fail the same way.
+func (e *Engine) heartbeatHarnessBlocked(p *config.Project, items []HeartbeatItem) bool {
+	agent, ok := e.Config().AgentsFor(p.Name)[chatAgentName]
+	if !ok {
+		return false
+	}
+	for _, it := range items {
+		if it.Kind == hbHarnessAuth && it.EntityID == agent.Harness {
+			return true
+		}
+	}
+	return false
 }
