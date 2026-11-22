@@ -51,8 +51,9 @@ type Deps struct {
 	// was saved and swapped in but part of it is not running; ReloadConfig returns it.
 	AfterReload func(ctx context.Context, cfg *config.Config) error
 
-	// AgentEnv is added to every agent session (e.g. PATH). It must not hold the API token:
-	// worker agents may not act on onett, or one could approve its own work.
+	// AgentEnv is added to every agent session (e.g. PATH, and the read-only worker token). It
+	// must not hold the owner or agent token: worker agents may not act on onett, or one could
+	// approve its own work.
 	AgentEnv map[string]string
 	// OrchestratorEnv is added only to orchestrator (chat) sessions: ONETT_API and
 	// ONETT_TOKEN, so the orchestrator can run the `onett` CLI.

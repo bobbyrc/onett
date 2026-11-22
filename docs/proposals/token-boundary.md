@@ -66,8 +66,8 @@ Onett pre-approves every `onett ...` command for the orchestrator, so the CLI ha
 line on its own. Every agent session carries `ONETT_RUN_ID` and `ONETT_ROLE`. When either is set:
 
 - the CLI never reads the token file. It uses only `ONETT_TOKEN` from its environment: the agent
-  token for the orchestrator, nothing for a worker, which gets a plain "worker agents have no API
-  access" error;
+  token for the orchestrator, a read-only worker token for a worker (it can read tasks, goals and deployments and nothing
+  else), and an error when neither is set;
 - only the commands that call the API run, plus `doctor`, `version` and `help`. The commands
   that act with the owner's authority on this machine (`token`, `user`, `service`, `init`,
   `open`, `backup`, `project add`, and `run-shim`, the helper the daemon starts agents through) refuse

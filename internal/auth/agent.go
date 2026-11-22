@@ -17,6 +17,14 @@ func AgentToken(ownerToken string) string {
 	return deriveFromToken(ownerToken, "onett agent token v1")
 }
 
+// WorkerToken returns the token handed to worker agents (the ones that implement, review and plan
+// tasks). It is derived like AgentToken, under its own label, so it is a different value and the
+// agent token does not reveal it. The API lets it read only the routes marked readWorker (tasks,
+// goals, deployments); every other route refuses it.
+func WorkerToken(ownerToken string) string {
+	return deriveFromToken(ownerToken, "onett worker token v1")
+}
+
 // SetupCode returns the code that proves the first account is being created by the operator:
 // `onett open` puts it in the address it opens. It is derived the same way as AgentToken, under
 // a different label, so the two are unrelated values.

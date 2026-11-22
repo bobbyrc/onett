@@ -27,9 +27,9 @@ func (s *server) apiRoutes(r chi.Router) {
 	s.operate(r, http.MethodPost, "/projects/{name}/resume", s.setProjectPaused(false))
 	s.read(r, "/agents", s.listAgents)
 
-	s.read(r, "/tasks", s.listTasks)
+	s.readWorker(r, "/tasks", s.listTasks)
 	s.operate(r, http.MethodPost, "/tasks", s.createTask)
-	s.read(r, "/tasks/{id}", s.getTask)
+	s.readWorker(r, "/tasks/{id}", s.getTask)
 	s.read(r, "/tasks/{id}/conversation", s.taskConversation)
 	s.read(r, "/agent-conversations", s.agentConversations)
 	s.operate(r, http.MethodPost, "/tasks/{id}/messages", s.sendTaskMessage)
@@ -39,9 +39,9 @@ func (s *server) apiRoutes(r chi.Router) {
 	s.operate(r, http.MethodPost, "/tasks/{id}/cancel", s.cancelTask)
 	s.operate(r, http.MethodPost, "/tasks/{id}/retry", s.retryTask)
 
-	s.read(r, "/goals", s.listGoals)
+	s.readWorker(r, "/goals", s.listGoals)
 	s.operate(r, http.MethodPost, "/goals", s.createGoal)
-	s.read(r, "/goals/{id}", s.getGoal)
+	s.readWorker(r, "/goals/{id}", s.getGoal)
 	s.operate(r, http.MethodPost, "/goals/{id}/pause", s.goalStatus(domain.GoalPaused))
 	s.operate(r, http.MethodPost, "/goals/{id}/resume", s.goalStatus(domain.GoalActive))
 	s.operate(r, http.MethodPost, "/goals/{id}/done", s.goalStatus(domain.GoalDone))
@@ -55,7 +55,7 @@ func (s *server) apiRoutes(r chi.Router) {
 	s.read(r, "/approvals", s.listApprovals)
 	s.operate(r, http.MethodPost, "/approvals/{id}/decide", s.decideApproval)
 
-	s.read(r, "/deployments", s.listDeployments)
+	s.readWorker(r, "/deployments", s.listDeployments)
 	s.read(r, "/signals", s.listSignals)
 	s.read(r, "/friction", s.listFriction)
 
@@ -116,6 +116,13 @@ func (s *server) apiRoutes(r chi.Router) {
 // apiRoutes goes through one of them, so a route cannot be added without choosing its action.
 func (s *server) read(r chi.Router, path string, h http.HandlerFunc) {
 	r.With(s.need(auth.Read)).Get(path, h)
+}
+
+// readWorker is read for a route the worker token may also call: the state a worker needs to do
+// its task (other tasks, goals, deployments). Keep it to routes that show no secrets and no
+// config, because worker agents run code from the repository they work on.
+func (s *server) readWorker(r chi.Router, path string, h http.HandlerFunc) {
+	r.With(s.needFor(auth.Read, true)).Get(path, h)
 }
 
 func (s *server) operate(r chi.Router, method, path string, h http.HandlerFunc) {

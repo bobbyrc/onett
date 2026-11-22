@@ -83,6 +83,8 @@ type server struct {
 	// agent sends, and the code the first-account page must present. Both are empty when no
 	// token is configured, and an empty value never matches.
 	agentToken, setupCode string
+	// workerToken is the read-only token worker agents are given; see auth.WorkerToken.
+	workerToken string
 	// now is the clock for sessions. Tests may replace it before serving requests.
 	now func() time.Time
 	// startedAt is when this server was built; /health reports it so a client can tell a
@@ -104,6 +106,7 @@ func NewServer(o Options) http.Handler {
 	}
 	s := &server{opts: o, log: o.Logger, web: web, streams: make(chan struct{}, maxEventStreams), now: time.Now, startedAt: time.Now().UTC()}
 	s.agentToken, s.setupCode = auth.AgentToken(o.Token), auth.SetupCode(o.Token)
+	s.workerToken = auth.WorkerToken(o.Token)
 	s.limiter = auth.NewLimiter(signInLimit, signInWindow, s.now)
 
 	r := chi.NewRouter()

@@ -161,6 +161,7 @@ var crossOrigin = http.NewCrossOriginProtection()
 type principal struct {
 	token     bool
 	agent     bool
+	worker    bool
 	user      domain.User
 	sessionID string
 }
@@ -187,7 +188,7 @@ var errNoSession = errors.New("no valid session")
 func (s *server) principal(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		if token, agent := s.bearer(r); token {
+		if token, agent, worker := s.bearer(r); token {
 			if agent {
 				// The mark travels with the request into the engine, which is where the
 				// state-dependent refusals are decided (see auth.Refused).
@@ -199,7 +200,7 @@ func (s *server) principal(next http.Handler) http.Handler {
 				}
 				ctx = auth.WithAgent(ctx, allowed)
 			}
-			next.ServeHTTP(w, r.WithContext(withPrincipal(ctx, principal{token: true, agent: agent})))
+			next.ServeHTTP(w, r.WithContext(withPrincipal(ctx, principal{token: true, agent: agent, worker: worker})))
 			return
 		}
 		user, sid, err := s.sessionUser(r)
@@ -223,24 +224,27 @@ func (s *server) principal(next http.Handler) http.Handler {
 	})
 }
 
-// bearer reports whether the request carries a token, and whether it is the agent token. An
-// empty configured token never matches, because ConstantTimeCompare alone would treat two empty
-// values as equal.
-func (s *server) bearer(r *http.Request) (token, agent bool) {
+// bearer reports whether the request carries a token, and whether it is the agent token or the
+// worker token. An empty configured token never matches, because ConstantTimeCompare alone would
+// treat two empty values as equal.
+func (s *server) bearer(r *http.Request) (token, agent, worker bool) {
 	tok := ""
 	if h := r.Header.Get("Authorization"); len(h) > len("Bearer ") && strings.EqualFold(h[:len("Bearer ")], "Bearer ") {
 		tok = h[len("Bearer "):]
 	}
 	if tok == "" {
-		return false, false
+		return false, false, false
 	}
 	if s.opts.Token != "" && subtle.ConstantTimeCompare([]byte(tok), []byte(s.opts.Token)) == 1 {
-		return true, false
+		return true, false, false
 	}
 	if s.agentToken != "" && subtle.ConstantTimeCompare([]byte(tok), []byte(s.agentToken)) == 1 {
-		return true, true
+		return true, true, false
 	}
-	return false, false
+	if s.workerToken != "" && subtle.ConstantTimeCompare([]byte(tok), []byte(s.workerToken)) == 1 {
+		return true, false, true
+	}
+	return false, false, false
 }
 
 // sessionUser resolves the session cookie on r to its user and session ID. A missing, unknown or
@@ -270,8 +274,15 @@ func (s *server) sessionUser(r *http.Request) (domain.User, string, error) {
 }
 
 // need returns middleware that lets through only the callers allowed to perform a. The token may
-// do Read and Operate; a user is limited by their role (see auth.Allows).
+// do Read and Operate; a user is limited by their role (see auth.Allows). The worker token is
+// refused here; only needWorker lets it through.
 func (s *server) need(a auth.Action) func(http.Handler) http.Handler {
+	return s.needFor(a, false)
+}
+
+// needFor is need, with workerOK saying whether the worker token may use the route. A worker
+// token is allowed only a Read route that opted in, so a route added later is closed to it.
+func (s *server) needFor(a auth.Action, workerOK bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			p, ok := principalFrom(r.Context())
@@ -280,6 +291,9 @@ func (s *server) need(a auth.Action) func(http.Handler) http.Handler {
 				return
 			}
 			allowed := auth.TokenAllows(a)
+			if p.worker {
+				allowed = allowed && workerOK && a == auth.Read
+			}
 			if !p.token {
 				allowed = auth.Allows(p.user.Role, a)
 			}
