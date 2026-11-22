@@ -108,8 +108,10 @@ human, or when it has used up `max_attempts`. Retry it with a note, or cancel it
 
 - **Agents judge, code gates.** Agents write code, review diffs and triage issues. Deterministic Go
   code does everything that leaves the machine: commits, pushes, PRs, merges, deploys and rollbacks.
-- **Agents cannot approve their own work.** Worker agents get no API token: inside an agent run
-  the `onett` CLI never reads your token file, so a worker has nothing to call the API with. The
+- **Agents cannot approve their own work.** Worker agents get only a **read-only worker
+  token**: inside an agent run the `onett` CLI never reads your token file, and the worker token
+  can read tasks, goals and deployments (`onett task list`, `onett goal show`, `onett deploys`)
+  and nothing else, so a worker has nothing to act on onett with. The
   chief of staff gets a lesser **agent token**, derived from yours, and uses the CLI with it. That
   token can queue, retry, cancel and pause, but a person's decisions are refused: approving or
   rejecting a merge, resuming the factory or a project, changing a goal you paused, running a loop

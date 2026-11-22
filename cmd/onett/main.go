@@ -280,9 +280,8 @@ func apiToken(cfg *config.Config) (string, error) {
 		return v, nil
 	}
 	if insideAgentRun() {
-		// The token file is the owner's. The orchestrator is given its own token in
-		// ONETT_TOKEN, and worker agents are given none.
-		return "", errors.New("no token: inside an agent run the CLI uses only ONETT_TOKEN, and worker agents have no API access")
+		// The token file is the owner's. Every agent is given its own token in ONETT_TOKEN.
+		return "", errors.New("no token: inside an agent run the CLI uses only ONETT_TOKEN, and it is not set")
 	}
 	if cfg != nil {
 		if t, err := readToken(cfg.Server.DataDir); err == nil {

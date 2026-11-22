@@ -20,7 +20,10 @@ Two kinds of caller, told apart by how they authenticate. Base path `/api/v1`.
   `/flush`, and `POST /tasks/{id}/retry` or `/messages` for a task that a denial stopped. The
   owner can lift two groups in `onett.yaml`, both off by default: `chat.agent_may_approve_merges`
   lifts the refusal of `/approvals/{id}/decide`, and `chat.agent_may_resume` lifts those of
-  `/control/resume`, `/projects/{name}/resume` and the paused-goal routes. Neither
+  `/control/resume`, `/projects/{name}/resume` and the paused-goal routes. The **worker
+  token** is what worker agents are given, derived from the owner token under its own label. It
+  can only `GET /tasks`, `/tasks/{id}`, `/goals`, `/goals/{id}` and `/deployments`; every other
+  route answers 403. No
   token can **ever** edit the config file or manage users. A token is read only from the
   `Authorization` header, never from the URL.
 - **A signed-in person** uses the session cookie (`onett_session_<port>`, named after the port

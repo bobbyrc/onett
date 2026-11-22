@@ -456,16 +456,21 @@ func serveAllowedHosts(s config.Server) []string {
 
 // signalContext is cancelled by SIGINT or SIGTERM.
 // serveEnvs returns the environment added to every agent session and to orchestrator (chat)
-// sessions. Workers get nothing: no onett on PATH and no credentials, because a worker that
-// could call the API could act on its own work. Only the orchestrator, which runs the onett
-// CLI, gets the binary on PATH, the API address and the agent token: the token derived from
-// the owner token that is refused a person's decisions (auth.AgentToken). No agent is given
-// the owner token.
+// sessions. Workers get the binary on PATH, the API address and the worker token, which the API
+// lets read tasks, goals and deployments and nothing else (auth.WorkerToken), so a worker cannot
+// act on its own work. The orchestrator's entries replace those with the agent token: the token
+// derived from the owner token that is refused a person's decisions (auth.AgentToken). No agent
+// is given the owner token.
 func serveEnvs(exe, addr, token string) (agent, orchestrator map[string]string) {
-	agent = map[string]string{}
+	api := config.LocalURL(addr)
+	agent = map[string]string{
+		"PATH":        filepath.Dir(exe) + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"ONETT_API":   api,
+		"ONETT_TOKEN": auth.WorkerToken(token),
+	}
 	orchestrator = map[string]string{
 		"PATH":        filepath.Dir(exe) + string(os.PathListSeparator) + os.Getenv("PATH"),
-		"ONETT_API":   config.LocalURL(addr),
+		"ONETT_API":   api,
 		"ONETT_TOKEN": auth.AgentToken(token),
 	}
 	return agent, orchestrator

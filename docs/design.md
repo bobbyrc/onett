@@ -29,7 +29,8 @@ Managed, later (do not build these yet, but do not close them off):
   later choice. Keep all state behind `store.Store` so another database can be added.
 - **Auth:** people already sign in with accounts and sessions (roles viewer, operator, owner;
   `docs/proposals/accounts-and-config-editor.md`), and the API tokens are for the CLI (the owner
-  token) and the orchestrator (a lesser agent token, `docs/proposals/token-boundary.md`) only.
+  token) and the orchestrator (a lesser agent token, `docs/proposals/token-boundary.md`) only. Worker
+  agents get a third, read-only worker token that sees tasks, goals and deployments.
   The agent token is refused a person's decisions; the owner can allow two of them in
   `onett.yaml`, both off by default: approving merges (`chat.agent_may_approve_merges`) and
   resuming what is paused (`chat.agent_may_resume`).

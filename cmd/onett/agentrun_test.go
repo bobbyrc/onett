@@ -146,11 +146,12 @@ func TestUnlistedCommandIsRefusedInsideAgentRun(t *testing.T) {
 	assert.Error(t, refuseInAgentRun([]string{"some-future-command"}))
 }
 
-func TestWorkersGetNoCLIAndNoToken(t *testing.T) {
+func TestWorkersGetTheReadOnlyTokenNotTheAgentToken(t *testing.T) {
 	t.Setenv("PATH", "/usr/bin:/bin")
 	agent, orchestrator := serveEnvs("/opt/onett/bin/onett", "127.0.0.1:7777", "secret-token")
 
-	assert.Len(t, agent, 0)
+	assert.Equal(t, auth.WorkerToken("secret-token"), agent["ONETT_TOKEN"])
+	assert.NotEqual(t, orchestrator["ONETT_TOKEN"], agent["ONETT_TOKEN"])
 	assert.Equal(t, auth.AgentToken("secret-token"), orchestrator["ONETT_TOKEN"])
 	assert.NotEqual(t, "secret-token", orchestrator["ONETT_TOKEN"])
 	assert.True(t, strings.HasPrefix(orchestrator["PATH"], "/opt/onett/bin"+string(os.PathListSeparator)))

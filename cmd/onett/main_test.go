@@ -392,11 +392,16 @@ func TestEventsFollowWithAfterReplaysFromCursor(t *testing.T) {
 	assert.Equal(t, "after=4", (*queries)[0])
 }
 
-func TestServeEnvsKeepTokenOutOfAgents(t *testing.T) {
+func TestServeEnvsGiveWorkersOnlyTheWorkerToken(t *testing.T) {
 	t.Setenv("PATH", "/usr/bin:/bin")
 	agent, orchestrator := serveEnvs("/opt/onett/bin/onett", "127.0.0.1:7777", "secret-token")
 
-	assert.Equal(t, map[string]string{}, agent)
+	assert.Equal(t, map[string]string{
+		"PATH":        "/opt/onett/bin" + string(os.PathListSeparator) + "/usr/bin:/bin",
+		"ONETT_API":   "http://127.0.0.1:7777",
+		"ONETT_TOKEN": auth.WorkerToken("secret-token"),
+	}, agent)
+	assert.NotEqual(t, auth.AgentToken("secret-token"), agent["ONETT_TOKEN"])
 	assert.Equal(t, map[string]string{
 		"PATH":        "/opt/onett/bin" + string(os.PathListSeparator) + "/usr/bin:/bin",
 		"ONETT_API":   "http://127.0.0.1:7777",
